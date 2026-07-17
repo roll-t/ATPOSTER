@@ -1,0 +1,178 @@
+---
+name: narrated-slideshow-video
+description: Turn real photos/images + a script (kịch bản) + matching per-scene narration audio (user-supplied, no TTS) into a landscape (16:9) narrated slideshow video — Ken Burns pan/zoom, crossfades, on-screen captions synced to the narration, built with Remotion (React/TypeScript). Use whenever the user gives photos/images plus a script plus voice/audio recordings to combine into one video, asks to "dựng video từ ảnh và giọng đọc" / "ghép ảnh với audio thành video", wants a narrated photo slideshow, a video where each image has its own voiceover clip, or wants to batch-produce several such videos. This is the landscape, real-photo, real-audio-narration counterpart to the vertical stick-figure-story-video (illustrated, captions-only) and english-quiz-video skills — prefer this one when the user already has actual audio clips to sync against, not just a script to caption. Also use it to tweak an existing video of this type — Ken Burns direction, transitions, caption style, colors, or background music.
+---
+
+# Narrated Slideshow Video Generator (Remotion)
+
+Turns a set of photos into a video where each photo is shown alongside its
+own narration clip — the audio the user already recorded/provided, not
+TTS — with a slow Ken Burns pan/zoom, a crossfade into the next scene, and
+an on-screen caption that follows along with the narration. Every scene's
+screen time comes from the real length of its audio file, measured
+automatically before the video renders — there's no manual timing to get
+right and no separate "measure the audio" step to remember.
+
+Canvas: 1920×1080 (16:9) landscape by default, 30fps — standard YouTube
+export. Set `orientation: "portrait"` in the config for 1080×1920
+(TikTok/Reels/Shorts) instead — worth checking the source photos' own
+aspect ratio before rendering, since landscape + vertical photos (or vice
+versa) means either heavy cropping (`imageFit: "cover"`) or empty bars
+(`imageFit: "contain"`).
+
+This assumes the user already has a working Remotion setup (Node + `npx
+remotion` runnable). Don't run `npm install` or scaffold a new project
+unless the user says their setup is broken — just work inside `remotion/`.
+
+## Project layout
+
+```
+remotion/
+├── package.json            — deps: react, remotion, @remotion/cli, @remotion/media-utils, zod
+├── tsconfig.json
+├── src/
+│   ├── index.ts              — registerRoot entry point
+│   ├── Root.tsx               — registers the "SlideshowVideo" composition + calculateMetadata
+│   ├── SlideshowVideo.tsx      — top-level composition: lays out scenes + optional bg music
+│   ├── schema.ts               — zod schema = the single source of truth for all config fields
+│   ├── utils.ts                — resolveSrc() + sceneSeconds()/slugify() helpers
+│   └── components/
+│       ├── Background.tsx      — solid fill behind everything
+│       ├── SceneImage.tsx      — Ken Burns pan/zoom on one scene's photo
+│       ├── Caption.tsx         — bottom/top subtitle bar, chunked or full-text mode
+│       └── Scene.tsx           — composes SceneImage + Audio (the narration) + Caption + fade in/out
+├── configs/
+│   ├── example.json           — one filled-in 2-scene video config, uses the bundled demo assets
+│   └── batch-example.json     — array of 2 configs, for batch rendering
+├── scripts/
+│   └── render.mjs             — install-if-needed + render (single config or array); writes output into the same public/<project>/ folder the scenes' own assets live in
+└── public/                    — one self-contained folder per video: images/ + audio/ (+ optional script.json) alongside a final/ the render writes into (see public/README.md)
+```
+
+## Quick workflow
+
+1. **Get the script and audio.** The user should already have: a list of
+   images, a script broken into one segment of text per image, and one
+   narration audio clip per image (they record/provide these themselves —
+   this skill doesn't do text-to-speech). If any scene is missing its
+   audio clip, ask for it rather than guessing a duration — the whole
+   point of this pipeline is that scene timing comes from real audio.
+
+2. **Place assets.** Give each video its own project folder under
+   `remotion/public/` (named after the video, e.g. `public/my-video/`),
+   with images in `images/` and narration clips in `audio/` inside it —
+   e.g. `public/my-video/images/scene-01.jpg`,
+   `public/my-video/audio/scene-01.mp3`. Drop the original script/manifest
+   in as `public/my-video/script.json` too if there is one. See
+   `remotion/public/README.md`.
+
+3. **Write the config.** Copy `configs/example.json`, replace `scenes`
+   with the real list — one `{ image, audio, caption }` object per scene,
+   in script order, paths from step 2 (e.g.
+   `"image": "my-video/images/scene-01.jpg"`). Full field reference:
+   `references/config_schema.md`. Show the user the scene list (or at
+   least the first couple of captions) before rendering a long batch, so
+   a misheard caption or wrong audio file gets caught early.
+
+4. **Render — one command, handles install too:**
+   ```
+   cd remotion
+   node scripts/render.mjs configs/my-video.json
+   ```
+   - Installs Remotion (`npm install`) automatically the first time — only
+     if `node_modules` isn't there yet. Already installed? Skips straight
+     to rendering.
+   - Works the same for one config object or a JSON array of many (batch)
+     — no separate batch script.
+   - Output lands right next to the input: `render.mjs` derives the
+     project folder from the scenes' own asset paths and writes
+     `public/my-video/final/video.mp4` + `final/config.json` there — one
+     folder per video holds everything, inputs and result together.
+   - Preview/edit interactively instead: `npx remotion studio src/index.ts`
+     — useful for checking Ken Burns direction, caption timing, and that
+     every scene's audio actually loads before committing to a full render.
+
+5. Share the resulting `public/my-video/final/video.mp4` with the user
+   (via whatever file-delivery mechanism is available in this
+   environment).
+
+## Why scene timing needs no manual math
+
+`calculateMetadata` in `Root.tsx` resolves every scene's `durationSeconds`
+from its real audio length (`getAudioDurationInSeconds` from
+`@remotion/media-utils`, run once before rendering) plus
+`audioPaddingSeconds`, then bakes those numbers into the props
+`SlideshowVideo.tsx` actually receives — so the component itself stays a
+plain synchronous layout, and the total video length always matches the
+sum of the narration clips automatically. Add, remove, re-order, or
+re-record a scene's audio and the whole timeline follows without touching
+any duration field by hand. Only set a scene's `durationSeconds` explicitly
+when you want to override that (see `references/config_schema.md`).
+
+## Customizing look and feel
+
+- **Caption sync**: `captionMode: "chunked"` (default) advances through the
+  caption a few words at a time, paced proportionally to word count across
+  the scene's duration — there's no word-level transcript for the audio in
+  this pipeline, so it's an approximation of "captions following the
+  voice," not exact sync. `captionMode: "full"` shows the whole caption for
+  the whole scene instead, if that reads better for short lines.
+  `captionWordsPerChunk` (default 4) controls chunk size.
+- **Caption position**: `captionPosition: "top"` or `"bottom"` (default).
+- **Image fit**: `imageFit: "cover"` (default, fills frame, may crop edges)
+  or `"contain"` (letterboxes, no crop) — per-video or per-scene override.
+- **Ken Burns**: `kenBurns: false` turns it off globally; per-scene
+  `"in"` / `"out"` / `"pan-left"` / `"pan-right"` / `"none"` overrides the
+  auto-alternating default.
+- **Transitions**: `transitionSeconds` (default 0.5) controls the fade
+  in/out at every scene edge.
+- **Colors**: `bgColor` (letterboxing/background fill).
+- **Font**: `fontFamily` — keep the Vietnamese-safe fallback stack
+  (`'Be Vietnam Pro','Noto Sans',Arial,sans-serif`) unless the user's
+  Remotion install has a different font set up.
+
+## Background music
+
+`bgMusic` (filename under `public/` or an `https://` URL) loops quietly
+under the whole video via `bgMusicVolume` (default 0.12 — kept low since,
+unlike the stick-figure-story-video skill, there's an actual narration
+voice to keep intelligible, not just captions). Each scene's own narration
+`<Audio>` also gets a short ~0.15s volume fade in/out to avoid clicks at
+cut points.
+
+## Batch production
+
+For multiple videos in one go, build a JSON array in `configs/` (see
+`configs/batch-example.json` for the shape) with one full config object per
+video, then run `node scripts/render.mjs configs/my-batch.json` once — same
+script as single-video rendering. Each video's assets still need to be
+placed under their own `public/<project>/` first (step 2 above); each
+batch entry writes its own `final/` inside its own project folder.
+
+## No text-to-speech in this pipeline
+
+This skill assumes the user supplies real narration audio per scene — that
+was a deliberate choice, not a gap to fill in silently. If the user has a
+script but no audio yet and wants voiceover generated, that's a different
+request (point them to free TTS options — ElevenLabs, `edge-tts` — the
+same ones documented in the english-quiz-video skill's
+`references/audio_resources.md`) rather than improvising synthesis here. If
+the user has no audio at all and just wants captions carrying the
+narration instead, the stick-figure-story-video skill's approach (or a
+`captionMode: "full"`, `audio`-less variant of this one) fits better than
+forcing silent/dummy audio files through this pipeline.
+
+## Reference
+
+- `src/schema.ts` — the zod schema; authoritative list of every config
+  field and its default. Read/edit this first when adding a new field.
+- `src/Root.tsx` — the `calculateMetadata` audio-duration resolution logic;
+  edit this if the duration formula itself needs to change (e.g. a
+  different padding rule).
+- `src/SlideshowVideo.tsx` — the composition timeline; edit this to change
+  scene ordering or add new global layers (e.g. a title card).
+- `src/components/*.tsx` — one file per visual piece; each is a normal
+  React component, safe to edit directly for layout/animation tweaks not
+  covered by the config.
+- `references/config_schema.md` — full field-by-field config reference,
+  including how asset paths resolve.

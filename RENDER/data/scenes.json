@@ -1,0 +1,23 @@
+[
+  {
+    "id": "scene-01",
+    "image": "images/scene-01.svg",
+    "audio": "audio/scene-01.wav",
+    "caption": "Đây là cảnh một, placeholder chờ nội dung thật từ người dùng.",
+    "durationInSeconds": 3
+  },
+  {
+    "id": "scene-02",
+    "image": "images/scene-02.svg",
+    "audio": "audio/scene-02.wav",
+    "caption": "Cảnh hai minh hoạ hiệu ứng Ken Burns và chuyển cảnh mượt.",
+    "durationInSeconds": 4
+  },
+  {
+    "id": "scene-03",
+    "image": "images/scene-03.svg",
+    "audio": "audio/scene-03.wav",
+    "caption": "Cảnh ba kết thúc video mẫu, sẵn sàng thay bằng dữ liệu thật.",
+    "durationInSeconds": 3.5
+  }
+]

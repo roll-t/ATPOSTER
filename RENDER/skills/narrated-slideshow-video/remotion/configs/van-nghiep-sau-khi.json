@@ -1,0 +1,60 @@
+{
+  "title": "The Struggle of a New IT Graduate",
+  "orientation": "portrait",
+  "imageFit": "cover",
+  "bgColor": "#FFFFFF",
+  "captionMode": "chunked",
+  "captionWordsPerChunk": 4,
+  "scenes": [
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-01.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-01.mp3",
+      "caption": "Meet Leo. He just graduated with a degree in Information Technology. He is excited to start his career."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-02.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-02.mp3",
+      "caption": "But the job market today is very crowded. Thousands of new graduates are looking for the exact same jobs."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-03.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-03.mp3",
+      "caption": "Leo spends every single day sending out his resume to different companies."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-04.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-04.mp3",
+      "caption": "Many 'entry-level' jobs require years of experience. It feels impossible to get a foot in the door."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-05.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-05.mp3",
+      "caption": "He waits for days, but most companies do not even reply. The silence is very discouraging."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-06.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-06.mp3",
+      "caption": "Soon, bills begin to pile up, and the pressure to find a job grows heavier."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-07.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-07.mp3",
+      "caption": "Leo starts to doubt himself. He wonders if he chose the wrong path."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-08.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-08.mp3",
+      "caption": "Still, he does not give up. He sits at his desk late into the night, practicing his coding."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-09.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-09.mp3",
+      "caption": "The search is long and painful, but every rejection is just one step closer to an opportunity."
+    },
+    {
+      "image": "van_nghiep_sau_khi_260716_161821/images/scene-10.jpg",
+      "audio": "van_nghiep_sau_khi_260716_161821/audio/scene-10.mp3",
+      "caption": "For many young IT graduates, the journey is hard, but persistence is their greatest tool."
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "title": "The Struggle of Learning English",
+  "orientation": "portrait",
+  "imageFit": "cover",
+  "bgColor": "#FFFFFF",
+  "captionMode": "chunked",
+  "captionWordsPerChunk": 4,
+  "scenes": [
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-01.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-01.mp3",
+      "caption": "Learning a new language can feel like climbing a giant, impossible mountain."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-02.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-02.mp3",
+      "caption": "You try hard to memorize new words, but they seem to disappear almost immediately."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-03.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-03.mp3",
+      "caption": "English grammar rules can often feel like a messy, frustrating puzzle."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-04.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-04.mp3",
+      "caption": "And when it is finally time to speak, fear can lock your mouth completely shut."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-05.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-05.mp3",
+      "caption": "Some words are so difficult to pronounce that your tongue feels tied."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-06.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-06.mp3",
+      "caption": "Fast conversations can sound like a completely foreign, scrambled language."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-07.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-07.mp3",
+      "caption": "It is also very hard to find the time and focus to practice every single day."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-08.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-08.mp3",
+      "caption": "But you do not need to learn everything all at once."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-09.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-09.mp3",
+      "caption": "Just ten minutes of focused practice daily can make a huge difference over time."
+    },
+    {
+      "image": "van_kho_khan_trong_260716_145510/images/scene-10.jpg",
+      "audio": "van_kho_khan_trong_260716_145510/audio/scene-10.mp3",
+      "caption": "Do not fear making mistakes. Every small step is real progress."
+    }
+  ]
+}

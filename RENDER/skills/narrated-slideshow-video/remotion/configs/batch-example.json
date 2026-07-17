@@ -1,0 +1,34 @@
+[
+  {
+    "title": "Demo Slideshow 1",
+    "captionMode": "chunked",
+    "scenes": [
+      {
+        "image": "example/images/scene-01.svg",
+        "audio": "example/audio/scene-01.wav",
+        "caption": "Video đầu tiên trong lô, cảnh một."
+      },
+      {
+        "image": "example/images/scene-02.svg",
+        "audio": "example/audio/scene-02.wav",
+        "caption": "Video đầu tiên trong lô, cảnh hai."
+      }
+    ]
+  },
+  {
+    "title": "Demo Slideshow 2",
+    "captionMode": "full",
+    "scenes": [
+      {
+        "image": "example-2/images/scene-01.svg",
+        "audio": "example-2/audio/scene-01.wav",
+        "caption": "Video thứ hai dùng chế độ phụ đề full thay vì chunked."
+      },
+      {
+        "image": "example-2/images/scene-02.svg",
+        "audio": "example-2/audio/scene-02.wav",
+        "caption": "Mỗi video trong batch vẫn là một config SlideshowVideo đầy đủ, với thư mục project riêng."
+      }
+    ]
+  }
+]

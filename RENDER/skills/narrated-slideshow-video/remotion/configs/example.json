@@ -1,0 +1,25 @@
+{
+  "title": "Demo Slideshow",
+  "captionPosition": "bottom",
+  "imageFit": "cover",
+  "kenBurns": true,
+  "transitionSeconds": 0.5,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionMode": "chunked",
+  "captionWordsPerChunk": 4,
+  "audioPaddingSeconds": 0.4,
+  "bgMusicVolume": 0.12,
+  "scenes": [
+    {
+      "image": "example/images/scene-01.svg",
+      "audio": "example/audio/scene-01.wav",
+      "caption": "Đây là cảnh một, ảnh và giọng đọc đi cùng nhau."
+    },
+    {
+      "image": "example/images/scene-02.svg",
+      "audio": "example/audio/scene-02.wav",
+      "caption": "Cảnh hai dài hơn một chút để cho thấy thời lượng tự động khớp theo audio."
+    }
+  ]
+}
