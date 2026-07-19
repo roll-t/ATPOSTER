@@ -51,12 +51,26 @@ remotion/
 
 ## Quick workflow
 
-1. **Get the script and audio.** The user should already have: a list of
-   images, a script broken into one segment of text per image, and one
-   narration audio clip per image (they record/provide these themselves —
-   this skill doesn't do text-to-speech). If any scene is missing its
-   audio clip, ask for it rather than guessing a duration — the whole
-   point of this pipeline is that scene timing comes from real audio.
+1. **Get the script and audio.** The user should already have: a script
+   broken into one segment of text per scene, and one narration audio clip
+   per scene (they record/provide these themselves — this skill doesn't do
+   text-to-speech). If any scene is missing its audio clip, ask for it
+   rather than guessing a duration — the whole point of this pipeline is
+   that scene timing comes from real audio.
+
+   Images are the other required asset — if the user already has
+   photos/illustrations per scene, skip to step 2. If they don't (e.g. they
+   want an illustrated/stick-figure character actually reacting to each
+   line, not a generic photo with just Ken Burns motion), check first
+   whether this monorepo's `AGENT_TOOL` app is available — its `/prompts`
+   page, category `stick_figure_slideshow`, already generates the script,
+   a consistent character in a different meaningful pose per scene, and
+   ElevenLabs narration with word timestamps, writing all of it straight
+   into this skill's own `remotion/public/<project>/` folder (that's how
+   e.g. `public/habit_complaining_instead_taking_.../` in this repo was
+   made). Only fall back to generating images by hand (e.g. via Canva) if
+   AGENT_TOOL isn't set up — see `references/scene_image_prompts.md` for
+   both paths.
 
 2. **Place assets.** Give each video its own project folder under
    `remotion/public/` (named after the video, e.g. `public/my-video/`),
@@ -170,6 +184,33 @@ voice to keep intelligible, not just captions). Each scene's own narration
 `<Audio>` also gets a short ~0.15s volume fade in/out to avoid clicks at
 cut points.
 
+## Sound effects (per-scene SFX cues)
+
+For one-shot sounds tied to a specific moment — a whoosh on entry, a ding
+on a reveal, a pop on emphasis — set `scenes[i].sfx: [{ src, atSeconds,
+volume }]`. Unlike `bgMusic` (one continuous loop for the whole video),
+each cue plays once, starting at `atSeconds` relative to that scene's own
+start, and stops naturally when its clip ends. Purely additive — a scene
+with no `sfx` renders exactly as before. Rendered by
+`src/components/Sfx.tsx` (one `<Sequence>`-delayed `<Audio>` per cue,
+mounted from `Scene.tsx`). See `references/config_schema.md` for the full
+field reference and an example.
+
+## Pointing arrows (per-scene arrow cues)
+
+For calling out a specific detail — a prop, a face, a piece of in-scene
+text — at the moment the narration mentions it, set
+`scenes[i].arrows: [{ from: {x, y}, to: {x, y}, atSeconds }]`. The arrow
+draws in (tail to arrowhead) starting at `atSeconds`, instead of being a
+static shape baked into the image. `from`/`to` are normalized 0–1
+coordinates within the frame, not the source image's own pixels — so set
+that scene's `kenBurns: "none"` too, otherwise the image pans/zooms under
+a fixed-position arrow and the two drift apart. Purely additive — a scene
+with no `arrows` renders exactly as before. Rendered by
+`src/components/Arrows.tsx` (an SVG line + arrowhead marker per cue,
+mounted from `Scene.tsx`). See `references/config_schema.md` for the full
+field reference and an example.
+
 ## Batch production
 
 For multiple videos in one go, build a JSON array in `configs/` (see
@@ -184,9 +225,14 @@ batch entry writes its own `final/` inside its own project folder.
 This skill assumes the user supplies real narration audio per scene — that
 was a deliberate choice, not a gap to fill in silently. If the user has a
 script but no audio yet and wants voiceover generated, that's a different
-request (point them to free TTS options — ElevenLabs, `edge-tts` — the
+request. Check first whether `AGENT_TOOL`'s `stick_figure_slideshow`
+pipeline is available (see `references/scene_image_prompts.md`) — its
+voiceover step already calls ElevenLabs' `/with-timestamps` endpoint and
+writes real per-word `wordTimings` straight into the scene, which is
+exactly what powers this skill's `captionStyle: "karaoke"`. Otherwise
+point the user to free TTS options — ElevenLabs, `edge-tts` — the
 same ones documented in the english-quiz-video skill's
-`references/audio_resources.md`) rather than improvising synthesis here. If
+`references/audio_resources.md` — rather than improvising synthesis here. If
 the user has no audio at all and just wants captions carrying the
 narration instead, the stick-figure-story-video skill's approach (or a
 `captionMode: "full"`, `audio`-less variant of this one) fits better than
@@ -206,3 +252,7 @@ forcing silent/dummy audio files through this pipeline.
   covered by the config.
 - `references/config_schema.md` — full field-by-field config reference,
   including how asset paths resolve.
+- `references/scene_image_prompts.md` — how to get a consistent character
+  in a different, meaningful pose per scene for videos that don't start
+  from real photos: `AGENT_TOOL`'s existing `stick_figure_slideshow`
+  pipeline first, a manual Canva prompt template as the fallback.

@@ -5,6 +5,7 @@ input assets and its rendered output together:
 public/<my-video>/
 ├── images/scene-01.jpg, scene-02.jpg, ...
 ├── audio/scene-01.mp3, scene-02.mp3, ...
+├── sfx/whoosh.mp3, ding.mp3, ...  (optional — one-shot sound effect clips)
 ├── script.json              (optional — the original script/manifest, if any)
 └── final/
     ├── video.mp4              (written by render.mjs)

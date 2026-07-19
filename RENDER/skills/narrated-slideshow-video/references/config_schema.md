@@ -35,6 +35,62 @@ Authoritative source: `remotion/src/schema.ts` (zod). This file is a readable fi
 | `kenBurns` | `"in"` \| `"out"` \| `"pan-left"` \| `"pan-right"` \| `"none"` | auto-alternates | Per-scene override. Left unset, scenes alternate `in`/`out` by index for visual variety. |
 | `wordTimings` | `{word, start, end}[]` | — | Optional real per-word timing (seconds, relative to this scene's own audio start), captured from a TTS provider's character-alignment API (e.g. ElevenLabs' `/with-timestamps` endpoint — see AGENT_TOOL's `voiceover/route.js`). Not something you'd hand-write. When present **and its word count matches the caption's own word count**, `captionStyle: "karaoke"` (and chunk switching generally) uses these exact timestamps instead of the word-length estimate, so the highlighted word matches the actual spoken audio. Mismatched or absent → silently falls back to the estimate. |
 | `imageFit` | `"cover"` \| `"contain"` | inherits global | Per-scene override of the global `imageFit`. |
+| `sfx` | `SfxCue[]` | — | Optional one-shot sound effects layered on top of this scene's narration (e.g. a whoosh on entry, a ding on a reveal, a pop on emphasis) — independent of the narration `audio` above and the video-wide looping `bgMusic`. See below. |
+| `arrows` | `ArrowCue[]` | — | Optional animated pointing arrows drawn over this scene's image (e.g. calling out a prop or a piece of in-scene text). See below. |
+
+## SFX cues (`scenes[].sfx[]`)
+
+Each cue is a single one-shot sound effect — it plays once starting at its own offset and stops naturally when the clip ends (no looping). Use this for whooshes on cuts, dings on reveals, pops on emphasis, etc. — anything short and tied to a specific moment, as opposed to `bgMusic` (one continuous loop for the whole video).
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `src` | string | — | **Required.** Path under `public/` (any subfolder) or an `https://` URL. |
+| `atSeconds` | number | `0` | When the cue starts, in seconds relative to this scene's own start (`0` = the instant the scene appears). |
+| `volume` | number 0–1 | `0.6` | Cue volume, independent of narration/`bgMusicVolume`. |
+
+```json
+{
+  "image": "my-video/images/scene-03.jpg",
+  "audio": "my-video/audio/scene-03.mp3",
+  "caption": "Bất ngờ chưa!",
+  "sfx": [
+    { "src": "my-video/sfx/whoosh.mp3", "atSeconds": 0, "volume": 0.5 },
+    { "src": "my-video/sfx/ding.mp3", "atSeconds": 1.2, "volume": 0.7 }
+  ]
+}
+```
+
+A scene with no `sfx` field behaves exactly as before — this is purely additive.
+
+## Arrow cues (`scenes[].arrows[]`)
+
+Each cue is a single animated pointing arrow — it draws in from `from` to `to`, arrowhead leading, starting at its own offset. Use this to call out a specific detail (a prop, a face, a piece of in-scene text) timed to when the narration mentions it, instead of a static arrow baked into the scene's image (which can't be timed and can't fade in).
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `from` | `{x, y}` | — | **Required.** Tail of the arrow. `x`/`y` are normalized 0–1 within the frame (`0,0` = top-left, `1,1` = bottom-right) — **not** pixels of the source image — so they line up regardless of orientation/resolution. |
+| `to` | `{x, y}` | — | **Required.** Arrowhead end point, same coordinate system as `from`. |
+| `atSeconds` | number | `0` | When the arrow starts drawing in, relative to this scene's own start. |
+| `animateInSeconds` | number | `0.4` | How long the tail-to-arrowhead draw-in animation takes. |
+| `holdSeconds` | number | — (holds until scene ends) | How long the arrow stays fully visible after it finishes drawing in, before fading out over ~0.3s. Omit to just leave it on screen until the scene cuts away. |
+| `color` | string (hex) | `"#FE2C55"` | Arrow color (line + arrowhead). |
+| `strokeWidth` | number | `6` | Line thickness in pixels. |
+
+```json
+{
+  "image": "my-video/images/scene-03.jpg",
+  "audio": "my-video/audio/scene-03.mp3",
+  "caption": "Nhìn vào góc trên bên phải kìa!",
+  "kenBurns": "none",
+  "arrows": [
+    { "from": { "x": 0.15, "y": 0.85 }, "to": { "x": 0.62, "y": 0.22 }, "atSeconds": 0.8 }
+  ]
+}
+```
+
+**Coordinates are relative to the frame, not the source image** — if this scene has Ken Burns motion, the image pans/zooms under a fixed-position arrow and the two will drift out of alignment. Set `kenBurns: "none"` on any scene that uses arrows so the pointed-at spot stays where you placed it.
+
+A scene with no `arrows` field behaves exactly as before — this is purely additive.
 
 ## How duration works (no manual timing math)
 

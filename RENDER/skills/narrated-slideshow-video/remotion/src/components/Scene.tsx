@@ -2,6 +2,8 @@ import React from "react";
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "./SceneImage";
 import { Caption } from "./Caption";
+import { Sfx } from "./Sfx";
+import { Arrows } from "./Arrows";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
 import { resolveSrc } from "../utils";
 
@@ -116,6 +118,8 @@ export const Scene: React.FC<{
         durationInFrames={visualDurationInFrames}
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
+      <Sfx cues={scene.sfx} />
+      <Arrows cues={scene.arrows} />
       <Caption
         text={scene.caption}
         position={captionPosition}
