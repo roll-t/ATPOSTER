@@ -57,9 +57,9 @@ async function requestGeminiOnce(promptText, apiKey) {
 }
 
 const MAX_ROUNDS = 2;
-// 429 = key hết quota, 403 = key bị từ chối, 503 = model đang quá tải ("high demand")
+// 400/401 = key sai/hết hạn, 429 = key hết quota, 403 = key bị từ chối, 503 = model đang quá tải ("high demand")
 // — đều là lỗi có thể khắc phục bằng cách đổi key khác hoặc thử lại sau.
-const RETRYABLE_STATUS = new Set([429, 403, 503]);
+const RETRYABLE_STATUS = new Set([400, 401, 403, 429, 503]);
 
 function isRetryableError(error) {
   return error instanceof SyntaxError || RETRYABLE_STATUS.has(error.status);
@@ -71,7 +71,7 @@ function sleep(ms) {
 
 /**
  * Gọi Gemini với 1 prompt, chấp nhận 1 API key hoặc danh sách nhiều key.
- * Khi key hiện tại hết quota (429) hoặc bị từ chối (403), tự động chuyển sang key
+ * Khi key hiện tại hết quota (429) hoặc bị từ chối (403/400/401), tự động chuyển sang key
  * kế tiếp trong danh sách ngay lập tức. Khi Gemini quá tải (503) hoặc JSON phản hồi
  * hỏng, chờ backoff rồi thử lại. Toàn bộ danh sách key được lặp lại tối đa MAX_ROUNDS
  * vòng trước khi bỏ cuộc.
@@ -105,8 +105,8 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys) {
         }
 
         const hasNextKeyThisRound = i < keys.length - 1;
-        if ((error.status === 429 || error.status === 403) && hasNextKeyThisRound) {
-          console.warn(`[Gemini Service] Key #${i + 1} lỗi (${error.message}), chuyển sang key kế tiếp...`);
+        if ((error.status === 400 || error.status === 401 || error.status === 403 || error.status === 429) && hasNextKeyThisRound) {
+          console.warn(`[Gemini Service] Key #${i + 1} bị lỗi (${error.message}), đang tự động chuyển sang key kế tiếp (#${i + 2})...`);
           continue;
         }
 

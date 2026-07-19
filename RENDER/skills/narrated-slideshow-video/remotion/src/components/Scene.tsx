@@ -2,52 +2,103 @@ import React from "react";
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "./SceneImage";
 import { Caption } from "./Caption";
-import { Scene as SceneConfig } from "../schema";
+import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
 import { resolveSrc } from "../utils";
 
 const AUDIO_FADE_FRAMES = 5; // ~0.15s at 30fps, just enough to avoid clicks
 
+type TransitionStyle = SlideshowVideoProps["transitionStyle"];
+
+/**
+ * Opacity + transform for one phase ("in" at the scene's own head, "out"
+ * during the overlap with the next scene) of a transition. `progress` is
+ * 0..1 across that phase's transitionFrames window. Every style keeps both
+ * scenes fully mounted and visible during the shared overlap window (see
+ * SlideshowVideo.tsx) — the difference is purely how each one moves/fades,
+ * never whether the background peeks through.
+ */
+function transitionFrame(
+  style: TransitionStyle,
+  phase: "in" | "out",
+  progress: number
+): { opacity: number; transform: string } {
+  switch (style) {
+    case "slide-left":
+      return phase === "in"
+        ? { opacity: 1, transform: `translateX(${interpolate(progress, [0, 1], [100, 0])}%)` }
+        : { opacity: 1, transform: `translateX(${interpolate(progress, [0, 1], [0, -100])}%)` };
+    case "slide-right":
+      return phase === "in"
+        ? { opacity: 1, transform: `translateX(${interpolate(progress, [0, 1], [-100, 0])}%)` }
+        : { opacity: 1, transform: `translateX(${interpolate(progress, [0, 1], [0, 100])}%)` };
+    case "slide-up":
+      return phase === "in"
+        ? { opacity: 1, transform: `translateY(${interpolate(progress, [0, 1], [100, 0])}%)` }
+        : { opacity: 1, transform: `translateY(${interpolate(progress, [0, 1], [0, -100])}%)` };
+    case "zoom":
+      return phase === "in"
+        ? { opacity: interpolate(progress, [0, 1], [0, 1]), transform: `scale(${interpolate(progress, [0, 1], [0.92, 1])})` }
+        : { opacity: interpolate(progress, [0, 1], [1, 0]), transform: `scale(${interpolate(progress, [0, 1], [1, 1.08])})` };
+    case "crossfade":
+    default:
+      return {
+        opacity: interpolate(progress, [0, 1], phase === "in" ? [0, 1] : [1, 0]),
+        transform: "none",
+      };
+  }
+}
+
 export const Scene: React.FC<{
   scene: SceneConfig;
   sceneIndex: number;
-  durationInFrames: number;
+  sceneDurationInFrames: number;
+  visualDurationInFrames: number;
   transitionFrames: number;
+  transitionStyle: TransitionStyle;
   globalKenBurns: boolean;
   globalImageFit: "cover" | "contain";
   captionPosition: "top" | "bottom";
   captionMode: "chunked" | "full";
   captionWordsPerChunk: number;
+  captionStyle: SlideshowVideoProps["captionStyle"];
+  showBilingual: boolean;
   fontFamily: string;
 }> = ({
   scene,
   sceneIndex,
-  durationInFrames,
+  sceneDurationInFrames,
+  visualDurationInFrames,
   transitionFrames,
+  transitionStyle,
   globalKenBurns,
   globalImageFit,
   captionPosition,
   captionMode,
   captionWordsPerChunk,
+  captionStyle,
+  showBilingual,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
 
-  // Fade in over transitionFrames at the start, fade out over
-  // transitionFrames at the end — this is what gives the illusion of a
-  // crossfade between consecutive scenes without needing overlapping
-  // Sequences (which would complicate the total-duration math, especially
-  // since scene lengths here come from real audio files, not a fixed
-  // formula).
-  const opacity = interpolate(
-    frame,
-    [0, transitionFrames, durationInFrames - transitionFrames, durationInFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
+  // The scene's own head (fade/slide-in) always runs over the first
+  // transitionFrames. Its tail (fade/slide-out) runs over the LAST
+  // transitionFrames of its (possibly extended) visual mount window — for
+  // every scene but the last, that window already overlaps the next
+  // scene's own head, which is what makes this a true crossfade/push
+  // instead of two independent fades meeting at a hard cut.
+  const inProgress = transitionFrames > 0 ? Math.min(1, Math.max(0, frame / transitionFrames)) : 1;
+  const outStart = visualDurationInFrames - transitionFrames;
+  const outProgress = transitionFrames > 0 ? Math.min(1, Math.max(0, (frame - outStart) / transitionFrames)) : 0;
+
+  const isOutPhase = frame >= outStart;
+  const { opacity, transform } = isOutPhase
+    ? transitionFrame(transitionStyle, "out", outProgress)
+    : transitionFrame(transitionStyle, "in", inProgress);
 
   const audioVolume = interpolate(
     frame,
-    [0, AUDIO_FADE_FRAMES, durationInFrames - AUDIO_FADE_FRAMES, durationInFrames],
+    [0, AUDIO_FADE_FRAMES, sceneDurationInFrames - AUDIO_FADE_FRAMES, sceneDurationInFrames],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
@@ -57,12 +108,12 @@ export const Scene: React.FC<{
     : scene.kenBurns ?? (sceneIndex % 2 === 0 ? "in" : "out");
 
   return (
-    <AbsoluteFill style={{ opacity }}>
+    <AbsoluteFill style={{ opacity, transform }}>
       <SceneImage
         src={scene.image}
         fit={scene.imageFit ?? globalImageFit}
         kenBurns={kenBurns}
-        durationInFrames={durationInFrames}
+        durationInFrames={visualDurationInFrames}
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
       <Caption
@@ -71,7 +122,10 @@ export const Scene: React.FC<{
         fontFamily={fontFamily}
         mode={captionMode}
         wordsPerChunk={captionWordsPerChunk}
-        durationInFrames={durationInFrames}
+        style={captionStyle}
+        showBilingual={showBilingual}
+        durationInFrames={sceneDurationInFrames}
+        wordTimings={scene.wordTimings}
         opacity={1}
       />
     </AbsoluteFill>

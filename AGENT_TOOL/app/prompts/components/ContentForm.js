@@ -74,7 +74,11 @@ export default function ContentForm({
       {/* AI Toggle & Cấu hình thời lượng — chỉ áp dụng cho chủ đề VIDEO */}
       {!isImageCategory && (
         <div style={{ marginBottom: '24px' }}>
-          <div className="custom-switch-container">
+          <div
+            className="custom-switch-container"
+            onClick={() => setUseGemini(!useGemini)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '8px' }}>
               <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>
                 Tự động tạo phân đoạn bằng Gemini
@@ -83,7 +87,7 @@ export default function ContentForm({
                 Tự động viết kịch bản & phân chia cảnh slide ảnh tối ưu
               </span>
             </div>
-            <label className="custom-switch">
+            <label className="custom-switch" onClick={(e) => e.stopPropagation()}>
               <input
                 type="checkbox"
                 checked={useGemini}
@@ -94,22 +98,14 @@ export default function ContentForm({
           </div>
 
           {useGemini && (
-            <div style={{ 
-              marginTop: '12px', 
-              padding: '14px', 
-              background: 'rgba(255, 255, 255, 0.01)', 
-              border: '1px solid rgba(255, 255, 255, 0.05)', 
-              borderRadius: '10px',
-              animation: 'fadeIn 0.2s ease-out'
-            }}>
-              <label className="form-label" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>
-                Thời lượng mục tiêu của video
+            <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+              <label className="form-label">
+                THỜI LƯỢNG MỤC TIÊU CỦA VIDEO
               </label>
               <select
                 className="form-control"
                 value={durationRange}
                 onChange={(e) => setDurationRange(e.target.value)}
-                style={{ background: 'rgba(10, 9, 18, 0.8)', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : '3 - 5 slide'})</option>
                 <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : '6 - 11 slide'})</option>
@@ -329,9 +325,9 @@ export default function ContentForm({
       >
         {isGenerating ? (
           <>
-            <svg className="animate-spin" style={{ width: '18px', height: '18px', fill: 'none', stroke: '#fff', strokeWidth: '3' }} viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.2)"/>
-              <path fill="#fff" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+            <svg className="animate-spin" style={{ width: '18px', height: '18px', flexShrink: 0, color: '#fff' }} viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+              <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
             <span>
               {effectiveUseGemini ? 'Gemini AI đang lập kịch bản...' : (isImageCategory ? 'Đang tạo prompt ảnh...' : 'Đang tạo prompt video...')}

@@ -13,10 +13,13 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     imageFit,
     kenBurns,
     transitionSeconds,
+    transitionStyle,
     bgColor,
     fontFamily,
     captionMode,
     captionWordsPerChunk,
+    captionStyle,
+    showBilingual,
     bgMusic,
     bgMusicVolume,
   } = props;
@@ -32,20 +35,33 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
 
       {scenes.map((scene, i) => {
         const from = cursor;
-        const durationInFrames = sceneFrames[i];
-        cursor += durationInFrames;
+        const sceneDurationInFrames = sceneFrames[i];
+        cursor += sceneDurationInFrames;
+
+        // Every scene but the last extends its own visual mount window
+        // (image + caption, NOT audio) by transitionFrames past its
+        // natural end, so it stays overlapping on screen with the next
+        // scene's own fade/slide-in — a true crossfade/push instead of
+        // both scenes independently fading to bgColor back-to-back.
+        const isLast = i === scenes.length - 1;
+        const visualDurationInFrames = sceneDurationInFrames + (isLast ? 0 : transitionFrames);
+
         return (
-          <Sequence key={i} from={from} durationInFrames={durationInFrames} name={`Scene ${i + 1}`}>
+          <Sequence key={i} from={from} durationInFrames={visualDurationInFrames} name={`Scene ${i + 1}`}>
             <Scene
               scene={scene}
               sceneIndex={i}
-              durationInFrames={durationInFrames}
+              sceneDurationInFrames={sceneDurationInFrames}
+              visualDurationInFrames={visualDurationInFrames}
               transitionFrames={transitionFrames}
+              transitionStyle={transitionStyle}
               globalKenBurns={kenBurns}
               globalImageFit={imageFit}
               captionPosition={captionPosition}
               captionMode={captionMode}
               captionWordsPerChunk={captionWordsPerChunk}
+              captionStyle={captionStyle}
+              showBilingual={showBilingual}
               fontFamily={fontFamily}
             />
           </Sequence>

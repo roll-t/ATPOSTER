@@ -7,6 +7,9 @@ const categoryKeys = Object.keys(PROMPT_CATEGORIES);
 const promptTypes = ['video', 'image'];
 
 function categoryKeysForType(type) {
+  if (type === 'slideshow' || type === 'video') {
+    return ['stick_figure_slideshow', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
+  }
   return categoryKeys.filter(k => (PROMPT_CATEGORIES[k].type || 'video') === type);
 }
 
@@ -84,8 +87,16 @@ function generateDefaultFolderName(scenario) {
  * page.js và các component con chỉ tập trung vào UI.
  */
 export function usePromptStudio() {
-  const [promptType, setPromptTypeState] = useState('video');
-  const [activeCategory, setActiveCategory] = useState('english_quiz');
+  const [promptType, setPromptTypeState] = useState('slideshow');
+  const [activeCategory, setActiveCategory] = useState('stick_figure_slideshow');
+
+  const setPromptType = (type) => {
+    setPromptTypeState(type);
+    const keys = categoryKeysForType(type);
+    if (keys.length > 0 && !keys.includes(activeCategory)) {
+      setActiveCategory(keys[0]);
+    }
+  };
   const [formValues, setFormValues] = useState(() => {
     const initial = {};
     categoryKeys.forEach(k => { initial[k] = emptyInputFor(k); });
@@ -114,7 +125,7 @@ export function usePromptStudio() {
   // States cho tính năng kịch bản phân đoạn, Gemini, ElevenLabs & DB Settings
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
-  const [useGemini, setUseGemini] = useState(false);
+  const [useGemini, setUseGemini] = useState(true);
   const [durationRange, setDurationRange] = useState('under_1m');
 
   const [showSettings, setShowSettings] = useState(false);
@@ -123,12 +134,12 @@ export function usePromptStudio() {
     elevenlabsApiKey: '', 
     mongodbUri: '',
     voiceMappings: {
-      alex: '60qpDkuGX2KEChynwVZJ',
-      mia: 'uREKoCeM2xnPeGaH8ZFM',
-      leo: '60qpDkuGX2KEChynwVZJ',
-      zoe: 'uREKoCeM2xnPeGaH8ZFM',
-      tom: '60qpDkuGX2KEChynwVZJ',
-      narrator: 'uREKoCeM2xnPeGaH8ZFM'
+      alex: 'wJSBXsvChUQrylZvDzav',
+      mia: '4IQqf6fVNeEFbqnSbVxb',
+      leo: 'wJSBXsvChUQrylZvDzav',
+      zoe: '4IQqf6fVNeEFbqnSbVxb',
+      tom: 'wJSBXsvChUQrylZvDzav',
+      narrator: '4IQqf6fVNeEFbqnSbVxb'
     }
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -245,12 +256,6 @@ export function usePromptStudio() {
     setSelectedHistoryIds([]);
     setIsFolderPathUserEdited(false); // Reset khi đổi danh mục
   }, [activeCategory]);
-
-  const setPromptType = (type) => {
-    setPromptTypeState(type);
-    const keys = categoryKeysForType(type);
-    if (keys.length) setActiveCategory(keys[0]);
-  };
 
   const handleFieldChange = (key, value) => {
     if (key === 'folderPath') {
@@ -559,7 +564,7 @@ export function usePromptStudio() {
     styles,
     isGenerating, errorMsg, result, setResult, showJson, setShowJson, copiedKey,
     showStyleEditor, setShowStyleEditor, styleEditorText, setStyleEditorText, styleSaveError, isSavingStyle,
-    history, historyLoading, selectedHistoryIds,
+    history, historyLoading, selectedHistoryIds, fetchHistory,
     characters, charactersLoading,
     geminiApiKey, setGeminiApiKey, apiKeyVisible, setApiKeyVisible,
     showSettings, setShowSettings, settings, setSettings, isSavingSettings, settingsMsg,

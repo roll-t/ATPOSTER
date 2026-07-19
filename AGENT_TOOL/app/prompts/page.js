@@ -1,22 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
 
 import { usePromptStudio } from './usePromptStudio.js';
-import CategoryTabs from './components/CategoryTabs.js';
+import VideoCategoryGrid from './components/VideoCategoryGrid.js';
 import ContentForm from './components/ContentForm.js';
 import StyleEditor from './components/StyleEditor.js';
 import SegmentedResultView from './components/SegmentedResultView.js';
 import ManualResultView from './components/ManualResultView.js';
 import HistoryList from './components/HistoryList.js';
 
-export default function PromptsPage() {
+function PromptsStudioContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const s = usePromptStudio();
-  const [activeRightTab, setActiveRightTab] = useState('process');
 
+  const [activeRightTab, setActiveRightTab] = useState('process');
   const [wasGenerating, setWasGenerating] = useState(false);
+
+  const categoryParam = searchParams.get('category');
+  const isGridMode = !categoryParam || !PROMPT_CATEGORIES[categoryParam];
+
+  // Tự động đồng bộ state chủ đề với URL query parameter
+  useEffect(() => {
+    if (categoryParam && PROMPT_CATEGORIES[categoryParam]) {
+      s.setActiveCategory(categoryParam);
+      const catType = PROMPT_CATEGORIES[categoryParam].type || 'video';
+      s.setPromptType(catType === 'image' ? 'image' : 'slideshow');
+    }
+  }, [categoryParam]);
 
   useEffect(() => {
     if (s.isGenerating) {
@@ -33,6 +48,17 @@ export default function PromptsPage() {
     }
   }, [s.result]);
 
+  const handleSelectCategory = (key) => {
+    s.setActiveCategory(key);
+    const catType = PROMPT_CATEGORIES[key]?.type || 'video';
+    s.setPromptType(catType === 'image' ? 'image' : 'slideshow');
+    router.push(`/prompts?category=${key}`);
+  };
+
+  const handleBackToGrid = () => {
+    router.push('/prompts');
+  };
+
   return (
     <div className="main-layout">
       {/* Sidebar dành riêng cho Prompt AI Studio */}
@@ -46,7 +72,7 @@ export default function PromptsPage() {
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>v1.0.0 Alpha</span>
           </div>
         </div>
-        
+
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '32px' }}>
           <Link
             href="/"
@@ -62,26 +88,20 @@ export default function PromptsPage() {
 
           <button
             type="button"
-            onClick={() => s.setPromptType('video')}
-            className={`nav-item ${s.promptType === 'video' ? 'active' : ''}`}
+            onClick={handleBackToGrid}
+            className={`nav-item ${isGridMode || s.promptType === 'slideshow' ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-              <line x1="7" y1="2" x2="7" y2="22"></line>
-              <line x1="17" y1="2" x2="17" y2="22"></line>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <line x1="2" y1="7" x2="7" y2="7"></line>
-              <line x1="2" y1="17" x2="7" y2="17"></line>
-              <line x1="17" y1="17" x2="22" y2="17"></line>
-              <line x1="17" y1="7" x2="22" y2="7"></line>
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            Prompt Video
+            Tạo Video
           </button>
 
           <button
             type="button"
-            onClick={() => s.setPromptType('image')}
-            className={`nav-item ${s.promptType === 'image' ? 'active' : ''}`}
+            onClick={() => handleSelectCategory('character_ref')}
+            className={`nav-item ${!isGridMode && s.promptType === 'image' ? 'active' : ''}`}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -89,19 +109,6 @@ export default function PromptsPage() {
               <polyline points="21 15 16 10 5 21"></polyline>
             </svg>
             Prompt Ảnh
-          </button>
-
-          <button
-            type="button"
-            onClick={() => s.setPromptType('slideshow')}
-            className={`nav-item ${s.promptType === 'slideshow' ? 'active' : ''}`}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-              <line x1="12" y1="18" x2="12" y2="18.01"></line>
-              <path d="M8 6h8M8 10h8M8 14h8"></path>
-            </svg>
-            Slide Người Que
           </button>
         </nav>
 
@@ -142,432 +149,570 @@ export default function PromptsPage() {
       {/* Nội dung chính bên phải */}
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-          <div style={{ marginBottom: '24px', flexShrink: 0 }}>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, marginBottom: '8px' }}>
-              Prompt <span className="gradient-text">AI Studio</span>
-            </h1>
-            <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-              Tạo kịch bản hoặc prompt tạo ảnh thông minh cho video học tiếng Anh — chỉ cần nhập nội dung, hệ thống tự động sinh và ghép với style của kênh để đảm bảo đồng nhất thương hiệu.
-            </p>
-          </div>
-
-          {s.promptType !== 'slideshow' && (
-            <div style={{ flexShrink: 0, marginBottom: '20px' }}>
-              <CategoryTabs
-                categoryKeys={s.visibleCategoryKeys}
-                categories={PROMPT_CATEGORIES}
-                activeCategory={s.activeCategory}
-                onChange={s.setActiveCategory}
-              />
+          
+          {isGridMode ? (
+            /* Màn hình Grid chọn chủ đề video */
+            <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px' }}>
+              <VideoCategoryGrid onSelectCategory={handleSelectCategory} />
             </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '30px', alignItems: 'start', minWidth: 0, flex: 1, minHeight: 0 }}>
-            {/* Cột trái: form nhập nội dung */}
-            <div className="scrollable-col" style={{ minWidth: 0 }}>
-              <ContentForm
-                category={s.currentCategory}
-                activeCategory={s.activeCategory}
-                currentInput={s.currentInput}
-                useGemini={s.useGemini}
-                setUseGemini={s.setUseGemini}
-                durationRange={s.durationRange}
-                setDurationRange={s.setDurationRange}
-                onFieldChange={s.handleFieldChange}
-                onToggleCharacter={s.handleToggleCharacter}
-                errorMsg={s.errorMsg}
-                isGenerating={s.isGenerating}
-                onGenerate={s.handleGenerate}
-                onOpenStyleEditor={s.handleOpenStyleEditor}
-                characters={s.characters}
-                onDeleteCustomChar={s.handleDeleteCustomCharacter}
-                onUploadChar={s.handleUploadCharacter}
-                onUpdateChar={s.handleUpdateCharacter}
-              />
-
-              {s.showStyleEditor && (
-                <StyleEditor
-                  category={s.currentCategory}
-                  styleEditorText={s.styleEditorText}
-                  setStyleEditorText={s.setStyleEditorText}
-                  styleSaveError={s.styleSaveError}
-                  isSavingStyle={s.isSavingStyle}
-                  onSave={s.handleSaveStyle}
-                  onClose={() => s.setShowStyleEditor(false)}
-                />
-              )}
-            </div>
-
-            {/* Cột phải: kết quả + lịch sử */}
-            <div className="scrollable-col" style={{ minWidth: 0 }}>
-              {s.promptType === 'slideshow' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                  {/* Tab bar */}
-                  <div style={{
-                    display: 'flex',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    borderRadius: '10px',
-                    padding: '4px',
-                    marginBottom: '16px',
-                    gap: '4px',
-                    flexShrink: 0
-                  }}>
-                    {[
-                      { id: 'history', label: '🗂️ Lịch sử đã tạo', disabled: false },
-                      { id: 'script', label: '📜 Kịch bản chi tiết', disabled: !s.result },
-                      { id: 'process', label: '🎬 Quy trình & Review', disabled: !s.result }
-                    ].map(tab => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => !tab.disabled && setActiveRightTab(tab.id)}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          fontSize: '0.82rem',
-                          fontWeight: 700,
-                          borderRadius: '8px',
-                          border: 'none',
-                          background: activeRightTab === tab.id ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'transparent',
-                          color: activeRightTab === tab.id ? '#fff' : tab.disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
-                          cursor: tab.disabled ? 'not-allowed' : 'pointer',
-                          transition: 'all 0.2s ease',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Tab contents - chiếm hết phần chiều cao còn lại của cửa sổ */}
-                  <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: activeRightTab === 'history' ? 'hidden' : 'auto' }}>
-                    {activeRightTab === 'process' && s.result && (
-                      <div className="glass-card" style={{ marginBottom: '20px' }}>
-                        <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" />
-                      </div>
-                    )}
-
-                    {activeRightTab === 'script' && s.result && (
-                      <div className="glass-card" style={{ marginBottom: '20px' }}>
-                        <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="script" />
-                      </div>
-                    )}
-
-                    {activeRightTab === 'history' && (
-                      <HistoryList
-                        history={s.history}
-                        historyLoading={s.historyLoading}
-                        selectedIds={s.selectedHistoryIds}
-                        copiedKey={s.copiedKey}
-                        onCopy={s.handleCopy}
-                        onView={(item, targetTab) => {
-                          s.setResult(item);
-                          if (targetTab) {
-                            setActiveRightTab(targetTab);
-                          }
-                        }}
-                        onDelete={s.handleDeleteHistory}
-                        onToggleSelect={s.handleToggleSelectHistory}
-                        onToggleSelectAll={s.handleToggleSelectAllHistory}
-                        onDeleteSelected={s.handleDeleteSelectedHistory}
-                      />
-                    )}
-
-                    {!s.result && activeRightTab !== 'history' && (
-                      <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
-                        <div style={{ fontSize: '2.8rem', marginBottom: '16px', filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))' }}>
-                          🎬
-                        </div>
-                        <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
-                          Chưa có kịch bản hoạt động
-                        </h4>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.5, textAlign: 'center' }}>
-                          Hãy điền thông tin bên trái để tạo kịch bản mới, hoặc chọn tab &quot;Lịch sử đã tạo&quot; để xem lại các kịch bản cũ.
-                        </p>
-                      </div>
-                    )}
+          ) : (
+            /* Màn hình không gian làm việc chi tiết cho chủ đề đã chọn */
+            <>
+              {/* Header điều hướng workspace */}
+              <div style={{ marginBottom: '16px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToGrid}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      lineHeight: 1,
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Chọn loại Video khác</span>
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                      {s.currentCategory?.label}
+                    </h2>
                   </div>
                 </div>
-              ) : (
-                <>
-                  {s.result ? (
-                    <div className="glass-card" style={{ marginBottom: '20px' }}>
-                      <ManualResultView
-                        result={s.result}
-                        showJson={s.showJson}
-                        setShowJson={s.setShowJson}
-                        copiedKey={s.copiedKey}
-                        onCopy={s.handleCopy}
-                      />
+              </div>
+
+              {/* Grid 2 cột workspace */}
+              <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '30px', alignItems: 'start', minWidth: 0, flex: 1, minHeight: 0 }}>
+                {/* Cột trái: form nhập nội dung */}
+                <div className="scrollable-col" style={{ minWidth: 0 }}>
+                  <ContentForm
+                    category={s.currentCategory}
+                    activeCategory={s.activeCategory}
+                    currentInput={s.currentInput}
+                    useGemini={s.useGemini}
+                    setUseGemini={s.setUseGemini}
+                    durationRange={s.durationRange}
+                    setDurationRange={s.setDurationRange}
+                    onFieldChange={s.handleFieldChange}
+                    onToggleCharacter={s.handleToggleCharacter}
+                    errorMsg={s.errorMsg}
+                    isGenerating={s.isGenerating}
+                    onGenerate={s.handleGenerate}
+                    onOpenStyleEditor={s.handleOpenStyleEditor}
+                    characters={s.characters}
+                    onDeleteCustomChar={s.handleDeleteCustomCharacter}
+                    onUploadChar={s.handleUploadCharacter}
+                    onUpdateChar={s.handleUpdateCharacter}
+                  />
+
+                  {s.showStyleEditor && (
+                    <StyleEditor
+                      category={s.currentCategory}
+                      styleEditorText={s.styleEditorText}
+                      setStyleEditorText={s.setStyleEditorText}
+                      styleSaveError={s.styleSaveError}
+                      isSavingStyle={s.isSavingStyle}
+                      onSave={s.handleSaveStyle}
+                      onClose={() => s.setShowStyleEditor(false)}
+                    />
+                  )}
+                </div>
+
+                {/* Cột phải: kết quả + lịch sử */}
+                <div className="scrollable-col" style={{ minWidth: 0 }}>
+                  {s.promptType === 'slideshow' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                      {/* Tab bar */}
+                      <div style={{
+                        display: 'flex',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        borderRadius: '10px',
+                        padding: '4px',
+                        marginBottom: '16px',
+                        gap: '4px',
+                        flexShrink: 0
+                      }}>
+                        {[
+                          { id: 'history', label: '🗂️ Lịch sử đã tạo', disabled: false },
+                          { id: 'script', label: '📜 Kịch bản chi tiết', disabled: !s.result },
+                          { id: 'process', label: '🎬 Quy trình & Review', disabled: !s.result }
+                        ].map(tab => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => !tab.disabled && setActiveRightTab(tab.id)}
+                            style={{
+                              flex: 1,
+                              padding: '8px 12px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: activeRightTab === tab.id ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'transparent',
+                              color: activeRightTab === tab.id ? '#fff' : tab.disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
+                              cursor: tab.disabled ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.2s ease',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Tab contents */}
+                      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: activeRightTab === 'history' ? 'hidden' : 'auto' }}>
+                        {activeRightTab === 'process' && s.result && (
+                          <div className="glass-card" style={{ marginBottom: '20px' }}>
+                            <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
+                          </div>
+                        )}
+
+                        {activeRightTab === 'script' && s.result && (
+                          <div className="glass-card" style={{ marginBottom: '20px' }}>
+                            <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="script" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
+                          </div>
+                        )}
+
+                        {activeRightTab === 'history' && (
+                          <HistoryList
+                            history={s.history}
+                            historyLoading={s.historyLoading}
+                            selectedIds={s.selectedHistoryIds}
+                            copiedKey={s.copiedKey}
+                            onCopy={s.handleCopy}
+                            onView={(item, targetTab) => {
+                              s.setResult(item);
+                              if (targetTab) {
+                                setActiveRightTab(targetTab);
+                              }
+                            }}
+                            onDelete={s.handleDeleteHistory}
+                            onToggleSelect={s.handleToggleSelectHistory}
+                            onToggleSelectAll={s.handleToggleSelectAllHistory}
+                            onDeleteSelected={s.handleDeleteSelectedHistory}
+                          />
+                        )}
+
+                        {!s.result && activeRightTab !== 'history' && (
+                          <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
+                            <div style={{ fontSize: '2.8rem', marginBottom: '16px', filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))' }}>
+                              🎬
+                            </div>
+                            <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
+                              Chưa có kịch bản hoạt động
+                            </h4>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.5, textAlign: 'center' }}>
+                              Hãy điền thông tin bên trái để tạo kịch bản mới, hoặc chọn tab &quot;Lịch sử đã tạo&quot; để xem lại các kịch bản cũ.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
-                      <div style={{ 
-                        fontSize: '2.8rem', 
-                        marginBottom: '16px', 
-                        filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))' 
-                      }}>
-                        {s.currentCategory.icon}
-                      </div>
-                      <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
-                        Sẵn sàng tạo câu lệnh
-                      </h4>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.5, textAlign: 'center' }}>
-                        Điền nội dung bên trái rồi chọn "Tạo bằng Gemini AI" hoặc bấm "Tạo Prompt" để nhận kết quả.
-                      </p>
-                    </div>
+                    <>
+                      {s.result ? (
+                        <div className="glass-card" style={{ marginBottom: '20px' }}>
+                          <ManualResultView
+                            result={s.result}
+                            showJson={s.showJson}
+                            setShowJson={s.setShowJson}
+                            copiedKey={s.copiedKey}
+                            onCopy={s.handleCopy}
+                          />
+                        </div>
+                      ) : (
+                        <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
+                          <div style={{
+                            fontSize: '2.8rem',
+                            marginBottom: '16px',
+                            filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))'
+                          }}>
+                            {s.currentCategory?.icon}
+                          </div>
+                          <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
+                            Sẵn sàng tạo câu lệnh
+                          </h4>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.5, textAlign: 'center' }}>
+                            Điền nội dung bên trái rồi chọn "Tạo bằng Gemini AI" hoặc bấm "Tạo Prompt" để nhận kết quả.
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
+                </div>
+              </div>
+            </>
+          )}
 
-                  <HistoryList
-                    history={s.history}
-                    historyLoading={s.historyLoading}
-                    selectedIds={s.selectedHistoryIds}
-                    copiedKey={s.copiedKey}
-                    onCopy={s.handleCopy}
-                    onView={(item, targetTab) => {
-                      s.setResult(item);
-                      if (targetTab) {
-                        setActiveRightTab(targetTab);
-                      }
-                    }}
-                    onDelete={s.handleDeleteHistory}
-                    onToggleSelect={s.handleToggleSelectHistory}
-                    onToggleSelectAll={s.handleToggleSelectAllHistory}
-                    onDeleteSelected={s.handleDeleteSelectedHistory}
-                  />
-                </>
-              )}
-            </div>
-          </div>
         </div>
       </main>
 
-      {/* Modal Cài đặt hệ thống */}
+      {/* Modal Settings */}
       {s.showSettings && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div className="glass-card" style={{
-            width: '100%',
-            maxWidth: '500px',
-            padding: '24px',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-            textAlign: 'left'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
-                ⚙️ Cấu hình Hệ thống AI & DB
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => s.setShowSettings(false)} 
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer', padding: '0' }}
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(5, 5, 12, 0.85)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => s.setShowSettings(false)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '620px',
+              maxHeight: '90vh',
+              background: 'linear-gradient(145deg, rgba(24, 22, 37, 0.95), rgba(15, 14, 25, 0.98))',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '20px',
+              padding: '28px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(122, 18, 255, 0.15)',
+              overflowY: 'auto',
+              textAlign: 'left',
+              color: '#fff',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.3rem' }}>⚙️</span> Cấu hình API Key & Database
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
+                  Quản lý API Key và kết nối cơ sở dữ liệu cho hệ thống.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => s.setShowSettings(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0
+                }}
               >
-                ×
+                ✕
               </button>
             </div>
-            
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.4 }}>
-              Chỉnh sửa khóa API và đường dẫn kết nối cơ sở dữ liệu. Nhấn "Lưu cấu hình" để áp dụng thay đổi.
-            </p>
 
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}>🔑 Gemini API Key</label>
-              <div style={{ position: 'relative' }}>
-                <textarea
-                  className="form-control"
-                  placeholder={'Nhập 1 hoặc nhiều Gemini API Key, mỗi key 1 dòng...'}
-                  value={s.settings.geminiApiKey}
-                  onChange={(e) => s.setSettings(prev => ({ ...prev, geminiApiKey: e.target.value }))}
-                  rows={3}
-                  style={{
-                    paddingRight: '40px',
-                    fontFamily: 'monospace',
-                    fontSize: '0.8rem',
-                    resize: 'vertical',
-                    WebkitTextSecurity: s.apiKeyVisible ? 'none' : 'disc'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => s.setApiKeyVisible(!s.apiKeyVisible)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '10px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '1.1rem',
-                    color: 'var(--text-muted)'
-                  }}
-                >
-                  {s.apiKeyVisible ? '👁️' : '🙈'}
-                </button>
-              </div>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px', marginBottom: 0, lineHeight: 1.4 }}>
-                Có thể nhập nhiều key (mỗi dòng 1 key). Hệ thống sẽ tự động chuyển sang key kế tiếp khi key hiện tại hết quota hoặc bị lỗi tạm thời.
-              </p>
-            </div>
+            {/* Content Sections Container */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Section 1: Gemini API Keys */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>🔑</span>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>Gemini API Key</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tự động chuyển Key khác khi hết token</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '3px 10px', borderRadius: '20px', fontWeight: 700 }}>
+                      {(s.settings.geminiApiKey ? s.settings.geminiApiKey.split('\n').filter(Boolean).length : 0)} Key
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => s.setApiKeyVisible(!s.apiKeyVisible)}
+                      style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      {s.apiKeyVisible ? '🙈 Ẩn Key' : '👁️ Hiện Key'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = s.settings.geminiApiKey ? s.settings.geminiApiKey.split('\n') : [''];
+                        s.setSettings(prev => ({ ...prev, geminiApiKey: [...current, ''].join('\n') }));
+                      }}
+                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      + Thêm Key
+                    </button>
+                  </div>
+                </div>
 
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}>🎙️ ElevenLabs API Key</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={s.elApiKeyVisible ? 'text' : 'password'}
-                  className="form-control"
-                  placeholder="Nhập ElevenLabs API Key..."
-                  value={s.settings.elevenlabsApiKey}
-                  onChange={(e) => s.setSettings(prev => ({ ...prev, elevenlabsApiKey: e.target.value }))}
-                  style={{ paddingRight: '40px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => s.setElApiKeyVisible(!s.elApiKeyVisible)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '1.1rem',
-                    color: 'var(--text-muted)'
-                  }}
-                >
-                  {s.elApiKeyVisible ? '👁️' : '🙈'}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginBottom: '16px' }}>
-              <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--secondary)', marginBottom: '12px' }}>
-                🎙️ Cấu hình Giọng đọc cho từng Nhân vật (ElevenLabs)
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px', paddingBottom: '4px' }}>
-                {[
-                  { key: 'alex', label: 'Giọng Alex', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                  { key: 'mia', label: 'Giọng Mia', defaultId: 'uREKoCeM2xnPeGaH8ZFM' },
-                  { key: 'leo', label: 'Giọng Leo', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                  { key: 'zoe', label: 'Giọng Zoe', defaultId: 'uREKoCeM2xnPeGaH8ZFM' },
-                  { key: 'tom', label: 'Giọng Tom', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                  { key: 'narrator', label: 'Giọng Người kể (Narrator)', defaultId: 'uREKoCeM2xnPeGaH8ZFM' }
-                ].map(char => {
-                  const currentVal = s.settings.voiceMappings?.[char.key] || char.defaultId;
-                  const presetList = [
-                    { name: 'Giọng của tôi (Nữ)', id: 'uREKoCeM2xnPeGaH8ZFM' },
-                    { name: 'Giọng của tôi (Nam)', id: '60qpDkuGX2KEChynwVZJ' }
-                  ];
-                  const isPreset = presetList.some(p => p.id === currentVal);
-                  
-                  return (
-                    <div key={char.key} className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.74rem', color: '#fff', marginBottom: '4px', display: 'block' }}>
-                        {char.label}
-                      </label>
-                      <select
-                        className="form-control"
-                        style={{ fontSize: '0.78rem', padding: '6px', height: '32px', background: 'rgba(0,0,0,0.2)' }}
-                        value={isPreset ? currentVal : 'custom'}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          s.setSettings(prev => ({
-                            ...prev,
-                            voiceMappings: {
-                              ...prev.voiceMappings,
-                              [char.key]: val === 'custom' ? '' : val
-                            }
-                          }));
-                        }}
-                      >
-                        {presetList.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                        <option value="custom">Tùy chỉnh (Nhập Voice ID)...</option>
-                      </select>
-                      {!isPreset && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {((s.settings.geminiApiKey || '').split('\n').length === 0 ? [''] : s.settings.geminiApiKey.split('\n')).map((keyVal, idx, arr) => {
+                    return (
+                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <input
-                          type="text"
+                          type={s.apiKeyVisible ? 'text' : 'password'}
                           className="form-control"
-                          placeholder="ElevenLabs Voice ID..."
-                          style={{ fontSize: '0.74rem', padding: '4px 8px', marginTop: '4px', height: '28px' }}
-                          value={currentVal}
+                          placeholder={`Nhập Gemini API Key #${idx + 1}...`}
+                          value={keyVal}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            s.setSettings(prev => ({
-                              ...prev,
-                              voiceMappings: {
-                                ...prev.voiceMappings,
-                                [char.key]: val
-                              }
-                            }));
+                            const updated = [...arr];
+                            updated[idx] = e.target.value;
+                            s.setSettings(prev => ({ ...prev, geminiApiKey: updated.join('\n') }));
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (pasted.includes('\n') || pasted.includes(',')) {
+                              e.preventDefault();
+                              const newKeys = pasted.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+                              const updated = [...arr];
+                              updated.splice(idx, 1, ...newKeys);
+                              s.setSettings(prev => ({ ...prev, geminiApiKey: updated.join('\n') }));
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            fontSize: '0.82rem',
+                            padding: '9px 12px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontFamily: s.apiKeyVisible ? 'monospace' : 'inherit'
                           }}
                         />
-                      )}
-                    </div>
-                  );
-                })}
+                        {arr.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = arr.filter((_, i) => i !== idx);
+                              s.setSettings(prev => ({ ...prev, geminiApiKey: updated.join('\n') }));
+                            }}
+                            style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                            title="Xóa Key này"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}>🗄️ MongoDB Connection URI</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="mongodb://localhost:27017/tiktok_agent hoặc mongodb+srv://..."
-                value={s.settings.mongodbUri}
-                onChange={(e) => s.setSettings(prev => ({ ...prev, mongodbUri: e.target.value }))}
-              />
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
-                * Lưu ý: Khi đổi URI, tệp cấu hình `.env.local` sẽ được ghi đè và server Next.js sẽ tự khởi động lại.
-              </span>
+              {/* Section 2: ElevenLabs API Keys */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>🔊</span>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>ElevenLabs API Key</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tự động chuyển Key khác khi hết quota</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '3px 10px', borderRadius: '20px', fontWeight: 700 }}>
+                      {(s.settings.elevenlabsApiKey ? s.settings.elevenlabsApiKey.split('\n').filter(Boolean).length : 0)} Key
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => s.setElApiKeyVisible(!s.elApiKeyVisible)}
+                      style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      {s.elApiKeyVisible ? '🙈 Ẩn Key' : '👁️ Hiện Key'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = s.settings.elevenlabsApiKey ? s.settings.elevenlabsApiKey.split('\n') : [''];
+                        s.setSettings(prev => ({ ...prev, elevenlabsApiKey: [...current, ''].join('\n') }));
+                      }}
+                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      + Thêm Key
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {((s.settings.elevenlabsApiKey || '').split('\n').length === 0 ? [''] : s.settings.elevenlabsApiKey.split('\n')).map((keyVal, idx, arr) => {
+                    return (
+                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type={s.elApiKeyVisible ? 'text' : 'password'}
+                          className="form-control"
+                          placeholder={`Nhập ElevenLabs API Key #${idx + 1}...`}
+                          value={keyVal}
+                          onChange={(e) => {
+                            const updated = [...arr];
+                            updated[idx] = e.target.value;
+                            s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
+                          }}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text');
+                            if (pasted.includes('\n') || pasted.includes(',')) {
+                              e.preventDefault();
+                              const newKeys = pasted.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+                              const updated = [...arr];
+                              updated.splice(idx, 1, ...newKeys);
+                              s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            fontSize: '0.82rem',
+                            padding: '9px 12px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontFamily: s.elApiKeyVisible ? 'monospace' : 'inherit'
+                          }}
+                        />
+                        {arr.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = arr.filter((_, i) => i !== idx);
+                              s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
+                            }}
+                            style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                            title="Xóa Key này"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Section 3: MongoDB Connection */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🗄️</span> MongoDB Connection URI
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="mongodb://localhost:27017/tiktok_agent hoặc mongodb+srv://..."
+                  value={s.settings.mongodbUri}
+                  onChange={(e) => s.setSettings(prev => ({ ...prev, mongodbUri: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.82rem',
+                    padding: '9px 12px',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+              </div>
             </div>
 
             {s.settingsMsg && (
-              <div style={{ 
-                fontSize: '0.82rem', 
-                marginBottom: '16px', 
-                padding: '10px', 
-                borderRadius: '6px',
-                background: s.settingsMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'rgba(46, 213, 115, 0.1)',
-                border: s.settingsMsg.startsWith('Lỗi') ? '1px solid rgba(255, 71, 87, 0.2)' : '1px solid rgba(46, 213, 115, 0.2)',
-                color: s.settingsMsg.startsWith('Lỗi') ? 'var(--danger)' : '#2ed573' 
+              <div style={{
+                fontSize: '0.82rem',
+                marginTop: '18px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                background: s.settingsMsg.startsWith('Lỗi') ? 'rgba(255, 71, 87, 0.15)' : 'rgba(46, 213, 115, 0.15)',
+                border: s.settingsMsg.startsWith('Lỗi') ? '1px solid rgba(255, 71, 87, 0.3)' : '1px solid rgba(46, 213, 115, 0.3)',
+                color: s.settingsMsg.startsWith('Lỗi') ? '#ff4757' : '#2ed573',
+                fontWeight: 600
               }}>
                 {s.settingsMsg}
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            {/* Bottom Actions */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn"
                 onClick={s.handleSaveSettings}
                 disabled={s.isSavingSettings}
-                style={{ flex: 1, padding: '12px' }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 20px rgba(254, 44, 85, 0.35)',
+                  cursor: 'pointer'
+                }}
               >
-                {s.isSavingSettings ? 'Đang lưu...' : 'Lưu cấu hình'}
+                {s.isSavingSettings ? '⏳ Đang lưu...' : '💾 Lưu cấu hình'}
               </button>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn"
                 onClick={() => s.setShowSettings(false)}
-                style={{ padding: '12px 20px' }}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer'
+                }}
               >
                 Hủy
               </button>
@@ -576,5 +721,13 @@ export default function PromptsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PromptsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '40px', color: '#fff' }}>Đang tải...</div>}>
+      <PromptsStudioContent />
+    </Suspense>
   );
 }

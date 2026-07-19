@@ -178,7 +178,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'START_QUEUE') {
-    const { segments, title, isImage, folderPath, imageExt } = message.payload;
+    const { segments, title, isImage, folderPath, imageExt, orientation } = message.payload;
 
     // Lưu vào bộ nhớ cục bộ của extension
     chrome.storage.local.set({
@@ -188,6 +188,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         isImage: isImage === true,
         folderPath: folderPath || 'example',
         imageExt: imageExt || 'jpg',
+        orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
         segments: segments.map(s => ({
           ...s,
           status: 'pending' // pending, processing, completed, error

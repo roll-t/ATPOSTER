@@ -37,7 +37,7 @@ window.addEventListener('message', (event) => {
   }
 
   if (event.data && event.data.type === 'START_FLOW_GENERATION') {
-    const { segments, title, isImage, folderPath, imageExt } = event.data;
+    const { segments, title, isImage, folderPath, imageExt, orientation } = event.data;
     console.log('[Flow Helper Extension] Đã nhận kịch bản từ App:', title);
     
     // Hàm loại bỏ phần tiếng Việt sau ký tự " // "
@@ -67,7 +67,8 @@ window.addEventListener('message', (event) => {
             title,
             isImage: isImage === true,
             folderPath: folderPath || 'example',
-            imageExt: imageExt || 'jpg'
+            imageExt: imageExt || 'jpg',
+            orientation: orientation === 'landscape' ? 'landscape' : 'portrait'
           }
         }, (response) => {
           if (chrome.runtime.lastError) {

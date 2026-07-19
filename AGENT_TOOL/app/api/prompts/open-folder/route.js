@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { getRemotionPublicDir } from '@/lib/remotionPaths';
+
+const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
 export async function POST(req) {
   try {
@@ -11,19 +13,21 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
     }
 
-    const targetDir = path.join(getRemotionPublicDir(), folderPath.trim(), 'final');
+    const cleanFolder = folderPath.trim();
+    if (!SAFE_FOLDER_NAME.test(cleanFolder)) {
+      return NextResponse.json({ error: 'Tên thư mục không hợp lệ. Chỉ được dùng chữ, số, "_" và "-".' }, { status: 400 });
+    }
+
+    const targetDir = path.join(getRemotionPublicDir(), cleanFolder, 'final');
     if (!fs.existsSync(targetDir)) {
       return NextResponse.json({ error: `Không tìm thấy thư mục: ${targetDir}` }, { status: 404 });
     }
 
-    const openCommand = process.platform === 'win32'
-      ? `explorer.exe "${targetDir}"`
-      : process.platform === 'darwin'
-        ? `open "${targetDir}"`
-        : `xdg-open "${targetDir}"`;
-
-    exec(openCommand, (err) => {
-      if (err) {
+    // execFile (không qua shell) + truyền targetDir như 1 tham số riêng biệt, tránh command injection.
+    const openBin = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+    execFile(openBin, [targetDir], (err) => {
+      // explorer.exe trả exit code khác 0 ngay cả khi mở thành công -> chỉ log, không coi là lỗi thật.
+      if (err && process.platform !== 'win32') {
         console.error('[API OpenFolder] Lỗi mở thư mục:', err);
       }
     });

@@ -118,14 +118,44 @@ when you want to override that (see `references/config_schema.md`).
   voice," not exact sync. `captionMode: "full"` shows the whole caption for
   the whole scene instead, if that reads better for short lines.
   `captionWordsPerChunk` (default 4) controls chunk size.
+- **Bilingual captions**: put a literal `"\n"` inside a scene's `caption` string to
+  show two stacked lines — e.g. `"Don't give up.\nĐừng bao giờ bỏ cuộc."` — the
+  first line renders larger/bold, the second smaller/lighter right below it
+  (~9px gap). Works with both `captionMode`s; in `"chunked"` mode the two
+  lines stay paired chunk-for-chunk even though the translation's word count
+  differs from the original. A caption with no `"\n"` renders as a single
+  line exactly as before — no config change needed to keep using English-only
+  captions. See `references/config_schema.md` and `src/components/Caption.tsx`.
+- **Caption style**: `captionStyle` — `"box"` (default, dark rounded subtitle
+  bar), `"tiktok"` (bold white text with a black outline, no background box),
+  or `"karaoke"` (same layout as `"box"`, but the word currently being spoken
+  gets a red highlight pill and renders slightly larger). Estimated per-word
+  by default (word length, no forced alignment) — pass real per-word
+  `wordTimings` on a scene (see below) for exact sync to the actual audio
+  instead of an estimate.
+- **Exact word sync (`wordTimings`)**: if you have real per-word timestamps
+  for a scene's narration — e.g. from ElevenLabs' `/with-timestamps` TTS
+  endpoint, which AGENT_TOOL's voiceover step captures automatically — set
+  `scenes[i].wordTimings: [{ word, start, end }, ...]` (seconds, relative to
+  that scene's own audio start). `captionStyle: "karaoke"` then highlights
+  the exact word being spoken instead of estimating. Only used when the
+  timing array's word count matches the caption's own word count; otherwise
+  silently falls back to the estimate. See `references/config_schema.md`.
+- **Show/hide bilingual line**: `showBilingual` (default `true`) — set
+  `false` to render an otherwise-bilingual (`"\n"`-caption) script as
+  English-only for a given render, without touching the caption text itself.
 - **Caption position**: `captionPosition: "top"` or `"bottom"` (default).
 - **Image fit**: `imageFit: "cover"` (default, fills frame, may crop edges)
   or `"contain"` (letterboxes, no crop) — per-video or per-scene override.
 - **Ken Burns**: `kenBurns: false` turns it off globally; per-scene
   `"in"` / `"out"` / `"pan-left"` / `"pan-right"` / `"none"` overrides the
   auto-alternating default.
-- **Transitions**: `transitionSeconds` (default 0.5) controls the fade
-  in/out at every scene edge.
+- **Transitions**: `transitionSeconds` (default 0.5) controls the duration;
+  `transitionStyle` controls the shape — `"crossfade"` (default dissolve),
+  `"slide-left"` / `"slide-right"` / `"slide-up"` (push transition, both
+  scenes fully opaque), or `"zoom"` (scale + fade). The two scenes' visual
+  layers overlap for the whole transition window regardless of style, so
+  `bgColor` never flashes through between cuts.
 - **Colors**: `bgColor` (letterboxing/background fill).
 - **Font**: `fontFamily` — keep the Vietnamese-safe fallback stack
   (`'Be Vietnam Pro','Noto Sans',Arial,sans-serif`) unless the user's

@@ -320,15 +320,26 @@ export const PROMPT_CATEGORIES = {
     icon: '📸',
     description: 'Tạo kịch bản thoại ngắn và danh sách prompt để sinh ảnh người que cho từng phân cảnh, ghép thành video slideshow tiếng Anh nhất quán.',
     fields: [
-      { 
-        key: 'aspectRatio', 
-        label: 'Định dạng video (Tỉ lệ)', 
-        type: 'select', 
-        required: true, 
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
         defaultValue: '9:16',
         options: [
           { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
           { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'subtitleStyle',
+        label: 'Kiểu phụ đề (chỉ áp dụng khi bật tự động tạo bằng Gemini AI)',
+        type: 'select',
+        required: true,
+        defaultValue: 'english',
+        options: [
+          { value: 'english', label: 'Chỉ tiếng Anh' },
+          { value: 'bilingual', label: 'Song ngữ Anh - Việt (Anh trên, Việt dưới)' }
         ]
       },
       {

@@ -841,6 +841,8 @@ input:checked + .switch-slider:before {
 /* Spinner Animation */
 .animate-spin {
   animation: spin 1s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 @keyframes spin {

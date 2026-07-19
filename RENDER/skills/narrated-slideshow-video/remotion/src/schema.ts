@@ -29,6 +29,25 @@ export const sceneSchema = z.object({
 
   // Per-scene override of image fit. Omit to use the global default.
   imageFit: z.enum(["cover", "contain"]).optional(),
+
+  // Real per-word timing (seconds, relative to this scene's own audio
+  // start) captured from the TTS provider's character-alignment API during
+  // voiceover generation (see AGENT_TOOL's voiceover/route.js) — not
+  // something you'd normally hand-write. When present and its word count
+  // matches the caption's word count, captionStyle: "karaoke" (and chunk
+  // switching in general) uses these exact timestamps instead of the
+  // word-length-weighted estimate, so the highlighted word matches the
+  // actual spoken audio instead of an approximation. Omit if you don't
+  // have real timestamps — everything falls back to the estimate.
+  wordTimings: z
+    .array(
+      z.object({
+        word: z.string(),
+        start: z.number(),
+        end: z.number(),
+      })
+    )
+    .optional(),
 });
 
 export const slideshowVideoSchema = z.object({
@@ -51,10 +70,21 @@ export const slideshowVideoSchema = z.object({
   captionPosition: z.enum(["top", "bottom"]).default("bottom"),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   kenBurns: z.boolean().default(true),
-  // Fade in/out applied at the start/end of every scene — this is what
-  // makes consecutive scenes feel like a crossfade rather than a hard cut,
-  // with no overlapping-Sequence bookkeeping needed.
+  // Duration of the transition applied between every pair of consecutive
+  // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),
+
+  // Shape of that transition. "crossfade" = classic opacity dissolve.
+  // "slide-left"/"slide-right"/"slide-up" = the outgoing scene is pushed
+  // off-screen while the incoming one pushes in from the opposite edge
+  // (both fully opaque, no dissolve). "zoom" = outgoing scales up while
+  // fading out, incoming scales in from slightly smaller while fading in.
+  // All styles overlap the two scenes' visual layers during the
+  // transition window (SlideshowVideo.tsx) so the scene's own bgColor is
+  // never exposed as a flash between cuts.
+  transitionStyle: z
+    .enum(["crossfade", "slide-left", "slide-right", "slide-up", "zoom"])
+    .default("crossfade"),
   bgColor: z.string().default("#0E0F13"),
   fontFamily: z
     .string()
@@ -69,6 +99,21 @@ export const slideshowVideoSchema = z.object({
   // whole time. "full" shows the whole caption for the whole scene.
   captionMode: z.enum(["chunked", "full"]).default("chunked"),
   captionWordsPerChunk: z.number().min(1).max(12).default(4),
+
+  // Visual treatment of the caption. "box" = the original dark rounded
+  // subtitle bar. "tiktok" = bold white text with a black outline, no
+  // background box (secondary/translation line in an accent color).
+  // "karaoke" = same layout as "box" but the single word currently being
+  // spoken (estimated the same word-weighted way as chunk pacing) gets a
+  // colored highlight pill and a slightly larger size. See Caption.tsx.
+  captionStyle: z.enum(["box", "tiktok", "karaoke"]).default("box"),
+
+  // Whether to show the secondary (translation) line of a bilingual
+  // caption ("English\nTiếng Việt" — see Caption.tsx). Sceneswith no
+  // "\n" in their caption are unaffected either way; this only lets you
+  // quickly render a bilingual script as English-only without editing
+  // every scene's caption text.
+  showBilingual: z.boolean().default(true),
 
   // Extra seconds a scene holds after its narration finishes, so the cut
   // to the next scene doesn't land right on the last word. Ignored for

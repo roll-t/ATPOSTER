@@ -3,6 +3,8 @@
  * "Video Slide Ảnh Học Tiếng Anh".
  */
 export function buildImageSlideshowScriptPrompt(input, durationInfo) {
+  const isBilingual = input.subtitleStyle === 'bilingual';
+
   const charsDetail = `
 - Determine the stick-figure character(s) needed to silently depict the topic. Use as few as the topic actually needs (often just 1, at most 3).
 - Give them simple names (e.g. Alex, Mia, John, Leo) and a simple distinguishing accessory/look (e.g. wearing a red baseball cap, wearing round glasses, holding a notebook, wearing a blue hoodie) — this is only for YOUR OWN consistency across slides. Never write these names as visible text anywhere in the image.
@@ -46,7 +48,9 @@ NARRATION SCRIPT GUIDELINES:
 1. The script must go straight into describing a real, relatable everyday problem/issue (e.g. procrastination, phone addiction, wasting money, fear of failure, unhealthy habits, social media comparison...) told in a narrator's voice — never as a scripted conversation between named characters.
 2. The narration (dialogueOrNarration) must be third-person storytelling/documentary-style voiceover, spoken in a natural, normal narrating voice.
 3. Language constraint: The content MUST be 100% in simple, basic English (suitable for high school level, TOEIC 300+ level). Use simple vocabulary and short, clear sentences. No advanced expressions.
-4. Display the English-only subtitle/text clearly.
+4. ${isBilingual
+    ? 'Subtitle language: for EVERY segment, the "subtitle" field must contain the English line, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line (e.g. "Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ."). Keep the Vietnamese translation short and natural, matching the meaning of the English line above it — do not translate dialogueOrNarration, only subtitle.'
+    : 'Display the English-only subtitle/text clearly.'}
 5. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g., "[sighs] So many people struggle with this every day.", "[softly] But it does not have to stay this way."). Use standard tags like [sighs], [softly], [gasp], [whispering], [pause]. Do not include Vietnamese emotional tags, only English ones.
 
 
@@ -58,7 +62,9 @@ Return the result as a JSON object matching exactly this schema:
       "segmentNumber": 1,
       "visualDescription": "Detailed visual description in English of the slide image, focusing on the stick figure character(s) silently acting out the moment the narration describes, their positions, poses, accessories, expressions, and whiteboard sketch background, suitable for direct text-to-image prompts. No text/labels in the image unless one short meaningful phrase naturally belongs in the scene. (e.g. In a simple whiteboard-sketched dark bedroom at night, a simple black ink stickman lies in bed scrolling on a glowing phone, eyes half-closed, clearly unable to sleep. Plain white background, minimalist line-art.)",
       "dialogueOrNarration": "Full narration line in English, third-person voiceover style (e.g. Millions of people lie awake every night, scrolling instead of sleeping.)",
-      "subtitle": "Millions of people lie awake every night, scrolling instead of sleeping."
+      "subtitle": "${isBilingual
+        ? 'Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ.'
+        : 'Millions of people lie awake every night, scrolling instead of sleeping.'}"
     }
   ]
 }

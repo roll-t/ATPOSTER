@@ -749,6 +749,7 @@ function saveManifest() {
   const manifest = {
     title: queue.title,
     isImage: queue.isImage,
+    orientation: queue.orientation === 'landscape' ? 'landscape' : 'portrait',
     createdAt: queue.createdAt,
     updatedAt: Date.now(),
     segments: queue.segments.map(s => ({

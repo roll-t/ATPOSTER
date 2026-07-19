@@ -60,6 +60,89 @@ function StepProgressBar({ percent, label, color, showShimmer }) {
   );
 }
 
+// Thẻ chọn dạng lưới có ảnh xem trước (thay cho dropdown) — dùng chung cho cả 2 bộ chọn
+// kiểu phụ đề và kiểu chuyển cảnh bên dưới, để việc chọn trực quan hơn là đọc chữ trong <select>.
+function PickerCard({ selected, onClick, label, children, width = 108 }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '6px',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        width
+      }}
+    >
+      <div style={{
+        width: '100%',
+        aspectRatio: '9 / 16',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        background: '#141419',
+        border: selected ? '2px solid var(--primary)' : '1px solid rgba(255,255,255,0.12)',
+        boxShadow: selected ? '0 0 0 3px rgba(254,44,85,0.22)' : 'none',
+        position: 'relative'
+      }}>
+        {children}
+      </div>
+      <span style={{ fontSize: '0.68rem', fontWeight: selected ? 700 : 500, color: selected ? '#fff' : 'var(--text-muted)', textAlign: 'center', lineHeight: 1.25 }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+// Ảnh xem trước kiểu phụ đề — mô phỏng đúng cách Caption.tsx của skill render, để chọn
+// biết ngay style trông ra sao thay vì phải tưởng tượng qua tên gọi trong dropdown.
+function CaptionStylePreview({ style }) {
+  const strokeShadow = '-1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, -1.5px 1.5px 0 #000, 0 1.5px 0 #000, 1.5px 1.5px 0 #000';
+  return (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 8px 10px' }}>
+      {style === 'tiktok' ? (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fff', textShadow: strokeShadow }}>DON&apos;T</div>
+          <div style={{ fontSize: '8px', fontWeight: 500, color: '#FFE14D', textShadow: strokeShadow, marginTop: '2px' }}>Đừng bỏ cuộc</div>
+        </div>
+      ) : style === 'karaoke' ? (
+        <div style={{ background: 'rgba(10,10,14,0.75)', borderRadius: '6px', padding: '4px 7px', textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700 }}>
+            <span style={{ background: '#FE2C55', color: '#fff', borderRadius: '3px', padding: '0 3px' }}>Don&apos;t</span>{' '}
+            <span style={{ color: '#fff' }}>give up</span>
+          </div>
+          <div style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '2px' }}>Đừng bỏ cuộc</div>
+        </div>
+      ) : (
+        <div style={{ background: 'rgba(10,10,14,0.75)', borderRadius: '6px', padding: '4px 7px', textAlign: 'center' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fff' }}>Don&apos;t give up</div>
+          <div style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '2px' }}>Đừng bỏ cuộc</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Ảnh xem trước kiểu chuyển cảnh — 2 khối màu chạy animation CSS lặp vô hạn mô phỏng đúng
+// chuyển động thật (hòa tan/trượt/phóng to), để thấy hiệu ứng chuyển động chứ không chỉ đọc tên.
+function TransitionStylePreview({ style }) {
+  const frameBase = { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  return (
+    <>
+      <div style={{ ...frameBase, background: '#1f2937', animation: `prev-${style}-a 1.6s ease-in-out infinite alternate` }}>
+        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(37,244,238,0.55)' }} />
+      </div>
+      <div style={{ ...frameBase, background: '#3a1f2e', animation: `prev-${style}-b 1.6s ease-in-out infinite alternate` }}>
+        <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: 'rgba(254,44,85,0.6)' }} />
+      </div>
+    </>
+  );
+}
+
 // Tóm tắt trạng thái chạy hàng đợi Google Flow (từ extension), đối chiếu với đúng kịch bản
 // đang hiển thị (khớp theo title) — trả về null nếu không có gì để hiển thị.
 function getFlowQueueStatus(extQueueState, resultTitle) {
@@ -94,12 +177,18 @@ function getFlowQueueStatus(extQueueState, resultTitle) {
   return { label, color, phase, completed, total };
 }
 
-export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process' }) {
+export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process', onResult, onHistoryRefresh }) {
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [voiceMsg, setVoiceMsg] = useState('');
+  const [isTranslatingSubtitles, setIsTranslatingSubtitles] = useState(false);
+  const [subtitleMsg, setSubtitleMsg] = useState('');
   const [extQueueState, setExtQueueState] = useState(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [renderMsg, setRenderMsg] = useState('');
+  const [renderCaptionStyle, setRenderCaptionStyle] = useState('box');
+  const [renderTransitionStyle, setRenderTransitionStyle] = useState('crossfade');
+  const [renderBilingual, setRenderBilingual] = useState(true);
+  const [showRenderConfig, setShowRenderConfig] = useState(false);
   const [assetCounts, setAssetCounts] = useState({
     imageCount: 0,
     audioCount: 0,
@@ -111,43 +200,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const [openFolderError, setOpenFolderError] = useState('');
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const [showVoiceConfig, setShowVoiceConfig] = useState(false);
+  const [settings, setSettings] = useState({ voiceMappings: {} });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [quota, setQuota] = useState(null);
+  const [loadingQuota, setLoadingQuota] = useState(false);
+  const [quotaError, setQuotaError] = useState('');
 
-  // Bước 2 (ElevenLabs) chạy 1 lệnh xử lý tuần tự từng slide phía server, không có tiến trình
-  // real-time gửi về - nên mô phỏng đếm dần "n/tổng" theo ước tính ~1.3s/slide để đồng bộ hiệu
-  // ứng với Bước 1, dừng lại ở tổng-1 chờ API trả về thật rồi mới coi là xong (assetCounts.audioCount).
-  useEffect(() => {
-    if (!isGeneratingVoice) {
-      setVoiceProgress(0);
-      return;
-    }
-    const total = result.segments.length;
-    const timer = setInterval(() => {
-      setVoiceProgress(prev => (prev < total - 1 ? prev + 1 : prev));
-    }, 1300);
-    return () => clearInterval(timer);
-  }, [isGeneratingVoice, result.segments.length]);
-
-  // Bước 3 (Remotion render) cũng chỉ là 1 lệnh chạy 1 lần, không có % thật - mô phỏng thanh %
-  // tăng dần theo đường cong ease-out (nhanh lúc đầu, chậm dần) dựa trên thời lượng ước tính theo
-  // số slide, dừng ở mức 92% chờ API render thật trả về xong mới nhảy lên 100%.
-  useEffect(() => {
-    if (!isRenderingVideo) {
-      setRenderProgress(0);
-      return;
-    }
-    const startTime = Date.now();
-    const estimatedDurationMs = Math.max(8000, result.segments.length * 2500);
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const eased = 1 - Math.pow(1 - Math.min(elapsed / estimatedDurationMs, 1), 2);
-      setRenderProgress(Math.min(92, Math.round(eased * 100)));
-    }, 300);
-    return () => clearInterval(timer);
-  }, [isRenderingVideo, result.segments.length]);
+  const flowStatus = getFlowQueueStatus(extQueueState, result.title);
 
   const checkAssets = async () => {
     try {
@@ -170,40 +230,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       console.error('Error checking assets:', err);
     }
   };
-
-  useEffect(() => {
-    checkAssets();
-  }, [result]);
-
-  useEffect(() => {
-    if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
-      checkAssets();
-    }
-  }, [extQueueState]);
-
-  // Lắng nghe trạng thái hàng đợi được content-bridge.js của extension đẩy ngược lại (nếu có
-  // cài extension), để hiển thị tiến độ chạy thật ngay trên trang thay vì phải mở side panel.
-  useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.source !== window) return;
-      if (event.data && event.data.type === 'FLOW_QUEUE_STATE') {
-        setExtQueueState({ queue: event.data.queue, autoRunActive: event.data.autoRunActive });
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    // Xin trạng thái hiện tại ngay khi mount, vì bridge có thể đã broadcast trước khi component này tồn tại
-    window.postMessage({ type: 'REQUEST_FLOW_QUEUE_STATE' }, '*');
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  const flowStatus = getFlowQueueStatus(extQueueState, result.title);
-
-  const [showVoiceConfig, setShowVoiceConfig] = useState(false);
-  const [settings, setSettings] = useState({ voiceMappings: {} });
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [quota, setQuota] = useState(null);
-  const [loadingQuota, setLoadingQuota] = useState(false);
-  const [quotaError, setQuotaError] = useState('');
 
   const fetchSettings = async () => {
     try {
@@ -239,11 +265,43 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   useEffect(() => {
+    fetchQuota();
+  }, []);
+
+  useEffect(() => {
     if (showVoiceConfig) {
       fetchSettings();
       fetchQuota();
     }
   }, [showVoiceConfig]);
+
+  const flowButtonLabel = (status) => {
+    if (!status) return '🚀 Đẩy sang Google Flow';
+    if (status.phase === 'completed') return `✅ Đã xong (${status.completed}/${status.total}) — Đẩy lại`;
+    if (status.phase === 'running') return `⏳ Đang chạy (${status.completed}/${status.total}) — Đẩy lại`;
+    if (status.phase === 'paused') return `⏸ Tạm dừng (${status.completed}/${status.total}) — Đẩy lại`;
+    return '🚀 Đẩy sang Google Flow';
+  };
+
+  const pushToFlow = (status) => {
+    if (status) {
+      const confirmed = window.confirm(
+        `Kịch bản này đang có tiến độ trên Google Flow (${status.completed}/${status.total} ảnh).\n\n` +
+        `Bấm OK để tạo lại hàng đợi từ đầu (sẽ mất tiến độ đang có, các ảnh đã tải vẫn còn nguyên trong thư mục).\n` +
+        `Bấm Cancel để không làm gì cả.`
+      );
+      if (!confirmed) return;
+    }
+    window.postMessage({
+      type: 'START_FLOW_GENERATION',
+      segments: result.segments,
+      title: result.title,
+      isImage: result.category === 'stick_figure_slideshow' || result.category === 'image_slideshow',
+      folderPath: result.input?.folderPath || 'example',
+      imageExt: result.input?.imageExt || 'jpg',
+      orientation: result.remotionConfig?.orientation || (result.input?.aspectRatio === '16:9' ? 'landscape' : 'portrait')
+    }, '*');
+  };
 
   const handleGenerateVoice = async () => {
     setIsGeneratingVoice(true);
@@ -265,7 +323,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const data = await res.json();
       if (res.ok && data.success) {
         setVoiceMsg(`✓ Đã tạo thành công! Lưu tại: ${data.targetDirectory}`);
-        // Tự động tải lại số ký tự còn lại sau khi lồng tiếng thành công
         fetchQuota();
         checkAssets();
       } else {
@@ -306,7 +363,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          folderPath: result.input?.folderPath || 'example'
+          folderPath: result.input?.folderPath || 'example',
+          captionStyle: renderCaptionStyle,
+          transitionStyle: renderTransitionStyle,
+          bilingual: renderBilingual
         })
       });
       const data = await res.json();
@@ -324,34 +384,113 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
-  // Nhãn nút phản ánh đúng trạng thái thật (chưa gửi / đang chạy / tạm dừng / đã xong), thay vì
-  // luôn hiển thị tĩnh "Đẩy sang..." dù kịch bản này có thể đã chạy dở trên Flow rồi.
-  const flowButtonLabel = (status) => {
-    if (!status) return '🚀 Đẩy sang Google Flow';
-    if (status.phase === 'completed') return `✅ Đã xong (${status.completed}/${status.total}) — Đẩy lại`;
-    if (status.phase === 'running') return `⏳ Đang chạy (${status.completed}/${status.total}) — Đẩy lại`;
-    if (status.phase === 'paused') return `⏸ Tạm dừng (${status.completed}/${status.total}) — Đẩy lại`;
-    return '🚀 Đẩy sang Google Flow';
+  const alreadyBilingual = result.segments.length > 0 && result.segments.every(seg => (seg.subtitle || '').includes('\n'));
+
+  const handleTranslateSubtitles = async () => {
+    setIsTranslatingSubtitles(true);
+    setSubtitleMsg('');
+    try {
+      const res = await fetch('/api/prompts/translate-subtitles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: result.id,
+          folderPath: result.input?.folderPath || '',
+          segments: result.segments
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updatedRemotionConfig = result.remotionConfig?.scenes
+          ? {
+            ...result.remotionConfig,
+            scenes: result.remotionConfig.scenes.map((scene, idx) => ({
+              ...scene,
+              caption: data.segments[idx]?.subtitle ?? scene.caption
+            }))
+          }
+          : result.remotionConfig;
+        onResult?.({ ...result, segments: data.segments, remotionConfig: updatedRemotionConfig });
+        if (result.id) onHistoryRefresh?.();
+        setSubtitleMsg(
+          data.manifestUpdated
+            ? '✓ Đã cập nhật phụ đề song ngữ! Nhấn "Tạo Lại Video" ở Bước 3 để video mới hiển thị phụ đề song ngữ.'
+            : '✓ Đã cập nhật phụ đề song ngữ!'
+        );
+      } else {
+        setSubtitleMsg(`Lỗi: ${data.error || 'Không thể dịch phụ đề.'}`);
+      }
+    } catch (err) {
+      setSubtitleMsg('Lỗi: Không thể kết nối tới server.');
+    } finally {
+      setIsTranslatingSubtitles(false);
+    }
   };
 
-  const pushToFlow = (status) => {
-    if (status) {
-      const confirmed = window.confirm(
-        `Kịch bản này đang có tiến độ trên Google Flow (${status.completed}/${status.total} ảnh).\n\n` +
-        `Bấm OK để tạo lại hàng đợi từ đầu (sẽ mất tiến độ đang có, các ảnh đã tải vẫn còn nguyên trong thư mục).\n` +
-        `Bấm Cancel để không làm gì cả.`
-      );
-      if (!confirmed) return;
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+
+
+  // Bước 2 (ElevenLabs) chạy 1 lệnh xử lý tuần tự từng slide phía server, không có tiến trình
+  // real-time gửi về - nên mô phỏng đếm dần "n/tổng" theo ước tính ~1.3s/slide để đồng bộ hiệu
+  // ứng với Bước 1, dừng lại ở tổng-1 chờ API trả về thật rồi mới coi là xong (assetCounts.audioCount).
+  useEffect(() => {
+    if (!isGeneratingVoice) {
+      setVoiceProgress(0);
+      return;
     }
-    window.postMessage({
-      type: 'START_FLOW_GENERATION',
-      segments: result.segments,
-      title: result.title,
-      isImage: result.category === 'stick_figure_slideshow' || result.category === 'image_slideshow',
-      folderPath: result.input?.folderPath || 'example',
-      imageExt: result.input?.imageExt || 'jpg'
-    }, '*');
-  };
+    const total = result.segments.length;
+    const timer = setInterval(() => {
+      setVoiceProgress(prev => (prev < total - 1 ? prev + 1 : prev));
+    }, 1300);
+    return () => clearInterval(timer);
+  }, [isGeneratingVoice, result.segments.length]);
+
+  // Bước 3 (Remotion render) cũng chỉ là 1 lệnh chạy 1 lần, không có % thật - mô phỏng thanh %
+  // tăng dần theo đường cong ease-out (nhanh lúc đầu, chậm dần) dựa trên thời lượng ước tính theo
+  // số slide, dừng ở mức 92% chờ API render thật trả về xong mới nhảy lên 100%.
+  useEffect(() => {
+    if (!isRenderingVideo) {
+      setRenderProgress(0);
+      return;
+    }
+    const startTime = Date.now();
+    const estimatedDurationMs = Math.max(8000, result.segments.length * 2500);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const eased = 1 - Math.pow(1 - Math.min(elapsed / estimatedDurationMs, 1), 2);
+      setRenderProgress(Math.min(92, Math.round(eased * 100)));
+    }, 300);
+    return () => clearInterval(timer);
+  }, [isRenderingVideo, result.segments.length]);
+
+  useEffect(() => {
+    checkAssets();
+  }, [result]);
+
+  useEffect(() => {
+    if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
+      checkAssets();
+    }
+  }, [extQueueState]);
+
+  // Lắng nghe trạng thái hàng đợi được content-bridge.js của extension đẩy ngược lại (nếu có
+  // cài extension), để hiển thị tiến độ chạy thật ngay trên trang thay vì phải mở side panel.
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.source !== window) return;
+      if (event.data && event.data.type === 'FLOW_QUEUE_STATE') {
+        setExtQueueState({ queue: event.data.queue, autoRunActive: event.data.autoRunActive });
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    // Xin trạng thái hiện tại ngay khi mount, vì bridge có thể đã broadcast trước khi component này tồn tại
+    window.postMessage({ type: 'REQUEST_FLOW_QUEUE_STATE' }, '*');
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   return (
     <div>
@@ -393,25 +532,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         )}
       </div>
 
-      {/* Trạng thái chạy thật trên Google Flow (đọc từ Chrome Extension nếu đã cài) — chỉ hiện ở
-          đây khi KHÔNG có pipeline "3 Bước" bên dưới (pipeline có ô Bước 1 hiển thị tiến độ riêng,
-          hiện cả 2 chỗ sẽ bị trùng lặp). */}
-      {flowStatus && !(activeTab === 'process' && result.category === 'stick_figure_slideshow') && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.78rem', marginBottom: '16px' }}>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Google Flow:</span>
-          <span style={{ color: flowStatus.color, fontWeight: 700 }}>{flowStatus.label}</span>
-          {flowStatus.total > 0 && (
-            <div style={{ flex: 1, maxWidth: '220px', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${Math.round((flowStatus.completed / flowStatus.total) * 100)}%`,
-                height: '100%',
-                background: flowStatus.color,
-                transition: 'width 0.3s ease'
-              }} />
-            </div>
-          )}
-        </div>
-      )}
+
 
       {activeTab === 'process' && result.category === 'stick_figure_slideshow' && (
         <div style={{
@@ -427,7 +548,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
           {/* Steps Pipeline */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-            
+
             {/* Bước 1: Sinh & tải ảnh */}
             {(() => {
               const total = result.segments.length;
@@ -466,12 +587,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         {isStep1Done ? '✓' : '1'}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span>Bước 1: Sinh & tải ảnh tự động (Google Flow)</span>
-                          <span className={isStep1Running ? 'running-status-dot' : ''} style={{ fontSize: '0.74rem', color: isStep1Done ? '#10b981' : 'var(--warning)', fontWeight: 500 }}>
-                            {isStep1Done ? `✅ Đã xong! (Đủ ${assetCounts.imageCount}/${total} ảnh)` :
-                             flowStatus ? flowStatus.label : `(Hiện tại: ${assetCounts.imageCount}/${total} ảnh)`}
-                          </span>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 1: Sinh & tải ảnh tự động (Google Flow)
                         </span>
                       </div>
                     </div>
@@ -479,13 +596,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       type="button"
                       className="btn"
                       style={{
-                        padding: '6px 12px',
-                        fontSize: '0.74rem',
-                        borderRadius: '6px',
+                        padding: '7px 14px',
+                        fontSize: '0.76rem',
+                        borderRadius: '8px',
                         fontWeight: 700,
-                        background: isStep1Done ? 'rgba(16, 185, 129, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
-                        color: isStep1Done ? '#10b981' : '#fff',
-                        border: isStep1Done ? '1px solid #10b981' : 'none',
+                        background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
+                        color: isStep1Done ? '#2ed573' : '#fff',
+                        border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
+                        boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
                         flexShrink: 0
@@ -532,11 +650,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        background: isStep2Done ? '#10b981' : isStep1Done ? '#00f2fe' : 'rgba(255,255,255,0.1)',
+                        background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: isStep1Done ? '#000' : '#fff',
+                        color: '#fff',
                         fontWeight: 800,
                         fontSize: '0.8rem',
                         flexShrink: 0,
@@ -545,21 +663,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         {isStep2Done ? '✓' : '2'}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span>Bước 2: Tạo giọng lồng tiếng (ElevenLabs)</span>
-                          <span className={isGeneratingVoice ? 'running-status-dot' : ''} style={{ fontSize: '0.74rem', color: isStep2Done ? '#10b981' : 'var(--text-muted)', fontWeight: 500 }}>
-                            {isGeneratingVoice ? `⏳ Đang tạo ${voiceProgress}/${total} audio` :
-                             isStep2Done ? `✅ Đã xong! (${assetCounts.audioCount}/${total} audio)` :
-                             isStep1Done ? `(Sẵn sàng cho ${total} slide)` : `(⏳ Chờ Bước 1)`}
-                          </span>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 2: Tạo giọng lồng tiếng (ElevenLabs)
                         </span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        style={{ padding: '6px 8px', fontSize: '0.74rem', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                        style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowVoiceConfig(!showVoiceConfig)}
                         disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
                       >
@@ -569,13 +682,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         type="button"
                         className="btn"
                         style={{
-                          padding: '6px 12px',
-                          fontSize: '0.74rem',
-                          borderRadius: '6px',
+                          padding: '7px 14px',
+                          fontSize: '0.76rem',
+                          borderRadius: '8px',
                           fontWeight: 700,
-                          background: isStep2Done ? 'rgba(16, 185, 129, 0.15)' : 'linear-gradient(135deg, #00f2fe, #4facfe)',
-                          color: isStep2Done ? '#10b981' : '#fff',
-                          border: isStep2Done ? '1px solid #10b981' : 'none',
+                          background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                          color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                          border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
                           cursor: (!isStep1Done || isGeneratingVoice) ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap'
                         }}
@@ -623,7 +737,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        background: isStep3Done ? '#10b981' : isStep2Done ? '#10b981' : 'rgba(255,255,255,0.1)',
+                        background: isStep3Done ? '#10b981' : isStep2Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -636,37 +750,44 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         {isStep3Done ? '✓' : '3'}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span>Bước 3: Biên tập & Xuất Video (Remotion)</span>
-                          <span className={isRenderingVideo ? 'running-status-dot' : ''} style={{ fontSize: '0.74rem', color: isStep3Done ? '#10b981' : 'var(--text-muted)', fontWeight: 500 }}>
-                            {isRenderingVideo ? `⏳ Đang render ${renderProgress}%` :
-                             isStep3Done ? '✅ Đã xong!' :
-                             isStep2Done ? '(Sẵn sàng xuất)' : '(⏳ Chờ Bước 2)'}
-                          </span>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 3: Biên tập & Xuất Video (Remotion)
                         </span>
                       </div>
                     </div>
-                    <button
-                    type="button"
-                    className="btn btn-success"
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '0.74rem',
-                      borderRadius: '6px',
-                      fontWeight: 700,
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      color: '#fff',
-                      border: 'none',
-                      boxShadow: '0 2px 10px rgba(16, 185, 129, 0.2)',
-                      cursor: (!isStep2Done || isRenderingVideo) ? 'not-allowed' : 'pointer',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0
-                    }}
-                    onClick={handleRenderVideo}
-                    disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
-                  >
-                    {isRenderingVideo ? '⏳ Đang render...' : isStep3Done ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
-                  </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        title="Cấu hình kiểu render (phụ đề, chuyển cảnh, song ngữ)"
+                        style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                        onClick={() => setShowRenderConfig(!showRenderConfig)}
+                        disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                      >
+                        ⚙️
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          padding: '7px 14px',
+                          fontSize: '0.76rem',
+                          borderRadius: '8px',
+                          fontWeight: 700,
+                          background: isStep3Done ? 'rgba(46, 213, 115, 0.15)' : isStep2Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                          color: isStep3Done ? '#2ed573' : isStep2Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                          border: isStep3Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep2Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: isStep3Done || !isStep2Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                          cursor: (!isStep2Done || isRenderingVideo) ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0
+                        }}
+                        onClick={handleRenderVideo}
+                        disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                      >
+                        {isRenderingVideo ? '⏳ Đang render...' : isStep3Done ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
@@ -683,6 +804,55 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             })()}
 
           </div>
+
+          {/* Cập nhật phụ đề song ngữ cho kịch bản ĐÃ TẠO SẴN (không cần tạo lại từ đầu) —
+              dịch lại từng dòng subtitle tiếng Anh hiện có sang tiếng Việt, ghép thành
+              "Anh\nViệt" mà Caption.tsx của skill hiểu, và ghi luôn vào manifest.json trên
+              đĩa nếu ảnh đã sinh qua Google Flow, để Bước 3 render đúng bản mới. */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            background: 'rgba(255, 255, 255, 0.015)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            borderRadius: '10px'
+          }}>
+            <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+              🌐 Phụ đề song ngữ (Anh trên - Việt dưới)
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '7px 14px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
+              onClick={handleTranslateSubtitles}
+              disabled={isTranslatingSubtitles || isRenderingVideo || isGeneratingVoice}
+            >
+              {isTranslatingSubtitles
+                ? '⏳ Đang dịch...'
+                : alreadyBilingual
+                  ? '🌐 Dịch lại phụ đề song ngữ'
+                  : '🌐 Cập nhật phụ đề song ngữ'}
+            </button>
+          </div>
+
+          {subtitleMsg && (
+            <div style={{
+              fontSize: '0.78rem',
+              color: subtitleMsg.startsWith('✓') ? '#2ed573' : 'var(--danger)',
+              background: subtitleMsg.startsWith('✓') ? 'rgba(46, 213, 115, 0.08)' : 'rgba(255, 71, 87, 0.08)',
+              border: subtitleMsg.startsWith('✓') ? '1px solid rgba(46, 213, 115, 0.15)' : '1px solid rgba(255, 71, 87, 0.15)',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              marginBottom: '16px',
+              fontWeight: 500
+            }}>
+              {subtitleMsg}
+            </div>
+          )}
 
           {/* Video Player Preview */}
           {assetCounts.videoCreated && (
@@ -900,97 +1070,97 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       {activeTab === 'script' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, flex: 1 }}>
-          Dưới đây là kịch bản thoại đã được chia nhỏ thành các slide. Hãy sao chép lần lượt từng prompt ảnh phía dưới để sinh ảnh (bằng Midjourney/Flux) hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
-        </p>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-          onClick={() => {
-            const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${s.dialogueOrNarration}\nPhụ đề: ${s.subtitle}`).join('\n\n');
-            onCopy(allPrompts, 'all_segments');
-          }}
-        >
-          {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {result.segments.map((seg, idx) => (
-          <div key={idx} className="timeline-card">
-            <div className="timeline-meta">
-              <strong style={{ color: 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🎬</span>
-                <span>Slide {seg.segmentNumber}</span>
-              </strong>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
-                onClick={() => onCopy(seg.textPrompt, `seg_${seg.segmentNumber}`)}
-              >
-                {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
-              <div>
-                <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
-                </span>
-                <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                  {seg.visualDescription}
-                </p>
-              </div>
-
-              {seg.dialogueOrNarration && (
-                <div>
-                  <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
-                  </span>
-                  <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                    {seg.dialogueOrNarration}
-                  </p>
-                </div>
-              )}
-
-              {seg.subtitle && (
-                <div>
-                  <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>📝</span> <span>Phụ đề hiển thị</span>
-                  </span>
-                  <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                    {seg.subtitle}
-                  </p>
-                </div>
-              )}
-
-              <div style={{ marginTop: '8px' }}>
-                <details style={{ width: '100%' }}>
-                  <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                    Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
-                  </summary>
-                  <div style={{
-                    background: '#0a0912',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    fontSize: '0.76rem',
-                    fontFamily: 'monospace',
-                    marginTop: '8px',
-                    whiteSpace: 'pre-wrap',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    color: 'rgba(255,255,255,0.65)',
-                    lineHeight: 1.45
-                  }}>
-                    {seg.textPrompt}
-                  </div>
-                </details>
-              </div>
-            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, flex: 1 }}>
+              Dưới đây là kịch bản thoại đã được chia nhỏ thành các slide. Hãy sao chép lần lượt từng prompt ảnh phía dưới để sinh ảnh (bằng Midjourney/Flux) hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+              onClick={() => {
+                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${s.dialogueOrNarration}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                onCopy(allPrompts, 'all_segments');
+              }}
+            >
+              {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
+            </button>
           </div>
-        ))}
-      </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {result.segments.map((seg, idx) => (
+              <div key={idx} className="timeline-card">
+                <div className="timeline-meta">
+                  <strong style={{ color: 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🎬</span>
+                    <span>Slide {seg.segmentNumber}</span>
+                  </strong>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
+                    onClick={() => onCopy(seg.textPrompt, `seg_${seg.segmentNumber}`)}
+                  >
+                    {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
+                    </span>
+                    <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                      {seg.visualDescription}
+                    </p>
+                  </div>
+
+                  {seg.dialogueOrNarration && (
+                    <div>
+                      <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                      </span>
+                      <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                        {seg.dialogueOrNarration}
+                      </p>
+                    </div>
+                  )}
+
+                  {seg.subtitle && (
+                    <div>
+                      <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>📝</span> <span>Phụ đề hiển thị</span>
+                      </span>
+                      <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                        {seg.subtitle}
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '8px' }}>
+                    <details style={{ width: '100%' }}>
+                      <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                        Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
+                      </summary>
+                      <div style={{
+                        background: '#0a0912',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        fontSize: '0.76rem',
+                        fontFamily: 'monospace',
+                        marginTop: '8px',
+                        whiteSpace: 'pre-wrap',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        color: 'rgba(255,255,255,0.65)',
+                        lineHeight: 1.45
+                      }}>
+                        {seg.textPrompt}
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
 
@@ -1047,11 +1217,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </span>
               ) : quota ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }} title={`Còn lại ${quota.remaining?.toLocaleString()} / ${quota.characterLimit?.toLocaleString()} ký tự miễn phí`}>
-                   <QuotaRing percent={quota.characterLimit ? (quota.characterCount / quota.characterLimit) * 100 : 0} />
-                   <span style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                     <span style={{ color: '#00f2fe', fontWeight: 600 }}>{quota.remaining?.toLocaleString()}</span>
-                     <span style={{ color: 'var(--text-muted)' }}>/{quota.characterLimit?.toLocaleString()} còn lại</span>
-                   </span>
+                  <QuotaRing percent={quota.characterLimit ? (quota.characterCount / quota.characterLimit) * 100 : 0} />
+                  <span style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: '#00f2fe', fontWeight: 600 }}>{quota.remaining?.toLocaleString()}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>/{quota.characterLimit?.toLocaleString()} còn lại</span>
+                  </span>
                 </span>
               ) : quotaError ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -1075,17 +1245,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px', marginBottom: '24px' }}>
               {[
-                { key: 'alex', label: 'Giọng Alex', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                { key: 'mia', label: 'Giọng Mia', defaultId: 'uREKoCeM2xnPeGaH8ZFM' },
-                { key: 'leo', label: 'Giọng Leo', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                { key: 'zoe', label: 'Giọng Zoe', defaultId: 'uREKoCeM2xnPeGaH8ZFM' },
-                { key: 'tom', label: 'Giọng Tom', defaultId: '60qpDkuGX2KEChynwVZJ' },
-                { key: 'narrator', label: 'Giọng Người kể (Narrator)', defaultId: 'uREKoCeM2xnPeGaH8ZFM' }
+                { key: 'alex', label: 'Giọng Alex', defaultId: 'wJSBXsvChUQrylZvDzav' },
+                { key: 'mia', label: 'Giọng Mia', defaultId: '4IQqf6fVNeEFbqnSbVxb' },
+                { key: 'leo', label: 'Giọng Leo', defaultId: 'wJSBXsvChUQrylZvDzav' },
+                { key: 'zoe', label: 'Giọng Zoe', defaultId: '4IQqf6fVNeEFbqnSbVxb' },
+                { key: 'tom', label: 'Giọng Tom', defaultId: 'wJSBXsvChUQrylZvDzav' },
+                { key: 'narrator', label: 'Giọng Người kể (Narrator)', defaultId: '4IQqf6fVNeEFbqnSbVxb' }
               ].map(char => {
                 const currentVal = settings.voiceMappings?.[char.key] || char.defaultId;
                 const presetList = [
-                  { name: 'Giọng của tôi (Nữ)', id: 'uREKoCeM2xnPeGaH8ZFM' },
-                  { name: 'Giọng của tôi (Nam)', id: '60qpDkuGX2KEChynwVZJ' }
+                  { name: 'Giọng của tôi (Nữ)', id: '4IQqf6fVNeEFbqnSbVxb' },
+                  { name: 'Giọng của tôi (Nam)', id: 'wJSBXsvChUQrylZvDzav' }
                 ];
                 const isPreset = presetList.some(p => p.id === currentVal);
 
@@ -1179,6 +1349,127 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 onClick={() => setShowVoiceConfig(false)}
               >
                 Hủy
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Cấu hình kiểu render (Modal Dialog via Portal) - phụ đề, chuyển cảnh, song ngữ.
+          Chỉ áp dụng cho lần bấm "Tạo (Lại) Video" tiếp theo, không cần tạo lại kịch bản. */}
+      {showRenderConfig && mounted && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          backdropFilter: 'blur(8px)',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes slideUp {
+              from { transform: translateY(20px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes prev-crossfade-a { 0% { opacity: 1; } 100% { opacity: 0; } }
+            @keyframes prev-crossfade-b { 0% { opacity: 0; } 100% { opacity: 1; } }
+            @keyframes prev-slide-left-a { 0% { transform: translateX(0%); } 100% { transform: translateX(-100%); } }
+            @keyframes prev-slide-left-b { 0% { transform: translateX(100%); } 100% { transform: translateX(0%); } }
+            @keyframes prev-slide-right-a { 0% { transform: translateX(0%); } 100% { transform: translateX(100%); } }
+            @keyframes prev-slide-right-b { 0% { transform: translateX(-100%); } 100% { transform: translateX(0%); } }
+            @keyframes prev-slide-up-a { 0% { transform: translateY(0%); } 100% { transform: translateY(-100%); } }
+            @keyframes prev-slide-up-b { 0% { transform: translateY(100%); } 100% { transform: translateY(0%); } }
+            @keyframes prev-zoom-a { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
+            @keyframes prev-zoom-b { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+          `}</style>
+          <div style={{
+            width: '90%',
+            maxWidth: '560px',
+            background: '#1a1924',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            textAlign: 'left'
+          }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: '0 0 20px 0', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚙️</span> Cấu hình kiểu render (Remotion)
+            </h4>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+              <div>
+                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'block', marginBottom: '10px' }}>Kiểu phụ đề</span>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'box', label: 'Hộp bo tròn' },
+                    { value: 'tiktok', label: 'Viền chữ TikTok' },
+                    { value: 'karaoke', label: 'Karaoke tô màu từ' }
+                  ].map(opt => (
+                    <PickerCard
+                      key={opt.value}
+                      selected={renderCaptionStyle === opt.value}
+                      onClick={() => setRenderCaptionStyle(opt.value)}
+                      label={opt.label}
+                    >
+                      <CaptionStylePreview style={opt.value} />
+                    </PickerCard>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'block', marginBottom: '10px' }}>Kiểu chuyển cảnh</span>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'crossfade', label: 'Hòa tan' },
+                    { value: 'slide-left', label: 'Trượt trái' },
+                    { value: 'slide-right', label: 'Trượt phải' },
+                    { value: 'slide-up', label: 'Trượt lên' },
+                    { value: 'zoom', label: 'Phóng to' }
+                  ].map(opt => (
+                    <PickerCard
+                      key={opt.value}
+                      width={88}
+                      selected={renderTransitionStyle === opt.value}
+                      onClick={() => setRenderTransitionStyle(opt.value)}
+                      label={opt.label}
+                    >
+                      <TransitionStylePreview style={opt.value} />
+                    </PickerCard>
+                  ))}
+                </div>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={renderBilingual}
+                  onChange={(e) => setRenderBilingual(e.target.checked)}
+                />
+                Hiện phụ đề song ngữ
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '8px 18px', fontSize: '0.8rem', borderRadius: '6px', fontWeight: 700 }}
+                onClick={() => setShowRenderConfig(false)}
+              >
+                Xong
               </button>
             </div>
           </div>

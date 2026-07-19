@@ -1,0 +1,15 @@
+{
+  "name": "atposter-root",
+  "version": "1.0.0",
+  "description": "ATPOSTER Workspace Root - AGENT_TOOL & RENDER Manager",
+  "private": true,
+  "scripts": {
+    "install:agent": "npm install --prefix AGENT_TOOL",
+    "install:render": "npm install --prefix RENDER && npm install --prefix RENDER/skills/narrated-slideshow-video/remotion",
+    "install:all": "npm run install:agent && npm run install:render",
+    "dev:agent": "npm run dev --prefix AGENT_TOOL",
+    "dev:render": "npm run studio --prefix RENDER",
+    "build:agent": "npm run build --prefix AGENT_TOOL",
+    "render:video": "npm run render --prefix RENDER"
+  }
+}
