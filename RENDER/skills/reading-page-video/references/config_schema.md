@@ -1,0 +1,50 @@
+# Config schema reference — ReadingPageVideo
+
+Authoritative source: `remotion/src/schema.ts` (zod). This file is a
+readable field-by-field guide.
+
+## Fields
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `projectTitle` | string | `""` | Not shown on screen — only used for naming (`render.mjs` slugifies it for the output folder when nothing local anchors one). The on-screen heading is `title` below. |
+| `orientation` | `"landscape"` \| `"portrait"` | `"portrait"` | `"landscape"` = 1920×1080. `"portrait"` = 1080×1920 (TikTok/Reels/Shorts). |
+| `image` | string | — | **Required.** Path under `public/` (any subfolder) or an `https://` URL — the background illustration. Keep it simple/mostly-empty; the card carries the actual content. |
+| `imageFit` | `"cover"` \| `"contain"` | `"cover"` | `"cover"` fills the frame (crops edges); `"contain"` letterboxes with no crop. |
+| `audio` | string | — | **Required.** Path under `public/` or an `https://` URL — the single narration clip for the whole video. Drives the video's total length (see `durationSeconds`). |
+| `durationSeconds` | number (1–600) | auto (from audio) | Optional explicit total length. **If omitted**, `calculateMetadata` in `Root.tsx` measures the actual length of `audio` and uses `audio length + audioPaddingSeconds`. |
+| `audioPaddingSeconds` | number 0–3 | `0.5` | Extra seconds held after the narration finishes, so the video doesn't cut right on the last word. Ignored if `durationSeconds` is set. |
+| `title` | string | `""` | On-screen heading, centered below the hero illustration (e.g. `"Mistakes Make You Better"`), max 2 lines (clamped). `""` renders the page with no heading, just the body. |
+| `body` | string | — | **Required.** The full script — shown + read aloud, held on screen the whole video with selected keywords highlighted as they're spoken (see `highlightColor` below — not every word, just ~5-8 chosen ones). **Bilingual**: put `"\n"` between the primary line and a translation (e.g. `"Every mistake is a chance to grow.\nMỗi sai lầm là một cơ hội để trưởng thành."`) — the second line renders smaller/dimmer below. A `body` with no `"\n"` renders as a single language, unchanged. |
+| `showBilingual` | boolean | `true` | Whether to render the secondary (translation) line of a bilingual `body` at all. `body` with no `"\n"` is unaffected either way. |
+| `wordTimings` | `{word, start, end}[]` | — | Optional real per-word timing (seconds, relative to `audio`'s own start), captured from a TTS provider's character-alignment API (e.g. ElevenLabs' `/with-timestamps` endpoint — see AGENT_TOOL's `voiceover/route.js`). When present **and its word count matches the primary line of `body`**, the keyword highlight uses these exact timestamps instead of the word-length estimate. Mismatched or absent → silently falls back to the estimate. |
+| `bgColor` | string (hex) | `"#0E0F13"` | Fill color behind everything — visible only as a brief flash before the hero image loads, or as letterboxing if `imageFit: "contain"` leaves gaps. |
+| `fontFamily` | string | `"'Be Vietnam Pro','Noto Sans',Arial,sans-serif"` | Free-text font fallback, used only when `captionFont` isn't set. Keep the Vietnamese-safe fallbacks if the script has diacritics. |
+| `captionFont` | `"be-vietnam-pro"` \| `"roboto"` \| `"montserrat"` \| `"nunito"` \| `"inter"` \| `"oswald"` \| `"poppins"` | — | Optional CapCut-style font override, loaded via `@remotion/google-fonts` (see `src/captionFonts.ts`) so it renders identically regardless of what's installed on the render machine. All except `"poppins"` include the Vietnamese subset directly; `"poppins"` has none in Google Fonts, so Vietnamese glyphs fall back per-character to Be Vietnam Pro automatically — pick it only if you're confident the script is English-only, or accept the mixed rendering. Omit to use `fontFamily`. |
+| `captionFontSize` | number (14–96) | auto, ~16-24px (see `autoBodyFontSize` in `ReadingCard.tsx`) | Overrides the body text's base font size. Does not affect the title — see `titleFontSize` below. |
+| `captionTextColor` | CSS color string | `"#1A1A1A"` | Overrides both the title and body text color. |
+| `captionBgColor` | CSS color string, or `"transparent"` | `"#F5F2EB"` | Overrides the page's paper background color (the whole area below the hero illustration, edge-to-edge — not a floating card). `"transparent"` removes the paper texture entirely, leaving `bgColor`/the hero image showing through. |
+| `highlightColor` | CSS color string | `"#D8B07A"` (muted gold) | Overrides the keyword-highlight pill color. Only ~5-8 "keyword" words (length ≥ 5 chars, not a common stopword, evenly spread through the text — see `pickKeywordIndices()` in `ReadingCard.tsx`) are ever eligible to show this highlight when their turn comes; ordinary words pass by with no highlight, unlike a literal word-for-word karaoke bar. |
+
+## Layout overrides (CapCut-style, all optional)
+
+Default split is 25% hero / 10% title / 40% body / 25% bottom space (all %
+of the total frame height). Set any of the three below to change that split
+— bottom space is never set directly, it's always whatever's left after
+hero+title+body, clamped to ≥ 0:
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `heroHeightPercent` | number (10–60) | `25` | % of frame the hero illustration band takes. |
+| `titleHeightPercent` | number (4–30) | `10` | % of frame the title band takes. |
+| `bodyHeightPercent` | number (15–75) | `40` | % of frame the body band takes. |
+| `titleFontSize` | number (20–80) | `44` | Title font size in px — independent of `captionFontSize` (body-only). |
+| `titleBodyGap` | number (0–80) | `18` | Gap in px between the title band and the start of the body text. |
+| `contentPaddingPercent` | number (0–30) | `10` | Horizontal breathing room around the title and body text, as % of frame width on EACH side (text column width = frame width minus 2x this). |
+| `bodyAlign` | `"left"` \| `"justify"` | `"left"` | Body text alignment. `"justify"` stretches inter-word spacing so both edges of each line align (CapCut-style "canh đều"), except the paragraph's last line, which stays left-aligned — normal justified-text behavior. Applies to both the primary and bilingual secondary line; the title is always centered regardless. |
+
+## Asset paths
+
+Same convention as narrated-slideshow-video: `image`/`audio` are resolved
+via Remotion's `staticFile()` if they don't start with `http://`/`https://`
+(see `src/utils.ts`'s `resolveSrc`), i.e. they're relative to `public/`.

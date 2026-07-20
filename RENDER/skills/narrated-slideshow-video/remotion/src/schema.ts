@@ -128,7 +128,11 @@ export const slideshowVideoSchema = z.object({
   orientation: z.enum(["landscape", "portrait"]).default("landscape"),
 
   // Look & feel
-  captionPosition: z.enum(["top", "bottom"]).default("bottom"),
+  // "center" is meant for captionStyle: "page" (a full paragraph held on
+  // screen for the whole scene) — vertically centering a large block of
+  // text reads better than pinning it to an edge the way a short subtitle
+  // does.
+  captionPosition: z.enum(["top", "bottom", "center"]).default("bottom"),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   kenBurns: z.boolean().default(true),
   // Duration of the transition applied between every pair of consecutive
@@ -166,8 +170,38 @@ export const slideshowVideoSchema = z.object({
   // background box (secondary/translation line in an accent color).
   // "karaoke" = same layout as "box" but the single word currently being
   // spoken (estimated the same word-weighted way as chunk pacing) gets a
-  // colored highlight pill and a slightly larger size. See Caption.tsx.
-  captionStyle: z.enum(["box", "tiktok", "karaoke"]).default("box"),
+  // colored highlight pill and a slightly larger size. "page" = a large
+  // light "paper" card meant for `captionMode: "full"` + `captionPosition:
+  // "center"` — the whole scene's text (a "page" of a story) held on
+  // screen at once with the currently-spoken word highlighted, like a
+  // read-along/graded-reader video rather than a short subtitle. See
+  // Caption.tsx.
+  captionStyle: z.enum(["box", "tiktok", "karaoke", "page"]).default("box"),
+
+  // CapCut-style manual overrides on top of whatever captionStyle already looks
+  // like — every field here is optional and only overrides that one visual
+  // aspect, so an unset field keeps the style's own built-in default exactly as
+  // before. All four are independent: set just one (e.g. only captionFontSize)
+  // without needing to also specify the others.
+  //
+  // Curated Google Font, loaded via @remotion/google-fonts (see
+  // captionFonts.ts) so it renders identically regardless of what fonts are
+  // installed on the machine doing the render — unlike the free-text
+  // `fontFamily` field above, which silently falls back to a system font if
+  // the named one isn't installed. Omit to keep using `fontFamily`.
+  captionFont: z
+    .enum(["be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald"])
+    .optional(),
+  // Overrides the caption's base font size (the style's own default is 40px,
+  // or 32px for captionStyle: "page"). The active/highlighted word in
+  // "karaoke"/"page" styles still renders ~16% larger than this.
+  captionFontSize: z.number().min(16).max(120).optional(),
+  // Overrides the caption text color (CSS color string, e.g. "#FFFFFF").
+  captionTextColor: z.string().optional(),
+  // Overrides the caption's background box/card color (CSS color string).
+  // Set to "transparent" to remove the background entirely. Has no visible
+  // effect on captionStyle: "tiktok", which never renders a background box.
+  captionBgColor: z.string().optional(),
 
   // Whether to show the secondary (translation) line of a bilingual
   // caption ("English\nTiếng Việt" — see Caption.tsx). Sceneswith no

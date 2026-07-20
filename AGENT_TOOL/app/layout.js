@@ -1,10 +1,10 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Heartbeat from "@/components/Heartbeat.js";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin", "vietnamese"],
 });
 
 const geistMono = Geist_Mono({
@@ -19,7 +19,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="vi" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="vi" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <Heartbeat />
         {children}

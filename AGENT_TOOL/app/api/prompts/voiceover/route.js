@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/lib/db.js';
 import path from 'path';
 import fs from 'fs';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
 
 // ElevenLabs voice mapping for custom designed voices (free tier)
@@ -177,7 +177,7 @@ function deriveWordTimings(alignment) {
 
 export async function POST(request) {
   try {
-    const { folderPath, imageExt = 'jpg', audioExt = 'mp3', scenes } = await request.json();
+    const { folderPath, imageExt = 'jpg', audioExt = 'mp3', scenes, category } = await request.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
       return NextResponse.json({ error: 'Không tìm thấy danh sách phân cảnh.' }, { status: 400 });
@@ -205,13 +205,15 @@ export async function POST(request) {
       prioritizedKeys.unshift(activeKey);
     }
 
-    // Xác định thư mục đích để ghi file âm thanh
+    // Xác định thư mục đích để ghi file âm thanh — dùng resolveProjectDir (thử qua mọi skill)
+    // vì thư mục có thể đã tồn tại từ bước sinh ảnh Google Flow trước đó ở SKILL nào đó; nếu
+    // là project hoàn toàn mới (chưa có ảnh) thì dùng `category` làm gợi ý đúng skill sẽ chứa nó.
     let targetDir;
     const cleanFolder = folderPath.trim();
     if (path.isAbsolute(cleanFolder) || cleanFolder.includes('\\') || cleanFolder.includes('/')) {
       targetDir = path.resolve(cleanFolder);
     } else {
-      targetDir = path.join(getRemotionPublicDir(), cleanFolder);
+      targetDir = resolveProjectDir(cleanFolder, category);
     }
 
     // Đảm bảo thư mục tồn tại

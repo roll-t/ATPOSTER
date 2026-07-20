@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
@@ -18,7 +18,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Tên thư mục không hợp lệ. Chỉ được dùng chữ, số, "_" và "-".' }, { status: 400 });
     }
 
-    const targetDir = path.join(getRemotionPublicDir(), cleanFolder, 'final');
+    const targetDir = path.join(resolveProjectDir(cleanFolder), 'final');
     if (!fs.existsSync(targetDir)) {
       return NextResponse.json({ error: `Không tìm thấy thư mục: ${targetDir}` }, { status: 404 });
     }

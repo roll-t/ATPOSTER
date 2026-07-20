@@ -1,0 +1,665 @@
+{
+  "projectTitle": "Shadows in the Dark",
+  "orientation": "portrait",
+  "image": "boy_who_afraid_dark_260720_143151/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "boy_who_afraid_dark_260720_143151/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "Shadows in the Dark",
+  "body": "Leo sat alone in his bedroom. He was only seven years old. The room was very dark, with just a little light coming from under the door. Outside, a faint streetlamp glowed, making long, strange shadows on the wall. Leo's eyes were wide. He felt a small shiver. His hands trembled slightly. He saw monsters in the shadows, but they were not real. They were only in his mind. He pulled his old teddy bear, Mr. Snuggles, closer to him. Mr. Snuggles was soft and warm. Leo held him tight. He wished for the morning sun. He wished his mom would come and turn on the light. The darkness felt very big and very scary. He just wanted to feel safe.\nLeo ngồi một mình trong phòng ngủ. Cậu bé mới bảy tuổi. Căn phòng rất tối, chỉ có một chút ánh sáng lọt qua khe cửa. Bên ngoài, ánh đèn đường mờ nhạt chiếu sáng, tạo ra những bóng đổ dài, kỳ lạ trên tường. Mắt Leo mở to. Cậu bé cảm thấy rùng mình nhẹ. Tay cậu run rẩy khẽ. Cậu nhìn thấy quái vật trong bóng tối, nhưng chúng không có thật. Chúng chỉ ở trong tâm trí cậu. Cậu kéo con gấu bông cũ của mình, Mr. Snuggles, lại gần hơn. Mr. Snuggles mềm mại và ấm áp. Leo ôm chặt nó. Cậu ước mặt trời mọc. Cậu ước mẹ sẽ đến và bật đèn. Bóng tối cảm thấy rất lớn và rất đáng sợ. Cậu chỉ muốn cảm thấy an toàn.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFontSize": 60,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "heroHeightPercent": 19,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "wordTimings": [
+    {
+      "word": "Leo",
+      "start": 0,
+      "end": 0.418
+    },
+    {
+      "word": "sat",
+      "start": 0.488,
+      "end": 0.662
+    },
+    {
+      "word": "alone",
+      "start": 0.72,
+      "end": 1.057
+    },
+    {
+      "word": "in",
+      "start": 1.103,
+      "end": 1.161
+    },
+    {
+      "word": "his",
+      "start": 1.219,
+      "end": 1.3
+    },
+    {
+      "word": "bedroom.",
+      "start": 1.358,
+      "end": 1.916
+    },
+    {
+      "word": "He",
+      "start": 2.299,
+      "end": 2.415
+    },
+    {
+      "word": "was",
+      "start": 2.461,
+      "end": 2.566
+    },
+    {
+      "word": "only",
+      "start": 2.624,
+      "end": 2.891
+    },
+    {
+      "word": "seven",
+      "start": 2.984,
+      "end": 3.309
+    },
+    {
+      "word": "years",
+      "start": 3.355,
+      "end": 3.553
+    },
+    {
+      "word": "old.",
+      "start": 3.611,
+      "end": 4.087
+    },
+    {
+      "word": "The",
+      "start": 4.47,
+      "end": 4.574
+    },
+    {
+      "word": "room",
+      "start": 4.632,
+      "end": 4.807
+    },
+    {
+      "word": "was",
+      "start": 4.853,
+      "end": 4.957
+    },
+    {
+      "word": "very",
+      "start": 5.039,
+      "end": 5.283
+    },
+    {
+      "word": "dark,",
+      "start": 5.329,
+      "end": 5.805
+    },
+    {
+      "word": "with",
+      "start": 5.851,
+      "end": 6.026
+    },
+    {
+      "word": "just",
+      "start": 6.072,
+      "end": 6.258
+    },
+    {
+      "word": "a",
+      "start": 6.293,
+      "end": 6.316
+    },
+    {
+      "word": "little",
+      "start": 6.362,
+      "end": 6.571
+    },
+    {
+      "word": "light",
+      "start": 6.606,
+      "end": 6.838
+    },
+    {
+      "word": "coming",
+      "start": 6.885,
+      "end": 7.117
+    },
+    {
+      "word": "from",
+      "start": 7.152,
+      "end": 7.268
+    },
+    {
+      "word": "under",
+      "start": 7.326,
+      "end": 7.488
+    },
+    {
+      "word": "the",
+      "start": 7.523,
+      "end": 7.593
+    },
+    {
+      "word": "door.",
+      "start": 7.628,
+      "end": 8.092
+    },
+    {
+      "word": "Outside,",
+      "start": 8.603,
+      "end": 9.346
+    },
+    {
+      "word": "a",
+      "start": 9.427,
+      "end": 9.485
+    },
+    {
+      "word": "faint",
+      "start": 9.601,
+      "end": 9.857
+    },
+    {
+      "word": "streetlamp",
+      "start": 9.927,
+      "end": 10.437
+    },
+    {
+      "word": "glowed,",
+      "start": 10.495,
+      "end": 11.064
+    },
+    {
+      "word": "making",
+      "start": 11.18,
+      "end": 11.471
+    },
+    {
+      "word": "long,",
+      "start": 11.564,
+      "end": 11.923
+    },
+    {
+      "word": "strange",
+      "start": 11.981,
+      "end": 12.469
+    },
+    {
+      "word": "shadows",
+      "start": 12.504,
+      "end": 12.887
+    },
+    {
+      "word": "on",
+      "start": 12.934,
+      "end": 13.003
+    },
+    {
+      "word": "the",
+      "start": 13.038,
+      "end": 13.108
+    },
+    {
+      "word": "wall.",
+      "start": 13.142,
+      "end": 13.607
+    },
+    {
+      "word": "Leo's",
+      "start": 14.303,
+      "end": 14.687
+    },
+    {
+      "word": "eyes",
+      "start": 14.745,
+      "end": 14.988
+    },
+    {
+      "word": "were",
+      "start": 15.035,
+      "end": 15.162
+    },
+    {
+      "word": "wide.",
+      "start": 15.209,
+      "end": 15.801
+    },
+    {
+      "word": "He",
+      "start": 16.242,
+      "end": 16.358
+    },
+    {
+      "word": "felt",
+      "start": 16.416,
+      "end": 16.625
+    },
+    {
+      "word": "a",
+      "start": 16.672,
+      "end": 16.695
+    },
+    {
+      "word": "small",
+      "start": 16.753,
+      "end": 17.008
+    },
+    {
+      "word": "shiver.",
+      "start": 17.078,
+      "end": 17.577
+    },
+    {
+      "word": "[anxiously]",
+      "start": 18.088,
+      "end": 19.145
+    },
+    {
+      "word": "His",
+      "start": 19.238,
+      "end": 19.388
+    },
+    {
+      "word": "hands",
+      "start": 19.447,
+      "end": 19.737
+    },
+    {
+      "word": "trembled",
+      "start": 19.783,
+      "end": 20.201
+    },
+    {
+      "word": "slightly.",
+      "start": 20.236,
+      "end": 20.805
+    },
+    {
+      "word": "[softly]",
+      "start": 21.13,
+      "end": 21.989
+    },
+    {
+      "word": "He",
+      "start": 22.372,
+      "end": 22.488
+    },
+    {
+      "word": "saw",
+      "start": 22.535,
+      "end": 22.697
+    },
+    {
+      "word": "monsters",
+      "start": 22.767,
+      "end": 23.162
+    },
+    {
+      "word": "in",
+      "start": 23.197,
+      "end": 23.255
+    },
+    {
+      "word": "the",
+      "start": 23.289,
+      "end": 23.359
+    },
+    {
+      "word": "shadows,",
+      "start": 23.382,
+      "end": 23.835
+    },
+    {
+      "word": "but",
+      "start": 23.87,
+      "end": 23.986
+    },
+    {
+      "word": "they",
+      "start": 24.021,
+      "end": 24.149
+    },
+    {
+      "word": "were",
+      "start": 24.195,
+      "end": 24.299
+    },
+    {
+      "word": "not",
+      "start": 24.334,
+      "end": 24.439
+    },
+    {
+      "word": "real.",
+      "start": 24.497,
+      "end": 24.938
+    },
+    {
+      "word": "They",
+      "start": 25.217,
+      "end": 25.379
+    },
+    {
+      "word": "were",
+      "start": 25.414,
+      "end": 25.553
+    },
+    {
+      "word": "only",
+      "start": 25.6,
+      "end": 25.89
+    },
+    {
+      "word": "in",
+      "start": 25.948,
+      "end": 26.018
+    },
+    {
+      "word": "his",
+      "start": 26.076,
+      "end": 26.192
+    },
+    {
+      "word": "mind.",
+      "start": 26.262,
+      "end": 26.854
+    },
+    {
+      "word": "He",
+      "start": 27.365,
+      "end": 27.481
+    },
+    {
+      "word": "pulled",
+      "start": 27.539,
+      "end": 27.806
+    },
+    {
+      "word": "his",
+      "start": 27.841,
+      "end": 27.933
+    },
+    {
+      "word": "old",
+      "start": 28.003,
+      "end": 28.235
+    },
+    {
+      "word": "teddy",
+      "start": 28.282,
+      "end": 28.537
+    },
+    {
+      "word": "bear,",
+      "start": 28.584,
+      "end": 28.781
+    },
+    {
+      "word": "Mr.",
+      "start": 28.804,
+      "end": 29.06
+    },
+    {
+      "word": "Snuggles,",
+      "start": 29.083,
+      "end": 29.559
+    },
+    {
+      "word": "closer",
+      "start": 29.594,
+      "end": 29.965
+    },
+    {
+      "word": "to",
+      "start": 30.012,
+      "end": 30.07
+    },
+    {
+      "word": "him.",
+      "start": 30.139,
+      "end": 30.453
+    },
+    {
+      "word": "Mr.",
+      "start": 30.778,
+      "end": 31.068
+    },
+    {
+      "word": "Snuggles",
+      "start": 31.091,
+      "end": 31.567
+    },
+    {
+      "word": "was",
+      "start": 31.614,
+      "end": 31.73
+    },
+    {
+      "word": "soft",
+      "start": 31.788,
+      "end": 32.125
+    },
+    {
+      "word": "and",
+      "start": 32.171,
+      "end": 32.252
+    },
+    {
+      "word": "warm.",
+      "start": 32.311,
+      "end": 32.81
+    },
+    {
+      "word": "Leo",
+      "start": 33.135,
+      "end": 33.448
+    },
+    {
+      "word": "held",
+      "start": 33.518,
+      "end": 33.75
+    },
+    {
+      "word": "him",
+      "start": 33.808,
+      "end": 33.913
+    },
+    {
+      "word": "tight.",
+      "start": 33.982,
+      "end": 34.482
+    },
+    {
+      "word": "He",
+      "start": 34.633,
+      "end": 34.749
+    },
+    {
+      "word": "wished",
+      "start": 34.818,
+      "end": 35.097
+    },
+    {
+      "word": "for",
+      "start": 35.12,
+      "end": 35.201
+    },
+    {
+      "word": "the",
+      "start": 35.236,
+      "end": 35.306
+    },
+    {
+      "word": "morning",
+      "start": 35.341,
+      "end": 35.631
+    },
+    {
+      "word": "sun.",
+      "start": 35.712,
+      "end": 36.165
+    },
+    {
+      "word": "He",
+      "start": 36.339,
+      "end": 36.444
+    },
+    {
+      "word": "wished",
+      "start": 36.502,
+      "end": 36.746
+    },
+    {
+      "word": "his",
+      "start": 36.769,
+      "end": 36.862
+    },
+    {
+      "word": "mom",
+      "start": 36.92,
+      "end": 37.059
+    },
+    {
+      "word": "would",
+      "start": 37.094,
+      "end": 37.222
+    },
+    {
+      "word": "come",
+      "start": 37.268,
+      "end": 37.419
+    },
+    {
+      "word": "and",
+      "start": 37.454,
+      "end": 37.523
+    },
+    {
+      "word": "turn",
+      "start": 37.558,
+      "end": 37.779
+    },
+    {
+      "word": "on",
+      "start": 37.825,
+      "end": 37.895
+    },
+    {
+      "word": "the",
+      "start": 37.93,
+      "end": 37.999
+    },
+    {
+      "word": "light.",
+      "start": 38.057,
+      "end": 38.441
+    },
+    {
+      "word": "The",
+      "start": 38.557,
+      "end": 38.673
+    },
+    {
+      "word": "darkness",
+      "start": 38.719,
+      "end": 39.184
+    },
+    {
+      "word": "felt",
+      "start": 39.23,
+      "end": 39.427
+    },
+    {
+      "word": "very",
+      "start": 39.497,
+      "end": 39.776
+    },
+    {
+      "word": "big",
+      "start": 39.857,
+      "end": 40.194
+    },
+    {
+      "word": "and",
+      "start": 40.403,
+      "end": 40.588
+    },
+    {
+      "word": "very",
+      "start": 40.67,
+      "end": 40.972
+    },
+    {
+      "word": "scary.",
+      "start": 41.053,
+      "end": 41.773
+    },
+    {
+      "word": "[with",
+      "start": 42.016,
+      "end": 42.318
+    },
+    {
+      "word": "a",
+      "start": 42.353,
+      "end": 42.376
+    },
+    {
+      "word": "slight",
+      "start": 42.434,
+      "end": 42.748
+    },
+    {
+      "word": "tremor]",
+      "start": 42.783,
+      "end": 43.328
+    },
+    {
+      "word": "He",
+      "start": 43.503,
+      "end": 43.607
+    },
+    {
+      "word": "just",
+      "start": 43.677,
+      "end": 43.886
+    },
+    {
+      "word": "wanted",
+      "start": 43.932,
+      "end": 44.211
+    },
+    {
+      "word": "to",
+      "start": 44.246,
+      "end": 44.292
+    },
+    {
+      "word": "feel",
+      "start": 44.385,
+      "end": 44.64
+    },
+    {
+      "word": "safe.",
+      "start": 44.722,
+      "end": 45.279
+    },
+    {
+      "word": "[wistfully]",
+      "start": 45.72,
+      "end": 46.904
+    }
+  ]
+}

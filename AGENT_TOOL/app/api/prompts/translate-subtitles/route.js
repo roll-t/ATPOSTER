@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getMongoClientDb } from '@/lib/db.js';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
 import { translateSubtitleLines } from '@/lib/prompts/gemini/translateSubtitles.js';
 
@@ -75,7 +75,7 @@ export async function POST(request) {
     let manifestUpdated = false;
     const cleanFolder = (folderPath || '').trim();
     if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder)) {
-      const manifestPath = path.join(getRemotionPublicDir(), cleanFolder, 'manifest.json');
+      const manifestPath = path.join(resolveProjectDir(cleanFolder), 'manifest.json');
       if (fs.existsSync(manifestPath)) {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         const subtitleByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s.subtitle]));

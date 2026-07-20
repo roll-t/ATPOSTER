@@ -25,11 +25,19 @@ export default function ContentForm({
   useGemini, setUseGemini, durationRange, setDurationRange,
   onFieldChange, onToggleCharacter,
   errorMsg, isGenerating, onGenerate, onOpenStyleEditor,
-  characters = [], onDeleteCustomChar, onUploadChar, onUpdateChar
+  characters = [], onDeleteCustomChar, onUploadChar, onUpdateChar,
+  history = []
 }) {
-  // Mỗi field có suggestions chỉ hiện 1 tập con ngẫu nhiên (thay vì cả danh sách dài) — bấm
-  // nút "Gợi ý khác" sẽ đổi sang 1 tập con ngẫu nhiên khác từ cùng kho gợi ý của field đó.
   const [suggestionSubsets, setSuggestionSubsets] = useState({});
+  const [dynamicSuggestions, setDynamicSuggestions] = useState({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState({});
+
+  // Danh sách các kịch bản đã từng tạo trong lịch sử để loại trừ không cho hiển thị lại
+  const usedScenariosSet = new Set(
+    (history || [])
+      .map(item => (item.input?.scenario || item.title || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
 
   const shuffleSuggestions = (field) => {
     setSuggestionSubsets(prev => ({
@@ -38,8 +46,48 @@ export default function ContentForm({
     }));
   };
 
+  const fetchMoreSuggestions = async (field) => {
+    setLoadingSuggestions(prev => ({ ...prev, [field.key]: true }));
+    try {
+      const currentList = dynamicSuggestions[field.key] || field.suggestions || [];
+      const res = await fetch('/api/prompts/generate-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryKey: activeCategory,
+          fieldKey: field.key,
+          existingSuggestions: currentList.map(suggestionText),
+          usedScenarios: Array.from(usedScenariosSet)
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+        setDynamicSuggestions(prev => ({
+          ...prev,
+          [field.key]: data.suggestions
+        }));
+      } else {
+        shuffleSuggestions(field);
+      }
+    } catch (err) {
+      console.error('Lỗi sinh gợi ý với Gemini:', err);
+      shuffleSuggestions(field);
+    } finally {
+      setLoadingSuggestions(prev => ({ ...prev, [field.key]: false }));
+    }
+  };
+
   const visibleSuggestions = (field) => {
-    return suggestionSubsets[field.key] || field.suggestions.slice(0, VISIBLE_SUGGESTIONS_COUNT);
+    const rawList = dynamicSuggestions[field.key] || suggestionSubsets[field.key] || field.suggestions || [];
+    
+    // Lọc loại bỏ hoàn toàn các kịch bản đã từng được tạo trong lịch sử
+    const filtered = rawList.filter(sug => {
+      const text = suggestionText(sug).trim().toLowerCase();
+      return !usedScenariosSet.has(text);
+    });
+
+    return filtered.slice(0, VISIBLE_SUGGESTIONS_COUNT);
   };
 
   const isImageCategory = category.type === 'image';
@@ -57,7 +105,7 @@ export default function ContentForm({
           <span style={{ flexShrink: 0 }}>{category.icon}</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.label}</span>
         </h3>
-        {!isImageCategory && activeCategory !== 'stick_figure_slideshow' && (
+        {!isImageCategory && !['stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && (
           <button
             type="button"
             onClick={onOpenStyleEditor}
@@ -70,6 +118,66 @@ export default function ContentForm({
       </div>
 
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.45 }}>{category.description}</p>
+
+      {/* 1. Chọn Dạng Video (Tỉ lệ 9:16 / 16:9) dạng 2 Option Card ở trên cùng */}
+      {category.fields.some(f => f.key === 'aspectRatio') && (
+        <div style={{ marginBottom: '24px' }}>
+          <label className="form-label" style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 700, marginBottom: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Dạng Video
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => onFieldChange('aspectRatio', '9:16')}
+              style={{
+                padding: '14px 12px',
+                borderRadius: '12px',
+                border: (currentInput['aspectRatio'] || '9:16') === '9:16' ? '2px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: (currentInput['aspectRatio'] || '9:16') === '9:16' ? 'rgba(254, 44, 85, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                boxShadow: (currentInput['aspectRatio'] || '9:16') === '9:16' ? '0 4px 16px rgba(254, 44, 85, 0.25)' : 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'inherit'
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>📱</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'inherit', letterSpacing: '-0.2px' }}>Dạng TikTok thẳng</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>Màn dọc 9:16</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onFieldChange('aspectRatio', '16:9')}
+              style={{
+                padding: '14px 12px',
+                borderRadius: '12px',
+                border: currentInput['aspectRatio'] === '16:9' ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: currentInput['aspectRatio'] === '16:9' ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                boxShadow: currentInput['aspectRatio'] === '16:9' ? '0 4px 16px rgba(37, 244, 238, 0.25)' : 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'inherit'
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>💻</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'inherit', letterSpacing: '-0.2px' }}>Dạng ngang video</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>Màn ngang 16:9</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI Toggle & Cấu hình thời lượng — chỉ áp dụng cho chủ đề VIDEO */}
       {!isImageCategory && (
@@ -107,10 +215,10 @@ export default function ContentForm({
                 value={durationRange}
                 onChange={(e) => setDurationRange(e.target.value)}
               >
-                <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : '3 - 5 slide'})</option>
-                <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : '6 - 11 slide'})</option>
-                <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : '12 - 17 slide'})</option>
-                <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : '18 - 23 slide'})</option>
+                <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
               </select>
             </div>
           )}
@@ -119,10 +227,12 @@ export default function ContentForm({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
         {category.fields.map(field => {
+          // aspectRatio đã hiển thị dạng option card ở trên cùng
+          if (field.key === 'aspectRatio') return null;
           // Ẩn các trường kịch bản chi tiết thủ công khi bật Gemini AI để làm gọn giao diện
           const isHiddenForGemini = effectiveUseGemini && (
             (activeCategory === 'english_quiz' && ['options', 'correctAnswer', 'explanation'].includes(field.key)) ||
-            (['stick_figure', 'stick_figure_slideshow'].includes(activeCategory) && field.key === 'script') ||
+            (['stick_figure', 'stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && field.key === 'script') ||
             (activeCategory === 'moral_wisdom' && field.key === 'quote')
           );
           if (isHiddenForGemini) return null;
@@ -265,22 +375,22 @@ export default function ContentForm({
                       </button>
                     );
                   })}
-                  {field.suggestions.length > VISIBLE_SUGGESTIONS_COUNT && (
-                    <button
-                      type="button"
-                      onClick={() => shuffleSuggestions(field)}
-                      title="Đổi sang gợi ý khác"
-                      className="suggestion-pill"
-                      style={{
-                        background: 'rgba(37, 244, 238, 0.06)',
-                        borderColor: 'rgba(37, 244, 238, 0.2)',
-                        color: 'var(--secondary)',
-                        fontWeight: 700
-                      }}
-                    >
-                      🔄 Đổi gợi ý
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => fetchMoreSuggestions(field)}
+                    disabled={loadingSuggestions[field.key]}
+                    title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
+                    className="suggestion-pill"
+                    style={{
+                      background: 'rgba(37, 244, 238, 0.08)',
+                      borderColor: 'rgba(37, 244, 238, 0.25)',
+                      color: 'var(--secondary)',
+                      fontWeight: 700,
+                      cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
+                    }}
+                  >
+                    {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
+                  </button>
                 </div>
               )}
             </div>

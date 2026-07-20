@@ -194,6 +194,69 @@ export const PROMPT_CATEGORIES = {
     }
   },
 
+  reading_practice: {
+    key: 'reading_practice',
+    type: 'slideshow',
+    label: 'Video Trang Đọc Luyện Tiếng Anh',
+    icon: '📖',
+    description: 'Video luyện đọc & nghe kiểu "graded reader": mỗi cảnh là một trang văn bản tĩnh (không phải nhân vật minh hoạ), chữ được tô sáng theo từng từ đúng lúc giọng đọc đọc tới (karaoke), kèm bản dịch tiếng Việt bên dưới.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'level',
+        label: 'Trình độ tiếng Anh (CEFR)',
+        type: 'select',
+        required: true,
+        defaultValue: 'a2',
+        options: [
+          { value: 'a1', label: 'A1 - Mới bắt đầu' },
+          { value: 'a2', label: 'A2 - Sơ cấp' },
+          { value: 'b1', label: 'B1 - Trung cấp' }
+        ]
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / câu chuyện muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: 'The magic of reading books',
+        suggestions: [
+          { text: 'The magic of reading books', people: 1 },
+          { text: 'A boy who is afraid of the dark', people: 1 },
+          { text: 'Learning to ride a bicycle for the first time', people: 1 },
+          { text: 'A kind neighbor who helps everyone', people: 1 },
+          { text: 'The little seed that grew into a big tree', people: 1 },
+          { text: 'A rainy day that changed someone\'s plans', people: 1 },
+          { text: 'Making a new friend at school', people: 2 },
+          { text: 'A lost dog that finds its way home', people: 1 },
+          { text: 'The joy of a family dinner together', people: 2 },
+          { text: 'Saving money to buy something special', people: 1 },
+          { text: 'A student who learns from a mistake', people: 1 },
+          { text: 'The first day at a new job', people: 1 },
+          { text: 'A grandmother who tells wonderful stories', people: 2 },
+          { text: 'Helping a stranger find their way', people: 2 },
+          { text: 'Waking up early to watch the sunrise', people: 1 }
+        ]
+      },
+      { key: 'script', label: 'Gợi ý nội dung câu chuyện (tuỳ chọn, tiếng Anh — hệ thống sẽ viết lại thành các trang đọc mạch lạc)', type: 'textarea', required: false, placeholder: 'A short story about a boy who did not like reading until he found one book that changed his mind.' }
+    ],
+    defaultStyle: {
+      series: 'English Reading Practice',
+      aspectRatio: '9:16',
+      durationSeconds: 40
+    }
+  },
+
   character_ref: {
     key: 'character_ref',
     type: 'image',
@@ -203,11 +266,11 @@ export const PROMPT_CATEGORIES = {
     fields: [
       { key: 'imageStyle', label: 'Chọn phong cách ảnh', type: 'style-select', required: true },
       { key: 'shotType', label: 'Chọn bố cục / góc chụp', type: 'layout-select', required: true },
-      { 
-        key: 'aspectRatio', 
-        label: 'Tỉ lệ khung hình ảnh', 
-        type: 'select', 
-        required: true, 
+      {
+        key: 'aspectRatio',
+        label: 'Tỉ lệ khung hình ảnh',
+        type: 'select',
+        required: true,
         defaultValue: '3:4',
         options: [
           { value: '3:4', label: '3:4 (Chân dung dọc)' },
@@ -331,50 +394,9 @@ export const PROMPT_CATEGORIES = {
           { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
         ]
       },
-      {
-        key: 'subtitleStyle',
-        label: 'Kiểu phụ đề (chỉ áp dụng khi bật tự động tạo bằng Gemini AI)',
-        type: 'select',
-        required: true,
-        defaultValue: 'english',
-        options: [
-          { value: 'english', label: 'Chỉ tiếng Anh' },
-          { value: 'bilingual', label: 'Song ngữ Anh - Việt (Anh trên, Việt dưới)' }
-        ]
-      },
-      {
-        key: 'folderPath',
-        label: 'Thư mục chứa tài nguyên (nằm trong public/ của Remotion)',
-        type: 'text',
-        required: true,
-        defaultValue: '',
-        placeholder: 'Tự động sinh theo bối cảnh, hoặc tự nhập tay (ví dụ: my-video)'
-      },
-      {
-        key: 'imageExt',
-        label: 'Định dạng ảnh',
-        type: 'select',
-        required: true,
-        defaultValue: 'jpg',
-        options: [
-          { value: 'jpg', label: '.jpg' },
-          { value: 'png', label: '.png' },
-          { value: 'svg', label: '.svg' },
-          { value: 'jpeg', label: '.jpeg' }
-        ]
-      },
-      {
-        key: 'audioExt',
-        label: 'Định dạng âm thanh',
-        type: 'select',
-        required: true,
-        defaultValue: 'mp3',
-        options: [
-          { value: 'mp3', label: '.mp3' },
-          { value: 'wav', label: '.wav' },
-          { value: 'm4a', label: '.m4a' }
-        ]
-      },
+
+
+
       {
         key: 'scenario',
         label: 'Chủ đề / vấn nạn muốn thuyết minh',

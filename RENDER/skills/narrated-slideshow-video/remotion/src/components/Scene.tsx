@@ -59,10 +59,14 @@ export const Scene: React.FC<{
   transitionStyle: TransitionStyle;
   globalKenBurns: boolean;
   globalImageFit: "cover" | "contain";
-  captionPosition: "top" | "bottom";
+  captionPosition: "top" | "bottom" | "center";
   captionMode: "chunked" | "full";
   captionWordsPerChunk: number;
   captionStyle: SlideshowVideoProps["captionStyle"];
+  captionFont: SlideshowVideoProps["captionFont"];
+  captionFontSize: SlideshowVideoProps["captionFontSize"];
+  captionTextColor: SlideshowVideoProps["captionTextColor"];
+  captionBgColor: SlideshowVideoProps["captionBgColor"];
   showBilingual: boolean;
   fontFamily: string;
 }> = ({
@@ -78,6 +82,10 @@ export const Scene: React.FC<{
   captionMode,
   captionWordsPerChunk,
   captionStyle,
+  captionFont,
+  captionFontSize,
+  captionTextColor,
+  captionBgColor,
   showBilingual,
   fontFamily,
 }) => {
@@ -127,6 +135,10 @@ export const Scene: React.FC<{
         mode={captionMode}
         wordsPerChunk={captionWordsPerChunk}
         style={captionStyle}
+        captionFont={captionFont}
+        captionFontSize={captionFontSize}
+        captionTextColor={captionTextColor}
+        captionBgColor={captionBgColor}
         showBilingual={showBilingual}
         durationInFrames={sceneDurationInFrames}
         wordTimings={scene.wordTimings}

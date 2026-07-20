@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { SlideshowVideoProps, Scene } from "../schema";
+import { resolveCaptionFontFamily } from "../captionFonts";
 
 type WordTiming = NonNullable<Scene["wordTimings"]>[number];
 
@@ -94,10 +95,12 @@ const CaptionLine: React.FC<{
   fontSize: number;
   fontWeight: number;
   color: string;
+  lineHeight?: number;
   strokeColor?: string;
   highlightIndex?: number;
   highlightColor?: string;
-}> = ({ words, fontFamily, fontSize, fontWeight, color, strokeColor, highlightIndex, highlightColor }) => (
+  highlightTextColor?: string;
+}> = ({ words, fontFamily, fontSize, fontWeight, color, lineHeight = 1.35, strokeColor, highlightIndex, highlightColor, highlightTextColor = "#FFFFFF" }) => (
   <div
     style={{
       display: "flex",
@@ -107,7 +110,7 @@ const CaptionLine: React.FC<{
       rowGap: 2,
       columnGap: 10,
       fontFamily,
-      lineHeight: 1.35,
+      lineHeight,
       textWrap: "balance" as any,
     }}
   >
@@ -119,7 +122,7 @@ const CaptionLine: React.FC<{
           style={{
             fontSize: isActive ? Math.round(fontSize * 1.16) : fontSize,
             fontWeight,
-            color: isActive && highlightColor ? "#FFFFFF" : color,
+            color: isActive && highlightColor ? highlightTextColor : color,
             background: isActive && highlightColor ? highlightColor : "transparent",
             borderRadius: isActive && highlightColor ? 6 : 0,
             padding: isActive && highlightColor ? "1px 8px" : 0,
@@ -135,16 +138,35 @@ const CaptionLine: React.FC<{
 
 export const Caption: React.FC<{
   text: string;
-  position: "top" | "bottom";
+  position: "top" | "bottom" | "center";
   fontFamily: string;
   mode: "chunked" | "full";
   wordsPerChunk: number;
   style: SlideshowVideoProps["captionStyle"];
+  captionFont?: SlideshowVideoProps["captionFont"];
+  captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionTextColor?: SlideshowVideoProps["captionTextColor"];
+  captionBgColor?: SlideshowVideoProps["captionBgColor"];
   showBilingual: boolean;
   durationInFrames: number;
   wordTimings?: WordTiming[];
   opacity: number;
-}> = ({ text, position, fontFamily, mode, wordsPerChunk, style, showBilingual, durationInFrames, wordTimings, opacity }) => {
+}> = ({
+  text,
+  position,
+  fontFamily,
+  mode,
+  wordsPerChunk,
+  style,
+  captionFont,
+  captionFontSize,
+  captionTextColor,
+  captionBgColor,
+  showBilingual,
+  durationInFrames,
+  wordTimings,
+  opacity,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -159,6 +181,15 @@ export const Caption: React.FC<{
 
   const allWords = splitWords(primaryTextRaw);
 
+  const isKaraoke = style === "karaoke";
+  const isPage = style === "page";
+  const isTiktok = style === "tiktok";
+  // "page" is meant for a whole paragraph held on screen for the scene's
+  // entire duration (captionMode: "full") — it still needs the active-word
+  // highlight (that's the "read-along" effect), unlike the plain "box"/
+  // "tiktok" full-caption case which shows static text with no highlight.
+  const highlightsWords = isKaraoke || isPage;
+
   // Real timestamps only make sense if they line up 1:1 with the caption's
   // own words (they're captured from the narration text, which is usually
   // but not always identical to the on-screen caption) — otherwise silently
@@ -166,7 +197,7 @@ export const Caption: React.FC<{
   // wrong word.
   const useRealTimings = Boolean(wordTimings && wordTimings.length === allWords.length);
   const activeIdx =
-    mode === "full"
+    mode === "full" && !highlightsWords
       ? -1
       : useRealTimings
         ? activeWordIndexFromTimings(wordTimings as WordTiming[], frame / fps)
@@ -177,7 +208,7 @@ export const Caption: React.FC<{
   // timing of when to switch chunks now comes from per-word weighting.
   const chunkStart = mode === "full" ? 0 : Math.floor(activeIdx / wordsPerChunk) * wordsPerChunk;
   const primaryWords = mode === "full" ? allWords : allWords.slice(chunkStart, chunkStart + wordsPerChunk);
-  const localActiveIndex = mode === "full" ? -1 : activeIdx - chunkStart;
+  const localActiveIndex = mode === "full" ? activeIdx : activeIdx - chunkStart;
 
   let secondaryWords: string[] = [];
   if (hasSecondary) {
@@ -190,29 +221,42 @@ export const Caption: React.FC<{
     }
   }
 
-  const isKaraoke = style === "karaoke";
-  const isTiktok = style === "tiktok";
+  // CapCut-style manual overrides — each is independent and only replaces the
+  // one thing it names, so an unset override keeps that style's own built-in
+  // look exactly as before (see schema.ts for the full override contract).
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const basePrimaryFontSize = isPage ? 32 : 40;
+  const primaryFontSize = captionFontSize ?? basePrimaryFontSize;
+  // Secondary/translation line keeps the same ratio to the primary line as the
+  // original hardcoded sizes (26/40 = 0.65 for box-ish styles, 22/32 ≈ 0.69 for
+  // "page") whether or not captionFontSize is overridden.
+  const secondaryFontSize = Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
+  const primaryColor = captionTextColor || (isPage ? "#2A2118" : "#FFFFFF");
+  const isTransparentBg = captionBgColor === "transparent";
+  const boxBgColor = captionBgColor || (isPage ? "#FBF3E3" : "rgba(10, 10, 14, 0.72)");
 
   const primaryLine = (
     <CaptionLine
       words={primaryWords}
-      fontFamily={fontFamily}
-      fontSize={40}
-      fontWeight={700}
-      color="#FFFFFF"
+      fontFamily={resolvedFontFamily}
+      fontSize={primaryFontSize}
+      fontWeight={isPage ? 600 : 700}
+      color={primaryColor}
+      lineHeight={isPage ? 1.55 : 1.35}
       strokeColor={isTiktok ? "#000000" : undefined}
-      highlightIndex={isKaraoke ? localActiveIndex : undefined}
-      highlightColor={isKaraoke ? "#FE2C55" : undefined}
+      highlightIndex={highlightsWords ? localActiveIndex : undefined}
+      highlightColor={isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : undefined}
+      highlightTextColor={isPage ? "#2A2118" : "#FFFFFF"}
     />
   );
 
   const secondaryLine = hasSecondary ? (
     <CaptionLine
       words={secondaryWords}
-      fontFamily={fontFamily}
-      fontSize={26}
+      fontFamily={resolvedFontFamily}
+      fontSize={secondaryFontSize}
       fontWeight={500}
-      color={isTiktok ? "#FFE14D" : "rgba(255, 255, 255, 0.82)"}
+      color={isTiktok ? "#FFE14D" : isPage ? "rgba(42, 33, 24, 0.65)" : "rgba(255, 255, 255, 0.82)"}
       strokeColor={isTiktok ? "#000000" : undefined}
     />
   ) : null;
@@ -220,7 +264,7 @@ export const Caption: React.FC<{
   return (
     <AbsoluteFill
       style={{
-        justifyContent: position === "bottom" ? "flex-end" : "flex-start",
+        justifyContent: position === "bottom" ? "flex-end" : position === "top" ? "flex-start" : "center",
         alignItems: "center",
         padding: "0 90px",
         opacity,
@@ -238,16 +282,33 @@ export const Caption: React.FC<{
           {primaryLine}
           {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
         </div>
+      ) : isPage ? (
+        <div
+          style={{
+            marginTop: position === "top" ? 64 : 0,
+            marginBottom: position === "bottom" ? 64 : 0,
+            maxWidth: "84%",
+            background: boxBgColor,
+            border: isTransparentBg ? "none" : "1px solid rgba(42, 33, 24, 0.08)",
+            borderRadius: 28,
+            padding: "56px 64px",
+            boxShadow: isTransparentBg ? "none" : "0 20px 60px rgba(0,0,0,0.35)",
+            textAlign: "center",
+          }}
+        >
+          {primaryLine}
+          {secondaryLine && <div style={{ marginTop: 18 }}>{secondaryLine}</div>}
+        </div>
       ) : (
         <div
           style={{
             marginTop: position === "top" ? 64 : 0,
             marginBottom: position === "bottom" ? 64 : 0,
             maxWidth: "82%",
-            background: "rgba(10, 10, 14, 0.72)",
+            background: boxBgColor,
             borderRadius: 18,
             padding: "22px 40px",
-            boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
+            boxShadow: isTransparentBg ? "none" : "0 8px 30px rgba(0,0,0,0.35)",
             textAlign: "center",
           }}
         >

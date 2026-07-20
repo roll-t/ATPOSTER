@@ -116,72 +116,137 @@ function handleDashboardAutoCreate() {
     if (!clickTarget) clickTarget = textNode;
 
     console.log('[Flow Helper] Đã tìm thấy nút tạo Dự án mới. Đang tự động click...', clickTarget);
-    clickTarget.click();
+    simulateClick(clickTarget);
   }
 }
 
-// Chuyển chế độ Ảnh / Video trên Google Flow
-function selectFlowMode(isImage) {
-  console.log(`[Flow Helper] Đang tự động kiểm tra chế độ: ${isImage ? 'ẢNH' : 'VIDEO'}`);
+// Giả lập sự kiện click hoàn chỉnh (bao gồm pointerdown/mousedown/pointerup/mouseup/click) hỗ trợ Shadow DOM & Web Components
+function simulateClick(el) {
+  if (!el) return;
+  const opts = { bubbles: true, cancelable: true, view: window, composed: true };
+  try { el.focus(); } catch (e) {}
+  el.dispatchEvent(new PointerEvent('pointerdown', opts));
+  el.dispatchEvent(new MouseEvent('mousedown', opts));
+  el.dispatchEvent(new PointerEvent('pointerup', opts));
+  el.dispatchEvent(new MouseEvent('mouseup', opts));
+  el.dispatchEvent(new MouseEvent('click', opts));
+  if (typeof el.click === 'function') {
+    try { el.click(); } catch (e) {}
+  }
+}
 
-  // 1. Tìm nút chọn chế độ đang hiển thị trên thanh công cụ dưới cùng
-  // Nút này thường chứa chữ "Video" hoặc "Ảnh" / "Image"
-  const currentPill = findElementInShadows(document.body, (el) => {
+// Hàm đệ quy tìm kiếm element "LÁ" (sâu nhất) trên toàn bộ DOM & Shadow Roots (Duyệt Post-order)
+function findLeafElementInShadows(root, selectorPredicate) {
+  if (!root) return null;
+
+  if (root.shadowRoot) {
+    const found = findLeafElementInShadows(root.shadowRoot, selectorPredicate);
+    if (found) return found;
+  }
+
+  const children = root.childNodes || [];
+  for (const child of children) {
+    const found = findLeafElementInShadows(child, selectorPredicate);
+    if (found) return found;
+  }
+
+  if (root.nodeType === Node.ELEMENT_NODE && selectorPredicate(root)) {
+    return root;
+  }
+
+  return null;
+}
+
+// Đi ngược từ phần tử lá lên phần tử bấm được (button/role=button/role=tab/cursor=pointer)
+function getClickableParent(node, maxHops = 5) {
+  let curr = node;
+  let hops = 0;
+  while (curr && hops < maxHops) {
+    if (curr.nodeType === Node.ELEMENT_NODE) {
+      const tag = curr.tagName;
+      const role = curr.getAttribute ? curr.getAttribute('role') : null;
+      let cursor = '';
+      try { cursor = getComputedStyle(curr).cursor; } catch (e) {}
+      if (tag === 'BUTTON' || tag === 'A' || role === 'button' || role === 'tab' || role === 'option' || role === 'menuitem' || cursor === 'pointer') {
+        return curr;
+      }
+    }
+    curr = curr.parentElement;
+    hops++;
+  }
+  return node;
+}
+
+// Chuyển chế độ (Ảnh / Video) và Tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3) trên Google Flow
+function selectFlowMode(isImage, targetRatioInput) {
+  const targetRatio = targetRatioInput || (queue ? (queue.aspectRatio || (queue.orientation === 'landscape' ? '16:9' : '9:16')) : '9:16');
+  console.log(`[Flow Helper] Đang tự động kiểm tra & cài đặt cấu hình Flow -> Chế độ: ${isImage ? 'ẢNH' : 'VIDEO'}, Tỉ lệ: ${targetRatio}`);
+
+  // 1. Tìm nút chọn cấu hình (Pill nút bấm) trên thanh công cụ
+  const currentPillLeaf = findLeafElementInShadows(document.body, (el) => {
     const text = (el.textContent || el.innerText || '').trim().toLowerCase();
     const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-    const isClickable = el.tagName === 'BUTTON' || el.getAttribute('role') === 'button';
-    if (!isClickable || !hasHeight) return false;
+    if (!hasHeight) return false;
 
-    // Nút pill chọn chế độ thường chứa "video" hoặc "ảnh" / "image" kèm tỉ lệ hoặc số lượng (ví dụ: "Video 1x", "Ảnh 1x")
-    return (text.includes('video') || text.includes('ảnh') || text.includes('image') || text.includes('hình ảnh')) &&
+    return (text.includes('video') || text.includes('ảnh') || text.includes('image') || text.includes('hình ảnh') || text.includes('nano banana')) &&
       !text.includes('nhân vật') && !text.includes('tác nhân') && !text.includes('cảnh');
   });
 
-  if (!currentPill) {
+  if (!currentPillLeaf) {
     console.log('[Flow Helper] Không tìm thấy nút chọn chế độ (Pill).');
     return false;
   }
 
-  const currentText = (currentPill.textContent || currentPill.innerText || '').toLowerCase();
-  const isCurrentlyImage = currentText.includes('ảnh') || currentText.includes('image') || currentText.includes('hình ảnh');
-  const isCurrentlyVideo = currentText.includes('video');
+  const currentPill = getClickableParent(currentPillLeaf);
+  console.log('[Flow Helper] Mở menu popover cấu hình bằng nút Pill:', currentPill);
+  simulateClick(currentPill);
 
-  // Nếu đã ở đúng chế độ, không cần làm gì cả
-  if (isImage && isCurrentlyImage) {
-    console.log('[Flow Helper] Đã ở đúng chế độ ẢNH.');
-    return false;
-  }
-  if (!isImage && isCurrentlyVideo) {
-    console.log('[Flow Helper] Đã ở đúng chế độ VIDEO.');
-    return false;
-  }
-
-  console.log(`[Flow Helper] Chế độ hiện tại: ${currentText}. Cần chuyển sang: ${isImage ? 'ẢNH' : 'VIDEO'}`);
-
-  // Click vào nút Pill để mở menu dropdown lựa chọn
-  currentPill.click();
-
-  // Chờ 300ms cho menu dropdown render ra, sau đó tìm và click vào option tương ứng
+  // 2. Chờ menu popover xuất hiện
   setTimeout(() => {
-    const targetText = isImage ? 'ảnh' : 'video';
-    const optionBtn = findElementInShadows(document.body, (el) => {
+    // A. Chọn chế độ Ảnh / Video nếu chưa đúng
+    const targetModeText = isImage ? 'ảnh' : 'video';
+    const modeLeaf = findLeafElementInShadows(document.body, (el) => {
       const text = (el.textContent || el.innerText || '').trim().toLowerCase();
       const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-      const isClickable = el.tagName === 'DIV' || el.tagName === 'BUTTON' || el.tagName === 'SPAN' || el.getAttribute('role') === 'option' || el.getAttribute('role') === 'menuitem';
+      if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
 
-      if (!hasHeight) return false;
-
-      // Tìm phần tử trong menu chứa chữ "ảnh" hoặc "video" (nhưng không phải là chính nút Pill cũ)
-      return text === targetText || text.includes(targetText) && el !== currentPill;
+      return text === targetModeText || text === 'hình ảnh' || (text.includes(targetModeText) && (text.includes('hình ảnh') || text.includes('video') || text.includes('image')) && text.length < 15);
     });
 
-    if (optionBtn) {
-      console.log('[Flow Helper] Đã tìm thấy option để chuyển chế độ:', optionBtn.textContent.trim());
-      optionBtn.click();
-    } else {
-      console.log('[Flow Helper] Không tìm thấy option chuyển chế độ trong menu.');
+    if (modeLeaf) {
+      const modeBtn = getClickableParent(modeLeaf);
+      console.log('[Flow Helper] Click chọn chế độ:', modeBtn.textContent.trim(), modeBtn);
+      simulateClick(modeBtn);
     }
-  }, 300);
+
+    // B. Chọn tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3)
+    setTimeout(() => {
+      const ratioLeaf = findLeafElementInShadows(document.body, (el) => {
+        const text = (el.textContent || el.innerText || '').trim();
+        const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
+        if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
+
+        return text === targetRatio || (text.includes(targetRatio) && text.length < 10);
+      });
+
+      if (ratioLeaf) {
+        const ratioBtn = getClickableParent(ratioLeaf);
+        console.log('[Flow Helper] Đã tìm thấy nút chọn tỉ lệ:', targetRatio, ratioBtn);
+        simulateClick(ratioBtn);
+      } else {
+        console.warn('[Flow Helper] Không tìm thấy nút chọn tỉ lệ trên menu:', targetRatio);
+      }
+
+      // Đóng menu popover bằng cách click/focus lại ô nhập prompt
+      setTimeout(() => {
+        const inputEl = findInputField();
+        if (inputEl) {
+          inputEl.focus();
+          simulateClick(inputEl);
+        }
+      }, 250);
+    }, 250);
+  }, 350);
 
   return true;
 }
@@ -274,7 +339,7 @@ function runSegmentViaDebugger(segment, callback) {
 
   // Đảm bảo ở đúng chế độ trước khi điền
   const isSwitching = selectFlowMode(queue.isImage);
-  const delay = isSwitching ? 1000 : 0;
+  const delay = isSwitching ? 1200 : 0;
 
   setTimeout(() => {
     // Tìm lại inputEl đề phòng DOM thay đổi sau khi chuyển chế độ
@@ -704,7 +769,8 @@ async function downloadResultUrl(src, filename) {
             folderPath: queue.folderPath || 'example',
             filename: filename.startsWith(folderPrefix) ? filename.slice(folderPrefix.length) : filename.split('/').pop(),
             srcUrl: src,
-            dataUrl: dataUrl
+            dataUrl: dataUrl,
+            category: queue.category || ''
           }
         }, (res) => {
           if (chrome.runtime.lastError) {
@@ -749,6 +815,7 @@ function saveManifest() {
   const manifest = {
     title: queue.title,
     isImage: queue.isImage,
+    category: queue.category || '',
     orientation: queue.orientation === 'landscape' ? 'landscape' : 'portrait',
     createdAt: queue.createdAt,
     updatedAt: Date.now(),
@@ -774,7 +841,8 @@ function saveManifest() {
     payload: {
       folderPath: queue.folderPath || 'example',
       filename: 'manifest.json',
-      dataUrl: dataUrl
+      dataUrl: dataUrl,
+      category: queue.category || ''
     }
   }, (res) => {
     const err = chrome.runtime.lastError;
@@ -957,7 +1025,7 @@ function runAutoLoop(runId) {
 
     // Đảm bảo ở đúng chế độ trước khi điền
     const isSwitching = selectFlowMode(queue.isImage);
-    const delay = isSwitching ? 1000 : 0;
+    const delay = isSwitching ? 1200 : 0;
 
     updateSegmentStatus(segment.segmentNumber, 'processing');
 

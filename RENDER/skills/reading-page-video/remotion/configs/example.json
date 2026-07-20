@@ -1,0 +1,13 @@
+{
+  "projectTitle": "Demo Reading Page",
+  "orientation": "portrait",
+  "image": "example/scene-01.svg",
+  "imageFit": "cover",
+  "audio": "example/scene-01.wav",
+  "audioPaddingSeconds": 0.5,
+  "title": "Mistakes Make You Better",
+  "body": "Every mistake is a chance to grow. Mistakes push you forward, not backward.\nMỗi sai lầm là một cơ hội để trưởng thành. Sai lầm đẩy bạn tiến lên, không phải lùi lại.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif"
+}

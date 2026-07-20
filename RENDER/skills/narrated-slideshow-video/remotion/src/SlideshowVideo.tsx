@@ -19,6 +19,10 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     captionMode,
     captionWordsPerChunk,
     captionStyle,
+    captionFont,
+    captionFontSize,
+    captionTextColor,
+    captionBgColor,
     showBilingual,
     bgMusic,
     bgMusicVolume,
@@ -61,6 +65,10 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               captionMode={captionMode}
               captionWordsPerChunk={captionWordsPerChunk}
               captionStyle={captionStyle}
+              captionFont={captionFont}
+              captionFontSize={captionFontSize}
+              captionTextColor={captionTextColor}
+              captionBgColor={captionBgColor}
               showBilingual={showBilingual}
               fontFamily={fontFamily}
             />

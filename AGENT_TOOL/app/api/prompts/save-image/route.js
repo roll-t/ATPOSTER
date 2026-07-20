@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 export async function POST(req) {
   try {
-    const { folderPath, filename, dataUrl } = await req.json();
+    const { folderPath, filename, dataUrl, category } = await req.json();
 
     if (!folderPath || !filename || !dataUrl) {
       return NextResponse.json({ success: false, error: 'Thiếu dữ liệu' }, { status: 400 });
     }
 
-    // Tìm thư mục đích tương ứng với cấu hình Remotion
-    const baseSkillDir = getRemotionPublicDir();
-
-    const targetDir = path.join(baseSkillDir, folderPath.trim());
+    // Tìm thư mục đích tương ứng với skill Remotion đúng của category này (hoặc thư mục đã
+    // tồn tại sẵn nếu đây không phải file đầu tiên được ghi cho project).
+    const targetDir = resolveProjectDir(folderPath.trim(), category);
 
     // Tách dữ liệu base64 (áp dụng cho mọi loại mime - ảnh, json manifest, ...)
     const base64Data = dataUrl.replace(/^data:[^;]+;base64,/, "");

@@ -37,9 +37,7 @@ function openInNormalWindow(url) {
 // người dùng đang xem (do content-flow.js tự ghi nhớ) thay vì trang dashboard trống (dashboard
 // trống sẽ tự động bấm "Dự án mới", tạo ra 1 dự án không liên quan).
 function openFlowTab() {
-  chrome.storage.local.get(['lastFlowProjectUrl'], (result) => {
-    openInNormalWindow(result.lastFlowProjectUrl || FLOW_DEFAULT_URL);
-  });
+  openInNormalWindow(FLOW_DEFAULT_URL);
 }
 
 // Bật sidePanel riêng cho các tab Google Flow
@@ -178,7 +176,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'START_QUEUE') {
-    const { segments, title, isImage, folderPath, imageExt, orientation } = message.payload;
+    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category } = message.payload;
 
     // Lưu vào bộ nhớ cục bộ của extension
     chrome.storage.local.set({
@@ -188,6 +186,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         isImage: isImage === true,
         folderPath: folderPath || 'example',
         imageExt: imageExt || 'jpg',
+        category: category || '',
+        aspectRatio: aspectRatio || (orientation === 'landscape' ? '16:9' : '9:16'),
         orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
         segments: segments.map(s => ({
           ...s,
@@ -203,20 +203,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (tabs && tabs.length > 0) {
           const targetTab = tabs[0];
 
-          // Focus vào tab đó
-          chrome.tabs.update(targetTab.id, { active: true }, () => {
-            chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true }, () => {
-              // Gửi tin nhắn cập nhật dữ liệu cho content script chạy trên tab đó
-              chrome.tabs.sendMessage(targetTab.id, { action: 'RELOAD_QUEUE' }, (res) => {
-                // Ignore errors if content script chưa được nạp xong
-                chrome.runtime.lastError;
-              });
-            });
+          // Luôn chuyển sang trang chủ Flow để tự động bấm "Dự án mới" (tạo project mới)
+          chrome.tabs.update(targetTab.id, { url: FLOW_DEFAULT_URL, active: true }, () => {
+            chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
           });
 
           sendResponse({ success: true, status: 'tab_focused' });
         } else {
-          // Chưa mở tab Flow -> mở tab mới (ưu tiên dự án gần nhất, xem openFlowTab)
+          // Chưa mở tab Flow -> mở tab mới vào trang chủ Flow để tự động bấm Dự án mới
           openFlowTab();
           console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
           sendResponse({ success: true, status: 'new_tab_opened' });
@@ -227,7 +221,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'SAVE_IMAGE_LOCAL') {
-    const { folderPath, filename, srcUrl, dataUrl } = message.payload;
+    const { folderPath, filename, srcUrl, dataUrl, category } = message.payload;
 
     // Hàm chuyển đổi Uint8Array sang Base64 an toàn cho Service Worker
     const bufferToBase64 = (bytes) => {
@@ -255,7 +249,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       fetch('http://localhost:3000/api/prompts/save-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderPath, filename, dataUrl: base64Url })
+        body: JSON.stringify({ folderPath, filename, dataUrl: base64Url, category })
       })
       .then(r => r.json())
       .then(res => {

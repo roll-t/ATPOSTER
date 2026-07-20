@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 export async function POST(req) {
   try {
@@ -10,9 +10,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
     }
 
-    const baseSkillDir = getRemotionPublicDir();
-
-    const targetDir = path.join(baseSkillDir, folderPath.trim());
+    const targetDir = resolveProjectDir(folderPath.trim());
     const imagesDir = path.join(targetDir, 'images');
     const audioDir = path.join(targetDir, 'audio');
     const videoFile = path.join(targetDir, 'final', 'video.mp4');

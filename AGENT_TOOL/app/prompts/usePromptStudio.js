@@ -8,7 +8,7 @@ const promptTypes = ['video', 'image'];
 
 function categoryKeysForType(type) {
   if (type === 'slideshow' || type === 'video') {
-    return ['stick_figure_slideshow', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
+    return ['stick_figure_slideshow', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
   }
   return categoryKeys.filter(k => (PROMPT_CATEGORIES[k].type || 'video') === type);
 }
@@ -266,7 +266,7 @@ export function usePromptStudio() {
       const nextInput = { ...prev[activeCategory], [key]: value };
 
       // Tự động sinh folderPath cho slideshow khi scenario thay đổi
-      if (activeCategory === 'stick_figure_slideshow' && key === 'scenario') {
+      if (['stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && key === 'scenario') {
         if (!isFolderPathUserEdited) {
           nextInput.folderPath = generateDefaultFolderName(value);
         }
@@ -335,12 +335,12 @@ export function usePromptStudio() {
         // và cập nhật thẳng qua setFormValues (không qua handleFieldChange) để
         // không bị đánh dấu thành "đã tự sửa" — lần tạo AI kế tiếp vẫn tiếp tục
         // tự gen theo tiêu đề mới.
-        if (activeCategory === 'stick_figure_slideshow' && useGemini && data.result?.title && !isFolderPathUserEdited) {
+        if (['stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && useGemini && data.result?.title && !isFolderPathUserEdited) {
           const aiFolderName = generateDefaultFolderName(data.result.title);
           setFormValues(prev => ({
             ...prev,
-            stick_figure_slideshow: {
-              ...prev.stick_figure_slideshow,
+            [activeCategory]: {
+              ...prev[activeCategory],
               folderPath: aiFolderName
             }
           }));

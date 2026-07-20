@@ -8,7 +8,8 @@ const CATEGORY_ENGLISH_LABELS = {
   moral_wisdom: 'Moral Wisdom Video',
   english_tips: 'English Tips Video',
   character_ref: 'Character Reference Image',
-  stick_figure_slideshow: 'Stick Figure Slideshow Image'
+  stick_figure_slideshow: 'Stick Figure Slideshow Image',
+  reading_practice: 'Reading Practice Page Image'
 };
 
 /**
@@ -75,6 +76,108 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       return {
         segmentNumber: seg.segmentNumber,
         durationSeconds: 10,
+        visualDescription: seg.visualDescription,
+        dialogueOrNarration: seg.dialogueOrNarration,
+        subtitle: seg.subtitle,
+        jsonPrompt,
+        textPrompt
+      };
+    });
+
+    // --- Bổ sung Slot cuối cùng: Ảnh Thu Nhỏ YouTube (YouTube Thumbnail) ---
+    const thumbnailData = input.thumbnail || {};
+    const thumbnailVisual = thumbnailData.visualDescription ||
+      `High-impact, eye-catching YouTube thumbnail illustration in minimalist hand-drawn whiteboard line-art style on plain white background. Summarizing the core emotional dilemma and theme of "${title}". The stick figure character dramatically depicting the central challenge: "${input.scenario || title}", featuring strong visual contrast, expressive gestures, curiosity-inducing composition, and a bold 2-4 word headline text on a banner/sign for maximum Click-Through Rate (CTR) on YouTube (16:9 widescreen).`;
+
+    const thumbnailSegNumber = mappedPrompts.length + 1;
+    const thumbnailHeadline = thumbnailData.headlineText ? ` [Key Text: ${thumbnailData.headlineText}]` : '';
+
+    const thumbnailJsonPrompt = {
+      title: `${title} - Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)`,
+      category: 'YouTube Thumbnail Image',
+      image_style: imageStyle.label,
+      aspect_ratio: selectedAspectRatio,
+      style: {
+        visual_style: imageStyle.visualStyle,
+        background: imageStyle.background,
+        color_palette: imageStyle.colorPalette,
+        render_note: 'This is a dedicated high-CTR YouTube thumbnail image — make it bold, dramatic, highly emotional, eye-catching, clean, and clear at small size.'
+      },
+      scene: {
+        setting: thumbnailVisual,
+        characters: charactersDescription || 'Main character'
+      },
+      audio: {
+        dialogue_lines: ['[Ảnh Thu Nhỏ YouTube - Thumbnail]']
+      },
+      on_screen_captions: {
+        subtitle: '[Ảnh Thu Nhỏ YouTube - Tóm tắt nội dung]'
+      }
+    };
+
+    const thumbnailTextPrompt = [
+      `High-impact YouTube thumbnail illustration for "${title}".`,
+      `${imageStyle.visualStyle}.`,
+      `Scene description: ${thumbnailVisual}.`,
+      charactersDescription ? `Featuring characters: ${charactersDescription}.` : '',
+      imageStyle.background ? `Background setting: ${imageStyle.background}.` : '',
+      `Format: aspect ratio ${selectedAspectRatio}.`,
+      `Goal: High CTR YouTube thumbnail summarizing the entire video's story/theme.`
+    ].filter(Boolean).join(' ');
+
+    mappedPrompts.push({
+      segmentNumber: thumbnailSegNumber,
+      isThumbnail: true,
+      durationSeconds: 0,
+      visualDescription: thumbnailVisual,
+      dialogueOrNarration: `🖼️ [Ảnh Thu Nhỏ YouTube - Thumbnail]${thumbnailHeadline}`,
+      subtitle: `🖼️ [Ảnh Thu Nhỏ YouTube - Tóm tắt nội dung & Thu hút lượt xem]`,
+      jsonPrompt: thumbnailJsonPrompt,
+      textPrompt: thumbnailTextPrompt
+    });
+
+    return mappedPrompts;
+  }
+
+  // --- Nếu là Trang Đọc Luyện Tiếng Anh (graded reader, mỗi slide là 1 TRANG chữ tĩnh) ---
+  if (categoryKey === 'reading_practice') {
+    const selectedAspectRatio = input.aspectRatio || '9:16';
+    const level = (input.level || 'a2').toUpperCase();
+
+    const pageVisualStyle = 'Minimalist "graded reader" page background: a soft paper or gentle color-gradient texture, mostly empty so a large centered text card can sit on top, at most one small unobtrusive relevant motif tucked in a corner, no characters, no busy scenery, no text baked into the image itself.';
+    const pageRenderNote = 'This is a background-only page image (NOT an illustrated story scene and NOT a character reference sheet) — the actual story text is rendered separately as an on-screen text card, so keep this image simple, calm, and mostly empty; no labels, no callouts, no character name text anywhere in the image.';
+
+    return segments.map(seg => {
+      const jsonPrompt = {
+        title: `${title} - Page ${seg.segmentNumber}`,
+        category: 'Reading Practice Page Image',
+        level,
+        aspect_ratio: selectedAspectRatio,
+        style: {
+          visual_style: pageVisualStyle,
+          render_note: pageRenderNote
+        },
+        scene: {
+          setting: seg.visualDescription
+        },
+        audio: {
+          narration: seg.dialogueOrNarration
+        },
+        on_screen_captions: {
+          subtitle: seg.subtitle
+        }
+      };
+
+      const textPrompt = [
+        `${pageVisualStyle}`,
+        `Page background description: ${seg.visualDescription}.`,
+        `${pageRenderNote}`,
+        `Format: aspect ratio ${selectedAspectRatio}.`
+      ].filter(Boolean).join(' ');
+
+      return {
+        segmentNumber: seg.segmentNumber,
+        durationSeconds: Math.max(8, Math.round((seg.dialogueOrNarration || '').trim().split(/\s+/).filter(Boolean).length / 2.5)),
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,

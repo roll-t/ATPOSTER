@@ -32,6 +32,10 @@ export async function POST(request) {
         if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
           return NextResponse.json({ error: 'Vui lòng nhập Chủ đề / vấn nạn muốn thuyết minh.' }, { status: 400 });
         }
+      } else if (category === 'reading_practice') {
+        if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
+          return NextResponse.json({ error: 'Vui lòng nhập Chủ đề / câu chuyện muốn kể.' }, { status: 400 });
+        }
       } else if (category === 'moral_wisdom') {
         if (!cleanInput.theme || !String(cleanInput.theme).trim()) {
           return NextResponse.json({ error: 'Vui lòng nhập Chủ đề bài học.' }, { status: 400 });
@@ -62,6 +66,13 @@ export async function POST(request) {
       }
       if (!cleanInput.script || !String(cleanInput.script).trim()) {
         return NextResponse.json({ error: 'Vui lòng nhập Nội dung thuyết minh ở bên dưới khi không bật tự động tạo bằng Gemini.' }, { status: 400 });
+      }
+    } else if (category === 'reading_practice') {
+      if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
+        return NextResponse.json({ error: 'Vui lòng nhập Chủ đề / câu chuyện muốn kể.' }, { status: 400 });
+      }
+      if (!cleanInput.script || !String(cleanInput.script).trim()) {
+        return NextResponse.json({ error: 'Vui lòng nhập Nội dung câu chuyện ở bên dưới khi không bật tự động tạo bằng Gemini.' }, { status: 400 });
       }
     } else {
       // Validate thủ công các danh mục cổ điển khác
@@ -120,8 +131,11 @@ export async function POST(request) {
         apiKey: apiKeys
       });
 
-      // 2. Chuyển đổi các phân đoạn thành prompt
-      const segmentedPrompts = buildSegmentedPrompts(category, style, geminiResult.title, geminiResult.segments, processedInput);
+      // 2. Chuyển đổi các phân đoạn thành prompt (kèm slot cuối Ảnh Thu Nhỏ YouTube)
+      const segmentedPrompts = buildSegmentedPrompts(category, style, geminiResult.title, geminiResult.segments, {
+        ...processedInput,
+        thumbnail: geminiResult.thumbnail
+      });
 
       record = {
         id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -183,6 +197,34 @@ export async function POST(request) {
         isSegmented: true,
         createdAt: new Date().toISOString()
       };
+    } else if (category === 'reading_practice') {
+      // Chế độ thủ công cho trang đọc: TOÀN BỘ nội dung nhập vào là 1 đoạn văn duy nhất
+      // (đúng 1 segment/slide) — khác với stick_figure_slideshow (mỗi DÒNG là 1 slide),
+      // vì reading_practice luôn chỉ có ĐÚNG 1 trang cho cả video.
+      const body = (processedInput.script || '').replace(/\s+/g, ' ').trim();
+
+      const segments = body ? [{
+        segmentNumber: 1,
+        durationSeconds: Math.max(8, Math.round(body.split(/\s+/).filter(Boolean).length / 2.3)),
+        visualDescription: `A simple, mostly-empty graded-reader page background for this text: ${body}`,
+        dialogueOrNarration: body,
+        subtitle: body
+      }] : [];
+
+      const segmentedPrompts = buildSegmentedPrompts(category, style, processedInput.scenario || 'Manual Reading Practice', segments, processedInput);
+
+      record = {
+        id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        category,
+        input: {
+          ...processedInput,
+          useGemini: false
+        },
+        title: processedInput.scenario || 'Manual Reading Practice',
+        segments: segmentedPrompts,
+        isSegmented: true,
+        createdAt: new Date().toISOString()
+      };
     } else {
       // Chế độ thủ công thông thường: chủ đề ẢNH dùng buildImagePrompt, chủ đề VIDEO dùng buildPrompt
       const { jsonPrompt, textPrompt } = isImageCategory
@@ -219,9 +261,10 @@ export async function POST(request) {
         fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
         captionMode: "chunked",
         captionWordsPerChunk: 4,
+        captionStyle: "box",
         audioPaddingSeconds: 0.4,
         bgMusicVolume: 0.12,
-        scenes: record.segments.map(seg => {
+        scenes: record.segments.filter(seg => !seg.isThumbnail).map(seg => {
           const paddedNum = String(seg.segmentNumber).padStart(2, '0');
           return {
             image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
@@ -229,6 +272,29 @@ export async function POST(request) {
             caption: seg.subtitle || seg.dialogueOrNarration || ""
           };
         })
+      };
+    } else if (category === 'reading_practice' && record.segments) {
+      // Skill riêng (RENDER/skills/reading-page-video) — luôn ĐÚNG 1 slide/segment cho
+      // toàn bộ video (không có scenes[]/transition như slideshow người que), xem
+      // reading-page-video/src/schema.ts. Chỉ lấy segment đầu tiên.
+      const folder = processedInput.folderPath || 'example';
+      const imgExt = processedInput.imageExt || 'jpg';
+      const audExt = processedInput.audioExt || 'mp3';
+      const orientation = processedInput.aspectRatio === '16:9' ? 'landscape' : 'portrait';
+      const seg = record.segments[0];
+      const paddedNum = String(seg?.segmentNumber || 1).padStart(2, '0');
+      record.remotionConfig = {
+        projectTitle: record.title || "reading-page-video",
+        orientation,
+        image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
+        imageFit: "cover",
+        audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
+        audioPaddingSeconds: 0.5,
+        title: record.title || "",
+        body: seg?.subtitle || seg?.dialogueOrNarration || "",
+        showBilingual: true,
+        bgColor: "#0E0F13",
+        fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif"
       };
     }
 

@@ -3,7 +3,8 @@
  * "Video Slide Ảnh Học Tiếng Anh".
  */
 export function buildImageSlideshowScriptPrompt(input, durationInfo) {
-  const isBilingual = input.subtitleStyle === 'bilingual';
+  const isBilingual = true;
+  const isLandscape = input.aspectRatio === '16:9';
 
   const charsDetail = `
 - Determine the stick-figure character(s) needed to silently depict the topic. Use as few as the topic actually needs (often just 1, at most 3).
@@ -11,6 +12,13 @@ export function buildImageSlideshowScriptPrompt(input, durationInfo) {
 - Since this is a stick figure style, characters must be simple black-ink hand-drawn stick figures on a plain white/cream background (whiteboard style).
 - Keep these characters, their accessories, and the background highly consistent across all segments/slides.
 `;
+
+  const compositionGuidance = isLandscape
+    ? `- FRAME ORIENTATION: This slide is a WIDE 16:9 landscape frame. Use the extra horizontal space deliberately — do not just draw the same narrow portrait composition with empty margins on the sides.
+- Enrich each scene with supporting visual details that reinforce what the narration is saying at that moment: relevant props, background elements, simple environmental context (e.g. a clock on the wall, a calendar with a crossed-out date, a stack of books, other people in the background, a chart/graph sketched on a whiteboard, small supporting icons/objects placed around the main character).
+- These extra details act as visual "evidence" for the narration's point — they should directly illustrate or emphasize the specific idea being said, not be random clutter. Keep them minimalist whiteboard-sketch style, consistent with the main character's line-art.
+- You may compose the frame with the main character on one side and a secondary supporting element/mini-scene on the other side (e.g. character + a thought-bubble-like inset showing a related detail), as long as it stays clean and readable at a glance.`
+    : `- FRAME ORIENTATION: This slide is a TALL 9:16 portrait frame. Keep the composition simple and focused — one clear focal point (the main character and their immediate action), minimal background elements, close framing so it reads instantly on a phone screen.`;
 
   return `
 You are a professional documentary-style scriptwriter and an expert AI image prompt engineer.
@@ -27,6 +35,7 @@ VISUAL STYLE & IMAGE PROMPT REQUIREMENTS:
 - Since the video is a SLIDESHOW of static images, each segment represents ONE slide/image.
 - Describe the scene with the stick figure character(s) silently depicting the moment the narration is talking about right then — their pose, action, simple facial expression, the minimalist whiteboard-sketched setting, and mood. No speech, no dialogue.
 - Keep the character appearance (accessories, etc.) and background settings highly consistent across all segments/slides, so the slideshow flows logically as one continuous depiction of the issue.
+${compositionGuidance}
 - Do NOT mention motion/animation words like "animating", "zooming", "moving" in the visualDescription because we are generating static images. Focus on poses, gestures, and static frame composition.
 - IMPORTANT — no unwanted text in the image: do NOT describe or request character-name labels, "reference sheet" style callouts, arrows, or any technical/construction annotations anywhere in the image. Only if the scene itself naturally calls for a short, meaningful piece of in-scene text (for example one bold impactful word or short phrase reinforcing what the slide is about, like on a sign, a phone screen, or as simple bold graphic text) should any text appear — and it must stay short and purposeful, never a label describing the drawing.
 - The visual description should be descriptive and detail-oriented, suitable for direct text-to-image prompts (e.g. Midjourney or Flux).
@@ -54,6 +63,12 @@ NARRATION SCRIPT GUIDELINES:
 5. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g., "[sighs] So many people struggle with this every day.", "[softly] But it does not have to stay this way."). Use standard tags like [sighs], [softly], [gasp], [whispering], [pause]. Do not include Vietnamese emotional tags, only English ones.
 
 
+YÊU CẦU BẮT BUỘC DÀNH CHO ẢNH THU NHỎ YOUTUBE (YOUTUBE THUMBNAIL):
+- Bên cạnh các slide phân cảnh câu chuyện, bạn BẮT BUỘC phải sinh thêm 1 mục "thumbnail" ở cuối JSON.
+- Ảnh Thu Nhỏ (Thumbnail) là YẾU TỐ QUAN TRỌNG NHẤT quyết định tỉ lệ nhấp xem video (CTR) trên YouTube.
+- Viết prompt cho thumbnail (visualDescription) thật có ý nghĩa, sâu sắc, cô đọng được bài học / xung đột tâm lý cốt lõi của toàn bộ video trong 1 bức ảnh người que tối giản trên nền trắng.
+- Tăng cường độ tương phản thị giác, biểu cảm nét mặt và tư thế nhân vật thật giàu cảm xúc, kèm 1 câu tiêu đề ngắn 2-4 từ (headlineText) nổi bật (ví dụ: "STOP PROCRASTINATING!" hoặc "OVERCOME SHYNESS NOW!").
+
 Return the result as a JSON object matching exactly this schema:
 {
   "title": "Episode title",
@@ -66,7 +81,11 @@ Return the result as a JSON object matching exactly this schema:
         ? 'Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ.'
         : 'Millions of people lie awake every night, scrolling instead of sleeping.'}"
     }
-  ]
+  ],
+  "thumbnail": {
+    "visualDescription": "Detailed, highly impactful, curiosity-inducing YouTube thumbnail scene description in English. Depicting the stick figure character in the most dramatic, emotional, and meaningful dilemma of the story, with high contrast, clear 16:9 composition, minimalist whiteboard line-art style on plain white background. (e.g. Minimalist whiteboard line-art style: A stick figure character sitting at a desk surrounded by giant ticking clocks and towering stacks of unfinished work, head in hands in deep realization, while a bold glowing banner reads 'STOP PROCRASTINATING!'. Plain white background, high contrast, dramatic emotional storytelling composition.)",
+    "headlineText": "STOP PROCRASTINATING!"
+  }
 }
 `;
 }

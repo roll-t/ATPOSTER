@@ -11,7 +11,7 @@ export async function translateAndExpandInputs({ category, input, apiKey }) {
   }
 
   // Lọc ra các trường có giá trị là chuỗi không rỗng (bỏ qua các trường cấu hình/lựa chọn)
-  const SKIP_KEYS = ['imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category', 'ageGroup', 'height', 'hairLength', 'hairColor', 'personality'];
+  const SKIP_KEYS = ['imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category', 'ageGroup', 'height', 'hairLength', 'hairColor', 'personality', 'level'];
   const fieldsToTranslate = {};
   for (const [key, val] of Object.entries(input)) {
     if (SKIP_KEYS.includes(key)) continue;

@@ -12,6 +12,7 @@ import StyleEditor from './components/StyleEditor.js';
 import SegmentedResultView from './components/SegmentedResultView.js';
 import ManualResultView from './components/ManualResultView.js';
 import HistoryList from './components/HistoryList.js';
+import CreatedVideosGrid from './components/CreatedVideosGrid.js';
 
 function PromptsStudioContent() {
   const searchParams = useSearchParams();
@@ -43,7 +44,7 @@ function PromptsStudioContent() {
   }, [s.isGenerating, s.result, wasGenerating]);
 
   useEffect(() => {
-    if (!s.result) {
+    if (!s.result && activeRightTab !== 'videos' && activeRightTab !== 'history') {
       setActiveRightTab('history');
     }
   }, [s.result]);
@@ -224,6 +225,7 @@ function PromptsStudioContent() {
                     onDeleteCustomChar={s.handleDeleteCustomCharacter}
                     onUploadChar={s.handleUploadCharacter}
                     onUpdateChar={s.handleUpdateCharacter}
+                    history={s.history}
                   />
 
                   {s.showStyleEditor && (
@@ -255,6 +257,7 @@ function PromptsStudioContent() {
                         flexShrink: 0
                       }}>
                         {[
+                          { id: 'videos', label: '🎥 Video đã tạo', disabled: false },
                           { id: 'history', label: '🗂️ Lịch sử đã tạo', disabled: false },
                           { id: 'script', label: '📜 Kịch bản chi tiết', disabled: !s.result },
                           { id: 'process', label: '🎬 Quy trình & Review', disabled: !s.result }
@@ -265,8 +268,8 @@ function PromptsStudioContent() {
                             onClick={() => !tab.disabled && setActiveRightTab(tab.id)}
                             style={{
                               flex: 1,
-                              padding: '8px 12px',
-                              fontSize: '0.82rem',
+                              padding: '8px 10px',
+                              fontSize: '0.78rem',
                               fontWeight: 700,
                               borderRadius: '8px',
                               border: 'none',
@@ -283,7 +286,13 @@ function PromptsStudioContent() {
                       </div>
 
                       {/* Tab contents */}
-                      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: activeRightTab === 'history' ? 'hidden' : 'auto' }}>
+                      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: (activeRightTab === 'history' || activeRightTab === 'videos') ? 'hidden' : 'auto' }}>
+                        {activeRightTab === 'videos' && (
+                          <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
+                            <CreatedVideosGrid category={s.activeCategory} categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label} />
+                          </div>
+                        )}
+
                         {activeRightTab === 'process' && s.result && (
                           <div className="glass-card" style={{ marginBottom: '20px' }}>
                             <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
@@ -316,7 +325,7 @@ function PromptsStudioContent() {
                           />
                         )}
 
-                        {!s.result && activeRightTab !== 'history' && (
+                        {!s.result && activeRightTab !== 'history' && activeRightTab !== 'videos' && (
                           <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
                             <div style={{ fontSize: '2.8rem', marginBottom: '16px', filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))' }}>
                               🎬

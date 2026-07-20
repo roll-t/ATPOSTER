@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 export async function GET(request) {
   try {
@@ -11,9 +11,7 @@ export async function GET(request) {
       return new Response('Missing folderPath', { status: 400 });
     }
 
-    const baseSkillDir = getRemotionPublicDir();
-
-    const videoPath = path.join(baseSkillDir, folderPath.trim(), 'final', 'video.mp4');
+    const videoPath = path.join(resolveProjectDir(folderPath.trim()), 'final', 'video.mp4');
 
     if (!fs.existsSync(videoPath)) {
       return new Response('Video file not found on disk', { status: 404 });

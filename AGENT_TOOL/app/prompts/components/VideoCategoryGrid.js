@@ -13,6 +13,7 @@ const CARD_IMAGES = {
 export default function VideoCategoryGrid({ onSelectCategory }) {
   const allCategoryKeys = [
     'stick_figure_slideshow',
+    'reading_practice',
     'english_quiz',
     'stick_figure',
     'moral_wisdom',

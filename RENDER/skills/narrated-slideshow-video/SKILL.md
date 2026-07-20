@@ -142,11 +142,25 @@ when you want to override that (see `references/config_schema.md`).
   captions. See `references/config_schema.md` and `src/components/Caption.tsx`.
 - **Caption style**: `captionStyle` — `"box"` (default, dark rounded subtitle
   bar), `"tiktok"` (bold white text with a black outline, no background box),
-  or `"karaoke"` (same layout as `"box"`, but the word currently being spoken
-  gets a red highlight pill and renders slightly larger). Estimated per-word
-  by default (word length, no forced alignment) — pass real per-word
-  `wordTimings` on a scene (see below) for exact sync to the actual audio
-  instead of an estimate.
+  `"karaoke"` (same layout as `"box"`, but the word currently being spoken
+  gets a red highlight pill and renders slightly larger), or `"page"` (a
+  large light "paper" card holding a whole scene's text at once — see
+  below). Word highlighting is estimated per-word by default (word length,
+  no forced alignment) — pass real per-word `wordTimings` on a scene (see
+  below) for exact sync to the actual audio instead of an estimate.
+- **Read-along / graded-reader pages**: for a video that's one static "page"
+  of text per scene (a whole paragraph held on screen, narrator reading it
+  aloud, the current word highlighted as it's spoken — e.g. an
+  English-reading-practice short), set `captionMode: "full"`, `captionStyle:
+  "page"`, and `captionPosition: "center"`. Unlike the default `"box"`/
+  `"tiktok"` styles in `"full"` mode (which just show static text with no
+  highlight), `"page"` keeps the word-by-word highlight active across the
+  whole paragraph. Use one `image` per page — a simple, mostly-empty
+  background (paper texture, soft gradient, a small relevant illustration in
+  a corner) works best since the text card itself carries the content; a
+  busy photo behind a big text card fights for attention. Pass `wordTimings`
+  from the ElevenLabs `/with-timestamps` capture (AGENT_TOOL's voiceover
+  step) for exact sync instead of the length-based estimate.
 - **Exact word sync (`wordTimings`)**: if you have real per-word timestamps
   for a scene's narration — e.g. from ElevenLabs' `/with-timestamps` TTS
   endpoint, which AGENT_TOOL's voiceover step captures automatically — set
@@ -155,6 +169,16 @@ when you want to override that (see `references/config_schema.md`).
   the exact word being spoken instead of estimating. Only used when the
   timing array's word count matches the caption's own word count; otherwise
   silently falls back to the estimate. See `references/config_schema.md`.
+- **CapCut-style manual overrides**: `captionFont` (one of 6 curated Google
+  Fonts — `"be-vietnam-pro"`, `"roboto"`, `"montserrat"`, `"nunito"`,
+  `"inter"`, `"oswald"` — loaded via `@remotion/google-fonts` so it renders
+  the same regardless of what's installed on the render machine, unlike
+  `fontFamily`), `captionFontSize` (16–120, overrides the style's own
+  default), `captionTextColor` (CSS color), and `captionBgColor` (CSS color,
+  or `"transparent"` to drop the background box entirely). All four are
+  optional and independent — set only the one you want to change, the rest
+  keep following whatever `captionStyle` already looks like. See
+  `references/config_schema.md` and `src/captionFonts.ts`.
 - **Show/hide bilingual line**: `showBilingual` (default `true`) — set
   `false` to render an otherwise-bilingual (`"\n"`-caption) script as
   English-only for a given render, without touching the caption text itself.
@@ -250,6 +274,8 @@ forcing silent/dummy audio files through this pipeline.
 - `src/components/*.tsx` — one file per visual piece; each is a normal
   React component, safe to edit directly for layout/animation tweaks not
   covered by the config.
+- `src/captionFonts.ts` — the curated `captionFont` choices and their
+  `@remotion/google-fonts` loading; edit this to add/remove a font option.
 - `references/config_schema.md` — full field-by-field config reference,
   including how asset paths resolve.
 - `references/scene_image_prompts.md` — how to get a consistent character

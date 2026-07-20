@@ -10,9 +10,23 @@
  *   node scripts/render-project.mjs my-video --captionStyle=karaoke --transitionStyle=slide-left --bilingual=false
  *
  * Options (all optional, fall back to the skill's original defaults):
- *   --captionStyle=box|tiktok|karaoke
+ *   --captionStyle=box|tiktok|karaoke|page
  *   --transitionStyle=crossfade|slide-left|slide-right|slide-up|zoom
  *   --bilingual=true|false   (show/hide the "\n"-separated translation line)
+ *   --captionFont=be-vietnam-pro|roboto|montserrat|nunito|inter|oswald
+ *   --captionFontSize=<16-120>
+ *   --captionTextColor=<CSS color, e.g. "#FFFFFF">
+ *   --captionBgColor=<CSS color, or "transparent" to remove the box>
+ *
+ * --captionStyle=page automatically switches captionMode to "full" and
+ * captionPosition to "center" (a whole scene's text held on screen, word-
+ * highlighted, centered) instead of the default chunked/bottom subtitle —
+ * that combination is what makes the "page" style read as a book page
+ * rather than a short caption. See Caption.tsx / schema.ts.
+ *
+ * The 4 --caption*Font/Size/Color flags are CapCut-style manual overrides on
+ * top of whatever captionStyle already looks like — each is independent and
+ * only replaces the one thing it names (see schema.ts).
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -35,11 +49,32 @@ for (const arg of process.argv.slice(3)) {
   const match = arg.match(/^--([a-zA-Z]+)=(.*)$/);
   if (match) flags[match[1]] = match[2];
 }
-const CAPTION_STYLES = ["box", "tiktok", "karaoke"];
+const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page"];
 const TRANSITION_STYLES = ["crossfade", "slide-left", "slide-right", "slide-up", "zoom"];
+const CAPTION_FONTS = ["be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald"];
+// Loose allowlist for freeform color strings (hex, rgb()/rgba(), "transparent",
+// CSS named colors) — just enough to reject obviously malformed input before
+// it lands in config.json; execFileSync (no shell) already rules out any
+// command-injection risk regardless of what's in this string.
+const CSS_COLOR_RE = /^[a-zA-Z0-9#(),.\s%-]+$/;
+
 const captionStyle = CAPTION_STYLES.includes(flags.captionStyle) ? flags.captionStyle : "box";
 const transitionStyle = TRANSITION_STYLES.includes(flags.transitionStyle) ? flags.transitionStyle : "crossfade";
 const showBilingual = flags.bilingual === undefined ? true : flags.bilingual !== "false";
+// "page" only makes sense as a whole-scene, centered block — see the usage note above.
+const isPageStyle = captionStyle === "page";
+
+const captionFont = CAPTION_FONTS.includes(flags.captionFont) ? flags.captionFont : undefined;
+const parsedFontSize = flags.captionFontSize !== undefined ? Number(flags.captionFontSize) : NaN;
+const captionFontSize = Number.isFinite(parsedFontSize) && parsedFontSize >= 16 && parsedFontSize <= 120
+  ? parsedFontSize
+  : undefined;
+const captionTextColor = flags.captionTextColor && CSS_COLOR_RE.test(flags.captionTextColor)
+  ? flags.captionTextColor
+  : undefined;
+const captionBgColor = flags.captionBgColor && CSS_COLOR_RE.test(flags.captionBgColor)
+  ? flags.captionBgColor
+  : undefined;
 
 const projectPath = path.join(root, "public", projectFolder);
 const manifestPath = path.join(projectPath, "manifest.json");
@@ -92,19 +127,24 @@ const scenes = manifest.segments.map((seg) => {
 // Build Remotion Config object
 const remotionConfig = {
   title: manifest.title || "slideshow-video",
-  // Đọc orientation thật từ manifest (do UI/extension ghi lại theo aspectRatio người dùng
-  // chọn lúc sinh ảnh) — mặc định portrait cho các manifest cũ chưa có field này.
-  orientation: manifest.orientation === "landscape" ? "landscape" : "portrait",
-  captionPosition: "bottom",
+  // Đọc orientation từ cờ truyền vào (--orientation=landscape|portrait) hoặc từ manifest
+  orientation: (flags.orientation === "landscape" || flags.orientation === "portrait")
+    ? flags.orientation
+    : (manifest.orientation === "landscape" ? "landscape" : "portrait"),
+  captionPosition: isPageStyle ? "center" : "bottom",
   imageFit: "cover",
-  kenBurns: true,
+  kenBurns: !isPageStyle,
   transitionSeconds: 0.5,
   transitionStyle,
   bgColor: "#0E0F13",
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-  captionMode: "chunked",
+  captionMode: isPageStyle ? "full" : "chunked",
   captionWordsPerChunk: 4,
   captionStyle,
+  captionFont,
+  captionFontSize,
+  captionTextColor,
+  captionBgColor,
   showBilingual,
   audioPaddingSeconds: 0.4,
   bgMusicVolume: 0.12,
