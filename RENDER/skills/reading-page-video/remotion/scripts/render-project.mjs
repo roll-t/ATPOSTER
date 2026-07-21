@@ -129,14 +129,27 @@ if (manifest.segments.length > 1) {
 const seg = manifest.segments[0];
 const paddedNum = String(seg.segmentNumber ?? 1).padStart(2, "0");
 
-// Detect image extension (fallback to jpg)
+// Detect the hero image file. AGENT_TOOL's reading_practice pipeline can generate an oriented
+// PAIR of hero images alongside the plain one — scene-NN-landscape.<ext> (for imageMode
+// "hero", a top banner strip) and scene-NN-portrait.<ext> (for imageMode "full_bg", a
+// full-bleed background) — see buildSegmentedPrompts.js and content-flow.js's
+// generateSecondaryVariant. Prefer whichever orientation matches the current imageMode; fall
+// back to the older flat scene-NN.<ext> (no orientation split) for projects made before this
+// existed, or when imageMode is "none"/unset (no image shown, so orientation doesn't matter).
 const imageDir = path.join(projectPath, "images");
-let imgExt = "jpg";
-if (fs.existsSync(imageDir)) {
+function findImageFile(baseName) {
+  if (!fs.existsSync(imageDir)) return null;
   const files = fs.readdirSync(imageDir);
-  const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`));
-  if (match) imgExt = match.split(".").pop();
+  return files.find((f) => f.startsWith(`${baseName}.`)) || null;
 }
+
+let imageFile = null;
+if (imageMode === "hero") imageFile = findImageFile(`scene-${paddedNum}-landscape`);
+else if (imageMode === "full_bg") imageFile = findImageFile(`scene-${paddedNum}-portrait`);
+if (!imageFile) imageFile = findImageFile(`scene-${paddedNum}`);
+
+const imgExt = imageFile ? imageFile.split(".").pop() : "jpg";
+const imageBaseName = imageFile ? imageFile.slice(0, -(imgExt.length + 1)) : `scene-${paddedNum}`;
 
 // Detect audio extension (fallback to mp3)
 const audioDir = path.join(projectPath, "audio");
@@ -151,7 +164,7 @@ if (fs.existsSync(audioDir)) {
 const remotionConfig = {
   projectTitle: manifest.title || "reading-page-video",
   orientation: orientation || (manifest.orientation === "landscape" ? "landscape" : "portrait"),
-  image: `${projectFolder}/images/scene-${paddedNum}.${imgExt}`,
+  image: `${projectFolder}/images/${imageBaseName}.${imgExt}`,
   imageFit: "cover",
   audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
   audioPaddingSeconds: 0.5,

@@ -564,6 +564,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderImageMode, setRenderImageMode] = useState('hero'); // 'hero' | 'full_bg' | 'none'
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  // Tên file ảnh hero khớp với bố cục đang chọn: "Hero Top" (dải ngang) dùng bản landscape,
+  // "Full Nền Sau" (nền dọc toàn khung) dùng bản portrait - xem buildSegmentedPrompts.js/
+  // content-flow.js's generateSecondaryVariant (sinh cả 2 bản, cùng gam màu, từ 1 ảnh hero).
+  // route image-stream tự lùi về "scene-01.<ext>" gốc nếu dự án chưa có bản tách (cũ hơn tính
+  // năng này), nên dùng tên này ở mọi nơi là an toàn, không cần tự kiểm tra tồn tại trước.
+  const heroFileBase = `scene-01-${renderImageMode === 'full_bg' ? 'portrait' : 'landscape'}`;
 
   // assetCounts khai báo ở đây (thay vì gần các state khác phía dưới) vì useEffect ngay dưới
   // đây tham chiếu tới nó — const là block-scoped, tham chiếu trước dòng khai báo thật sẽ ném
@@ -581,7 +587,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
     const folder = result.input?.folderPath || 'example';
     const cacheBust = heroImageVersion > 0 ? `&v=${heroImageVersion}` : '';
-    const currentHeroUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=images/scene-01.${result.input?.imageExt || 'jpg'}${cacheBust}`;
+    // Xin bản "-landscape" trước - route image-stream tự lùi về file scene-01.<ext> gốc (chưa
+    // tách bản ngang/dọc) cho các dự án tạo trước khi có tính năng tách 2 tỉ lệ, nên xác định
+    // orientation qua kích thước ảnh thật vẫn đúng trong cả 2 trường hợp.
+    const currentHeroUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=images/scene-01-landscape.${result.input?.imageExt || 'jpg'}${cacheBust}`;
 
     const img = new Image();
     img.src = currentHeroUrl;
@@ -1068,9 +1077,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
-  // Đổi ảnh minh hoạ đầu trang (Hero Illustration) — ghi đè trực tiếp images/scene-01.<ext>
-  // của project, dùng lại đúng API save-image mà Google Flow vẫn dùng để ghi ảnh, nên không
-  // cần hạ tầng riêng. Sau khi ghi xong, bump heroImageVersion để phá cache ảnh preview.
+  // Đổi ảnh minh hoạ đầu trang (Hero Illustration) — ghi đè đúng bản ảnh khớp với bố cục ĐANG
+  // XEM (heroFileBase: "-landscape" cho Hero Top, "-portrait" cho Full Nền Sau), để không xoá
+  // mất bản còn lại Google Flow đã sinh — mỗi bố cục có thể tự thay ảnh riêng của nó. Dùng lại
+  // đúng API save-image mà Google Flow vẫn dùng để ghi ảnh, nên không cần hạ tầng riêng. Sau khi
+  // ghi xong, bump heroImageVersion để phá cache ảnh preview.
   const handleUploadHeroImage = async (file) => {
     if (!file) return;
     setIsUploadingHeroImage(true);
@@ -1088,7 +1099,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
-          filename: `images/scene-01.${ext}`,
+          filename: `images/${heroFileBase}.${ext}`,
           dataUrl,
           category: result.category
         })
@@ -3010,7 +3021,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       bgColor={renderCaptionBgColor || '#F5F2EB'}
                       isBgTransparent={renderCaptionBgTransparent}
                       highlightColor="#D8B07A"
-                      heroImageUrl={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/scene-01.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion}`}
+                      heroImageUrl={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/${heroFileBase}.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion}`}
                       realTitle={result.title || result.input?.topic || result.input?.headline}
                       realBodyPrimary={(() => {
                         const segs = result.segments || result.prompts || [];
@@ -3148,7 +3159,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         borderRadius: '8px',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        backgroundImage: `url(/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/scene-01.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion})`,
+                        backgroundImage: `url(/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/${heroFileBase}.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         border: '1px solid rgba(255,255,255,0.15)'

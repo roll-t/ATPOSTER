@@ -13,7 +13,20 @@ export async function GET(request) {
       return new Response('Missing folderPath', { status: 400 });
     }
 
-    const imagePath = path.join(resolveProjectDir(folderPath.trim()), file);
+    const projectDir = resolveProjectDir(folderPath.trim());
+    let imagePath = path.join(projectDir, file);
+
+    // Ảnh hero tách theo tỉ lệ (scene-NN-landscape/-portrait, dùng cho reading_practice khi có
+    // đủ 2 bản - xem buildSegmentedPrompts.js) có thể chưa tồn tại ở các dự án cũ hơn tính năng
+    // này. Lùi về file gốc chưa tách bản (scene-NN.<ext>) trước khi báo lỗi, để UI luôn xin đúng
+    // tên file theo bố cục đang chọn mà không cần tự kiểm tra tồn tại trước.
+    if (!fs.existsSync(imagePath)) {
+      const legacyFile = file.replace(/-(landscape|portrait)(\.[^./]+)$/, '$2');
+      if (legacyFile !== file) {
+        const legacyPath = path.join(projectDir, legacyFile);
+        if (fs.existsSync(legacyPath)) imagePath = legacyPath;
+      }
+    }
 
     if (!fs.existsSync(imagePath)) {
       return new Response('Image not found', { status: 404 });

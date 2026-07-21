@@ -251,18 +251,25 @@ function selectFlowMode(isImage, targetRatioInput) {
   return true;
 }
 
-// Ghi nhớ lại URL dự án Flow đang xem (nếu có), để lần sau bấm "Đẩy sang Google Flow" mà
-// không còn tab Flow nào mở, hệ thống có thể mở thẳng lại dự án này thay vì trang dashboard
-// trống (dashboard trống sẽ tự động bấm "Dự án mới", tạo ra 1 dự án khác không liên quan).
+// Ghi nhớ URL dự án Flow đang xem, gắn với ĐÚNG kịch bản (folderPath) đang active trong queue -
+// không phải 1 giá trị "gần nhất" dùng chung cho mọi kịch bản (nếu vậy, mở kịch bản B sau khi
+// vừa làm kịch bản A sẽ nhảy nhầm sang dự án Flow của A). Nhờ vậy, lần sau bấm "Đẩy sang Google
+// Flow" cho ĐÚNG kịch bản này, background.js (xem handler START_QUEUE) có thể mở thẳng lại đúng
+// dự án Flow đã tạo trước đó cho nó, thay vì luôn phải qua dashboard trống (tự bấm "Dự án mới",
+// tạo ra 1 dự án khác không liên quan) - dashboard chỉ còn được dùng cho kịch bản THẬT SỰ mới.
 function trackCurrentProjectUrl() {
   const href = window.location.href;
   if (!href.includes('/project/')) return;
+  if (!queue || !queue.folderPath) return; // Không có queue active thì không biết gắn cho kịch bản nào, bỏ qua
 
+  const folderPath = queue.folderPath;
   try {
-    chrome.storage.local.get(['lastFlowProjectUrl'], (result) => {
+    chrome.storage.local.get(['flowProjectUrlsByFolder'], (result) => {
       if (chrome.runtime.lastError) return; // context đã bị hủy giữa chừng, bỏ qua lặng lẽ
-      if (result.lastFlowProjectUrl !== href) {
-        chrome.storage.local.set({ lastFlowProjectUrl: href });
+      const map = result.flowProjectUrlsByFolder || {};
+      if (map[folderPath] !== href) {
+        map[folderPath] = href;
+        chrome.storage.local.set({ flowProjectUrlsByFolder: map });
       }
     });
   } catch (e) {
@@ -337,8 +344,10 @@ function runSegmentViaDebugger(segment, callback) {
     return;
   }
 
-  // Đảm bảo ở đúng chế độ trước khi điền
-  const isSwitching = selectFlowMode(queue.isImage);
+  // Đảm bảo ở đúng chế độ trước khi điền - segment.aspectRatio (nếu có) ghi đè tỉ lệ
+  // chung queue.aspectRatio cho riêng segment này (vd hero image của reading_practice có
+  // thể cần tỉ lệ khác tỉ lệ chung của cả video, xem buildSegmentedPrompts.js)
+  const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
   const delay = isSwitching ? 1200 : 0;
 
   setTimeout(() => {
@@ -415,8 +424,10 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
   }
 
   // Nếu là chế độ hình ảnh, kiểm tra xem đã xuất hiện ảnh MỚI hoàn chỉnh hay chưa
+  let readyImages = null;
   if (queue && queue.isImage) {
     const newImages = findNewGeneratedImages(baselineSrcs);
+    readyImages = newImages; // Giữ lại đúng danh sách này để tải, tránh quét lại DOM 1 lần nữa bên dưới
     if (newImages.length === 0) {
       if (attempt > 80) { // ~4 phút, tránh treo vô hạn nếu Flow lỗi
         console.warn('[Flow Helper] Quá thời gian chờ tạo ảnh cho phân đoạn', segment.segmentNumber, '- dừng theo dõi.');
@@ -446,7 +457,7 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
   }
 
   console.log('[Flow Helper] Phân đoạn', segment.segmentNumber, 'đã tạo xong. Đang tải kết quả...');
-  const downloaded = await triggerDownload(segment, baselineSrcs);
+  const downloaded = await triggerDownload(segment, baselineSrcs, readyImages);
 
   if (downloaded) {
     updateSegmentStatus(segment.segmentNumber, 'completed');
@@ -580,22 +591,36 @@ function getProjectFolder() {
 }
 
 // Chụp lại danh sách các ảnh (đủ lớn, không phải icon) đang có trên trang, dùng làm mốc so sánh
-// để nhận diện ảnh MỚI được Flow sinh ra sau khi bấm Tạo (tránh tải nhầm ảnh tham chiếu có sẵn trong dự án)
+// để nhận diện ảnh MỚI được Flow sinh ra sau khi bấm Tạo (tránh tải nhầm ảnh tham chiếu có sẵn
+// trong dự án). Chụp CẢ src (chuỗi) LẪN chính element DOM (qua WeakSet) - lý do: nếu dự án đã có
+// sẵn nhiều ảnh cũ (nhiều phân đoạn trước đó), khi Flow render lại danh sách kết quả sau khi có
+// ảnh mới, các thẻ <img> ảnh CŨ có thể được gán lại 1 chuỗi `blob:` MỚI (blob URL chỉ tồn tại
+// theo phiên render, không cố định) dù nội dung ảnh không đổi - nếu chỉ so theo src, các ảnh cũ
+// này sẽ bị hiểu nhầm là "ảnh mới" và bị tải/lưu thừa (đây là nguyên nhân bug lưu dư ảnh _1/_2
+// của "dự án khác"/lượt tạo trước, dù người dùng chỉ vừa tạo 1 ảnh). Một ảnh chỉ được coi là THẬT
+// SỰ mới khi cả (a) src của nó chưa từng thấy trước đó VÀ (b) chính thẻ <img> đó cũng là 1 DOM
+// node mới (không có trong tập element đã chụp trước khi gửi lệnh tạo).
 function snapshotImageSrcs() {
-  const set = new Set();
+  const srcSet = new Set();
+  const elSet = new WeakSet();
   findElementInShadows(document.body, (el) => {
     if (el.tagName === 'IMG') {
       const src = el.currentSrc || el.src || '';
       const w = el.naturalWidth || el.width || 0;
       const h = el.naturalHeight || el.height || 0;
-      if (src && w > 180 && h > 180) set.add(src);
+      if (src && w > 180 && h > 180) {
+        srcSet.add(src);
+        elSet.add(el);
+      }
     }
     return false;
   });
-  return set;
+  return { srcSet, elSet };
 }
 
-function findNewGeneratedImages(baselineSrcs) {
+function findNewGeneratedImages(baseline) {
+  const srcSet = baseline ? baseline.srcSet : null;
+  const elSet = baseline ? baseline.elSet : null;
   const found = [];
   const seenThisPass = new Set();
   findElementInShadows(document.body, (el) => {
@@ -603,7 +628,9 @@ function findNewGeneratedImages(baselineSrcs) {
       const src = el.currentSrc || el.src || '';
       const w = el.naturalWidth || el.width || 0;
       const h = el.naturalHeight || el.height || 0;
-      if (src && el.complete && w > 180 && h > 180 && !seenThisPass.has(src) && !(baselineSrcs && baselineSrcs.has(src))) {
+      const srcIsNew = !(srcSet && srcSet.has(src));
+      const elIsNew = !(elSet && elSet.has(el));
+      if (src && el.complete && w > 180 && h > 180 && !seenThisPass.has(src) && srcIsNew && elIsNew) {
         seenThisPass.add(src);
         found.push(el);
       }
@@ -918,7 +945,7 @@ function isGeneratingVideo() {
 // Tải kết quả (ảnh hoặc video) vừa được Flow tạo ra cho 1 phân đoạn về máy,
 // đặt tên file theo số thứ tự phân đoạn + gộp chung vào 1 thư mục theo tên kịch bản,
 // đồng thời cập nhật manifest.json để đối chiếu ngược lại với dữ liệu đầu vào (prompt/lời thoại).
-async function triggerDownload(segment, baselineSrcs) {
+async function triggerDownload(segment, baselineSrcs, precomputedNewImages = null) {
   if (!queue || !segment) return false;
 
   const folder = queue.folderPath || 'example';
@@ -938,7 +965,11 @@ async function triggerDownload(segment, baselineSrcs) {
   };
 
   if (queue.isImage) {
-    const newImages = findNewGeneratedImages(baselineSrcs);
+    // Dùng lại đúng danh sách ảnh đã xác định là "mới" từ lần quét thành công gần nhất
+    // (waitForCompletionAndDownload) nếu có, thay vì quét lại DOM từ đầu ở đây - quét lại có thể
+    // vô tình bắt thêm ảnh CŨ vừa được Flow render lại (đổi blob URL) trong khoảng thời gian ngắn
+    // giữa 2 lần quét, gây lưu dư ảnh không liên quan tới phân đoạn hiện tại.
+    const newImages = precomputedNewImages || findNewGeneratedImages(baselineSrcs);
     if (newImages.length === 0) {
       console.warn('[Flow Helper] Không tìm thấy ảnh mới để tải cho phân đoạn', segmentNumber, '- có thể Flow chưa vẽ xong hoặc đổi cấu trúc trang.');
       return false;
@@ -955,7 +986,10 @@ async function triggerDownload(segment, baselineSrcs) {
       else if (src.includes('.jpg') || src.includes('.jpeg')) ext = 'jpg';
 
       const suffix = newImages.length > 1 ? `_${i + 1}` : '';
-      const filename = `${folder}/images/scene-${paddedNum}${suffix}.${ext}`;
+      // segment.outputFilename (nếu có) ghi đè tên file mặc định "scene-NN" - dùng cho các
+      // trường hợp cần tên gợi nhớ hơn (vd hero image reading_practice: "scene-01-landscape")
+      const baseName = segment.outputFilename || `scene-${paddedNum}`;
+      const filename = `${folder}/images/${baseName}${suffix}.${ext}`;
 
       const ok = await downloadResultUrl(src, filename);
       if (ok) {
@@ -1023,8 +1057,8 @@ function runAutoLoop(runId) {
     console.log('[Flow Helper] Bắt đầu tự động điền & tạo phân đoạn:', nextPendingIdx + 1);
     const segment = queue.segments[nextPendingIdx];
 
-    // Đảm bảo ở đúng chế độ trước khi điền
-    const isSwitching = selectFlowMode(queue.isImage);
+    // Đảm bảo ở đúng chế độ trước khi điền (segment.aspectRatio ghi đè tỉ lệ chung nếu có)
+    const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
     const delay = isSwitching ? 1200 : 0;
 
     updateSegmentStatus(segment.segmentNumber, 'processing');

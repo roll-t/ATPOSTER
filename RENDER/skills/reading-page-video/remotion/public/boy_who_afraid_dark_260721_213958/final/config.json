@@ -1,0 +1,552 @@
+{
+  "projectTitle": "Shadow Shapes at Night",
+  "orientation": "portrait",
+  "image": "boy_who_afraid_dark_260721_213958/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "boy_who_afraid_dark_260721_213958/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "Shadow Shapes at Night",
+  "body": "Leo was seven years old. He lay quietly in his bed. His bedroom was dark, but a small nightlight glowed faintly in the corner. It created long, dancing shadows on the wall. Leo watched these shadows very carefully. To him, they looked like big, strange monsters moving slowly. He pulled his warm blanket up to his chin. He held his favorite blue teddy bear tightly in his arms. His eyes were wide open, looking into the darkness. He felt a little scared of the unknown shapes. But deep down, he knew they were only shadows from his small lamp. He waited for the morning light.\nLeo bảy tuổi. Cậu bé nằm yên lặng trên giường. Phòng ngủ của cậu tối, nhưng một chiếc đèn ngủ nhỏ chiếu sáng mờ ảo ở góc phòng. Nó tạo ra những bóng đổ dài, nhảy múa trên tường. Leo quan sát những bóng này rất cẩn thận. Với cậu, chúng trông như những con quái vật lớn, kỳ lạ đang di chuyển chậm chạp. Cậu kéo chiếc chăn ấm lên đến cằm. Cậu ôm chặt chú gấu bông màu xanh yêu thích của mình. Đôi mắt cậu mở to, nhìn vào bóng tối. Cậu cảm thấy hơi sợ những hình thù không rõ ràng. Nhưng sâu thẳm, cậu biết chúng chỉ là bóng của chiếc đèn nhỏ của mình. Cậu chờ đợi ánh sáng ban mai.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFontSize": 43,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "captionBgOpacity": 100,
+  "heroHeightPercent": 20,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "imageMode": "hero",
+  "wordTimings": [
+    {
+      "word": "Leo",
+      "start": 0.1,
+      "end": 0.575
+    },
+    {
+      "word": "was",
+      "start": 0.5875,
+      "end": 0.8375
+    },
+    {
+      "word": "seven",
+      "start": 0.85,
+      "end": 1.2375
+    },
+    {
+      "word": "years",
+      "start": 1.25,
+      "end": 1.6125
+    },
+    {
+      "word": "old",
+      "start": 1.625,
+      "end": 2.05
+    },
+    {
+      "word": "He",
+      "start": 2.9125,
+      "end": 3.1125000000000003
+    },
+    {
+      "word": "lay",
+      "start": 3.125,
+      "end": 3.4125
+    },
+    {
+      "word": "quietly",
+      "start": 3.425,
+      "end": 4.1375
+    },
+    {
+      "word": "in",
+      "start": 4.15,
+      "end": 4.2875000000000005
+    },
+    {
+      "word": "his",
+      "start": 4.3,
+      "end": 4.5
+    },
+    {
+      "word": "bed",
+      "start": 4.5125,
+      "end": 4.8875
+    },
+    {
+      "word": "His",
+      "start": 5.75,
+      "end": 5.9875
+    },
+    {
+      "word": "bedroom",
+      "start": 6,
+      "end": 6.4875
+    },
+    {
+      "word": "was",
+      "start": 6.5,
+      "end": 6.7125
+    },
+    {
+      "word": "dark",
+      "start": 6.725,
+      "end": 7.1875
+    },
+    {
+      "word": "but",
+      "start": 7.4625,
+      "end": 7.612500000000001
+    },
+    {
+      "word": "a",
+      "start": 7.625,
+      "end": 7.6875
+    },
+    {
+      "word": "small",
+      "start": 7.7,
+      "end": 8.1375
+    },
+    {
+      "word": "nightlight",
+      "start": 8.15,
+      "end": 8.700000000000001
+    },
+    {
+      "word": "glowed",
+      "start": 8.7125,
+      "end": 9.075000000000001
+    },
+    {
+      "word": "faintly",
+      "start": 9.0875,
+      "end": 9.637500000000001
+    },
+    {
+      "word": "in",
+      "start": 9.65,
+      "end": 9.775
+    },
+    {
+      "word": "the",
+      "start": 9.7875,
+      "end": 9.875
+    },
+    {
+      "word": "corner",
+      "start": 9.8875,
+      "end": 10.4375
+    },
+    {
+      "word": "It",
+      "start": 11.3,
+      "end": 11.4875
+    },
+    {
+      "word": "created",
+      "start": 11.5,
+      "end": 12.075
+    },
+    {
+      "word": "long",
+      "start": 12.0875,
+      "end": 12.4625
+    },
+    {
+      "word": "dancing",
+      "start": 12.75,
+      "end": 13.25
+    },
+    {
+      "word": "shadows",
+      "start": 13.2625,
+      "end": 13.825
+    },
+    {
+      "word": "on",
+      "start": 13.8375,
+      "end": 14
+    },
+    {
+      "word": "the",
+      "start": 14.0125,
+      "end": 14.1
+    },
+    {
+      "word": "wall",
+      "start": 14.1125,
+      "end": 14.537500000000001
+    },
+    {
+      "word": "Leo",
+      "start": 15.4,
+      "end": 15.8
+    },
+    {
+      "word": "watched",
+      "start": 15.8125,
+      "end": 16.2375
+    },
+    {
+      "word": "these",
+      "start": 16.25,
+      "end": 16.4875
+    },
+    {
+      "word": "shadows",
+      "start": 16.5,
+      "end": 17.05
+    },
+    {
+      "word": "very",
+      "start": 17.0625,
+      "end": 17.45
+    },
+    {
+      "word": "carefully",
+      "start": 17.4625,
+      "end": 18.15
+    },
+    {
+      "word": "To",
+      "start": 19.0125,
+      "end": 19.1875
+    },
+    {
+      "word": "him",
+      "start": 19.2,
+      "end": 19.5625
+    },
+    {
+      "word": "they",
+      "start": 19.825,
+      "end": 19.974999999999998
+    },
+    {
+      "word": "looked",
+      "start": 19.9875,
+      "end": 20.325
+    },
+    {
+      "word": "like",
+      "start": 20.3375,
+      "end": 20.612499999999997
+    },
+    {
+      "word": "big",
+      "start": 20.625,
+      "end": 20.9625
+    },
+    {
+      "word": "strange",
+      "start": 21.2625,
+      "end": 21.825
+    },
+    {
+      "word": "monsters",
+      "start": 21.8375,
+      "end": 22.474999999999998
+    },
+    {
+      "word": "moving",
+      "start": 22.4875,
+      "end": 22.9125
+    },
+    {
+      "word": "slowly",
+      "start": 22.925,
+      "end": 23.575
+    },
+    {
+      "word": "He",
+      "start": 24.4375,
+      "end": 24.6375
+    },
+    {
+      "word": "pulled",
+      "start": 24.65,
+      "end": 25.0125
+    },
+    {
+      "word": "his",
+      "start": 25.025,
+      "end": 25.224999999999998
+    },
+    {
+      "word": "warm",
+      "start": 25.2375,
+      "end": 25.625
+    },
+    {
+      "word": "blanket",
+      "start": 25.6375,
+      "end": 26.125
+    },
+    {
+      "word": "up",
+      "start": 26.1375,
+      "end": 26.3375
+    },
+    {
+      "word": "to",
+      "start": 26.35,
+      "end": 26.4875
+    },
+    {
+      "word": "his",
+      "start": 26.5,
+      "end": 26.7
+    },
+    {
+      "word": "chin",
+      "start": 26.7125,
+      "end": 27.15
+    },
+    {
+      "word": "He",
+      "start": 28.0125,
+      "end": 28.224999999999998
+    },
+    {
+      "word": "held",
+      "start": 28.2375,
+      "end": 28.5375
+    },
+    {
+      "word": "his",
+      "start": 28.55,
+      "end": 28.75
+    },
+    {
+      "word": "favorite",
+      "start": 28.7625,
+      "end": 29.2625
+    },
+    {
+      "word": "blue",
+      "start": 29.275,
+      "end": 29.5625
+    },
+    {
+      "word": "teddy",
+      "start": 29.575,
+      "end": 29.9375
+    },
+    {
+      "word": "bear",
+      "start": 29.95,
+      "end": 30.25
+    },
+    {
+      "word": "tightly",
+      "start": 30.2625,
+      "end": 30.787499999999998
+    },
+    {
+      "word": "in",
+      "start": 30.8,
+      "end": 30.925
+    },
+    {
+      "word": "his",
+      "start": 30.9375,
+      "end": 31.1125
+    },
+    {
+      "word": "arms",
+      "start": 31.125,
+      "end": 31.7125
+    },
+    {
+      "word": "His",
+      "start": 32.575,
+      "end": 32.85
+    },
+    {
+      "word": "eyes",
+      "start": 32.8625,
+      "end": 33.199999999999996
+    },
+    {
+      "word": "were",
+      "start": 33.2125,
+      "end": 33.4
+    },
+    {
+      "word": "wide",
+      "start": 33.4125,
+      "end": 33.775
+    },
+    {
+      "word": "open",
+      "start": 33.7875,
+      "end": 34.1875
+    },
+    {
+      "word": "looking",
+      "start": 34.4875,
+      "end": 34.849999999999994
+    },
+    {
+      "word": "into",
+      "start": 34.8625,
+      "end": 35.125
+    },
+    {
+      "word": "the",
+      "start": 35.1375,
+      "end": 35.275000000000006
+    },
+    {
+      "word": "darkness",
+      "start": 35.2875,
+      "end": 36.0125
+    },
+    {
+      "word": "He",
+      "start": 36.875,
+      "end": 37.075
+    },
+    {
+      "word": "felt",
+      "start": 37.0875,
+      "end": 37.425
+    },
+    {
+      "word": "a",
+      "start": 37.4375,
+      "end": 37.5
+    },
+    {
+      "word": "little",
+      "start": 37.5125,
+      "end": 37.837500000000006
+    },
+    {
+      "word": "scared",
+      "start": 37.85,
+      "end": 38.2875
+    },
+    {
+      "word": "of",
+      "start": 38.3,
+      "end": 38.412499999999994
+    },
+    {
+      "word": "the",
+      "start": 38.425,
+      "end": 38.537499999999994
+    },
+    {
+      "word": "unknown",
+      "start": 38.55,
+      "end": 39.0875
+    },
+    {
+      "word": "shapes",
+      "start": 39.1,
+      "end": 39.6875
+    },
+    {
+      "word": "But",
+      "start": 40.55,
+      "end": 40.8375
+    },
+    {
+      "word": "deep",
+      "start": 40.85,
+      "end": 41.1375
+    },
+    {
+      "word": "down",
+      "start": 41.15,
+      "end": 41.525
+    },
+    {
+      "word": "he",
+      "start": 41.85,
+      "end": 41.987500000000004
+    },
+    {
+      "word": "knew",
+      "start": 42,
+      "end": 42.3125
+    },
+    {
+      "word": "they",
+      "start": 42.325,
+      "end": 42.5
+    },
+    {
+      "word": "were",
+      "start": 42.5125,
+      "end": 42.737500000000004
+    },
+    {
+      "word": "only",
+      "start": 42.75,
+      "end": 43.075
+    },
+    {
+      "word": "shadows",
+      "start": 43.0875,
+      "end": 43.6875
+    },
+    {
+      "word": "from",
+      "start": 43.7,
+      "end": 43.9125
+    },
+    {
+      "word": "his",
+      "start": 43.925,
+      "end": 44.125
+    },
+    {
+      "word": "small",
+      "start": 44.1375,
+      "end": 44.575
+    },
+    {
+      "word": "lamp",
+      "start": 44.5875,
+      "end": 45.025
+    },
+    {
+      "word": "He",
+      "start": 45.8875,
+      "end": 46.087500000000006
+    },
+    {
+      "word": "waited",
+      "start": 46.1,
+      "end": 46.5625
+    },
+    {
+      "word": "for",
+      "start": 46.575,
+      "end": 46.75
+    },
+    {
+      "word": "the",
+      "start": 46.7625,
+      "end": 46.837500000000006
+    },
+    {
+      "word": "morning",
+      "start": 46.85,
+      "end": 47.300000000000004
+    },
+    {
+      "word": "light",
+      "start": 47.3125,
+      "end": 47.7
+    }
+  ]
+}

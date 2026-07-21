@@ -289,6 +289,19 @@ export const ReadingCard: React.FC<{
 
   const activeIdx = resolveActiveWordIndex(primaryWords, wordTimings, durationInFrames, fps, frame);
 
+  // Tiếng Việt/Anh không có ánh xạ từ-đối-từ thật (thứ tự từ, số từ đều khác nhau), nên không
+  // thể biết chính xác từ tiếng Việt nào "tương ứng" với từ tiếng Anh đang đọc. Xấp xỉ bằng vị
+  // trí TỶ LỆ trong câu — từ đang đọc chiếm bao nhiêu % chiều dài câu tiếng Anh thì sáng đúng từ
+  // ở vị trí % tương ứng trong câu tiếng Việt — cùng cách resolveActiveWordIndex() đã dùng để bù
+  // lệch số từ giữa wordTimings và words, và cùng tinh thần với chunkIntoCount() của
+  // narrated-slideshow-video's Caption.tsx (đồng bộ 2 dòng song ngữ theo tỷ lệ, không phải nghĩa).
+  const secondaryActiveIdx = hasSecondary && secondaryWords.length > 0
+    ? Math.min(
+        secondaryWords.length - 1,
+        Math.round((activeIdx / Math.max(1, primaryWords.length - 1)) * (secondaryWords.length - 1))
+      )
+    : undefined;
+
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
   const bodyFontSize = captionFontSize ?? autoBodyFontSize(primaryWords.length);
   const secondaryFontSize = Math.round(bodyFontSize * 0.7);
@@ -385,6 +398,8 @@ export const ReadingCard: React.FC<{
               color={textColor}
               lineHeight={1.4}
               align={resolvedBodyAlign}
+              highlightIndex={secondaryActiveIdx}
+              highlightColor={pillColor}
             />
           </div>
         )}

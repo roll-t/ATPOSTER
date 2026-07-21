@@ -8,6 +8,7 @@ export const EDGE_TTS_VOICES = [
   { id: 'en-US-JennyNeural', label: 'Jenny — Nữ, Mỹ (ấm áp, thân thiện)', gender: 'female', lang: 'en' },
   { id: 'en-US-GuyNeural', label: 'Guy — Nam, Mỹ (trầm, tự tin)', gender: 'male', lang: 'en' },
   { id: 'en-US-DavisNeural', label: 'Davis — Nam, Mỹ (trẻ trung)', gender: 'male', lang: 'en' },
+  { id: 'en-US-AnaNeural', label: 'Ana — Nữ, Mỹ (giọng trẻ em, dễ thương)', gender: 'female', lang: 'en' },
   { id: 'en-GB-SoniaNeural', label: 'Sonia — Nữ, Anh-Anh', gender: 'female', lang: 'en' },
   { id: 'en-GB-RyanNeural', label: 'Ryan — Nam, Anh-Anh', gender: 'male', lang: 'en' },
   { id: 'en-AU-NatashaNeural', label: 'Natasha — Nữ, Úc', gender: 'female', lang: 'en' },

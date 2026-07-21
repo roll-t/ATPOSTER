@@ -141,7 +141,11 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
   // --- Nếu là Trang Đọc Luyện Tiếng Anh (graded reader, có ảnh Hero minh hoạ phía trên và trang đọc phía dưới) ---
   if (categoryKey === 'reading_practice') {
-    const selectedAspectRatio = input.aspectRatio || '9:16';
+    // Luôn sinh đúng 1 ảnh hero, tỉ lệ ngang (16:9) - bất kể tỉ lệ khung hình chung của cả video
+    // (input.aspectRatio, thường là 9:16) - vì ảnh hero chỉ chiếm 1 dải/nền phía trên trang đọc,
+    // không phải toàn khung hình. Trước đây có thử sinh thêm 1 bản dọc thứ 2 (secondaryVariant)
+    // để chọn theo bố cục, nhưng chất lượng bản thứ 2 không ổn nên bỏ, quay lại 1 ảnh duy nhất.
+    const selectedAspectRatio = '16:9';
     const level = (input.level || 'a2').toUpperCase();
 
     const heroVisualStyle = 'Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image).';
@@ -181,6 +185,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,
+        aspectRatio: selectedAspectRatio,
         jsonPrompt,
         textPrompt
       };
