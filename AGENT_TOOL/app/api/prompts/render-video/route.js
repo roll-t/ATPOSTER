@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { getRemotionDir } from '@/lib/remotionPaths';
+import { getRemotionDir, getRemotionPublicDir, resolveProjectDir } from '@/lib/remotionPaths';
 
 // Tên thư mục project chỉ được chứa chữ/số/gạch dưới/gạch ngang — khớp với cách
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
@@ -21,9 +21,9 @@ export async function POST(req) {
   try {
     const {
       folderPath, category, captionStyle, transitionStyle, bilingual, orientation,
-      captionFont, captionFontSize, captionTextColor, captionBgColor, highlightColor,
+      captionFont, captionFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
-      contentPaddingPercent, bodyAlign
+      contentPaddingPercent, bodyAlign, imageMode
     } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
@@ -42,6 +42,19 @@ export async function POST(req) {
     const scriptPath = path.join(baseRemotionDir, 'scripts', 'render-project.mjs');
     if (!fs.existsSync(scriptPath)) {
       return NextResponse.json({ error: `Không tìm thấy file script tại ${scriptPath}` }, { status: 404 });
+    }
+
+    // Đảm bảo thư mục tài nguyên dự án (manifest.json, audio, images) tồn tại ở thư mục target của skill này.
+    // Nếu project ban đầu được tạo ở skill khác (ví dụ narrated-slideshow-video), tự động sao chép sang
+    // thư mục public của skill hiện tại để render-project.mjs đọc được dứt điểm.
+    const sourceProjectDir = resolveProjectDir(projectFolder, category);
+    const targetPublicDir = getRemotionPublicDir(category);
+    const targetProjectDir = path.join(targetPublicDir, projectFolder);
+
+    if (fs.existsSync(sourceProjectDir) && sourceProjectDir !== targetProjectDir) {
+      console.log(`[API RenderVideo] Tự động đồng bộ tài nguyên từ ${sourceProjectDir} ➔ ${targetProjectDir}`);
+      fs.mkdirSync(targetProjectDir, { recursive: true });
+      fs.cpSync(sourceProjectDir, targetProjectDir, { recursive: true });
     }
 
     // Chỉ chuyển tiếp các option hợp lệ (nằm trong danh sách cho phép) thành cờ dòng lệnh
@@ -64,13 +77,15 @@ export async function POST(req) {
       const num = Number(value);
       if (Number.isFinite(num) && num >= min && num <= max) extraArgs.push(`--${flagName}=${num}`);
     };
-    pushRangedNumber(heroHeightPercent, 'heroHeightPercent', 10, 60);
+    pushRangedNumber(captionBgOpacity, 'captionBgOpacity', 0, 100);
+    pushRangedNumber(heroHeightPercent, 'heroHeightPercent', 0, 60);
     pushRangedNumber(titleHeightPercent, 'titleHeightPercent', 4, 30);
     pushRangedNumber(bodyHeightPercent, 'bodyHeightPercent', 15, 75);
     pushRangedNumber(titleFontSize, 'titleFontSize', 20, 80);
     pushRangedNumber(titleBodyGap, 'titleBodyGap', 0, 80);
     pushRangedNumber(contentPaddingPercent, 'contentPaddingPercent', 0, 30);
     if (bodyAlign === 'left' || bodyAlign === 'justify') extraArgs.push(`--bodyAlign=${bodyAlign}`);
+    if (imageMode === 'hero' || imageMode === 'full_bg' || imageMode === 'none') extraArgs.push(`--imageMode=${imageMode}`);
 
     console.log(`[API RenderVideo] Bắt đầu render cho dự án: ${projectFolder} (${extraArgs.join(' ') || 'mặc định'})`);
 

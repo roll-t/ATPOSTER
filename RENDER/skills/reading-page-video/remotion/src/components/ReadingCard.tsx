@@ -36,47 +36,55 @@ function activeWordIndex(words: string[], durationInFrames: number, frame: numbe
  * (seconds, relative to the audio's own start) instead of a character-length
  * estimate — used whenever `wordTimings` is supplied, for exact sync between
  * the highlighted word and the actual spoken audio.
+ *
+ * IMPORTANT: real TTS timestamps always have small GAPS between words (natural
+ * pauses — noticeably longer right after punctuation/sentence ends; ~0.2-0.4s is
+ * common). During a gap, `timeSeconds` is past the current word's `end` but
+ * before the next word's `start`. The old version treated "past this word's
+ * end" as "show the next word", which lit up the next word up to ~0.4s BEFORE
+ * it's actually spoken at every pause — reads as the highlight "running ahead"
+ * of the narration, most visible with voices/pacing that have pronounced
+ * inter-sentence pauses (e.g. Edge TTS). Fixed by holding the CURRENT word
+ * highlighted through the gap until the next word's real start time arrives.
  */
 function activeWordIndexFromTimings(timings: WordTiming[], timeSeconds: number): number {
   if (timings.length === 0) return 0;
   if (timeSeconds <= timings[0].start) return 0;
   for (let i = 0; i < timings.length; i++) {
-    if (timeSeconds < timings[i].end || i === timings.length - 1) return i;
+    if (timeSeconds < timings[i].end) return i;
+    if (i + 1 < timings.length && timeSeconds < timings[i + 1].start) return i;
   }
   return timings.length - 1;
 }
 
-// Common short function words that are never worth calling out as a
-// "keyword" even when long enough by length alone (mostly moot at length
-// >= 5, but a few common ones — "their", "would", "should" — clear that bar).
-const STOPWORDS = new Set([
-  "their", "would", "should", "could", "which", "there", "where", "these",
-  "those", "about", "after", "before", "being", "still", "while", "every",
-]);
-
-// Selects up to `maxCount` "keyword" word indices from the body — content
-// words (length >= 5, not a common stopword), evenly spread across the
-// whole text — matching the design spec's "highlight_count: 5-8 keywords":
-// only these words ever get the highlight pill treatment when their turn
-// comes, instead of every single word flashing highlighted in sequence
-// (which reads as noisy over a full paragraph). Memoized by the caller
-// since it only needs to run once per body text, not every frame.
-function pickKeywordIndices(words: string[], maxCount = 8): Set<number> {
-  const candidates: number[] = [];
-  words.forEach((w, i) => {
-    const clean = w.replace(/[^a-zA-ZÀ-ỹ]/g, "");
-    if (clean.length >= 5 && !STOPWORDS.has(clean.toLowerCase())) {
-      candidates.push(i);
-    }
-  });
-  if (candidates.length <= maxCount) return new Set(candidates);
-
-  const picked = new Set<number>();
-  const step = candidates.length / maxCount;
-  for (let k = 0; k < maxCount; k++) {
-    picked.add(candidates[Math.floor(k * step)]);
+/**
+ * Picks the active word index for the ON-SCREEN `words` array, preferring
+ * real `wordTimings` when available. `wordTimings` normally has the exact
+ * same word count as `words` (both ultimately derive from the same script —
+ * see AGENT_TOOL's voiceover/route.js, which strips bracket emotion tags
+ * like "[softly]" before calling ElevenLabs so the TTS input matches the
+ * displayed body 1:1). If the counts DO still differ for some other reason
+ * (a stray punctuation-splitting quirk, hand-edited config, etc.), this
+ * remaps the matched timing index proportionally onto `words`' own range
+ * instead of discarding the real timings altogether — still tracks the
+ * narration's actual pace reasonably well, rather than reverting the WHOLE
+ * video to the coarse per-character-length estimate over one mismatch.
+ */
+function resolveActiveWordIndex(
+  words: string[],
+  wordTimings: WordTiming[] | undefined,
+  durationInFrames: number,
+  fps: number,
+  frame: number
+): number {
+  if (words.length === 0) return 0;
+  if (!wordTimings || wordTimings.length === 0) {
+    return activeWordIndex(words, durationInFrames, frame);
   }
-  return picked;
+  const timingIdx = activeWordIndexFromTimings(wordTimings, frame / fps);
+  if (wordTimings.length === words.length) return timingIdx;
+  const ratio = timingIdx / Math.max(1, wordTimings.length - 1);
+  return Math.min(words.length - 1, Math.round(ratio * (words.length - 1)));
 }
 
 // Auto-fits the body's base font size to its word count (a few size tiers,
@@ -110,7 +118,6 @@ const WordLine: React.FC<{
   lineHeight: number;
   align: "center" | "left" | "justify";
   highlightIndex?: number;
-  highlightSet?: Set<number>;
   highlightColor?: string;
   highlightTextColor?: string;
 }> = ({
@@ -122,12 +129,11 @@ const WordLine: React.FC<{
   lineHeight,
   align,
   highlightIndex,
-  highlightSet,
   highlightColor,
   highlightTextColor = "#222222",
 }) => {
   const wordSpan = (word: string, i: number) => {
-    const isActive = highlightIndex === i && (!highlightSet || highlightSet.has(i));
+    const isActive = highlightIndex === i;
     return (
       <span
         key={i}
@@ -198,10 +204,11 @@ const WordLine: React.FC<{
 // non-static `position` (we use `relative`), otherwise this texture's
 // opaque background silently paints over them even though it comes first
 // in the JSX.
-const PaperTexture: React.FC<{ baseColor: string }> = ({ baseColor }) => (
+const PaperTexture: React.FC<{ baseColor: string; opacity?: number }> = ({ baseColor, opacity = 1 }) => (
   <AbsoluteFill
     style={{
       background: baseColor,
+      opacity: opacity,
       backgroundImage: [
         "repeating-linear-gradient(115deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 1px, transparent 1px, transparent 90px)",
         "repeating-linear-gradient(25deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 130px)",
@@ -220,11 +227,12 @@ const PaperTexture: React.FC<{ baseColor: string }> = ({ baseColor }) => (
 
 /**
  * Everything below the hero illustration: the paper background, the title
- * (centered), and the body text (left-aligned, 80%-width column) with
- * selected keywords highlighted karaoke-style as they're spoken. Band
- * proportions default to the design spec (10% title / 40% body / 25%
- * bottom space, all %-of-frame) but are overridable per-render — see
- * titleHeightPercent/bodyHeightPercent in schema.ts.
+ * (centered), and the body text (left-aligned, 80%-width column) with the
+ * currently-spoken word highlighted karaoke-style, continuously, one word
+ * at a time, for the whole reading. Band proportions default to the design
+ * spec (10% title / 40% body / 25% bottom space, all %-of-frame) but are
+ * overridable per-render — see titleHeightPercent/bodyHeightPercent in
+ * schema.ts.
  */
 export const ReadingCard: React.FC<{
   title: string;
@@ -234,6 +242,7 @@ export const ReadingCard: React.FC<{
   captionFontSize?: ReadingPageVideoProps["captionFontSize"];
   captionTextColor?: ReadingPageVideoProps["captionTextColor"];
   captionBgColor?: ReadingPageVideoProps["captionBgColor"];
+  captionBgOpacity?: ReadingPageVideoProps["captionBgOpacity"];
   highlightColor?: ReadingPageVideoProps["highlightColor"];
   showBilingual: boolean;
   durationInFrames: number;
@@ -257,6 +266,7 @@ export const ReadingCard: React.FC<{
   captionFontSize,
   captionTextColor,
   captionBgColor,
+  captionBgOpacity,
   highlightColor,
   showBilingual,
   durationInFrames,
@@ -276,19 +286,16 @@ export const ReadingCard: React.FC<{
   const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
   const primaryWords = useMemo(() => splitWords(primaryTextRaw), [primaryTextRaw]);
   const secondaryWords = useMemo(() => (hasSecondary ? splitWords(secondaryTextRaw) : []), [hasSecondary, secondaryTextRaw]);
-  const keywordSet = useMemo(() => pickKeywordIndices(primaryWords), [primaryWords]);
 
-  const useRealTimings = Boolean(wordTimings && wordTimings.length === primaryWords.length);
-  const activeIdx = useRealTimings
-    ? activeWordIndexFromTimings(wordTimings as WordTiming[], frame / fps)
-    : activeWordIndex(primaryWords, durationInFrames, frame);
+  const activeIdx = resolveActiveWordIndex(primaryWords, wordTimings, durationInFrames, fps, frame);
 
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
   const bodyFontSize = captionFontSize ?? autoBodyFontSize(primaryWords.length);
-  const secondaryFontSize = Math.round(bodyFontSize * 0.85);
+  const secondaryFontSize = Math.round(bodyFontSize * 0.7);
   const textColor = captionTextColor || "#1A1A1A";
   const isTransparentPaper = captionBgColor === "transparent";
   const paperColor = captionBgColor || "#F5F2EB";
+  const resolvedBgOpacity = (captionBgOpacity ?? 100) / 100;
   const pillColor = highlightColor || "#D8B07A";
   const resolvedTitleFontSize = titleFontSize ?? DEFAULT_TITLE_FONT_SIZE;
   const resolvedTitleBodyGap = titleBodyGap ?? DEFAULT_TITLE_BODY_GAP;
@@ -309,7 +316,7 @@ export const ReadingCard: React.FC<{
 
   return (
     <AbsoluteFill style={{ flexDirection: "column" }}>
-      {!isTransparentPaper && <PaperTexture baseColor={paperColor} />}
+      {!isTransparentPaper && <PaperTexture baseColor={paperColor} opacity={resolvedBgOpacity} />}
 
       {/* Title — position: relative so it paints ABOVE PaperTexture (see
           that component's comment) despite coming after it in the
@@ -366,7 +373,6 @@ export const ReadingCard: React.FC<{
           lineHeight={1.45}
           align={resolvedBodyAlign}
           highlightIndex={activeIdx}
-          highlightSet={keywordSet}
           highlightColor={pillColor}
         />
         {hasSecondary && (

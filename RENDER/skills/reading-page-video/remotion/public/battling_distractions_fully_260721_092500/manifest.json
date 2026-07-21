@@ -1,0 +1,472 @@
+{
+  "title": "Finding Focus",
+  "isImage": true,
+  "createdAt": 1784600729471,
+  "updatedAt": 1784602057879,
+  "segments": [
+    {
+      "segmentNumber": 1,
+      "visualDescription": "A vibrant 2D anime illustration showing a young woman (Lily) comfortably curled up on a plush, soft sofa in a cozy living room. She is deeply engrossed in an open book held close to her face, her eyes wide with wonder, suggesting deep immersion. Around her, subtle modern distractions are visible but pushed to the background: a smartphone on a nearby small table glows faintly with a new message notification, and a television in the corner of the room shows a blurry, muted cooking show. Warm, soft lighting bathes the scene, highlighting the comfort of her reading nook. Her serene expression shows she has overcome the distractions. Clean line art, rich atmospheric details.",
+      "dialogueOrNarration": "Lily loves reading. She sits on her soft sofa. Her new book is very interesting. The phone on the table vibrates. [gentle buzz] A small light blinks. Her TV in the corner is on quietly. It shows a cooking show. Lily looks at her book. She takes a deep breath. She closes her eyes for a moment. She opens them again. She focuses on the words. The stories take her far away. The phone and TV disappear. [softly] Lily is in a different world now. She feels happy and calm.",
+      "subtitle": "Lily loves reading. She sits on her soft sofa. Her new book is very interesting. The phone on the table vibrates. A small light blinks. Her TV in the corner is on quietly. It shows a cooking show. Lily looks at her book. She takes a deep breath. She closes her eyes for a moment. She opens them again. She focuses on the words. The stories take her far away. The phone and TV disappear. Lily is in a different world now. She feels happy and calm.\nLily thích đọc sách. Cô ngồi trên ghế sofa mềm mại của mình. Cuốn sách mới của cô rất thú vị. Điện thoại trên bàn rung nhẹ. Một chấm đèn nhỏ nhấp nháy. TV của cô ở góc phòng bật rất khẽ. Nó chiếu một chương trình nấu ăn. Lily nhìn vào cuốn sách của mình. Cô hít một hơi thật sâu. Cô nhắm mắt lại trong giây lát. Cô lại mở mắt ra. Cô tập trung vào các từ ngữ. Những câu chuyện đưa cô đi rất xa. Điện thoại và TV biến mất. Lily giờ đang ở một thế giới khác. Cô cảm thấy vui vẻ và bình yên.",
+      "textPrompt": "Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image). Hero illustration scene expressing the main story theme: A vibrant 2D anime illustration showing a young woman (Lily) comfortably curled up on a plush, soft sofa in a cozy living room. She is deeply engrossed in an open book held close to her face, her eyes wide with wonder, suggesting deep immersion. Around her, subtle modern distractions are visible but pushed to the background: a smartphone on a nearby small table glows faintly with a new message notification, and a television in the corner of the room shows a blurry, muted cooking show. Warm, soft lighting bathes the scene, highlighting the comfort of her reading nook. Her serene expression shows she has overcome the distractions. Clean line art, rich atmospheric details.. This is a top-banner hero illustration for a reading practice story video. It must visually summarize and capture the entire theme, mood, and main characters of the story in a single rich composite scene. It sits in the upper hero area of the page. Keep composition centered and aesthetically balanced. Format: aspect ratio 9:16.",
+      "durationSeconds": 36,
+      "status": "processing",
+      "files": [
+        "battling_distractions_fully_260721_092500/images/scene-01.jpg"
+      ],
+      "wordTimings": [
+        {
+          "word": "Lily",
+          "start": 0,
+          "end": 0.43
+        },
+        {
+          "word": "loves",
+          "start": 0.511,
+          "end": 0.801
+        },
+        {
+          "word": "reading.",
+          "start": 0.882,
+          "end": 1.498
+        },
+        {
+          "word": "She",
+          "start": 1.672,
+          "end": 1.811
+        },
+        {
+          "word": "sits",
+          "start": 1.858,
+          "end": 2.101
+        },
+        {
+          "word": "on",
+          "start": 2.148,
+          "end": 2.218
+        },
+        {
+          "word": "her",
+          "start": 2.276,
+          "end": 2.345
+        },
+        {
+          "word": "soft",
+          "start": 2.403,
+          "end": 2.682
+        },
+        {
+          "word": "sofa.",
+          "start": 2.752,
+          "end": 3.413
+        },
+        {
+          "word": "Her",
+          "start": 3.564,
+          "end": 3.692
+        },
+        {
+          "word": "new",
+          "start": 3.75,
+          "end": 3.901
+        },
+        {
+          "word": "book",
+          "start": 3.947,
+          "end": 4.133
+        },
+        {
+          "word": "is",
+          "start": 4.191,
+          "end": 4.272
+        },
+        {
+          "word": "very",
+          "start": 4.342,
+          "end": 4.586
+        },
+        {
+          "word": "interesting.",
+          "start": 4.644,
+          "end": 5.41
+        },
+        {
+          "word": "The",
+          "start": 5.538,
+          "end": 5.642
+        },
+        {
+          "word": "phone",
+          "start": 5.689,
+          "end": 5.944
+        },
+        {
+          "word": "on",
+          "start": 5.979,
+          "end": 6.037
+        },
+        {
+          "word": "the",
+          "start": 6.072,
+          "end": 6.142
+        },
+        {
+          "word": "table",
+          "start": 6.188,
+          "end": 6.548
+        },
+        {
+          "word": "vibrates.",
+          "start": 6.594,
+          "end": 7.419
+        },
+        {
+          "word": "[gentle",
+          "start": 7.535,
+          "end": 8.127
+        },
+        {
+          "word": "buzz]",
+          "start": 8.162,
+          "end": 8.731
+        },
+        {
+          "word": "A",
+          "start": 9.009,
+          "end": 9.079
+        },
+        {
+          "word": "small",
+          "start": 9.16,
+          "end": 9.416
+        },
+        {
+          "word": "light",
+          "start": 9.474,
+          "end": 9.706
+        },
+        {
+          "word": "blinks.",
+          "start": 9.764,
+          "end": 10.426
+        },
+        {
+          "word": "Her",
+          "start": 10.6,
+          "end": 10.739
+        },
+        {
+          "word": "TV",
+          "start": 10.786,
+          "end": 11.041
+        },
+        {
+          "word": "in",
+          "start": 11.192,
+          "end": 11.262
+        },
+        {
+          "word": "the",
+          "start": 11.297,
+          "end": 11.366
+        },
+        {
+          "word": "corner",
+          "start": 11.401,
+          "end": 11.714
+        },
+        {
+          "word": "is",
+          "start": 11.761,
+          "end": 11.831
+        },
+        {
+          "word": "on",
+          "start": 11.889,
+          "end": 11.993
+        },
+        {
+          "word": "quietly.",
+          "start": 12.063,
+          "end": 12.759
+        },
+        {
+          "word": "It",
+          "start": 12.875,
+          "end": 13.003
+        },
+        {
+          "word": "shows",
+          "start": 13.05,
+          "end": 13.259
+        },
+        {
+          "word": "a",
+          "start": 13.293,
+          "end": 13.317
+        },
+        {
+          "word": "cooking",
+          "start": 13.363,
+          "end": 13.653
+        },
+        {
+          "word": "show.",
+          "start": 13.711,
+          "end": 14.199
+        },
+        {
+          "word": "Lily",
+          "start": 14.478,
+          "end": 14.733
+        },
+        {
+          "word": "looks",
+          "start": 14.779,
+          "end": 15
+        },
+        {
+          "word": "at",
+          "start": 15.035,
+          "end": 15.116
+        },
+        {
+          "word": "her",
+          "start": 15.163,
+          "end": 15.244
+        },
+        {
+          "word": "book.",
+          "start": 15.302,
+          "end": 15.79
+        },
+        {
+          "word": "She",
+          "start": 16.069,
+          "end": 16.196
+        },
+        {
+          "word": "takes",
+          "start": 16.243,
+          "end": 16.498
+        },
+        {
+          "word": "a",
+          "start": 16.533,
+          "end": 16.556
+        },
+        {
+          "word": "deep",
+          "start": 16.603,
+          "end": 16.777
+        },
+        {
+          "word": "breath.",
+          "start": 16.835,
+          "end": 17.404
+        },
+        {
+          "word": "She",
+          "start": 17.729,
+          "end": 17.856
+        },
+        {
+          "word": "closes",
+          "start": 17.915,
+          "end": 18.309
+        },
+        {
+          "word": "her",
+          "start": 18.367,
+          "end": 18.46
+        },
+        {
+          "word": "eyes",
+          "start": 18.53,
+          "end": 18.727
+        },
+        {
+          "word": "for",
+          "start": 18.774,
+          "end": 18.878
+        },
+        {
+          "word": "a",
+          "start": 18.925,
+          "end": 18.948
+        },
+        {
+          "word": "moment.",
+          "start": 19.006,
+          "end": 19.621
+        },
+        {
+          "word": "She",
+          "start": 19.772,
+          "end": 19.911
+        },
+        {
+          "word": "opens",
+          "start": 19.993,
+          "end": 20.283
+        },
+        {
+          "word": "them",
+          "start": 20.329,
+          "end": 20.445
+        },
+        {
+          "word": "again.",
+          "start": 20.48,
+          "end": 20.991
+        },
+        {
+          "word": "She",
+          "start": 21.2,
+          "end": 21.328
+        },
+        {
+          "word": "focuses",
+          "start": 21.409,
+          "end": 21.874
+        },
+        {
+          "word": "on",
+          "start": 21.92,
+          "end": 22.001
+        },
+        {
+          "word": "the",
+          "start": 22.048,
+          "end": 22.117
+        },
+        {
+          "word": "words.",
+          "start": 22.175,
+          "end": 22.86
+        },
+        {
+          "word": "The",
+          "start": 23.035,
+          "end": 23.162
+        },
+        {
+          "word": "stories",
+          "start": 23.22,
+          "end": 23.766
+        },
+        {
+          "word": "take",
+          "start": 23.812,
+          "end": 24.056
+        },
+        {
+          "word": "her",
+          "start": 24.103,
+          "end": 24.184
+        },
+        {
+          "word": "far",
+          "start": 24.254,
+          "end": 24.509
+        },
+        {
+          "word": "away.",
+          "start": 24.567,
+          "end": 25.24
+        },
+        {
+          "word": "The",
+          "start": 25.484,
+          "end": 25.6
+        },
+        {
+          "word": "phone",
+          "start": 25.658,
+          "end": 26.03
+        },
+        {
+          "word": "and",
+          "start": 26.053,
+          "end": 26.134
+        },
+        {
+          "word": "TV",
+          "start": 26.181,
+          "end": 26.471
+        },
+        {
+          "word": "disappear.",
+          "start": 26.715,
+          "end": 27.528
+        },
+        {
+          "word": "[softly]",
+          "start": 27.911,
+          "end": 28.99
+        },
+        {
+          "word": "Lily",
+          "start": 29.165,
+          "end": 29.443
+        },
+        {
+          "word": "is",
+          "start": 29.49,
+          "end": 29.571
+        },
+        {
+          "word": "in",
+          "start": 29.629,
+          "end": 29.687
+        },
+        {
+          "word": "a",
+          "start": 29.722,
+          "end": 29.745
+        },
+        {
+          "word": "different",
+          "start": 29.792,
+          "end": 30.093
+        },
+        {
+          "word": "world",
+          "start": 30.128,
+          "end": 30.395
+        },
+        {
+          "word": "now.",
+          "start": 30.453,
+          "end": 30.941
+        },
+        {
+          "word": "She",
+          "start": 31.266,
+          "end": 31.394
+        },
+        {
+          "word": "feels",
+          "start": 31.463,
+          "end": 31.707
+        },
+        {
+          "word": "happy",
+          "start": 31.765,
+          "end": 32.16
+        },
+        {
+          "word": "and",
+          "start": 32.276,
+          "end": 32.45
+        },
+        {
+          "word": "calm.",
+          "start": 32.531,
+          "end": 33.576
+        }
+      ]
+    }
+  ]
+}

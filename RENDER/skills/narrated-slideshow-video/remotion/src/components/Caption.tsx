@@ -79,14 +79,53 @@ function activeWordIndex(words: string[], durationInFrames: number, frame: numbe
  * character-length estimate — used whenever a scene has `wordTimings` from
  * the TTS provider's alignment API, for exact sync between the highlighted
  * word and the actual spoken audio.
+ *
+ * IMPORTANT: real TTS timestamps always have small GAPS between words (a
+ * natural pause — noticeably longer right after punctuation/sentence ends;
+ * gaps approaching a full second aren't unusual). During a gap, `timeSeconds`
+ * is past the current word's `end` but before the next word's `start`.
+ * Treating "past this word's end" as "show the next word" lights up the next
+ * word before it's actually spoken — reads as the highlight "running ahead"
+ * of the narration, most visible with voices/providers that have pronounced
+ * inter-sentence pauses (e.g. Edge TTS). Fixed by holding the CURRENT word
+ * highlighted through the gap until the next word's real start time arrives,
+ * instead of jumping the moment the current word's `end` passes.
  */
 function activeWordIndexFromTimings(timings: WordTiming[], timeSeconds: number): number {
   if (timings.length === 0) return 0;
   if (timeSeconds <= timings[0].start) return 0;
   for (let i = 0; i < timings.length; i++) {
-    if (timeSeconds < timings[i].end || i === timings.length - 1) return i;
+    if (timeSeconds < timings[i].end) return i;
+    if (i + 1 < timings.length && timeSeconds < timings[i + 1].start) return i;
   }
   return timings.length - 1;
+}
+
+/**
+ * Picks the active word index for the ON-SCREEN `words` array, preferring
+ * real `wordTimings` when available. Used 1:1 when the counts match exactly;
+ * if they don't (the alignment came from narration text that isn't
+ * word-for-word identical to the on-screen caption), the matched timing
+ * index is proportionally remapped onto `words`' own range instead of
+ * discarding the real timings altogether — still tracks the narration's
+ * actual pace reasonably well, rather than reverting the WHOLE scene to the
+ * coarse per-character-length estimate over one stray mismatch.
+ */
+function resolveActiveWordIndex(
+  words: string[],
+  wordTimings: WordTiming[] | undefined,
+  durationInFrames: number,
+  fps: number,
+  frame: number
+): number {
+  if (words.length === 0) return 0;
+  if (!wordTimings || wordTimings.length === 0) {
+    return activeWordIndex(words, durationInFrames, frame);
+  }
+  const timingIdx = activeWordIndexFromTimings(wordTimings, frame / fps);
+  if (wordTimings.length === words.length) return timingIdx;
+  const ratio = timingIdx / Math.max(1, wordTimings.length - 1);
+  return Math.min(words.length - 1, Math.round(ratio * (words.length - 1)));
 }
 
 const CaptionLine: React.FC<{
@@ -190,18 +229,10 @@ export const Caption: React.FC<{
   // "tiktok" full-caption case which shows static text with no highlight.
   const highlightsWords = isKaraoke || isPage;
 
-  // Real timestamps only make sense if they line up 1:1 with the caption's
-  // own words (they're captured from the narration text, which is usually
-  // but not always identical to the on-screen caption) — otherwise silently
-  // fall back to the word-length estimate rather than risk highlighting the
-  // wrong word.
-  const useRealTimings = Boolean(wordTimings && wordTimings.length === allWords.length);
   const activeIdx =
     mode === "full" && !highlightsWords
       ? -1
-      : useRealTimings
-        ? activeWordIndexFromTimings(wordTimings as WordTiming[], frame / fps)
-        : activeWordIndex(allWords, durationInFrames, frame);
+      : resolveActiveWordIndex(allWords, wordTimings, durationInFrames, fps, frame);
 
   // In "chunked" mode, show the wordsPerChunk-sized slice that contains
   // the active word — chunk boundaries are the same as before, only the

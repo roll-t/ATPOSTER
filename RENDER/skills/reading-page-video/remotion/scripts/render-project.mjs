@@ -82,16 +82,34 @@ function parseNumberFlag(raw, min, max) {
   const n = raw !== undefined ? Number(raw) : NaN;
   return Number.isFinite(n) && n >= min && n <= max ? n : undefined;
 }
-const heroHeightPercent = parseNumberFlag(flags.heroHeightPercent, 10, 60);
+const captionBgOpacity = parseNumberFlag(flags.captionBgOpacity, 0, 100);
+const heroHeightPercent = parseNumberFlag(flags.heroHeightPercent, 0, 60);
 const titleHeightPercent = parseNumberFlag(flags.titleHeightPercent, 4, 30);
 const bodyHeightPercent = parseNumberFlag(flags.bodyHeightPercent, 15, 75);
 const titleFontSize = parseNumberFlag(flags.titleFontSize, 20, 80);
 const titleBodyGap = parseNumberFlag(flags.titleBodyGap, 0, 80);
 const contentPaddingPercent = parseNumberFlag(flags.contentPaddingPercent, 0, 30);
 const bodyAlign = (flags.bodyAlign === "left" || flags.bodyAlign === "justify") ? flags.bodyAlign : undefined;
+const imageMode = (flags.imageMode === "hero" || flags.imageMode === "full_bg" || flags.imageMode === "none") ? flags.imageMode : undefined;
 
-const projectPath = path.join(root, "public", projectFolder);
-const manifestPath = path.join(projectPath, "manifest.json");
+let projectPath = path.join(root, "public", projectFolder);
+let manifestPath = path.join(projectPath, "manifest.json");
+
+if (!fs.existsSync(manifestPath)) {
+  const fallbackCandidates = [
+    path.resolve(projectFolder),
+    path.resolve(root, "..", "..", "narrated-slideshow-video", "remotion", "public", projectFolder),
+    path.resolve(root, "..", "..", "reading-page-video", "remotion", "public", projectFolder),
+  ];
+  for (const cand of fallbackCandidates) {
+    const candidateManifest = path.join(cand, "manifest.json");
+    if (fs.existsSync(candidateManifest)) {
+      projectPath = cand;
+      manifestPath = candidateManifest;
+      break;
+    }
+  }
+}
 
 if (!fs.existsSync(manifestPath)) {
   console.error(`Error: manifest.json not found in ${projectPath}`);
@@ -146,6 +164,7 @@ const remotionConfig = {
   captionFontSize,
   captionTextColor,
   captionBgColor,
+  captionBgOpacity,
   highlightColor,
   heroHeightPercent,
   titleHeightPercent,
@@ -154,6 +173,7 @@ const remotionConfig = {
   titleBodyGap,
   contentPaddingPercent,
   bodyAlign,
+  imageMode,
   // Real per-word timing from ElevenLabs' alignment API, if the voiceover
   // step captured it (see AGENT_TOOL's voiceover/route.js) — lets the
   // karaoke highlight track the exact word being spoken instead of

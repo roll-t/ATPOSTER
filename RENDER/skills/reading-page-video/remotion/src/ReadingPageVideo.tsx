@@ -33,6 +33,7 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
     captionFontSize,
     captionTextColor,
     captionBgColor,
+    captionBgOpacity,
     highlightColor,
     heroHeightPercent,
     titleHeightPercent,
@@ -41,6 +42,7 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
     titleBodyGap,
     contentPaddingPercent,
     bodyAlign,
+    imageMode = "hero"
   } = props;
 
   const audioVolume = interpolate(
@@ -58,13 +60,27 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
       <Background color={bgColor} />
       <Audio src={resolveSrc(audio)} volume={audioVolume} />
 
-      <AbsoluteFill style={{ flexDirection: "column" }}>
-        {/* Hero Illustration — top band, full width, no letterboxing (cover fit) */}
-        <div style={{ flex: `0 0 ${heroPercent}%`, position: "relative", overflow: "hidden" }}>
+      {/* Nền ảnh phủ 100% full màn hình phía sau (để hiển thị xuyên qua khi hạ opacity màu nền trang giấy) */}
+      {image && imageMode !== "none" && (
+        <AbsoluteFill style={{ zIndex: 0 }}>
           <SceneImage src={image} fit={imageFit} kenBurns="none" durationInFrames={durationInFrames} />
-        </div>
+        </AbsoluteFill>
+      )}
 
-        {/* Everything below the illustration: paper background + title + body + bottom breathing room */}
+      <AbsoluteFill style={{ flexDirection: "column", zIndex: 1 }}>
+        {/* Mode hero: Ảnh nằm ngang nằm ở băng Hero trên cùng */}
+        {imageMode === "hero" && (
+          <div style={{ flex: `0 0 ${heroPercent}%`, position: "relative", overflow: "hidden" }}>
+            <SceneImage src={image} fit={imageFit} kenBurns="none" durationInFrames={durationInFrames} />
+          </div>
+        )}
+
+        {/* Màn hình trống phía trên cho mode full_bg (nếu có heroPercent) */}
+        {imageMode === "full_bg" && heroPercent > 0 && (
+          <div style={{ flex: `0 0 ${heroPercent}%`, position: "relative" }} />
+        )}
+
+        {/* Nội dung bài đọc (tiêu đề + đoạn văn) */}
         <div style={{ flex: `0 0 ${restPercent}%`, position: "relative" }}>
           <ReadingCard
             title={title}
@@ -74,6 +90,7 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
             captionFontSize={captionFontSize}
             captionTextColor={captionTextColor}
             captionBgColor={captionBgColor}
+            captionBgOpacity={captionBgOpacity}
             highlightColor={highlightColor}
             showBilingual={showBilingual}
             durationInFrames={durationInFrames}

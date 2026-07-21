@@ -1,6 +1,6 @@
 ---
 name: reading-page-video
-description: Turn a short script into a ONE-SLIDE "read-along" / graded-reader video with a fixed magazine-style layout — a bright hero illustration across the top 25% of the frame, a bold centered title, then left-aligned body text on a paper-textured background, with ~5-8 important keywords highlighted as the narration reaches them (not literal word-for-word karaoke), built with Remotion (React/TypeScript). Use whenever the user wants an English-reading-practice short, a "graded reader" style video, a video where the whole page of text stays on screen while keywords light up as the narrator reaches them, or explicitly asks for a video "chỉ 1 slide" with the full script on it. This is a separate skill from narrated-slideshow-video (not that one customized) so edits to either never affect the other. Also use it to tweak an existing video of this type — font, text/background/highlight color, size, or the hero illustration.
+description: Turn a short script into a ONE-SLIDE "read-along" / graded-reader video with a fixed magazine-style layout — a bright hero illustration across the top 25% of the frame, a bold centered title, then left-aligned body text on a paper-textured background, with the currently-spoken word highlighted continuously, one word at a time, for the whole reading (literal word-for-word karaoke), built with Remotion (React/TypeScript). Use whenever the user wants an English-reading-practice short, a "graded reader" style video, a video where the whole page of text stays on screen while each word lights up as the narrator reaches it, or explicitly asks for a video "chỉ 1 slide" with the full script on it. This is a separate skill from narrated-slideshow-video (not that one customized) so edits to either never affect the other. Also use it to tweak an existing video of this type — font, text/background/highlight color, size, or the hero illustration.
 ---
 
 # Reading Page Video Generator (Remotion)
@@ -10,9 +10,10 @@ that's exactly ONE slide for its entire duration, in a fixed layout: a bright
 hero illustration across the top 25% of the frame, a bold centered title
 below it, then the full body text — left-aligned, on a paper-textured
 background — filling most of the rest of the frame with generous empty space
-at the bottom. As the narration plays, ~5-8 important keywords (not every
-word) light up with a highlight pill when the narrator reaches them. Unlike
-a slideshow, there is no second scene, no transition, no page-turn — the
+at the bottom. As the narration plays, the current word lights up with a
+highlight pill continuously, one word at a time, for the whole reading (true
+word-for-word karaoke — every word gets its turn, not just a curated few).
+Unlike a slideshow, there is no second scene, no transition, no page-turn — the
 whole point is that the viewer reads along with the whole passage at once,
 the way a "graded reader" / "one English page a day" short works.
 
@@ -40,7 +41,7 @@ remotion/
 │   └── components/
 │       ├── Background.tsx         — solid fill behind everything (rarely visible fallback)
 │       ├── SceneImage.tsx         — the hero illustration (cover/contain fit)
-│       └── ReadingCard.tsx        — everything below the illustration: paper texture, title band, body band (keyword highlighting), bottom space — see the fixed-layout percentages at the top of ReadingPageVideo.tsx
+│       └── ReadingCard.tsx        — everything below the illustration: paper texture, title band, body band (word-by-word karaoke highlighting), bottom space — see the fixed-layout percentages at the top of ReadingPageVideo.tsx
 ├── configs/
 │   └── example.json              — one filled-in config, uses the bundled placeholder demo assets
 ├── scripts/
@@ -114,30 +115,32 @@ band without hand-tuning per video. Override it with `captionFontSize` if
 you want a specific size regardless of length — see below. The title is
 fixed at 44px regardless of body length (clamped to 2 lines).
 
-## Why only some words get highlighted, not every word
+## Karaoke highlight — every word, continuously, for the whole reading
 
-Unlike narrated-slideshow-video's literal word-for-word karaoke, this skill
-picks ~5-8 "keyword" words up front (`pickKeywordIndices()` in
-`ReadingCard.tsx`: content words ≥5 characters, skipping a short stopword
-list, evenly spread across the body) and only those ever show the highlight
-pill when the narration reaches them — every other word passes by plain.
-This matches the "highlight_count: 5-8 keywords" design reference this skill
-was built from, and reads calmer over a full paragraph than every single
-word (including "a", "the", "is") flashing highlighted in sequence.
+`ReadingCard.tsx` highlights literal word-for-word: whichever word
+`resolveActiveWordIndex()` resolves as "currently spoken" gets the pill —
+every word gets its turn as the narration reaches it, not a curated subset.
+(An earlier version only highlighted a handful of "keyword" words picked up
+front, which looked like the effect randomly turning on/off for long
+stretches of plain text — that keyword-selection step has been removed.) See
+"Karaoke sync accuracy" below for how the highlighted word is kept in sync
+with the actual audio.
 
 ## Customizing look and feel
 
 - **Bilingual body**: put a literal `"\n"` inside `body` to show two stacked
-  lines — the primary line renders bold, left-aligned, with keyword
-  highlighting; the second renders smaller/dimmer right below it.
+  lines — the primary line renders bold, left-aligned, with the karaoke
+  highlight; the second renders smaller/dimmer right below it, never
+  highlighted.
   `showBilingual: false` hides the second line without touching the text
   itself. A `body` with no `"\n"` is unaffected either way.
 - **Exact word sync (`wordTimings`)**: real per-word timestamps (e.g. from
   ElevenLabs' `/with-timestamps` endpoint, which AGENT_TOOL's voiceover step
   captures automatically) — set `wordTimings: [{ word, start, end }, ...]`
-  (seconds, relative to `audio`'s own start). Only used when the array's
-  word count matches the primary line of `body`; otherwise silently falls
-  back to a word-length-weighted estimate.
+  (seconds, relative to `audio`'s own start). Used exactly 1:1 when the
+  array's word count matches the primary line of `body`; if it doesn't,
+  proportionally remapped instead of discarded (see "Karaoke sync accuracy"
+  below). Missing entirely → falls back to a word-length-weighted estimate.
 - **CapCut-style manual overrides** — all optional and independent, same
   field names/contract as narrated-slideshow-video so the same app UI can
   drive either skill:
@@ -154,8 +157,8 @@ word (including "a", "the", "is") flashing highlighted in sequence.
   - `captionBgColor`: overrides the paper background's color (default
     `#F5F2EB`) — this is the whole area below the illustration, not a
     floating card. `"transparent"` removes the paper texture entirely.
-  - `highlightColor`: overrides the keyword-highlight pill color (default a
-    muted gold, `#D8B07A`).
+  - `highlightColor`: overrides the karaoke highlight pill color for the
+    currently-spoken word (default a muted gold, `#D8B07A`).
 - **CapCut-style LAYOUT overrides** — also optional/independent, all %-of-
   total-frame: `heroHeightPercent` (10–60, default 25), `titleHeightPercent`
   (4–30, default 10), `bodyHeightPercent` (15–75, default 40) — bottom space
@@ -198,6 +201,62 @@ narration audio — check first whether `AGENT_TOOL`'s `reading_practice`
 category is available (it calls ElevenLabs and writes real per-word
 `wordTimings` automatically) before improvising synthesis here.
 
+AGENT_TOOL's render-config panel has a "Tốc độ đọc" (reading speed) toggle —
+slow/medium/fast — right next to the "Tạo Lồng Tiếng" button (Step 2), which
+AGENT_TOOL forwards to ElevenLabs as `voice_settings.speed` when generating
+the narration (see `voiceover/route.js`). This is the ONE place reading
+speed is chosen — deliberately not also exposed as a field on the initial
+script-generation form, since the two controls showing independent state at
+different points in the flow just looked out-of-sync to the user. Script
+word-count sizing (`buildReadingPracticeScriptPrompt` in `readingPractice.js`)
+still accepts an optional `readingSpeed` input to scale its target word
+count for a non-default pace, but nothing in the current UI sets it — it
+always sizes for medium pace, which is harmless since the video's real
+length always comes from the actual generated audio (see `calculateMetadata`
+in `Root.tsx`), not the word-count estimate.
+
+## Karaoke sync accuracy — why it can look wrong, and how it's kept accurate
+
+The karaoke highlight is only as good as `wordTimings` matching the on-screen
+body 1:1 (see "Exact word sync" above). The most common way this used to
+break: Gemini's reading-practice prompt allows bracket emotion tags in the
+narration text (e.g. `"[softly]"`, `"[with a slight tremor]"`) meant as
+silent delivery direction — but `eleven_multilingual_v2` (the TTS model
+AGENT_TOOL uses) doesn't support those as silent tags the way ElevenLabs' v3
+model does, so it used to literally SPEAK them aloud, and their characters
+would show up as extra tokens in the returned per-word alignment — extra
+tokens that don't exist in the displayed `body` (which is generated WITHOUT
+tags). That made `wordTimings.length !== body word count`, which used to
+mean the karaoke fell back entirely to a coarse per-character-length
+estimate for the WHOLE video instead of the real timestamps.
+
+Fixed on both ends:
+- `AGENT_TOOL/app/api/prompts/voiceover/route.js` now strips `[...]` tags
+  from the text sent to ElevenLabs before requesting narration, so the TTS
+  input matches the displayed body exactly (no more mismatched counts, and
+  the narration stops literally saying "softly" out loud).
+- `ReadingCard.tsx`'s word-index resolution (`resolveActiveWordIndex`) no
+  longer treats any length mismatch as all-or-nothing: if `wordTimings`'
+  count still doesn't match `body`'s word count for some other reason, it
+  proportionally remaps the matched timing index onto the body's own word
+  range instead of discarding the real timings — still tracks the
+  narration's actual pace reasonably well rather than reverting the whole
+  video to the estimate over one stray mismatch.
+
+A second, separate bug (fixed later): real TTS timestamps always have small
+silent GAPS between words — a natural pause, often 0.2-0.4s and sometimes
+close to a full second right after a sentence/punctuation. `WordLine`'s
+`activeWordIndexFromTimings()` used to treat "we're past this word's `end`"
+as "show the next word", which lit up the next word during that gap — i.e.
+up to ~0.4-0.9s BEFORE it's actually spoken. That reads as the highlight
+"running ahead" of the narration, most noticeable with voices/providers that
+have pronounced inter-sentence pauses (confirmed with real Edge TTS output:
+gaps up to ~0.86s at sentence boundaries). This affected both providers'
+real-timestamp path, not just Edge — Edge just makes it obvious because its
+natural pauses are longer/more consistent. Fixed by holding the CURRENT word
+highlighted through the gap until the next word's real `start` time arrives,
+instead of jumping the moment the current word's `end` passes.
+
 ## Reference
 
 - `src/schema.ts` — the zod schema; authoritative list of every config
@@ -206,8 +265,9 @@ category is available (it calls ElevenLabs and writes real per-word
 - `src/ReadingPageVideo.tsx` — the composition: the illustration/rest 25%/75%
   split and audio. Edit `HERO_HEIGHT_PERCENT` here to change that split.
 - `src/components/ReadingCard.tsx` — everything below the illustration: the
-  paper texture, the title/body/bottom-space band proportions, `autoBodyFontSize()`,
-  and `pickKeywordIndices()` (the keyword-selection heuristic).
+  paper texture, the title/body/bottom-space band proportions,
+  `autoBodyFontSize()`, and `resolveActiveWordIndex()` (the word-by-word
+  karaoke sync logic).
 - `src/captionFonts.ts` — the curated `captionFont` choices; edit to
   add/remove a font option.
 - `references/config_schema.md` — full field-by-field config reference.

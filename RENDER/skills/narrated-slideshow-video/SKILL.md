@@ -166,9 +166,18 @@ when you want to override that (see `references/config_schema.md`).
   endpoint, which AGENT_TOOL's voiceover step captures automatically — set
   `scenes[i].wordTimings: [{ word, start, end }, ...]` (seconds, relative to
   that scene's own audio start). `captionStyle: "karaoke"` then highlights
-  the exact word being spoken instead of estimating. Only used when the
-  timing array's word count matches the caption's own word count; otherwise
-  silently falls back to the estimate. See `references/config_schema.md`.
+  the exact word being spoken instead of estimating, used 1:1 when the
+  timing array's word count matches the caption's own; if it doesn't,
+  `resolveActiveWordIndex()` in `Caption.tsx` proportionally remaps the
+  matched timing instead of discarding it, so a stray mismatch degrades
+  gracefully rather than reverting the whole scene to the length-based
+  estimate. Real timestamps always have small silent gaps between words
+  (a natural pause, longer after punctuation/sentence ends) —
+  `activeWordIndexFromTimings()` holds the current word highlighted through
+  that gap until the next word's real start time arrives, instead of
+  lighting up the next word early (which used to read as the highlight
+  "running ahead" of the narration, most visible with voices that have
+  pronounced pauses). See `references/config_schema.md`.
 - **CapCut-style manual overrides**: `captionFont` (one of 6 curated Google
   Fonts — `"be-vietnam-pro"`, `"roboto"`, `"montserrat"`, `"nunito"`,
   `"inter"`, `"oswald"` — loaded via `@remotion/google-fonts` so it renders

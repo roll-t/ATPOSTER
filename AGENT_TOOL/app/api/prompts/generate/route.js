@@ -202,10 +202,15 @@ export async function POST(request) {
       // (đúng 1 segment/slide) — khác với stick_figure_slideshow (mỗi DÒNG là 1 slide),
       // vì reading_practice luôn chỉ có ĐÚNG 1 trang cho cả video.
       const body = (processedInput.script || '').replace(/\s+/g, ' ').trim();
+      // Cùng hệ số tốc độ đọc dùng ở buildReadingPracticeScriptPrompt (Gemini mode) —
+      // chỉ ảnh hưởng con số hiển thị ước tính ở đây, thời lượng thật của video luôn lấy
+      // từ độ dài file audio thật (xem calculateMetadata trong Root.tsx).
+      const READING_SPEED_WPS = { slow: 2.3 * 0.82, medium: 2.3, fast: 2.3 * 1.18 };
+      const wps = READING_SPEED_WPS[(processedInput.readingSpeed || 'medium').toLowerCase()] || 2.3;
 
       const segments = body ? [{
         segmentNumber: 1,
-        durationSeconds: Math.max(8, Math.round(body.split(/\s+/).filter(Boolean).length / 2.3)),
+        durationSeconds: Math.max(8, Math.round(body.split(/\s+/).filter(Boolean).length / wps)),
         visualDescription: `A simple, mostly-empty graded-reader page background for this text: ${body}`,
         dialogueOrNarration: body,
         subtitle: body

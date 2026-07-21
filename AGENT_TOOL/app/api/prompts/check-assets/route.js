@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { ALL_SKILL_FOLDERS, resolveSkillRemotionDir, resolveProjectDir } from '@/lib/remotionPaths';
 
 export async function POST(req) {
   try {
-    const { folderPath } = await req.json();
+    const { folderPath, category } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
     }
 
-    const targetDir = resolveProjectDir(folderPath.trim());
+    const cleanFolder = folderPath.trim();
+    const targetDir = resolveProjectDir(cleanFolder, category);
     const imagesDir = path.join(targetDir, 'images');
     const audioDir = path.join(targetDir, 'audio');
-    const videoFile = path.join(targetDir, 'final', 'video.mp4');
 
     let imageCount = 0;
     if (fs.existsSync(imagesDir)) {
@@ -25,7 +25,14 @@ export async function POST(req) {
       audioCount = fs.readdirSync(audioDir).filter(f => f.startsWith('scene-') && f.endsWith('.mp3')).length;
     }
 
-    const videoCreated = fs.existsSync(videoFile);
+    let videoCreated = false;
+    for (const folder of ALL_SKILL_FOLDERS) {
+      const vFile = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder, 'final', 'video.mp4');
+      if (fs.existsSync(vFile)) {
+        videoCreated = true;
+        break;
+      }
+    }
 
     return NextResponse.json({
       success: true,

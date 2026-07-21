@@ -21,6 +21,7 @@ export const readingPageVideoSchema = z.object({
   // the background illustration/photo for the page.
   image: z.string(),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
+  imageMode: z.enum(["hero", "full_bg", "none"]).optional(),
 
   // Path under public/ or a full https:// URL — the single narration clip
   // for the whole video. Drives the video's total duration (see
@@ -86,8 +87,11 @@ export const readingPageVideoSchema = z.object({
   // Overrides the page's paper background color (default "#F5F2EB"). Set to
   // "transparent" to remove the paper texture entirely, leaving `bgColor`.
   captionBgColor: z.string().optional(),
-  // Overrides the keyword-highlight pill color (default a muted gold,
-  // "#D8B07A") — see pickKeywordIndices() in ReadingCard.tsx.
+  // Overrides the page's paper background opacity (0-100%, default 100%).
+  captionBgOpacity: z.number().min(0).max(100).optional(),
+  // Overrides the karaoke highlight pill color for the currently-spoken word
+  // (default a muted gold, "#D8B07A") — every word gets this treatment as
+  // its turn comes, continuously for the whole reading.
   highlightColor: z.string().optional(),
 
   // CapCut-style LAYOUT overrides — all optional, all percentages of the
@@ -96,7 +100,7 @@ export const readingPageVideoSchema = z.object({
   // directly — it's whatever's left after hero+title+body, clamped to >= 0,
   // so the three you CAN set always sum sensibly regardless of what a UI
   // slider lets through.
-  heroHeightPercent: z.number().min(10).max(60).optional(),
+  heroHeightPercent: z.number().min(0).max(60).optional(),
   titleHeightPercent: z.number().min(4).max(30).optional(),
   bodyHeightPercent: z.number().min(15).max(75).optional(),
   // Title font size in px (default 44, independent of captionFontSize which

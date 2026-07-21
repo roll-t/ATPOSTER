@@ -139,23 +139,23 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     return mappedPrompts;
   }
 
-  // --- Nếu là Trang Đọc Luyện Tiếng Anh (graded reader, mỗi slide là 1 TRANG chữ tĩnh) ---
+  // --- Nếu là Trang Đọc Luyện Tiếng Anh (graded reader, có ảnh Hero minh hoạ phía trên và trang đọc phía dưới) ---
   if (categoryKey === 'reading_practice') {
     const selectedAspectRatio = input.aspectRatio || '9:16';
     const level = (input.level || 'a2').toUpperCase();
 
-    const pageVisualStyle = 'Minimalist "graded reader" page background: a soft paper or gentle color-gradient texture, mostly empty so a large centered text card can sit on top, at most one small unobtrusive relevant motif tucked in a corner, no characters, no busy scenery, no text baked into the image itself.';
-    const pageRenderNote = 'This is a background-only page image (NOT an illustrated story scene and NOT a character reference sheet) — the actual story text is rendered separately as an on-screen text card, so keep this image simple, calm, and mostly empty; no labels, no callouts, no character name text anywhere in the image.';
+    const heroVisualStyle = 'Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image).';
+    const heroRenderNote = 'This is a top-banner hero illustration for a reading practice story video. It must visually summarize and capture the entire theme, mood, and main characters of the story in a single rich composite scene. It sits in the upper hero area of the page. Keep composition centered and aesthetically balanced.';
 
     return segments.map(seg => {
       const jsonPrompt = {
-        title: `${title} - Page ${seg.segmentNumber}`,
-        category: 'Reading Practice Page Image',
+        title: `${title} - Hero Illustration`,
+        category: 'Reading Practice Hero Illustration',
         level,
         aspect_ratio: selectedAspectRatio,
         style: {
-          visual_style: pageVisualStyle,
-          render_note: pageRenderNote
+          visual_style: heroVisualStyle,
+          render_note: heroRenderNote
         },
         scene: {
           setting: seg.visualDescription
@@ -169,9 +169,9 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       };
 
       const textPrompt = [
-        `${pageVisualStyle}`,
-        `Page background description: ${seg.visualDescription}.`,
-        `${pageRenderNote}`,
+        `${heroVisualStyle}`,
+        `Hero illustration scene expressing the main story theme: ${seg.visualDescription}.`,
+        `${heroRenderNote}`,
         `Format: aspect ratio ${selectedAspectRatio}.`
       ].filter(Boolean).join(' ');
 

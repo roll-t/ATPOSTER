@@ -49,13 +49,23 @@ let clientPromise = null;
 
 async function getClientPromise() {
   const uri = await resolveMongodbUri(MONGODB_URI);
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 2000 });
+  // 2s từng đủ gây "rớt" oan khi máy đang bận (vd render video chiếm CPU/IO nặng) làm
+  // handshake Mongo bị trễ dù server Mongo hoàn toàn bình thường — nới lên 6s để tránh
+  // trip nhầm sang chế độ Local File DB chỉ vì máy đang bận việc khác.
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 6000 });
   return client.connect();
 }
 
 // Global cached connection or Local Fallback
 let isMongoOnline = true;
 let localAdapterInstance = null;
+// Lần gần nhất rớt xuống Local File DB — dùng để định kỳ THỬ LẠI kết nối Mongo thay vì ở lại
+// chế độ local vĩnh viễn sau 1 lần timeout tạm thời. Trước đây isMongoOnline chỉ có chiều
+// true -> false, không bao giờ được đặt lại true, nên một lần Mongo timeout do máy bận (render
+// video chẳng hạn) sẽ khoá TOÀN BỘ app vào data/db.json (chưa từng có promptHistory) cho tới khi
+// restart server — khiến lịch sử kịch bản của MỌI category khác trông như biến mất.
+let lastFallbackAt = 0;
+const MONGO_RETRY_INTERVAL_MS = 15000;
 
 function matchQuery(item, query) {
   if (!query || Object.keys(query).length === 0) return true;
@@ -179,20 +189,30 @@ function getLocalFileDbAdapter() {
 }
 
 export async function getMongoClientDb() {
+  const now = Date.now();
   if (!isMongoOnline) {
-    return getLocalFileDbAdapter();
+    // Vẫn còn trong khoảng nghỉ giữa 2 lần thử -> dùng tạm Local File DB, chưa thử lại ngay
+    // để tránh dội liên tục nếu Mongo thực sự đang tắt hẳn.
+    if (now - lastFallbackAt < MONGO_RETRY_INTERVAL_MS) {
+      return getLocalFileDbAdapter();
+    }
+    // Đã qua khoảng nghỉ -> thử kết nối lại thật sự (bỏ client cũ, có thể đang ở trạng thái lỗi)
+    clientPromise = null;
   }
   try {
     if (!clientPromise) {
       clientPromise = getClientPromise();
     }
     const clientConnected = await clientPromise;
+    isMongoOnline = true; // kết nối lại thành công -> thoát chế độ Local File DB
     return clientConnected.db();
   } catch (error) {
     if (isMongoOnline) {
       console.warn('[DB Info] MongoDB local chưa bật. Đang tự động chuyển sang chế độ Local File DB (data/db.json) để ứng dụng chạy bình thường.');
-      isMongoOnline = false;
     }
+    isMongoOnline = false;
+    lastFallbackAt = now;
+    clientPromise = null;
     return getLocalFileDbAdapter();
   }
 }
@@ -256,17 +276,36 @@ export function readDb() {
         global.customUploadsDir = settings.customUploadsDir || '';
         global.geminiApiKey = settings.geminiApiKey || '';
         global.elevenlabsApiKey = settings.elevenlabsApiKey || '';
+        global.elevenlabsAccounts = settings.elevenlabsAccounts || [];
         global.voiceMappings = settings.voiceMappings || {};
+        // Nhà cung cấp lồng tiếng đang chọn ('elevenlabs' | 'edge') và bảng ánh xạ nhân vật ->
+        // giọng Edge TTS (miễn phí) — cùng khuôn với voiceMappings ở trên nhưng dùng ShortName
+        // của Microsoft Edge TTS (vd "en-US-AriaNeural") thay vì Voice ID của ElevenLabs.
+        global.ttsProvider = settings.ttsProvider || 'elevenlabs';
+        global.edgeVoiceMappings = settings.edgeVoiceMappings || {};
+        // "Ghim mặc định" ở modal Cấu hình kiểu render (SegmentedResultView.js) — kiểu phụ đề /
+        // kiểu chuyển cảnh / song ngữ được ghim làm mặc định cho MỌI kịch bản slideshow tiếp
+        // theo (áp dụng lúc mở modal, xem fetchSettings() trong SegmentedResultView.js), khác
+        // với voiceMappings/ttsProvider ở trên vốn là cấu hình GIỌNG ĐỌC.
+        global.defaultCaptionStyle = settings.defaultCaptionStyle || '';
+        global.defaultTransitionStyle = settings.defaultTransitionStyle || '';
+        global.defaultBilingual = typeof settings.defaultBilingual === 'boolean' ? settings.defaultBilingual : undefined;
       } else {
         global.customUploadsDir = '';
         global.geminiApiKey = '';
         global.elevenlabsApiKey = '';
+        global.elevenlabsAccounts = [];
         global.voiceMappings = {};
+        global.ttsProvider = 'elevenlabs';
+        global.edgeVoiceMappings = {};
+        global.defaultCaptionStyle = '';
+        global.defaultTransitionStyle = '';
+        global.defaultBilingual = undefined;
       }
-      
+
       const cleanAccounts = accounts.map(({ _id, ...rest }) => rest);
       const cleanPosts = posts.map(({ _id, ...rest }) => rest);
-      
+
       const currentData = {
         accounts: cleanAccounts,
         posts: cleanPosts,
@@ -274,15 +313,21 @@ export function readDb() {
           customUploadsDir: global.customUploadsDir || '',
           geminiApiKey: global.geminiApiKey || '',
           elevenlabsApiKey: global.elevenlabsApiKey || '',
-          voiceMappings: global.voiceMappings || {}
+          elevenlabsAccounts: global.elevenlabsAccounts || [],
+          voiceMappings: global.voiceMappings || {},
+          ttsProvider: global.ttsProvider || 'elevenlabs',
+          edgeVoiceMappings: global.edgeVoiceMappings || {},
+          defaultCaptionStyle: global.defaultCaptionStyle || '',
+          defaultTransitionStyle: global.defaultTransitionStyle || '',
+          defaultBilingual: global.defaultBilingual
         }
       };
-      
+
       global.cachedDb = currentData;
       return currentData;
     } catch (error) {
       console.error('Lỗi đọc database:', error);
-      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', voiceMappings: {} } };
+      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined } };
     }
   });
 }
@@ -314,15 +359,27 @@ export function writeDb(data) {
               customUploadsDir: data.settings.customUploadsDir || '',
               geminiApiKey: data.settings.geminiApiKey || '',
               elevenlabsApiKey: data.settings.elevenlabsApiKey || '',
-              voiceMappings: data.settings.voiceMappings || {}
-            } 
+              elevenlabsAccounts: data.settings.elevenlabsAccounts || [],
+              voiceMappings: data.settings.voiceMappings || {},
+              ttsProvider: data.settings.ttsProvider || 'elevenlabs',
+              edgeVoiceMappings: data.settings.edgeVoiceMappings || {},
+              defaultCaptionStyle: data.settings.defaultCaptionStyle || '',
+              defaultTransitionStyle: data.settings.defaultTransitionStyle || '',
+              defaultBilingual: typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : null
+            }
           },
           { upsert: true }
         );
         global.customUploadsDir = data.settings.customUploadsDir || '';
         global.geminiApiKey = data.settings.geminiApiKey || '';
         global.elevenlabsApiKey = data.settings.elevenlabsApiKey || '';
+        global.elevenlabsAccounts = data.settings.elevenlabsAccounts || [];
         global.voiceMappings = data.settings.voiceMappings || {};
+        global.ttsProvider = data.settings.ttsProvider || 'elevenlabs';
+        global.edgeVoiceMappings = data.settings.edgeVoiceMappings || {};
+        global.defaultCaptionStyle = data.settings.defaultCaptionStyle || '';
+        global.defaultTransitionStyle = data.settings.defaultTransitionStyle || '';
+        global.defaultBilingual = typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : undefined;
 
         // Lưu đồng thời bản sao vào local db.json
         try {

@@ -4,11 +4,19 @@ const LEVEL_GUIDE = {
   b1: 'CEFR B1 (intermediate): moderately simple sentences (8-16 words), a wider range of tenses (present, past, present perfect, simple future) is fine, everyday-to-slightly-broader vocabulary, natural connectors (however, although, because, after that), still no obscure idioms or literary language.'
 };
 
-// ~2.3 words/second is a natural, clear (not rushed) TTS reading pace —
-// used to size the single paragraph to roughly fill the target duration,
-// since this video is exactly ONE slide/page held on screen for its whole
-// length (no multi-page pacing to reason about).
+// ~2.3 words/second is a natural, clear (not rushed) TTS reading pace at
+// "medium" speed — used to size the single paragraph to roughly fill the
+// target duration, since this video is exactly ONE slide/page held on
+// screen for its whole length (no multi-page pacing to reason about).
 const WORDS_PER_SECOND = 2.3;
+
+// Scales the words/second used to size the paragraph, so a "slow" or "fast"
+// readingSpeed choice (see categories.js's reading_practice.readingSpeed —
+// forwarded to ElevenLabs as voice_settings.speed in voiceover/route.js)
+// still produces a paragraph that roughly fills the target duration at that
+// ACTUAL narration pace, instead of always sizing for medium speed and
+// letting slow/fast reads over/undershoot the target length.
+const READING_SPEED_WPS_MULTIPLIER = { slow: 0.82, medium: 1, fast: 1.18 };
 
 /**
  * Xây dựng prompt gửi cho Gemini để sinh kịch bản dạng "graded reader" — MỘT trang văn bản
@@ -19,7 +27,9 @@ export function buildReadingPracticeScriptPrompt(input, durationInfo) {
   const isBilingual = true;
   const level = (input.level || 'a2').toLowerCase();
   const levelGuide = LEVEL_GUIDE[level] || LEVEL_GUIDE.a2;
-  const targetWords = Math.max(20, Math.round(durationInfo.targetSeconds * WORDS_PER_SECOND));
+  const readingSpeed = (input.readingSpeed || 'medium').toLowerCase();
+  const speedMultiplier = READING_SPEED_WPS_MULTIPLIER[readingSpeed] || 1;
+  const targetWords = Math.max(20, Math.round(durationInfo.targetSeconds * WORDS_PER_SECOND * speedMultiplier));
 
   return `
 You are a professional graded-reader author and ESL curriculum writer, in the style of channels like "Fluent English Stories" / "One English Page a Day" — short, level-appropriate reading-and-listening practice videos.
@@ -46,8 +56,12 @@ Draft content suggestion (if any):
 TITLE GUIDELINES:
 - A short, punchy on-screen heading (3-6 words) that captures the story's point, e.g. "Mistakes Make You Better", "The Magic of Reading". This becomes the video's title, shown at the top of the page.
 
-VISUAL REQUIREMENTS FOR THE ONE BACKGROUND IMAGE:
-- visualDescription: a simple, mostly-empty background suitable for a big text card to sit on top of — e.g. a soft paper texture, a gentle color gradient, or (if it fits the topic) one calm, uncluttered illustration/scene related to the topic occupying the upper portion of the frame, with plenty of plain empty space below it for the text card. No busy detail, no text/labels baked into the image itself (the real text is rendered separately as the on-screen card).
+VISUAL REQUIREMENTS FOR THE HERO ILLUSTRATION (TOP BANNER IMAGE):
+- visualDescription: Write a vivid, detailed description for a composite 2D digital anime/webtoon hero illustration that sits at the top of the video page. It MUST visually summarize and capture the ENTIRE meaning, core theme, main characters, key actions, and mood of the story in one harmonious scene.
+  - Example 1 (for English practice topic): "A vibrant 2D anime illustration showing three cheerful teenage friends engaged in daily English activities in a bright modern room: one boy on the left wearing headphones listening happily to music, a boy in the middle carrying a backpack and holding an open red textbook, and a smiling girl on the right holding a smartphone. Warm lighting, friendly atmosphere."
+  - Example 2 (for fear of darkness topic): "A heartwarming 2D anime illustration showing a young 7-year-old boy sitting cozy on his bed at night, hugging a fluffy brown teddy bear tightly, while soft warm yellow light leaks in from under the bedroom door casting soft gentle shadows on the wall. Emotional, comforting, clean 2D line art."
+- STYLE: Vibrant 2D anime/webtoon digital illustration, clean line art, warm soft lighting, expressive faces, rich atmospheric details.
+- NO text, letters, titles, logos, or speech bubbles baked into the image.
 
 Return the result as a JSON object matching exactly this schema:
 {
@@ -55,7 +69,7 @@ Return the result as a JSON object matching exactly this schema:
   "segments": [
     {
       "segmentNumber": 1,
-      "visualDescription": "Simple, mostly-empty background description for the one page, in English, following the guidelines above (e.g. Soft cream paper texture background with a gentle warm gradient, a small faint illustration of an open book tucked in the upper area, otherwise clean and empty below it.)",
+      "visualDescription": "Detailed 2D anime hero illustration description summarizing the entire story, characters, and scene in English following the guidelines above.",
       "dialogueOrNarration": "The full paragraph of story text, in English, exactly as it should be read aloud (e.g. Every evening after dinner, Mia opened her favorite book and disappeared into another world. [softly] For her, reading was not just a habit -- it was a small piece of magic.)",
       "subtitle": "${isBilingual
         ? 'The same full paragraph text as dialogueOrNarration (no emotion tags), then a literal \\n, then a natural Vietnamese translation of the whole paragraph (e.g. Every evening after dinner, Mia opened her favorite book and disappeared into another world. For her, reading was not just a habit, it was a small piece of magic.\\nMỗi tối sau bữa cơm, Mia mở cuốn sách yêu thích và lạc vào một thế giới khác. Với cô bé, đọc sách không chỉ là một thói quen -- đó là một chút phép màu nhỏ bé.)'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { ALL_SKILL_FOLDERS, resolveSkillRemotionDir } from '@/lib/remotionPaths';
 
 export async function GET(request) {
   try {
@@ -11,9 +11,19 @@ export async function GET(request) {
       return new Response('Missing folderPath', { status: 400 });
     }
 
-    const videoPath = path.join(resolveProjectDir(folderPath.trim()), 'final', 'video.mp4');
+    const cleanFolder = folderPath.trim();
+    let videoPath = null;
 
-    if (!fs.existsSync(videoPath)) {
+    // Quét qua TẤT CẢ các skill public dir để tìm đúng tệp final/video.mp4 đã render
+    for (const folder of ALL_SKILL_FOLDERS) {
+      const candidate = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder, 'final', 'video.mp4');
+      if (fs.existsSync(candidate)) {
+        videoPath = candidate;
+        break;
+      }
+    }
+
+    if (!videoPath || !fs.existsSync(videoPath)) {
       return new Response('Video file not found on disk', { status: 404 });
     }
 

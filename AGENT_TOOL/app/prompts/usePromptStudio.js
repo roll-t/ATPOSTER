@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PROMPT_CATEGORIES, IMAGE_STYLES } from '@/lib/prompts/index.js';
 
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
@@ -93,8 +93,18 @@ export function usePromptStudio() {
   const setPromptType = (type) => {
     setPromptTypeState(type);
     const keys = categoryKeysForType(type);
-    if (keys.length > 0 && !keys.includes(activeCategory)) {
-      setActiveCategory(keys[0]);
+    if (keys.length > 0) {
+      // Dùng "functional update" (đọc activeCategory MỚI NHẤT tại thời điểm React thật sự áp
+      // dụng update, thay vì giá trị activeCategory bị "đóng băng" theo closure lúc hàm này
+      // được tạo) — vì page.js luôn gọi setActiveCategory(key) NGAY TRƯỚC setPromptType(...)
+      // trong cùng 1 handler (vd handleSelectCategory), và 2 update lên CÙNG 1 state được React
+      // gộp/batch lại. Nếu đọc activeCategory qua closure như cũ, nó có thể vẫn là category CŨ
+      // (trước khi setActiveCategory(key) ở trên kịp áp dụng) -> nếu category cũ đó không nằm
+      // trong `keys` (vd đang từ category kiểu "image" chuyển sang "reading_practice"), nhánh
+      // này sẽ ghi đè NGAY LÊN category người dùng vừa chọn thành keys[0] một cách âm thầm —
+      // đúng là bug khiến chọn "Video Trang Đọc Luyện Tiếng Anh" lại hiện nhầm kịch bản của
+      // "Kịch Bản & Slide Ảnh Người Que" (keys[0]).
+      setActiveCategory(prev => (keys.includes(prev) ? prev : keys[0]));
     }
   };
   const [formValues, setFormValues] = useState(() => {
@@ -165,17 +175,34 @@ export function usePromptStudio() {
       const data = await res.json();
       if (data.success && data.settings) {
         setGeminiApiKey(data.settings.geminiApiKey || '');
+
+        let accounts = data.settings.elevenlabsAccounts || [];
+        if ((!accounts || accounts.length === 0) && data.settings.elevenlabsApiKey) {
+          const rawKeys = data.settings.elevenlabsApiKey.split('\n').map(k => k.trim()).filter(Boolean);
+          accounts = rawKeys.map(k => {
+            if (k.includes('|')) {
+              const parts = k.split('|');
+              return { apiKey: parts[0].trim(), maleVoiceId: (parts[1] || '').trim(), femaleVoiceId: (parts[2] || '').trim() };
+            }
+            return { apiKey: k, maleVoiceId: '', femaleVoiceId: '' };
+          });
+        }
+        if (accounts.length === 0) {
+          accounts = [{ apiKey: '', maleVoiceId: '', femaleVoiceId: '' }];
+        }
+
         setSettings({
           geminiApiKey: data.settings.geminiApiKey || '',
           elevenlabsApiKey: data.settings.elevenlabsApiKey || '',
+          elevenlabsAccounts: accounts,
           mongodbUri: data.settings.mongodbUri || '',
           voiceMappings: {
-            alex: data.settings.voiceMappings?.alex || '60qpDkuGX2KEChynwVZJ',
-            mia: data.settings.voiceMappings?.mia || 'uREKoCeM2xnPeGaH8ZFM',
-            leo: data.settings.voiceMappings?.leo || '60qpDkuGX2KEChynwVZJ',
-            zoe: data.settings.voiceMappings?.zoe || 'uREKoCeM2xnPeGaH8ZFM',
-            tom: data.settings.voiceMappings?.tom || '60qpDkuGX2KEChynwVZJ',
-            narrator: data.settings.voiceMappings?.narrator || 'uREKoCeM2xnPeGaH8ZFM'
+            alex: data.settings.voiceMappings?.alex || 'wJSBXsvChUQrylZvDzav',
+            mia: data.settings.voiceMappings?.mia || '4IQqf6fVNeEFbqnSbVxb',
+            leo: data.settings.voiceMappings?.leo || 'wJSBXsvChUQrylZvDzav',
+            zoe: data.settings.voiceMappings?.zoe || '4IQqf6fVNeEFbqnSbVxb',
+            tom: data.settings.voiceMappings?.tom || 'wJSBXsvChUQrylZvDzav',
+            narrator: data.settings.voiceMappings?.narrator || '4IQqf6fVNeEFbqnSbVxb'
           }
         });
       }
@@ -188,12 +215,20 @@ export function usePromptStudio() {
     setIsSavingSettings(true);
     setSettingsMsg('');
     try {
+      const keysString = (settings.elevenlabsAccounts || []).map(a => {
+        if (a.maleVoiceId || a.femaleVoiceId) {
+          return `${a.apiKey || ''}|${a.maleVoiceId || ''}|${a.femaleVoiceId || ''}`;
+        }
+        return a.apiKey || '';
+      }).filter(Boolean).join('\n');
+
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           geminiApiKey: settings.geminiApiKey,
-          elevenlabsApiKey: settings.elevenlabsApiKey,
+          elevenlabsApiKey: keysString,
+          elevenlabsAccounts: settings.elevenlabsAccounts || [],
           mongodbUri: settings.mongodbUri,
           voiceMappings: settings.voiceMappings
         })
@@ -216,16 +251,23 @@ export function usePromptStudio() {
     }
   };
 
+  // Đánh số mỗi lần gọi fetchHistory — nếu 2 lần gọi (vd đổi category liên tiếp thật nhanh)
+  // đang bay cùng lúc, chỉ áp dụng kết quả của lần gọi MỚI NHẤT bất kể lần nào trả lời trước,
+  // tránh việc response TRẢ VỀ SAU của 1 category cũ ghi đè nhầm lên history của category hiện
+  // tại đang xem (biểu hiện: vừa thấy đúng kịch bản rồi tự nhiên đổi sang kịch bản category khác).
+  const historyRequestIdRef = useRef(0);
   const fetchHistory = async (category) => {
+    const requestId = ++historyRequestIdRef.current;
     setHistoryLoading(true);
     try {
       const res = await fetch(`/api/prompts/history?category=${encodeURIComponent(category)}`);
       const data = await res.json();
+      if (requestId !== historyRequestIdRef.current) return; // đã có lần gọi mới hơn, bỏ kết quả này
       if (data.success) setHistory(data.items || []);
     } catch (err) {
       console.error('Lỗi tải lịch sử prompt:', err);
     } finally {
-      setHistoryLoading(false);
+      if (requestId === historyRequestIdRef.current) setHistoryLoading(false);
     }
   };
 

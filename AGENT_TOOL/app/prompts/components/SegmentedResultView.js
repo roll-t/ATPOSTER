@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
+import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
 
 // Vòng tròn hiển thị % ký tự ElevenLabs ĐÃ DÙNG (phần tô màu đầy dần lên theo mức đã dùng,
 // phần xám còn lại là số ký tự chưa dùng tới). Màu đổi xanh -> vàng -> đỏ khi sắp hết quota.
@@ -272,7 +274,7 @@ function TransitionStylePreview({ style }) {
 // theo % đang kéo, để có trải nghiệm chỉnh kiểu CapCut thấy ngay kết quả trước khi render thật.
 function ReadingPageLivePreview({
   isLandscape,
-  heroPercent,
+  heroPercent: heroPercentProps,
   titlePercent,
   bodyPercent,
   titleFontSize,
@@ -286,7 +288,11 @@ function ReadingPageLivePreview({
   bodyAlign,
   heroImageUrl,
   realTitle,
-  realBody
+  realBodyPrimary,
+  realBodySecondary,
+  showBilingual,
+  bgOpacity,
+  imageMode = 'hero'
 }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(0.25);
@@ -311,18 +317,22 @@ function ReadingPageLivePreview({
     return () => observer.disconnect();
   }, [isLandscape, nativeWidth, nativeHeight]);
 
+  const heroPercent = imageMode === 'none' ? 0 : heroPercentProps;
   const restPercent = Math.max(1, 100 - heroPercent);
   const titleFlex = (titlePercent / restPercent) * 100;
   const bodyFlex = (bodyPercent / restPercent) * 100;
   const bottomFlex = Math.max(0, 100 - titleFlex - bodyFlex);
   const paddingPercent = contentPaddingPercent ?? 10;
   const resolvedBodyFontSize = bodyFontSize || 36;
+  const secondaryFontSize = Math.round(resolvedBodyFontSize * 0.7);
   const resolvedTitleFontSize = titleFontSize || 70;
+  const opacityVal = bgOpacity !== undefined && bgOpacity !== '' ? Math.max(0, Math.min(1, Number(bgOpacity) / 100)) : 1;
 
   const displayTitle = realTitle || 'Tiêu đề video';
-  const displayBody = realBody || 'Đây là đoạn văn nội dung, có từ khoá được tô sáng khi đọc tới.';
+  const displayPrimary = realBodyPrimary || 'Leo sat alone in his bedroom. He was only seven years old. The room was very dark, with just a little light coming from under the door.';
+  const displaySecondary = realBodySecondary || 'Leo ngồi một mình trong phòng ngủ. Cậu bé mới bảy tuổi. Căn phòng rất tối, chỉ có một chút ánh sáng lọt qua khe cửa.';
 
-  const words = displayBody.split(/\s+/).filter(Boolean);
+  const words = displayPrimary.split(/\s+/).filter(Boolean);
   const keywordIdx = words.findIndex(w => w.replace(/[^a-zA-ZÀ-ỹ]/g, '').length >= 5);
 
   return (
@@ -346,17 +356,45 @@ function ReadingPageLivePreview({
           transformOrigin: 'center center',
           display: 'flex',
           flexDirection: 'column',
-          flexShrink: 0
+          flexShrink: 0,
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        <div style={{
-          flex: `0 0 ${heroPercent}%`,
-          backgroundImage: heroImageUrl ? `url(${heroImageUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          background: heroImageUrl ? undefined : 'linear-gradient(135deg, #64748b, #334155)'
-        }} />
-        <div style={{ flex: `0 0 ${restPercent}%`, position: 'relative', background: isBgTransparent ? 'transparent' : bgColor }}>
+        {/* Full-screen background image layer (phủ 100% full màn hình phía sau để luôn hiển thị ảnh khi hạ opacity màu nền) */}
+        {heroImageUrl && imageMode !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url("${heroImageUrl}")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              zIndex: 0
+            }}
+          />
+        )}
+
+        {/* Chế độ 'hero' (Ảnh nằm ngang): Băng Hero hiển thị ảnh sắc nét ở phần trên */}
+        {imageMode === 'hero' && (
+          <div style={{
+            flex: `0 0 ${heroPercent}%`,
+            position: 'relative',
+            zIndex: 1,
+            backgroundImage: `url("${heroImageUrl}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }} />
+        )}
+
+        {/* Chế độ 'full_bg': Màn hình trống phía trên để ảnh nền lộ ra tự nhiên */}
+        {imageMode === 'full_bg' && heroPercent > 0 && (
+          <div style={{ flex: `0 0 ${heroPercent}%`, position: 'relative', zIndex: 1 }} />
+        )}
+        <div style={{ flex: `0 0 ${restPercent}%`, position: 'relative', zIndex: 1 }}>
+          {!isBgTransparent && (
+            <div style={{ position: 'absolute', inset: 0, background: bgColor, opacity: opacityVal }} />
+          )}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
             <div style={{
               flex: `0 0 ${titleFlex}%`,
@@ -411,6 +449,20 @@ function ReadingPageLivePreview({
                   );
                 })}
               </span>
+
+              {/* Bản dịch tiếng Việt — chỉ hiển thị khi bật tùy chọn Song Ngữ */}
+              {showBilingual && (
+                <span style={{
+                  fontSize: `${secondaryFontSize}px`,
+                  fontWeight: 500,
+                  color: textColor,
+                  opacity: 0.78,
+                  textAlign: bodyAlign === 'justify' ? 'justify' : bodyAlign === 'center' ? 'center' : 'left',
+                  lineHeight: 1.4
+                }}>
+                  {displaySecondary}
+                </span>
+              )}
             </div>
             <div style={{ flex: `0 0 ${bottomFlex}%`, position: 'relative' }} />
           </div>
@@ -462,7 +514,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [extQueueState, setExtQueueState] = useState(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [renderMsg, setRenderMsg] = useState('');
+  // Phá cache trình duyệt cho khung xem trước video sau khi render lại — cùng vấn đề/cách xử lý
+  // như heroImageVersion cho ảnh minh hoạ: URL /api/prompts/video-stream không đổi giữa các lần
+  // render (cùng folderPath), nên nếu không có tham số phân biệt, thẻ <video> vẫn giữ nguyên
+  // bytes video CŨ đã tải trước đó thay vì tải lại bản vừa render xong.
+  const [videoVersion, setVideoVersion] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
+  // Tốc độ đọc gửi qua ElevenLabs (voice_settings.speed) khi tạo lồng tiếng — đây là NƠI DUY
+  // NHẤT chọn tốc độ đọc (cố tình không lặp lại ở form tạo kịch bản ban đầu nữa, vì 2 chỗ độc
+  // lập dễ lệch trạng thái nhau và gây rối cho người dùng), đổi thoải mái trước khi lồng tiếng
+  // lại mà không cần viết lại kịch bản.
+  const [renderReadingSpeed, setRenderReadingSpeed] = useState('medium');
   // reading_practice không có khái niệm "Kiểu phụ đề" để chọn — luôn là kiểu trang giấy
   // karaoke duy nhất (khớp preview 'page' đã có sẵn), chỉ có phần tuỳ chỉnh font/màu/cỡ chữ.
   const initialStyle = isReadingPractice ? 'page' : (result.remotionConfig?.captionStyle || 'box');
@@ -484,6 +546,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderCaptionFontSize, setRenderCaptionFontSize] = useState(initialDefaults.fontSize);
   const [renderCaptionTextColor, setRenderCaptionTextColor] = useState(initialDefaults.textColor);
   const [renderCaptionBgColor, setRenderCaptionBgColor] = useState(initialDefaults.bgColor);
+  const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState('100');
   const [renderCaptionBgTransparent, setRenderCaptionBgTransparent] = useState(initialDefaults.bgTransparent);
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
@@ -498,14 +561,50 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderTitleBodyGap, setRenderTitleBodyGap] = useState('18');
   const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState('10');
   const [renderBodyAlign, setRenderBodyAlign] = useState('left');
+  const [renderImageMode, setRenderImageMode] = useState('hero'); // 'hero' | 'full_bg' | 'none'
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+
+  // assetCounts khai báo ở đây (thay vì gần các state khác phía dưới) vì useEffect ngay dưới
+  // đây tham chiếu tới nó — const là block-scoped, tham chiếu trước dòng khai báo thật sẽ ném
+  // "Cannot access 'assetCounts' before initialization" (temporal dead zone), không phải lỗi
+  // logic app.
+  const [assetCounts, setAssetCounts] = useState({
+    imageCount: 0,
+    audioCount: 0,
+    videoCreated: false
+  });
+
+  // Tự động phát hiện tỉ lệ ảnh (Ảnh nằm ngang -> mode 'hero', Ảnh nằm dọc -> mode 'full_bg')
+  useEffect(() => {
+    if (assetCounts.imageCount === 0 && heroImageVersion === 0) return;
+    const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
+    const folder = result.input?.folderPath || 'example';
+    const cacheBust = heroImageVersion > 0 ? `&v=${heroImageVersion}` : '';
+    const currentHeroUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=images/scene-01.${result.input?.imageExt || 'jpg'}${cacheBust}`;
+
+    const img = new Image();
+    img.src = currentHeroUrl;
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        if (img.naturalWidth >= img.naturalHeight) {
+          setRenderImageMode('hero');
+        } else {
+          setRenderImageMode('full_bg');
+        }
+      }
+    };
+  }, [heroImageVersion, assetCounts.imageCount, result.input?.folderPath, result.category, result.remotionConfig?.orientation, result.input?.aspectRatio, result.input?.imageExt]);
   const [heroImageUploadError, setHeroImageUploadError] = useState('');
 
   const [userPresets, setUserPresets] = useState([]);
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [presetMsg, setPresetMsg] = useState('');
+  // Chỉ tự áp dụng preset mặc định MỘT LẦN duy nhất (lần đầu load kịch bản này) — fetchPresets
+  // còn được gọi lại mỗi lần mở/đóng modal tuỳ chỉnh, không muốn ghi đè lên các chỉnh sửa tay
+  // người dùng đã thực hiện trong lúc đó.
+  const hasAppliedDefaultPresetRef = useRef(false);
 
   // Load Presets từ API + localStorage
   const fetchPresets = async () => {
@@ -520,6 +619,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (res.ok && data.success && Array.isArray(data.presets)) {
         setUserPresets(data.presets);
         localStorage.setItem(`custom_presets_${category}`, JSON.stringify(data.presets));
+
+        if (!hasAppliedDefaultPresetRef.current) {
+          hasAppliedDefaultPresetRef.current = true;
+          const defaultPreset = data.presets.find(p => p.isDefault);
+          if (defaultPreset) applyPreset(defaultPreset);
+        }
       }
     } catch (err) {
       console.error('Error fetching presets:', err);
@@ -541,6 +646,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       fontSize: renderCaptionFontSize,
       textColor: renderCaptionTextColor,
       bgColor: renderCaptionBgColor,
+      bgOpacity: renderCaptionBgOpacity,
       isBgTransparent: renderCaptionBgTransparent,
       heroPercent: renderHeroHeightPercent,
       titlePercent: renderTitleHeightPercent,
@@ -548,7 +654,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       titleFontSize: renderTitleFontSize,
       titleBodyGap: renderTitleBodyGap,
       paddingPercent: renderContentPaddingPercent,
-      bodyAlign: renderBodyAlign
+      bodyAlign: renderBodyAlign,
+      imageMode: renderImageMode,
+      bilingual: renderBilingual
     };
 
     try {
@@ -589,12 +697,40 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // Bật/tắt preset làm "mặc định" — preset mặc định tự áp dụng ngay khi mở màn cấu hình render
+  // của một kịch bản MỚI (xem hasAppliedDefaultPresetRef ở fetchPresets). Chỉ 1 preset được là
+  // mặc định tại 1 thời điểm mỗi category, nên bật mặc định cho preset này sẽ tự tắt mặc định ở
+  // mọi preset khác. Cập nhật lạc quan (optimistic) trên UI trước, refetch lại nếu API lỗi.
+  const handleToggleDefaultPreset = async (preset) => {
+    const nextIsDefault = !preset.isDefault;
+    const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    const updated = userPresets.map(p => ({
+      ...p,
+      isDefault: p.id === preset.id ? nextIsDefault : (nextIsDefault ? false : p.isDefault)
+    }));
+    setUserPresets(updated);
+    localStorage.setItem(`custom_presets_${category}`, JSON.stringify(updated));
+
+    try {
+      const res = await fetch('/api/prompts/presets', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: preset.id, isDefault: nextIsDefault })
+      });
+      if (!res.ok) fetchPresets();
+    } catch (err) {
+      console.error('Error updating default preset:', err);
+      fetchPresets();
+    }
+  };
+
   const applyPreset = (preset) => {
     const c = preset.config || {};
     if (c.font !== undefined) setRenderCaptionFont(c.font);
     if (c.fontSize !== undefined) setRenderCaptionFontSize(c.fontSize);
     if (c.textColor !== undefined) setRenderCaptionTextColor(c.textColor);
     if (c.bgColor !== undefined) setRenderCaptionBgColor(c.bgColor);
+    if (c.bgOpacity !== undefined) setRenderCaptionBgOpacity(c.bgOpacity);
     if (c.isBgTransparent !== undefined) setRenderCaptionBgTransparent(c.isBgTransparent);
     if (c.heroPercent !== undefined) setRenderHeroHeightPercent(c.heroPercent);
     if (c.titlePercent !== undefined) setRenderTitleHeightPercent(c.titlePercent);
@@ -603,6 +739,33 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.titleBodyGap !== undefined) setRenderTitleBodyGap(c.titleBodyGap);
     if (c.paddingPercent !== undefined) setRenderContentPaddingPercent(c.paddingPercent);
     if (c.bodyAlign !== undefined) setRenderBodyAlign(c.bodyAlign);
+    if (c.imageMode !== undefined) setRenderImageMode(c.imageMode);
+    if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
+  };
+
+  // Preset nào đang khớp với TOÀN BỘ thông số hiện tại trên form -> coi là preset "đang chọn",
+  // để hiện rõ trạng thái active thay vì mọi preset trông giống hệt nhau. Chỉ so các trường
+  // preset đó thực sự có lưu (bỏ qua field undefined), đúng như cách applyPreset() áp dụng.
+  const isPresetActive = (preset) => {
+    const c = preset.config || {};
+    const pairs = [
+      [c.font, renderCaptionFont],
+      [c.fontSize, renderCaptionFontSize],
+      [c.textColor, renderCaptionTextColor],
+      [c.bgColor, renderCaptionBgColor],
+      [c.bgOpacity, renderCaptionBgOpacity],
+      [c.isBgTransparent, renderCaptionBgTransparent],
+      [c.heroPercent, renderHeroHeightPercent],
+      [c.titlePercent, renderTitleHeightPercent],
+      [c.bodyPercent, renderBodyHeightPercent],
+      [c.titleFontSize, renderTitleFontSize],
+      [c.titleBodyGap, renderTitleBodyGap],
+      [c.paddingPercent, renderContentPaddingPercent],
+      [c.bodyAlign, renderBodyAlign],
+      [c.imageMode, renderImageMode],
+      [c.bilingual, renderBilingual]
+    ];
+    return pairs.every(([saved, current]) => saved === undefined || String(saved) === String(current));
   };
 
   // Hàm chọn kiểu phụ đề — Tự động cập nhật toàn bộ thông số mặc định của type đó vào form tùy chỉnh
@@ -618,11 +781,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderCaptionBgTransparent(defaults.bgTransparent);
   };
   const capcutPanelRef = useRef(null);
-  const [assetCounts, setAssetCounts] = useState({
-    imageCount: 0,
-    audioCount: 0,
-    videoCreated: false
-  });
   const [mounted, setMounted] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
   const [renderProgress, setRenderProgress] = useState(0);
@@ -630,11 +788,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [openFolderError, setOpenFolderError] = useState('');
 
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
-  const [settings, setSettings] = useState({ voiceMappings: {} });
+  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {} });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [quota, setQuota] = useState(null);
   const [loadingQuota, setLoadingQuota] = useState(false);
   const [quotaError, setQuotaError] = useState('');
+  const [previewingKey, setPreviewingKey] = useState('');
+  const [previewError, setPreviewError] = useState('');
 
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
   // Cả 2 chủ đề đều dùng chung quy trình 3 bước (Google Flow ảnh -> ElevenLabs giọng ->
@@ -647,7 +807,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          folderPath: result.input?.folderPath || 'example'
+          folderPath: result.input?.folderPath || 'example',
+          category: result.category
         })
       });
       const data = await res.json();
@@ -663,19 +824,61 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  const [isPinningRenderConfig, setIsPinningRenderConfig] = useState(false);
+  const [pinRenderMsg, setPinRenderMsg] = useState('');
+
   const fetchSettings = async () => {
     try {
       const res = await fetch('/api/settings');
       const data = await res.json();
       if (data.success && data.settings) {
         setSettings(data.settings);
+        const s = data.settings;
+        if (s.defaultCaptionStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
+          setRenderCaptionStyle(s.defaultCaptionStyle);
+        }
+        if (s.defaultTransitionStyle && !result.remotionConfig?.transitionEffect) {
+          setRenderTransitionStyle(s.defaultTransitionStyle);
+        }
+        if (s.defaultBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
+          setRenderBilingual(s.defaultBilingual);
+        }
       }
     } catch (err) {
       console.error('Error loading settings:', err);
     }
   };
 
+  const handlePinDefaultRenderConfig = async () => {
+    setIsPinningRenderConfig(true);
+    setPinRenderMsg('');
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          defaultCaptionStyle: renderCaptionStyle,
+          defaultTransitionStyle: renderTransitionStyle,
+          defaultBilingual: renderBilingual
+        })
+      });
+      if (res.ok) {
+        setPinRenderMsg('Đã ghim cấu hình mặc định thành công!');
+        setTimeout(() => setPinRenderMsg(''), 3500);
+        await fetchSettings();
+      } else {
+        alert('Lỗi khi lưu ghim mặc định.');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối khi ghim mặc định.');
+    } finally {
+      setIsPinningRenderConfig(false);
+    }
+  };
+
   const fetchQuota = async () => {
+    if (settings.ttsProvider !== 'elevenlabs') return;
     setLoadingQuota(true);
     setQuotaError('');
     try {
@@ -697,15 +900,40 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   useEffect(() => {
-    fetchQuota();
+    fetchSettings();
   }, []);
 
   useEffect(() => {
     if (showVoiceConfig) {
       fetchSettings();
-      fetchQuota();
     }
   }, [showVoiceConfig]);
+
+  // "Nghe thử" — tạo 1 đoạn mẫu ngắn bằng chính giọng đang cấu hình cho nhân vật `key` và phát
+  // ngay trên trình duyệt, không ghi ra đĩa/không đụng project nào.
+  const handlePreviewVoice = async (provider, voiceId, key) => {
+    setPreviewingKey(key);
+    setPreviewError('');
+
+    try {
+      const res = await fetch('/api/prompts/voice-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, voiceId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const audio = new Audio(`data:${data.mime || 'audio/wav'};base64,${data.audioBase64}`);
+        await audio.play();
+      } else {
+        setPreviewError(data.error || 'Không tạo được giọng mẫu.');
+      }
+    } catch (err) {
+      setPreviewError(err.message || 'Lỗi phát âm thanh mẫu.');
+    } finally {
+      setPreviewingKey('');
+    }
+  };
 
   const flowButtonLabel = (status) => {
     if (!status) return '🚀 Đẩy sang Google Flow';
@@ -749,6 +977,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           imageExt: result.input?.imageExt || 'jpg',
           audioExt: result.input?.audioExt || 'mp3',
           category: result.category,
+          readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
+          ttsProvider: settings.ttsProvider || 'elevenlabs',
           scenes: result.segments.map(seg => ({
             segmentNumber: seg.segmentNumber,
             dialogueOrNarration: seg.dialogueOrNarration
@@ -811,18 +1041,21 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
           captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
+          captionBgOpacity: isReadingPractice && renderCaptionBgOpacity ? Number(renderCaptionBgOpacity) : undefined,
           heroHeightPercent: isReadingPractice && renderHeroHeightPercent ? Number(renderHeroHeightPercent) : undefined,
           titleHeightPercent: isReadingPractice && renderTitleHeightPercent ? Number(renderTitleHeightPercent) : undefined,
           bodyHeightPercent: isReadingPractice && renderBodyHeightPercent ? Number(renderBodyHeightPercent) : undefined,
           titleFontSize: isReadingPractice && renderTitleFontSize ? Number(renderTitleFontSize) : undefined,
           titleBodyGap: isReadingPractice && renderTitleBodyGap ? Number(renderTitleBodyGap) : undefined,
           contentPaddingPercent: isReadingPractice && renderContentPaddingPercent ? Number(renderContentPaddingPercent) : undefined,
-          bodyAlign: isReadingPractice ? renderBodyAlign : undefined
+          bodyAlign: isReadingPractice ? renderBodyAlign : undefined,
+          imageMode: isReadingPractice ? renderImageMode : undefined
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setRenderMsg(`✓ Đã tạo video thành công!`);
+        setVideoVersion(v => v + 1);
         checkAssets();
       } else {
         setRenderMsg(`Lỗi: ${data.error || 'Không thể render video.'}`);
@@ -958,13 +1191,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
   useEffect(() => {
     checkAssets();
-  }, [result]);
+  }, [result.input?.folderPath, result.category]);
 
   useEffect(() => {
     if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
       checkAssets();
     }
-  }, [extQueueState]);
+  }, [extQueueState?.queue?.completed, extQueueState?.queue?.phase]);
 
   // Lắng nghe trạng thái hàng đợi được content-bridge.js của extension đẩy ngược lại (nếu có
   // cài extension), để hiển thị tiến độ chạy thật ngay trên trang thay vì phải mở side panel.
@@ -1155,7 +1388,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Tạo giọng lồng tiếng (ElevenLabs)
+                          Bước 2: Tạo giọng lồng tiếng ({settings.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : 'Edge TTS - Miễn phí'})
                         </span>
                       </div>
                     </div>
@@ -1163,7 +1396,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title="Cấu hình giọng đọc (ElevenLabs)"
+                        title={`Cấu hình giọng đọc (${settings.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : 'Edge TTS'})`}
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowVoiceConfig(!showVoiceConfig)}
                         disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
@@ -1192,6 +1425,42 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </div>
                   </div>
+
+                  {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
+                      dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
+                      đọc/nghe. Gửi sang ElevenLabs (voice_settings.speed) khi bấm Tạo Lồng Tiếng. */}
+                  {isReadingPractice && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🗣️ Tốc độ đọc:</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {[
+                          { value: 'slow', label: '🐢 Chậm' },
+                          { value: 'medium', label: '🚶 Vừa' },
+                          { value: 'fast', label: '🐇 Nhanh' }
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setRenderReadingSpeed(opt.value)}
+                            disabled={isGeneratingVoice || isRenderingVideo}
+                            title={`Đặt tốc độ giọng đọc: ${opt.label}`}
+                            style={{
+                              padding: '5px 12px',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              borderRadius: '7px',
+                              cursor: (isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer',
+                              border: renderReadingSpeed === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                              background: renderReadingSpeed === opt.value ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
+                              color: renderReadingSpeed === opt.value ? 'var(--secondary)' : '#fff'
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang tạo giọng đọc */}
                   {isGeneratingVoice && (
@@ -1330,8 +1599,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </p>
               )}
               <video
-                key={result.input?.folderPath || 'video'}
-                src={`/api/prompts/video-stream?folderPath=${result.input?.folderPath || 'example'}`}
+                key={`${result.input?.folderPath || 'video'}-${videoVersion}`}
+                src={`/api/prompts/video-stream?folderPath=${result.input?.folderPath || 'example'}&v=${videoVersion}`}
                 controls
                 style={{
                   width: '100%',
@@ -1658,9 +1927,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🎙️</span> Cấu hình Giọng đọc (ElevenLabs)
+                <span>🎙️</span> Cấu hình Giọng đọc
               </h4>
-              {loadingQuota ? (
+              {settings.ttsProvider === 'edge' || !settings.ttsProvider ? (
+                <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  🆓 Miễn phí, không giới hạn ký tự
+                </span>
+              ) : loadingQuota ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   <span className="quota-spinner" style={{
                     width: '13px', height: '13px', borderRadius: '50%',
@@ -1691,13 +1964,129 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               ) : null}
             </div>
 
-            {quotaError && (
-              <p style={{ margin: '-10px 0 16px 0', fontSize: '0.74rem', color: 'var(--danger)', lineHeight: 1.5 }}>
-                ⚠️ {quotaError}
+            {/* Chọn nhà cung cấp lồng tiếng — Edge TTS (miễn phí) hoặc ElevenLabs (chất lượng cao) */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '18px' }}>
+              {[
+                { value: 'edge', label: '🆓 Edge TTS (miễn phí)', hint: 'Không giới hạn, không cần API key' },
+                { value: 'elevenlabs', label: '💎 ElevenLabs', hint: 'Chất lượng cao, giới hạn theo ký tự' }
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSettings(prev => ({ ...prev, ttsProvider: opt.value }))}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: '2px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    border: (settings.ttsProvider || 'edge') === opt.value ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                    background: (settings.ttsProvider || 'edge') === opt.value ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.02)'
+                  }}
+                >
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: (settings.ttsProvider || 'edge') === opt.value ? 'var(--secondary)' : '#fff' }}>{opt.label}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.5)' }}>{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            {previewError && (
+              <p style={{ margin: '-8px 0 16px 0', fontSize: '0.74rem', color: 'var(--danger)', lineHeight: 1.5 }}>
+                ⚠️ {previewError}
               </p>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            {settings.ttsProvider === 'edge' || !settings.ttsProvider ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+                {[
+                  { key: 'alex', label: 'Giọng Alex', gender: 'Nam' },
+                  { key: 'mia', label: 'Giọng Mia', gender: 'Nữ' },
+                  { key: 'leo', label: 'Giọng Leo', gender: 'Nam' },
+                  { key: 'narrator', label: 'Giọng Người kể (Narrator)', gender: null }
+                ].map(char => {
+                  const defaultId = char.gender === 'Nam' ? DEFAULT_EDGE_MALE_VOICE : DEFAULT_EDGE_FEMALE_VOICE;
+                  const currentVal = settings.edgeVoiceMappings?.[char.key] || defaultId;
+                  const isPreviewing = previewingKey === char.key;
+
+                  return (
+                    <div
+                      key={char.key}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '12px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}
+                    >
+                      <label style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                        <span>🎙️</span> {char.label}
+                      </label>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <select
+                          className="form-control"
+                          value={currentVal}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings(prev => ({
+                              ...prev,
+                              edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: val }
+                            }));
+                          }}
+                          style={{
+                            flex: 1,
+                            fontSize: '0.76rem',
+                            padding: '8px 10px',
+                            height: '36px',
+                            background: 'rgba(0, 0, 0, 0.35)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '8px'
+                          }}
+                        >
+                          {EDGE_TTS_VOICES.map(v => (
+                            <option key={v.id} value={v.id} style={{ background: '#1a1924' }}>{v.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          title="Nghe thử giọng này"
+                          disabled={isPreviewing}
+                          onClick={() => handlePreviewVoice('edge', currentVal, char.key)}
+                          style={{
+                            flexShrink: 0,
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: 'rgba(37, 244, 238, 0.12)',
+                            color: 'var(--secondary)',
+                            cursor: isPreviewing ? 'wait' : 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          {isPreviewing ? '⏳' : '🔊'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                {quotaError && (
+                  <p style={{ margin: '-10px 0 16px 0', fontSize: '0.74rem', color: 'var(--danger)', lineHeight: 1.5 }}>
+                    ⚠️ {quotaError}
+                  </p>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', marginBottom: '24px' }}>
               {[
                 { key: 'alex', label: 'Giọng Alex', gender: 'Nam', defaultId: 'wJSBXsvChUQrylZvDzav' },
                 { key: 'mia', label: 'Giọng Mia', gender: 'Nữ', defaultId: '4IQqf6fVNeEFbqnSbVxb' },
@@ -1782,38 +2171,62 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       )}
                     </div>
 
-                    {/* Single Input Field for ElevenLabs Voice ID */}
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Dán ElevenLabs Voice ID vào đây..."
-                      style={{
-                        fontSize: '0.78rem',
-                        padding: '8px 12px',
-                        height: '36px',
-                        background: 'rgba(0, 0, 0, 0.35)',
-                        color: '#fff',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        borderRadius: '8px',
-                        fontFamily: 'monospace',
-                        letterSpacing: '0.3px'
-                      }}
-                      value={currentVal}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSettings(prev => ({
-                          ...prev,
-                          voiceMappings: {
-                            ...prev.voiceMappings,
-                            [char.key]: val
-                          }
-                        }));
-                      }}
-                    />
+                    {/* Single Input Field for ElevenLabs Voice ID + nút nghe thử */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Dán ElevenLabs Voice ID vào đây..."
+                        style={{
+                          flex: 1,
+                          fontSize: '0.78rem',
+                          padding: '8px 12px',
+                          height: '36px',
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: '8px',
+                          fontFamily: 'monospace',
+                          letterSpacing: '0.3px'
+                        }}
+                        value={currentVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => ({
+                            ...prev,
+                            voiceMappings: {
+                              ...prev.voiceMappings,
+                              [char.key]: val
+                            }
+                          }));
+                        }}
+                      />
+                      <button
+                        type="button"
+                        title="Nghe thử giọng này"
+                        disabled={previewingKey === char.key || !currentVal}
+                        onClick={() => handlePreviewVoice('elevenlabs', currentVal, char.key)}
+                        style={{
+                          flexShrink: 0,
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          background: 'rgba(37, 244, 238, 0.12)',
+                          color: 'var(--secondary)',
+                          cursor: previewingKey === char.key ? 'wait' : 'pointer',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        {previewingKey === char.key ? '⏳' : '🔊'}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
-            </div>
+                </div>
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
               <button
@@ -1830,12 +2243,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         geminiApiKey: settings.geminiApiKey,
                         elevenlabsApiKey: settings.elevenlabsApiKey,
                         mongodbUri: settings.mongodbUri,
-                        voiceMappings: settings.voiceMappings
+                        voiceMappings: settings.voiceMappings,
+                        ttsProvider: settings.ttsProvider || 'edge',
+                        edgeVoiceMappings: settings.edgeVoiceMappings || {}
                       })
                     });
                     if (res.ok) {
                       alert('✓ Đã cập nhật cấu hình giọng đọc thành công!');
                       setShowVoiceConfig(false);
+                      await fetchSettings();
                     } else {
                       alert('Lỗi khi lưu cấu hình.');
                     }
@@ -1978,34 +2394,123 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                   {/* Preset Mẫu đã lưu (Hiển thị chọn nhanh trực tiếp tại đây) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <span>⭐</span> Preset mẫu đã lưu:
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {userPresets.map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => applyPreset(p)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            padding: '6px 12px',
-                            background: 'rgba(37, 244, 238, 0.12)',
-                            border: '1px solid rgba(37, 244, 238, 0.35)',
-                            borderRadius: '8px',
-                            fontSize: '0.76rem',
-                            color: 'var(--secondary)',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                          title={`Nhấp để chọn ngay mẫu preset "${p.name}"`}
-                        >
-                          📁 {p.name}
-                        </button>
-                      ))}
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>⭐</span> Preset mẫu đã lưu:
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
+                        Nhấn 📌 trên 1 preset để đặt mặc định cho lần tạo kịch bản tiếp theo
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {userPresets.map(p => {
+                        const active = isPresetActive(p);
+                        const c = p.config || {};
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => applyPreset(p)}
+                            title={active ? `Đang dùng preset "${p.name}"` : `Nhấp để chọn ngay mẫu preset "${p.name}"`}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '6px',
+                              width: '78px',
+                              padding: '6px',
+                              background: active ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255,255,255,0.03)',
+                              border: active ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.12)',
+                              borderRadius: '10px',
+                              cursor: 'pointer',
+                              boxShadow: active ? '0 0 12px rgba(37,244,238,0.3)' : 'none',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <div style={{
+                              width: '100%',
+                              aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
+                              borderRadius: '7px',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              background: '#141419',
+                              border: '1.5px solid rgba(255,255,255,0.12)'
+                            }}>
+                              <CaptionStylePreview
+                                style="page"
+                                isLandscape={isLandscape}
+                                textColor={c.textColor || undefined}
+                                bgColor={c.isBgTransparent ? 'transparent' : (c.bgColor || undefined)}
+                                font={c.font || undefined}
+                                fontSize={c.fontSize || undefined}
+                              />
+                              <div
+                                role="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleDefaultPreset(p);
+                                }}
+                                title={p.isDefault ? 'Đang là preset mặc định cho lần tạo tiếp theo — nhấn để bỏ mặc định' : 'Đặt làm preset mặc định cho lần tạo kịch bản tiếp theo'}
+                                style={{
+                                  position: 'absolute',
+                                  top: '3px',
+                                  left: '3px',
+                                  width: '17px',
+                                  height: '17px',
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.62rem',
+                                  cursor: 'pointer',
+                                  background: p.isDefault ? '#FFCB4D' : 'rgba(0,0,0,0.55)',
+                                  color: p.isDefault ? '#2A2118' : 'rgba(255,255,255,0.65)',
+                                  boxShadow: p.isDefault ? '0 1px 4px rgba(0,0,0,0.5)' : 'none',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                📌
+                              </div>
+                              {active && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '3px',
+                                  right: '3px',
+                                  width: '17px',
+                                  height: '17px',
+                                  borderRadius: '50%',
+                                  background: 'var(--secondary)',
+                                  color: '#04262a',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.62rem',
+                                  fontWeight: 900,
+                                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)'
+                                }}>
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              color: active ? 'var(--secondary)' : '#fff',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '100%'
+                            }}>
+                              {p.name}
+                            </span>
+                            {p.isDefault && (
+                              <span style={{ fontSize: '0.62rem', color: '#FFCB4D', fontWeight: 700, marginTop: '-4px' }}>
+                                📌 mặc định
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
 
                       {userPresets.length === 0 && (
                         <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
@@ -2018,36 +2523,53 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               ) : (
                 <>
                   <div>
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'block', marginBottom: '10px' }}>Kiểu phụ đề</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu phụ đề</span>
+                      {settings?.defaultCaptionStyle && (
+                        <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
+                          📌 Đang ghim: {settings.defaultCaptionStyle === 'box' ? 'Hộp bo tròn' : settings.defaultCaptionStyle === 'tiktok' ? 'Viền chữ TikTok' : 'Karaoke tô màu từ'}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {[
                         { value: 'box', label: 'Hộp bo tròn' },
                         { value: 'tiktok', label: 'Viền chữ TikTok' },
                         { value: 'karaoke', label: 'Karaoke tô màu từ' }
-                      ].map(opt => (
-                        <PickerCard
-                          key={opt.value}
-                          isLandscape={isLandscape}
-                          selected={renderCaptionStyle === opt.value}
-                          showCustomizeBtn={true}
-                          onClick={() => handleSelectCaptionStyle(opt.value)}
-                          onCustomize={() => {
-                            handleSelectCaptionStyle(opt.value);
-                            setShowCustomCapCut(true);
-                          }}
-                          label={opt.label}
-                        >
-                          <CaptionStylePreview
-                            style={opt.value}
+                      ].map(opt => {
+                        const isPinned = settings?.defaultCaptionStyle === opt.value;
+                        return (
+                          <PickerCard
+                            key={opt.value}
                             isLandscape={isLandscape}
-                          />
-                        </PickerCard>
-                      ))}
+                            selected={renderCaptionStyle === opt.value}
+                            showCustomizeBtn={true}
+                            onClick={() => handleSelectCaptionStyle(opt.value)}
+                            onCustomize={() => {
+                              handleSelectCaptionStyle(opt.value);
+                              setShowCustomCapCut(true);
+                            }}
+                            label={isPinned ? `${opt.label} 📌` : opt.label}
+                          >
+                            <CaptionStylePreview
+                              style={opt.value}
+                              isLandscape={isLandscape}
+                            />
+                          </PickerCard>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div>
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'block', marginBottom: '10px' }}>Kiểu chuyển cảnh</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu chuyển cảnh</span>
+                      {settings?.defaultTransitionStyle && (
+                        <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
+                          📌 Đang ghim: {settings.defaultTransitionStyle === 'crossfade' ? 'Hòa tan' : settings.defaultTransitionStyle === 'slide-left' ? 'Trượt trái' : settings.defaultTransitionStyle === 'slide-right' ? 'Trượt phải' : settings.defaultTransitionStyle === 'slide-up' ? 'Trượt lên' : 'Phóng to'}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {[
                         { value: 'crossfade', label: 'Hòa tan' },
@@ -2055,18 +2577,21 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         { value: 'slide-right', label: 'Trượt phải' },
                         { value: 'slide-up', label: 'Trượt lên' },
                         { value: 'zoom', label: 'Phóng to' }
-                      ].map(opt => (
-                        <PickerCard
-                          key={opt.value}
-                          isLandscape={isLandscape}
-                          width={isLandscape ? 116 : 88}
-                          selected={renderTransitionStyle === opt.value}
-                          onClick={() => setRenderTransitionStyle(opt.value)}
-                          label={opt.label}
-                        >
-                          <TransitionStylePreview style={opt.value} />
-                        </PickerCard>
-                      ))}
+                      ].map(opt => {
+                        const isPinned = settings?.defaultTransitionStyle === opt.value;
+                        return (
+                          <PickerCard
+                            key={opt.value}
+                            isLandscape={isLandscape}
+                            width={isLandscape ? 116 : 88}
+                            selected={renderTransitionStyle === opt.value}
+                            onClick={() => setRenderTransitionStyle(opt.value)}
+                            label={isPinned ? `${opt.label} 📌` : opt.label}
+                          >
+                            <TransitionStylePreview style={opt.value} />
+                          </PickerCard>
+                        );
+                      })}
                     </div>
                   </div>
                 </>
@@ -2105,8 +2630,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     🌐
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Hiện phụ đề song ngữ
+                      {settings?.defaultBilingual !== undefined && settings.defaultBilingual === renderBilingual && (
+                        <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
+                      )}
                     </span>
                     <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
                       Hiển thị 2 dòng: Tiếng Anh (trên) &amp; Dịch tiếng Việt (dưới)
@@ -2127,11 +2655,38 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', flexShrink: 0 }}>
+              {pinRenderMsg && (
+                <span style={{ fontSize: '0.78rem', color: '#4ade80', fontWeight: 700, marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  ✓ {pinRenderMsg}
+                </span>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '0.78rem',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  cursor: isPinningRenderConfig ? 'wait' : 'pointer'
+                }}
+                disabled={isPinningRenderConfig}
+                onClick={handlePinDefaultRenderConfig}
+                title="Lưu kiểu phụ đề, kiểu chuyển cảnh và phụ đề song ngữ này làm MẶC ĐỊNH cho tất cả lần tạo sau"
+              >
+                <span>📌</span> {isPinningRenderConfig ? 'Đang ghim...' : 'Ghim mặc định'}
+              </button>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ padding: '8px 18px', fontSize: '0.8rem', borderRadius: '6px', fontWeight: 700 }}
+                style={{ padding: '8px 18px', fontSize: '0.8rem', borderRadius: '8px', fontWeight: 700 }}
                 onClick={() => setShowRenderConfig(false)}
               >
                 Xong
@@ -2443,7 +2998,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   {isReadingPractice ? (
                     <ReadingPageLivePreview
                       isLandscape={capcutPreviewRatio === '16:9'}
-                      heroPercent={Number(renderHeroHeightPercent) || 25}
+                      heroPercent={renderHeroHeightPercent !== undefined && renderHeroHeightPercent !== '' ? Number(renderHeroHeightPercent) : 25}
                       titlePercent={Number(renderTitleHeightPercent) || 10}
                       bodyPercent={Number(renderBodyHeightPercent) || 40}
                       titleFontSize={Number(renderTitleFontSize) || 44}
@@ -2457,23 +3012,52 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       highlightColor="#D8B07A"
                       heroImageUrl={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/scene-01.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion}`}
                       realTitle={result.title || result.input?.topic || result.input?.headline}
-                      realBody={(() => {
+                      realBodyPrimary={(() => {
                         const segs = result.segments || result.prompts || [];
                         if (Array.isArray(segs) && segs.length > 0) {
                           const textArr = segs
                             .filter(s => !s.isThumbnail)
-                            .map(s => s.text || s.caption || s.subtitle || s.originalText || '')
+                            .map(s => {
+                              const txt = s.text || s.originalText || s.caption || s.subtitle || '';
+                              return txt.includes('\n') ? txt.split('\n')[0] : txt;
+                            })
                             .filter(Boolean);
                           if (textArr.length > 0) return textArr.join(' ');
                         }
                         if (Array.isArray(result.remotionConfig?.scenes)) {
                           const scenesArr = result.remotionConfig.scenes
-                            .map(s => s.caption || s.text || '')
+                            .map(s => (s.caption || s.text || '').split('\n')[0])
                             .filter(Boolean);
                           if (scenesArr.length > 0) return scenesArr.join(' ');
                         }
                         return '';
                       })()}
+                      realBodySecondary={(() => {
+                        const segs = result.segments || result.prompts || [];
+                        if (Array.isArray(segs) && segs.length > 0) {
+                          const textArr = segs
+                            .filter(s => !s.isThumbnail)
+                            .map(s => {
+                              const txt = s.subtitle || s.translation || s.text || s.caption || '';
+                              return txt.includes('\n') ? txt.split('\n')[1] : (s.translation || s.subtitle || '');
+                            })
+                            .filter(Boolean);
+                          if (textArr.length > 0) return textArr.join(' ');
+                        }
+                        if (Array.isArray(result.remotionConfig?.scenes)) {
+                          const scenesArr = result.remotionConfig.scenes
+                            .map(s => {
+                              const cap = s.caption || s.text || '';
+                              return cap.includes('\n') ? cap.split('\n')[1] : '';
+                            })
+                            .filter(Boolean);
+                          if (scenesArr.length > 0) return scenesArr.join(' ');
+                        }
+                        return '';
+                      })()}
+                      showBilingual={renderBilingual}
+                      bgOpacity={renderCaptionBgOpacity}
+                      imageMode={renderImageMode}
                     />
                   ) : (
                     <CaptionStylePreview
@@ -2556,43 +3140,120 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               }}>
                 {/* Hero image replace — chỉ cho reading_practice */}
                 {isReadingPractice && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      backgroundImage: `url(/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/scene-01.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      border: '1px solid rgba(255,255,255,0.15)'
-                    }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>🖼️ Ảnh minh hoạ đầu trang</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tải ảnh từ máy để thay thế ảnh Google Flow</span>
-                      {heroImageUploadError && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--danger)' }}>⚠️ {heroImageUploadError}</span>
-                      )}
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        backgroundImage: `url(/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/scene-01.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        border: '1px solid rgba(255,255,255,0.15)'
+                      }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>🖼️ Ảnh minh hoạ đầu trang</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tải ảnh từ máy để thay thế ảnh Google Flow</span>
+                        {heroImageUploadError && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--danger)' }}>⚠️ {heroImageUploadError}</span>
+                        )}
+                      </div>
+                      <label
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.74rem', borderRadius: '8px', fontWeight: 700, cursor: isUploadingHeroImage ? 'wait' : 'pointer', flexShrink: 0 }}
+                      >
+                        {isUploadingHeroImage ? '⏳ Đang tải...' : '📤 Đổi ảnh'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          disabled={isUploadingHeroImage}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            handleUploadHeroImage(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
                     </div>
-                    <label
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '0.74rem', borderRadius: '8px', fontWeight: 700, cursor: isUploadingHeroImage ? 'wait' : 'pointer', flexShrink: 0 }}
-                    >
-                      {isUploadingHeroImage ? '⏳ Đang tải...' : '📤 Đổi ảnh'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        disabled={isUploadingHeroImage}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          handleUploadHeroImage(file);
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
-                  </div>
+
+                    {/* Selector 3 Chế độ hiển thị vị trí ảnh minh hoạ */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', marginTop: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>📷 Bố cục vị trí ảnh minh hoạ (3 Chế độ):</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setRenderImageMode('hero')}
+                          style={{
+                            padding: '8px 6px',
+                            fontSize: '0.73rem',
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            border: renderImageMode === 'hero' ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
+                            background: renderImageMode === 'hero' ? 'rgba(254, 44, 85, 0.15)' : 'rgba(0,0,0,0.3)',
+                            color: renderImageMode === 'hero' ? '#fff' : 'rgba(255,255,255,0.7)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <span>🖼️ Hero Top</span>
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Ảnh nằm ngang)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setRenderImageMode('full_bg')}
+                          style={{
+                            padding: '8px 6px',
+                            fontSize: '0.73rem',
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            border: renderImageMode === 'full_bg' ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                            background: renderImageMode === 'full_bg' ? 'rgba(37, 244, 238, 0.15)' : 'rgba(0,0,0,0.3)',
+                            color: renderImageMode === 'full_bg' ? '#fff' : 'rgba(255,255,255,0.7)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <span>📱 Full Nền Sau</span>
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Ảnh nằm dọc)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setRenderImageMode('none')}
+                          style={{
+                            padding: '8px 6px',
+                            fontSize: '0.73rem',
+                            fontWeight: 700,
+                            borderRadius: '8px',
+                            border: renderImageMode === 'none' ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                            background: renderImageMode === 'none' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)',
+                            color: renderImageMode === 'none' ? '#fff' : 'rgba(255,255,255,0.7)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <span>🎨 Không dùng ảnh</span>
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Nền giấy/màu)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Layout (CapCut-style) — chỉ cho reading_practice */}
@@ -2601,7 +3262,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>📐 Bố cục (% khung hình)</span>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                       {[
-                        { label: 'Ảnh minh hoạ (Hero)', value: renderHeroHeightPercent, set: setRenderHeroHeightPercent, min: 10, max: 60 },
+                        { label: 'Ảnh minh hoạ (Hero)', value: renderHeroHeightPercent, set: setRenderHeroHeightPercent, min: 0, max: 60 },
                         { label: 'Tiêu đề', value: renderTitleHeightPercent, set: setRenderTitleHeightPercent, min: 4, max: 30 },
                         { label: 'Nội dung', value: renderBodyHeightPercent, set: setRenderBodyHeightPercent, min: 15, max: 75 }
                       ].map(field => (
@@ -2612,7 +3273,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               <button
                                 type="button"
                                 title="Giảm 1%"
-                                onClick={() => field.set(Math.max(field.min, (Number(field.value) || field.min) - 1))}
+                                onClick={() => {
+                                  const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
+                                  field.set(Math.max(field.min, curr - 1));
+                                }}
                                 style={{
                                   width: '18px',
                                   height: '18px',
@@ -2632,12 +3296,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 ▼
                               </button>
                               <span style={{ color: 'var(--secondary)', fontWeight: 700, minWidth: '30px', textAlign: 'center' }}>
-                                {field.value || '-'}%
+                                {field.value !== undefined && field.value !== '' ? `${field.value}%` : '-%'}
                               </span>
                               <button
                                 type="button"
                                 title="Tăng 1%"
-                                onClick={() => field.set(Math.min(field.max, (Number(field.value) || field.min) + 1))}
+                                onClick={() => {
+                                  const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
+                                  field.set(Math.min(field.max, curr + 1));
+                                }}
                                 style={{
                                   width: '18px',
                                   height: '18px',
@@ -2663,15 +3330,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             min={field.min}
                             max={field.max}
                             step={1}
-                            value={field.value || 0}
+                            value={field.value !== undefined && field.value !== '' ? field.value : 0}
                             onChange={(e) => field.set(e.target.value)}
                             onKeyDown={(e) => {
+                              const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
                               if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
                                 e.preventDefault();
-                                field.set(Math.min(field.max, (Number(field.value) || field.min) + 1));
+                                field.set(Math.min(field.max, curr + 1));
                               } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
                                 e.preventDefault();
-                                field.set(Math.max(field.min, (Number(field.value) || field.min) - 1));
+                                field.set(Math.max(field.min, curr - 1));
                               }
                             }}
                             style={{ width: '100%', cursor: 'pointer' }}
@@ -2934,6 +3602,81 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       )}
                     </div>
                   </div>
+
+                  {/* Độ mờ / Opacity màu nền (%) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>💧 Độ mờ / Opacity màu nền (%)</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                          type="button"
+                          title="Giảm 1%"
+                          onClick={() => setRenderCaptionBgOpacity(Math.max(0, (Number(renderCaptionBgOpacity) || 0) - 1))}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            padding: 0,
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            background: 'rgba(0,0,0,0.3)',
+                            color: 'var(--secondary)',
+                            fontSize: '0.62rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: 1
+                          }}
+                        >
+                          ▼
+                        </button>
+                        <span style={{ color: 'var(--secondary)', fontWeight: 700, minWidth: '34px', textAlign: 'center' }}>
+                          {renderCaptionBgOpacity || '100'}%
+                        </span>
+                        <button
+                          type="button"
+                          title="Tăng 1%"
+                          onClick={() => setRenderCaptionBgOpacity(Math.min(100, (Number(renderCaptionBgOpacity) || 0) + 1))}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            padding: 0,
+                            borderRadius: '4px',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            background: 'rgba(0,0,0,0.3)',
+                            color: 'var(--secondary)',
+                            fontSize: '0.62rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: 1
+                          }}
+                        >
+                          ▲
+                        </button>
+                      </div>
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={renderCaptionBgOpacity || 100}
+                      disabled={renderCaptionBgTransparent}
+                      onChange={(e) => setRenderCaptionBgOpacity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+                          e.preventDefault();
+                          setRenderCaptionBgOpacity(Math.min(100, (Number(renderCaptionBgOpacity) || 0) + 1));
+                        } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                          e.preventDefault();
+                          setRenderCaptionBgOpacity(Math.max(0, (Number(renderCaptionBgOpacity) || 0) - 1));
+                        }
+                      }}
+                      style={{ width: '100%', cursor: renderCaptionBgTransparent ? 'not-allowed' : 'pointer', opacity: renderCaptionBgTransparent ? 0.3 : 1 }}
+                    />
+                  </div>
                 </div>
 
                 {/* Nền trong suốt Pill Switch */}
@@ -2963,6 +3706,37 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     />
                     <span className="switch-slider" style={{
                       backgroundColor: renderCaptionBgTransparent ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                    }}></span>
+                  </label>
+                </div>
+
+                {/* Option Hiển thị phụ đề song ngữ Switch */}
+                <div
+                  onClick={() => setRenderBilingual(!renderBilingual)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    border: renderBilingual ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '0.78rem', color: renderBilingual ? '#fff' : 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                    🌐 Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)
+                  </span>
+                  <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)', flexShrink: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={renderBilingual}
+                      onChange={(e) => setRenderBilingual(e.target.checked)}
+                    />
+                    <span className="switch-slider" style={{
+                      backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
                     }}></span>
                   </label>
                 </div>

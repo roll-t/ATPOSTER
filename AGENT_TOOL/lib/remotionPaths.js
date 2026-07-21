@@ -9,7 +9,7 @@ const DEFAULT_SKILL_FOLDER = 'narrated-slideshow-video';
 const CATEGORY_SKILL_FOLDER = {
   reading_practice: 'reading-page-video',
 };
-const ALL_SKILL_FOLDERS = Array.from(new Set([DEFAULT_SKILL_FOLDER, ...Object.values(CATEGORY_SKILL_FOLDER)]));
+export const ALL_SKILL_FOLDERS = Array.from(new Set([DEFAULT_SKILL_FOLDER, ...Object.values(CATEGORY_SKILL_FOLDER)]));
 
 function skillFolderForCategory(category) {
   return CATEGORY_SKILL_FOLDER[category] || DEFAULT_SKILL_FOLDER;
@@ -24,7 +24,7 @@ function skillFolderForCategory(category) {
 //   2. Thư mục RENDER/skills/<skillFolder> nằm cạnh AGENT_TOOL (cấu trúc mặc định của ATPOSTER)
 //   3. Đường dẫn cũ trên Windows D:\agent (giữ lại để tương thích máy cũ, chỉ skill mặc định)
 //   4. Bản sao dự phòng đóng gói sẵn trong chính AGENT_TOOL/public/slideshow (chỉ skill mặc định)
-function resolveSkillRemotionDir(skillFolder) {
+export function resolveSkillRemotionDir(skillFolder) {
   const isDefaultSkill = skillFolder === DEFAULT_SKILL_FOLDER;
   const candidates = [
     isDefaultSkill ? process.env.REMOTION_SKILL_DIR : undefined,
@@ -61,8 +61,22 @@ export function getAllSkillPublicDirs() {
 // dịch phụ đề...) vốn không cần biết trước category vì project chắc chắn đã được tạo ra rồi.
 // Nếu chưa tồn tại ở đâu cả (lần ghi đầu tiên cho 1 project hoàn toàn mới), dùng categoryHint
 // (nếu có) để xác định đúng skill sẽ chứa nó, mặc định về skill mặc định nếu không có hint.
+//
+// QUAN TRỌNG: khi có categoryHint, LUÔN thử đúng skill của category đó TRƯỚC — không dò theo
+// thứ tự cố định của ALL_SKILL_FOLDERS. Trước đây luôn dò 'narrated-slideshow-video' trước bất
+// kể categoryHint là gì; nếu một project KHÁC (không liên quan) từng tồn tại ở đó với CÙNG TÊN
+// folderPath (trùng tên là có thật — reading_practice và stick_figure_slideshow tự sinh tên
+// thư mục theo cùng 1 quy tắc slug+giờ:phút:giây), route render-video sẽ nhận nhầm đó là
+// "nguồn" và cpSync đè nội dung KHÔNG LIÊN QUAN đó lên đúng project đang render, trông như dữ
+// liệu bị mất/lẫn giữa 2 skill. Ưu tiên skill đúng category trước loại bỏ hẳn nguy cơ này cho
+// trường hợp bình thường (project vốn đã nằm đúng skill của nó).
 export function resolveProjectDir(folderPath, categoryHint) {
-  for (const folder of ALL_SKILL_FOLDERS) {
+  const preferredFolder = categoryHint ? skillFolderForCategory(categoryHint) : null;
+  const searchOrder = preferredFolder
+    ? [preferredFolder, ...ALL_SKILL_FOLDERS.filter((f) => f !== preferredFolder)]
+    : ALL_SKILL_FOLDERS;
+
+  for (const folder of searchOrder) {
     const candidate = path.join(resolveSkillRemotionDir(folder), 'public', folderPath);
     if (fs.existsSync(candidate)) return candidate;
   }

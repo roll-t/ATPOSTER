@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { ALL_SKILL_FOLDERS, resolveSkillRemotionDir } from '@/lib/remotionPaths';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
@@ -18,9 +18,30 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Tên thư mục không hợp lệ. Chỉ được dùng chữ, số, "_" và "-".' }, { status: 400 });
     }
 
-    const targetDir = path.join(resolveProjectDir(cleanFolder), 'final');
-    if (!fs.existsSync(targetDir)) {
-      return NextResponse.json({ error: `Không tìm thấy thư mục: ${targetDir}` }, { status: 404 });
+    let targetDir = null;
+
+    // Ưu tiên 1: Tìm thư mục final/ chứa video đã render ở TẤT CẢ các skill
+    for (const folder of ALL_SKILL_FOLDERS) {
+      const candidateFinal = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder, 'final');
+      if (fs.existsSync(candidateFinal)) {
+        targetDir = candidateFinal;
+        break;
+      }
+    }
+
+    // Ưu tiên 2: Nếu chưa có final/, mở thư mục dự án chính
+    if (!targetDir) {
+      for (const folder of ALL_SKILL_FOLDERS) {
+        const candidateProj = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder);
+        if (fs.existsSync(candidateProj)) {
+          targetDir = candidateProj;
+          break;
+        }
+      }
+    }
+
+    if (!targetDir || !fs.existsSync(targetDir)) {
+      return NextResponse.json({ error: `Không tìm thấy thư mục dự án: ${cleanFolder}` }, { status: 404 });
     }
 
     // execFile (không qua shell) + truyền targetDir như 1 tham số riêng biệt, tránh command injection.

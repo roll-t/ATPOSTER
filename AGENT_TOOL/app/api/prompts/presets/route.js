@@ -49,6 +49,41 @@ export async function POST(request) {
   }
 }
 
+// Đánh dấu 1 preset làm "mặc định" cho category của nó — lần sau mở màn cấu hình render
+// của MỘT KỊCH BẢN MỚI (chưa từng tuỳ chỉnh gì) sẽ tự áp dụng preset này thay vì các thông số
+// mặc định cứng của app. Chỉ 1 preset được là mặc định tại 1 thời điểm mỗi category, nên khi
+// bật mặc định cho preset này thì mọi preset khác cùng category tự động bị bỏ mặc định.
+export async function PATCH(request) {
+  try {
+    const { id, isDefault } = await request.json();
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu ID Preset.' }, { status: 400 });
+    }
+
+    const db = await getMongoClientDb();
+    const collection = db.collection('customPresets');
+    const preset = await collection.findOne({ id });
+    if (!preset) {
+      return NextResponse.json({ error: 'Không tìm thấy Preset.' }, { status: 404 });
+    }
+
+    if (isDefault) {
+      const siblings = await collection.find({ category: preset.category, isDefault: true }).toArray();
+      for (const sibling of siblings) {
+        if (sibling.id !== id) {
+          await collection.updateOne({ id: sibling.id }, { $set: { isDefault: false } });
+        }
+      }
+    }
+    await collection.updateOne({ id }, { $set: { isDefault: !!isDefault } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[API Custom Presets PATCH Error]:', error);
+    return NextResponse.json({ error: error.message || 'Lỗi khi cập nhật Preset.' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);

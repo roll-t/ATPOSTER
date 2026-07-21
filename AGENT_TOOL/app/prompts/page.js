@@ -547,93 +547,119 @@ function PromptsStudioContent() {
                 </div>
               </div>
 
-              {/* Section 2: ElevenLabs API Keys */}
+              {/* Section 2: ElevenLabs API Key & Voice IDs (Từng Tài Khoản Đi Kèm Cặp Giọng Nam & Nữ) */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.02)',
                 border: '1px solid rgba(255, 255, 255, 0.07)',
                 borderRadius: '14px',
                 padding: '18px'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1rem' }}>🔊</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
+                    <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>🎙️</span>
                     <div>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>ElevenLabs API Key</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tự động chuyển Key khác khi hết quota</span>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>Tài Khoản ElevenLabs & Cặp Voice ID</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Mỗi API Key đi kèm cặp Voice ID Nam/Nữ riêng. Tự động chuyển cặp mới khi hết quota!</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '3px 10px', borderRadius: '20px', fontWeight: 700 }}>
-                      {(s.settings.elevenlabsApiKey ? s.settings.elevenlabsApiKey.split('\n').filter(Boolean).length : 0)} Key
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {(s.settings.elevenlabsAccounts || []).length} Tài khoản
                     </span>
                     <button
                       type="button"
                       onClick={() => s.setElApiKeyVisible(!s.elApiKeyVisible)}
-                      style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}
+                      style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                       {s.elApiKeyVisible ? '🙈 Ẩn Key' : '👁️ Hiện Key'}
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        const current = s.settings.elevenlabsApiKey ? s.settings.elevenlabsApiKey.split('\n') : [''];
-                        s.setSettings(prev => ({ ...prev, elevenlabsApiKey: [...current, ''].join('\n') }));
+                        const current = s.settings.elevenlabsAccounts || [];
+                        s.setSettings(prev => ({
+                          ...prev,
+                          elevenlabsAccounts: [...current, { apiKey: '', maleVoiceId: '', femaleVoiceId: '' }]
+                        }));
                       }}
-                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
+                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '5px 10px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
-                      + Thêm Key
+                      + Thêm Tài Khoản
                     </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {((s.settings.elevenlabsApiKey || '').split('\n').length === 0 ? [''] : s.settings.elevenlabsApiKey.split('\n')).map((keyVal, idx, arr) => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {(s.settings.elevenlabsAccounts || [{ apiKey: '', maleVoiceId: '', femaleVoiceId: '' }]).map((acc, idx, arr) => {
                     return (
-                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input
-                          type={s.elApiKeyVisible ? 'text' : 'password'}
-                          className="form-control"
-                          placeholder={`Nhập ElevenLabs API Key #${idx + 1}...`}
-                          value={keyVal}
-                          onChange={(e) => {
-                            const updated = [...arr];
-                            updated[idx] = e.target.value;
-                            s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
-                          }}
-                          onPaste={(e) => {
-                            const pasted = e.clipboardData.getData('text');
-                            if (pasted.includes('\n') || pasted.includes(',')) {
-                              e.preventDefault();
-                              const newKeys = pasted.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+                      <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)' }}>🔑 Tài khoản ElevenLabs #{idx + 1}</span>
+                          {arr.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = arr.filter((_, i) => i !== idx);
+                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                              }}
+                              style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                              title="Xóa tài khoản này"
+                            >
+                              🗑️ Xóa tài khoản
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Input API Key */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>API Key ElevenLabs</label>
+                          <input
+                            type={s.elApiKeyVisible ? 'text' : 'password'}
+                            className="form-control"
+                            placeholder="sk_..."
+                            value={acc.apiKey || ''}
+                            onChange={(e) => {
                               const updated = [...arr];
-                              updated.splice(idx, 1, ...newKeys);
-                              s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
-                            }
-                          }}
-                          style={{
-                            flex: 1,
-                            fontSize: '0.82rem',
-                            padding: '9px 12px',
-                            background: 'rgba(0, 0, 0, 0.3)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            fontFamily: s.elApiKeyVisible ? 'monospace' : 'inherit'
-                          }}
-                        />
-                        {arr.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = arr.filter((_, i) => i !== idx);
-                              s.setSettings(prev => ({ ...prev, elevenlabsApiKey: updated.join('\n') }));
+                              updated[idx] = { ...updated[idx], apiKey: e.target.value };
+                              s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
                             }}
-                            style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
-                            title="Xóa Key này"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                            style={{ fontSize: '0.82rem', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: s.elApiKeyVisible ? 'monospace' : 'inherit' }}
+                          />
+                        </div>
+
+                        {/* Input Voice ID Nam & Nữ */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>👨 Voice ID Giọng Nam</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="ID Voice Nam của API này..."
+                              value={acc.maleVoiceId || ''}
+                              onChange={(e) => {
+                                const updated = [...arr];
+                                updated[idx] = { ...updated[idx], maleVoiceId: e.target.value.trim() };
+                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                              }}
+                              style={{ fontSize: '0.8rem', padding: '7px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: 'monospace' }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>👩 Voice ID Giọng Nữ / Người Kể</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="ID Voice Nữ của API này..."
+                              value={acc.femaleVoiceId || ''}
+                              onChange={(e) => {
+                                const updated = [...arr];
+                                updated[idx] = { ...updated[idx], femaleVoiceId: e.target.value.trim() };
+                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                              }}
+                              style={{ fontSize: '0.8rem', padding: '7px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: 'monospace' }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
