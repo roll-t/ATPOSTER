@@ -1,0 +1,460 @@
+{
+  "title": "The Beautiful Red Apple Tree",
+  "isImage": true,
+  "category": "reading_practice",
+  "orientation": "portrait",
+  "createdAt": 1784727081373,
+  "updatedAt": 1784727154983,
+  "segments": [
+    {
+      "segmentNumber": 1,
+      "visualDescription": "A picturesque 2D anime digital illustration featuring a grand, magnificent apple tree standing in the center of a lush green field under a clear sunny sky. The tree is full of vibrant, shiny red apples hanging from rich green leafy branches. Warm golden sunlight filters through the leaves, creating a soft gentle glow. A young anime girl in a simple summer dress stands near the tree, holding a freshly picked red apple and looking up with a cheerful smile. Little songbirds are perched peacefully on the branches. Warm, peaceful, and vibrant environment.",
+      "dialogueOrNarration": "A big tree stands in a green field. It is a very beautiful apple tree. The tree has strong brown branches and green leaves. Bright red apples grow all over the tree. The apples look sweet and fresh. [softly] The warm sun shines on the red fruit. Little birds sing happy songs in the branches. A young girl walks to the big tree. She stops and looks up. She picks one big red apple. She takes a bite and smiles happily. [warmly] The apple tree brings joy to everyone.",
+      "subtitle": "A big tree stands in a green field. It is a very beautiful apple tree. The tree has strong brown branches and green leaves. Bright red apples grow all over the tree. The apples look sweet and fresh. The warm sun shines on the red fruit. Little birds sing happy songs in the branches. A young girl walks to the big tree. She stops and looks up. She picks one big red apple. She takes a bite and smiles happily. The apple tree brings joy to everyone.\nMột cái cây lớn đứng trên cánh đồng xanh. Nó là một cây táo rất đẹp. Cây có những cành màu nâu khỏe khoắn và lá xanh. Những quả táo đỏ rực mọc khắp trên cây. Những quả táo trông thật ngọt và tươi ngon. Ánh nắng ấm áp chiếu xuống những quả màu đỏ. Những chú chim nhỏ hót những bài hát vui vẻ trên cành cây. Một cô gái trẻ đi đến bên cây lớn. Cô dừng lại và nhìn lên. Cô hái một quả táo đỏ to. Cô cắn một miếng và mỉm cười hạnh phúc. Cây táo mang lại niềm vui cho mọi người.",
+      "textPrompt": "Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image). Hero illustration scene expressing the main story theme: A picturesque 2D anime digital illustration featuring a grand, magnificent apple tree standing in the center of a lush green field under a clear sunny sky. The tree is full of vibrant, shiny red apples hanging from rich green leafy branches. Warm golden sunlight filters through the leaves, creating a soft gentle glow. A young anime girl in a simple summer dress stands near the tree, holding a freshly picked red apple and looking up with a cheerful smile. Little songbirds are perched peacefully on the branches. Warm, peaceful, and vibrant environment.. This is a top-banner hero illustration for a reading practice story video. It must visually summarize and capture the entire theme, mood, and main characters of the story in a single rich composite scene. It sits in the upper hero area of the page. Keep composition centered and aesthetically balanced. Format: aspect ratio 16:9.",
+      "durationSeconds": 36,
+      "status": "processing",
+      "files": [
+        "red_apple_tree_260722_203029/images/scene-01.jpg"
+      ],
+      "wordTimings": [
+        {
+          "word": "A",
+          "start": 0.1,
+          "end": 0.225
+        },
+        {
+          "word": "big",
+          "start": 0.2375,
+          "end": 0.575
+        },
+        {
+          "word": "tree",
+          "start": 0.5875,
+          "end": 0.95
+        },
+        {
+          "word": "stands",
+          "start": 0.9625,
+          "end": 1.5125000000000002
+        },
+        {
+          "word": "in",
+          "start": 1.525,
+          "end": 1.6875
+        },
+        {
+          "word": "a",
+          "start": 1.7,
+          "end": 1.7625
+        },
+        {
+          "word": "green",
+          "start": 1.775,
+          "end": 2.175
+        },
+        {
+          "word": "field",
+          "start": 2.1875,
+          "end": 2.725
+        },
+        {
+          "word": "It",
+          "start": 3.5875,
+          "end": 3.7375
+        },
+        {
+          "word": "is",
+          "start": 3.75,
+          "end": 3.8875
+        },
+        {
+          "word": "a",
+          "start": 3.9,
+          "end": 3.975
+        },
+        {
+          "word": "very",
+          "start": 3.9875,
+          "end": 4.3999999999999995
+        },
+        {
+          "word": "beautiful",
+          "start": 4.4125,
+          "end": 5.0874999999999995
+        },
+        {
+          "word": "apple",
+          "start": 5.1,
+          "end": 5.449999999999999
+        },
+        {
+          "word": "tree",
+          "start": 5.4625,
+          "end": 5.8875
+        },
+        {
+          "word": "The",
+          "start": 6.75,
+          "end": 6.9
+        },
+        {
+          "word": "tree",
+          "start": 6.9125,
+          "end": 7.324999999999999
+        },
+        {
+          "word": "has",
+          "start": 7.3375,
+          "end": 7.5875
+        },
+        {
+          "word": "strong",
+          "start": 7.6,
+          "end": 8.0875
+        },
+        {
+          "word": "brown",
+          "start": 8.1,
+          "end": 8.487499999999999
+        },
+        {
+          "word": "branches",
+          "start": 8.5,
+          "end": 9.1625
+        },
+        {
+          "word": "and",
+          "start": 9.175,
+          "end": 9.4
+        },
+        {
+          "word": "green",
+          "start": 9.4125,
+          "end": 9.8375
+        },
+        {
+          "word": "leaves",
+          "start": 9.85,
+          "end": 10.375
+        },
+        {
+          "word": "Bright",
+          "start": 11.2375,
+          "end": 11.637500000000001
+        },
+        {
+          "word": "red",
+          "start": 11.65,
+          "end": 11.9125
+        },
+        {
+          "word": "apples",
+          "start": 11.925,
+          "end": 12.412500000000001
+        },
+        {
+          "word": "grow",
+          "start": 12.425,
+          "end": 12.775
+        },
+        {
+          "word": "all",
+          "start": 12.7875,
+          "end": 13.0875
+        },
+        {
+          "word": "over",
+          "start": 13.1,
+          "end": 13.362499999999999
+        },
+        {
+          "word": "the",
+          "start": 13.375,
+          "end": 13.475
+        },
+        {
+          "word": "tree",
+          "start": 13.4875,
+          "end": 13.912500000000001
+        },
+        {
+          "word": "The",
+          "start": 14.775,
+          "end": 14.950000000000001
+        },
+        {
+          "word": "apples",
+          "start": 14.9625,
+          "end": 15.5
+        },
+        {
+          "word": "look",
+          "start": 15.5125,
+          "end": 15.7625
+        },
+        {
+          "word": "sweet",
+          "start": 15.775,
+          "end": 16.2125
+        },
+        {
+          "word": "and",
+          "start": 16.225,
+          "end": 16.400000000000002
+        },
+        {
+          "word": "fresh",
+          "start": 16.4125,
+          "end": 16.9875
+        },
+        {
+          "word": "The",
+          "start": 17.85,
+          "end": 18.012500000000003
+        },
+        {
+          "word": "warm",
+          "start": 18.025,
+          "end": 18.424999999999997
+        },
+        {
+          "word": "sun",
+          "start": 18.4375,
+          "end": 18.8
+        },
+        {
+          "word": "shines",
+          "start": 18.8125,
+          "end": 19.3125
+        },
+        {
+          "word": "on",
+          "start": 19.325,
+          "end": 19.4875
+        },
+        {
+          "word": "the",
+          "start": 19.5,
+          "end": 19.5875
+        },
+        {
+          "word": "red",
+          "start": 19.6,
+          "end": 19.887500000000003
+        },
+        {
+          "word": "fruit",
+          "start": 19.9,
+          "end": 20.3375
+        },
+        {
+          "word": "Little",
+          "start": 21.2,
+          "end": 21.5875
+        },
+        {
+          "word": "birds",
+          "start": 21.6,
+          "end": 22.012500000000003
+        },
+        {
+          "word": "sing",
+          "start": 22.025,
+          "end": 22.3375
+        },
+        {
+          "word": "happy",
+          "start": 22.35,
+          "end": 22.775000000000002
+        },
+        {
+          "word": "songs",
+          "start": 22.7875,
+          "end": 23.262500000000003
+        },
+        {
+          "word": "in",
+          "start": 23.275,
+          "end": 23.412499999999998
+        },
+        {
+          "word": "the",
+          "start": 23.425,
+          "end": 23.5125
+        },
+        {
+          "word": "branches",
+          "start": 23.525,
+          "end": 24.275
+        },
+        {
+          "word": "A",
+          "start": 25.1375,
+          "end": 25.2125
+        },
+        {
+          "word": "young",
+          "start": 25.225,
+          "end": 25.6125
+        },
+        {
+          "word": "girl",
+          "start": 25.625,
+          "end": 26
+        },
+        {
+          "word": "walks",
+          "start": 26.0125,
+          "end": 26.412499999999998
+        },
+        {
+          "word": "to",
+          "start": 26.425,
+          "end": 26.5375
+        },
+        {
+          "word": "the",
+          "start": 26.55,
+          "end": 26.675
+        },
+        {
+          "word": "big",
+          "start": 26.6875,
+          "end": 26.975
+        },
+        {
+          "word": "tree",
+          "start": 26.9875,
+          "end": 27.4125
+        },
+        {
+          "word": "She",
+          "start": 28.275,
+          "end": 28.537499999999998
+        },
+        {
+          "word": "stops",
+          "start": 28.55,
+          "end": 29.1125
+        },
+        {
+          "word": "and",
+          "start": 29.125,
+          "end": 29.35
+        },
+        {
+          "word": "looks",
+          "start": 29.3625,
+          "end": 29.650000000000002
+        },
+        {
+          "word": "up",
+          "start": 29.6625,
+          "end": 29.950000000000003
+        },
+        {
+          "word": "She",
+          "start": 30.8125,
+          "end": 31.0625
+        },
+        {
+          "word": "picks",
+          "start": 31.075,
+          "end": 31.4625
+        },
+        {
+          "word": "one",
+          "start": 31.475,
+          "end": 31.8125
+        },
+        {
+          "word": "big",
+          "start": 31.825,
+          "end": 32.1125
+        },
+        {
+          "word": "red",
+          "start": 32.125,
+          "end": 32.4125
+        },
+        {
+          "word": "apple",
+          "start": 32.425,
+          "end": 32.925
+        },
+        {
+          "word": "She",
+          "start": 33.7875,
+          "end": 34.0375
+        },
+        {
+          "word": "takes",
+          "start": 34.05,
+          "end": 34.375
+        },
+        {
+          "word": "a",
+          "start": 34.3875,
+          "end": 34.475
+        },
+        {
+          "word": "bite",
+          "start": 34.4875,
+          "end": 34.849999999999994
+        },
+        {
+          "word": "and",
+          "start": 34.8625,
+          "end": 35.037499999999994
+        },
+        {
+          "word": "smiles",
+          "start": 35.05,
+          "end": 35.6125
+        },
+        {
+          "word": "happily",
+          "start": 35.625,
+          "end": 36.2625
+        },
+        {
+          "word": "The",
+          "start": 37.125,
+          "end": 37.2875
+        },
+        {
+          "word": "apple",
+          "start": 37.3,
+          "end": 37.7125
+        },
+        {
+          "word": "tree",
+          "start": 37.725,
+          "end": 38.075
+        },
+        {
+          "word": "brings",
+          "start": 38.0875,
+          "end": 38.5
+        },
+        {
+          "word": "joy",
+          "start": 38.5125,
+          "end": 38.85
+        },
+        {
+          "word": "to",
+          "start": 38.8625,
+          "end": 39.037499999999994
+        },
+        {
+          "word": "everyone",
+          "start": 39.05,
+          "end": 39.775
+        }
+      ]
+    }
+  ],
+  "bgMusic": "audio/bg-music.mp3"
+}

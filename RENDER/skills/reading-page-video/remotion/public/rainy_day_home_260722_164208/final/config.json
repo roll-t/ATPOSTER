@@ -11,8 +11,7 @@
   "showBilingual": true,
   "bgColor": "#0E0F13",
   "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-  "captionFont": "be-vietnam-pro",
-  "captionFontSize": 44,
+  "captionFontSize": 43,
   "captionTextColor": "#241C10",
   "captionBgColor": "#F3EAD9",
   "captionBgOpacity": 100,
@@ -491,5 +490,5 @@
     }
   ],
   "bgMusic": "rainy_day_home_260722_164208/audio/bg-music.mp3",
-  "bgMusicVolume": 0.06
+  "bgMusicVolume": 0.1
 }

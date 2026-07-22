@@ -16,6 +16,34 @@ export async function GET(request) {
   }
 }
 
+// Lưu lại remotionConfig (nhạc nền, font, bố cục %, ...) đã tuỳ chỉnh qua nút "Lưu & Áp dụng"
+// vào ĐÚNG bản ghi lịch sử của kịch bản này — trước đây chỉ cập nhật state React (onResult) nên
+// mất ngay khi rời trang/quay lại từ "Lịch sử đã tạo", vì trang luôn load lại remotionConfig gốc
+// lúc mới tạo kịch bản (ghi 1 lần duy nhất ở /api/prompts/generate). Cùng cách cập nhật-tại-chỗ
+// mà translate-subtitles/route.js đã dùng cho segments/subtitle.
+export async function PATCH(request) {
+  try {
+    const { id, remotionConfig } = await request.json();
+    if (!id) {
+      return NextResponse.json({ error: 'Thiếu id.' }, { status: 400 });
+    }
+    if (!remotionConfig || typeof remotionConfig !== 'object') {
+      return NextResponse.json({ error: 'Thiếu remotionConfig.' }, { status: 400 });
+    }
+
+    const db = await getMongoClientDb();
+    const result = await db.collection('promptHistory').updateOne({ id }, { $set: { remotionConfig } });
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: 'Không tìm thấy kịch bản trong lịch sử.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[API Prompt History PATCH Error]:', error);
+    return NextResponse.json({ error: error.message || 'Lỗi lưu cấu hình render.' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);

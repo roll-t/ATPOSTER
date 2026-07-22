@@ -812,6 +812,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // còn được gọi lại mỗi lần mở/đóng modal tuỳ chỉnh, không muốn ghi đè lên các chỉnh sửa tay
   // người dùng đã thực hiện trong lúc đó.
   const hasAppliedDefaultPresetRef = useRef(false);
+  // SegmentedResultView không được gắn `key` theo result.id ở page.js (component instance dùng
+  // chung cho mọi kịch bản trong 1 phiên, chỉ đổi prop `result`) — nếu không theo dõi id kịch
+  // bản đang xem, hasAppliedDefaultPresetRef ở trên sẽ chỉ "dùng hết lượt" ở kịch bản ĐẦU TIÊN
+  // xem trong phiên, khiến mọi kịch bản khác mở sau đó (kể cả kịch bản hoàn toàn mới, chưa từng
+  // tuỳ chỉnh) không còn được tự động áp preset mặc định nữa.
+  const lastResultIdRef = useRef(result?.id);
 
   // Load Presets từ API + localStorage
   const fetchPresets = async () => {
@@ -829,8 +835,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
         if (!hasAppliedDefaultPresetRef.current) {
           hasAppliedDefaultPresetRef.current = true;
-          const defaultPreset = data.presets.find(p => p.isDefault);
-          if (defaultPreset) applyPreset(defaultPreset);
+          // Chỉ tự áp preset mặc định cho kịch bản CHƯA TỪNG lưu tuỳ chỉnh riêng — cùng điều
+          // kiện (bgMusicEnabled !== undefined) mà fetchSettings() đã dùng để quyết định có áp
+          // mặc định bilingual/nhạc nền hay không, vì handleSaveAndApply LUÔN ghi bgMusicEnabled
+          // mỗi lần lưu, bất kể người dùng đổi gì. Thiếu điều kiện này, mỗi lần mở lại 1 kịch
+          // bản ĐÃ tự chỉnh (vd đổi nhạc nền qua "Lưu & Áp dụng") sẽ bị preset mặc định chung
+          // ghi đè ngược lại, xoá mất tuỳ chỉnh riêng của đúng kịch bản đó.
+          const scriptAlreadyCustomized = result.remotionConfig?.bgMusicEnabled !== undefined;
+          if (!scriptAlreadyCustomized) {
+            const defaultPreset = data.presets.find(p => p.isDefault);
+            if (defaultPreset) applyPreset(defaultPreset);
+          }
         }
       }
     } catch (err) {
@@ -839,8 +854,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   useEffect(() => {
+    if (lastResultIdRef.current !== result?.id) {
+      lastResultIdRef.current = result?.id;
+      hasAppliedDefaultPresetRef.current = false;
+    }
     fetchPresets();
-  }, [showCustomCapCut, isReadingPractice]);
+  }, [showCustomCapCut, isReadingPractice, result?.id]);
 
   const handleSavePreset = async () => {
     if (!newPresetName || !newPresetName.trim()) {
@@ -917,14 +936,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const category = isReadingPractice ? 'reading_practice' : 'caption_style';
     let target = preset;
 
-    // Nếu là Mẫu hệ thống chưa có trong userPresets
+    // Nếu là Mẫu hệ thống chưa có trong userPresets — tạo 1 bản ghi ẩn (isSystemClone) chỉ để
+    // giữ trạng thái "mặc định" (isDefault chỉ lưu được trên 1 document customPresets thật),
+    // KHÔNG phải preset người dùng tự tạo nên bị lọc khỏi danh sách "Custom Presets" hiển thị
+    // (xem userPresets.filter(p => !p.isSystemClone) ở phần render bên dưới).
     const existing = userPresets.find(p => p.id === preset.id || p.name === preset.name);
     if (!existing && preset.isSystem) {
       try {
         const res = await fetch('/api/prompts/presets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: preset.name, category, config: preset.config })
+          body: JSON.stringify({ name: preset.name, category, config: preset.config, isSystemClone: true })
         });
         const data = await res.json();
         if (res.ok && data.success) {
@@ -1107,37 +1129,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         if (s.defaultBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
           setRenderBilingual(s.defaultBilingual);
         }
-        // Ghim mặc định cho Nhạc nền (xem handleSaveAndApply) — chỉ áp cho kịch bản reading_practice
-        // CHƯA từng tuỳ chỉnh bg music (result.remotionConfig?.bgMusicEnabled === undefined), giống
-        // hệt điều kiện của defaultBilingual ở trên, để không ghi đè lựa chọn đã có của kịch bản cũ.
-        if (isReadingPractice && result.remotionConfig?.bgMusicEnabled === undefined) {
-          if (s.defaultBgMusicVolume) setRenderBgMusicVolume(String(s.defaultBgMusicVolume));
-          if (s.defaultBgMusicEnabled === true) {
-            setRenderBgMusicEnabled(true);
-            const pinnedTrackId = s.readingPracticeConfig?.bgMusicTrackId;
-            if (pinnedTrackId) {
-              setSelectedBgMusicTrackId(pinnedTrackId);
-              // Kiểm tra thẳng qua API (không dùng assetCounts state — có thể chưa load kịp do
-              // effect check-assets chạy song song) trước khi tự copy file, để không ghi đè 1 bản
-              // nhạc người dùng vừa tự tải lên/chọn cho đúng kịch bản này.
-              try {
-                const assetsRes = await fetch('/api/prompts/check-assets', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ folderPath: result.input?.folderPath || 'example', category: result.category })
-                });
-                const assetsData = await assetsRes.json();
-                if (assetsRes.ok && assetsData.success && !assetsData.hasBgMusic) {
-                  await handleSelectDefaultMusic(pinnedTrackId);
-                }
-              } catch (err) {
-                console.warn('Lỗi tự động áp nhạc nền mặc định:', err);
-              }
-            }
-          } else if (s.defaultBgMusicEnabled === false) {
-            setRenderBgMusicEnabled(false);
-          }
-        }
+        // ĐÃ BỎ: khối tự áp "mặc định nhạc nền" từ settings.readingPracticeConfig/defaultBgMusicVolume
+        // từng nằm ở đây. Đây là 1 cơ chế "mặc định" THỨ HAI, độc lập và chồng lấn với việc ghim
+        // preset (fetchPresets ở trên) — cả 2 cùng ghi vào renderBgMusicVolume/renderBgMusicEnabled/
+        // selectedBgMusicTrackId cho cùng điều kiện "kịch bản chưa tuỳ chỉnh", nên tuỳ effect nào
+        // resolve sau sẽ ghi đè effect kia, khiến preset đang ghim (📌 Mặc định) không tự active
+        // đúng như hiển thị — đây chính là bug đã gặp. Giờ preset đang ghim (qua fetchPresets/
+        // applyPreset) là NGUỒN SỰ THẬT DUY NHẤT cho nhạc nền mặc định của kịch bản mới.
       }
     } catch (err) {
       console.error('Error loading settings:', err);
@@ -1528,24 +1526,41 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bgMusicTrackId: selectedBgMusicTrackId
     };
 
+    const mergedRemotionConfig = {
+      ...(result.remotionConfig || {}),
+      ...configObj
+    };
+
     if (onResult && result) {
       onResult({
         ...result,
-        remotionConfig: {
-          ...(result.remotionConfig || {}),
-          ...configObj
-        }
+        remotionConfig: mergedRemotionConfig
       });
     }
 
     try {
-      const category = isReadingPractice ? 'reading_practice' : 'caption_style';
-      await fetch('/api/prompts/presets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Mặc định hiện tại', category, config: configObj, isDefault: true })
-      });
+      // Lưu remotionConfig đã tuỳ chỉnh (nhạc nền, font, bố cục %, ...) xuống ĐÚNG bản ghi
+      // lịch sử của kịch bản này — nếu không, onResult() ở trên chỉ cập nhật state React cho
+      // phiên hiện tại, mất ngay khi rời trang rồi mở lại từ "Lịch sử đã tạo" (trang luôn tải
+      // lại remotionConfig gốc lúc mới tạo kịch bản từ DB). Bỏ qua nếu chưa có result.id (kịch
+      // bản chưa từng lưu vào lịch sử, ví dụ đang xem preview trước khi tạo).
+      if (result.id) {
+        await fetch('/api/prompts/history', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: result.id, remotionConfig: mergedRemotionConfig })
+        });
+      }
+    } catch (err) {
+      console.warn('Lỗi lưu remotionConfig vào lịch sử:', err);
+    }
 
+    try {
+      // CHỈ lưu làm "mặc định cho kịch bản mới sau này" (bảng settings) — KHÔNG tạo preset
+      // trong danh sách "Custom Presets". Trước đây có gọi thêm POST /api/prompts/presets ở
+      // đây, nhưng route đó luôn insertOne 1 dòng MỚI (không update-in-place), nên mỗi lần bấm
+      // "Lưu & Áp dụng" lại đẻ thêm 1 preset thừa tên "Mặc định hiện tại". Preset chỉ nên được
+      // tạo khi người dùng chủ động bấm "Lưu thành Preset mới..." (xem handleSavePreset).
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2933,8 +2948,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         </span>
                       </div>
 
-                      {/* Các Preset mẫu người dùng đã lưu */}
-                      {userPresets.map(p => {
+                      {/* Các Preset mẫu người dùng đã lưu — lọc bỏ các bản ghi isSystemClone
+                          (chỉ là chỗ giữ trạng thái ghim mặc định cho 1 Mẫu Hệ Thống, không
+                          phải preset người dùng tự tạo, xem handleToggleDefaultPreset) */}
+                      {userPresets.filter(p => !p.isSystemClone).map(p => {
                         const active = isPresetActive(p);
                         const c = p.config || {};
                         return (
@@ -4016,12 +4033,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                   transition: 'all 0.18s ease'
                                 }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: isSelected ? 'var(--secondary)' : '#fff', display: 'block' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: isSelected ? 'var(--secondary)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     🎵 {track.name}
                                   </span>
                                   {isSelected && (
-                                    <span style={{ fontSize: '0.62rem', background: 'var(--secondary)', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>
+                                    <span style={{ fontSize: '0.62rem', background: 'var(--secondary)', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                       ✓ Đang chọn
                                     </span>
                                   )}

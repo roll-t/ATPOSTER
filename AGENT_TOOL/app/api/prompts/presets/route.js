@@ -21,7 +21,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { name, category = 'reading_practice', config } = await request.json();
+    const { name, category = 'reading_practice', config, isSystemClone } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Vui lòng nhập tên cho Mẫu Preset.' }, { status: 400 });
@@ -37,6 +37,12 @@ export async function POST(request) {
       name: name.trim(),
       category,
       config,
+      // Đánh dấu bản ghi được tự động tạo ra khi người dùng ghim 1 Mẫu Hệ Thống làm mặc định
+      // (xem handleToggleDefaultPreset trong SegmentedResultView.js) — "default" chỉ lưu được
+      // qua isDefault trên 1 document customPresets thật, nhưng bản ghi này chỉ là chỗ giữ
+      // trạng thái ghim, KHÔNG phải preset người dùng tự tạo, nên UI lọc bỏ nó khỏi danh sách
+      // "Custom Presets" hiển thị (chỉ dùng nội bộ để tra cứu/tự áp dụng mặc định).
+      ...(isSystemClone ? { isSystemClone: true } : {}),
       createdAt: new Date().toISOString()
     };
 
