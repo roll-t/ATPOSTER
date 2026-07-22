@@ -4,7 +4,7 @@
   "category": "reading_practice",
   "orientation": "portrait",
   "createdAt": 1784644858117,
-  "updatedAt": 1784645819344,
+  "updatedAt": 1784709006519,
   "segments": [
     {
       "segmentNumber": 1,
@@ -545,5 +545,6 @@
         }
       ]
     }
-  ]
+  ],
+  "bgMusic": "audio/bg-music.mp3"
 }

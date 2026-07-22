@@ -17,6 +17,9 @@ export const readingPageVideoSchema = z.object({
   // "landscape" = 1920x1080, "portrait" = 1080x1920 (TikTok/Reels/Shorts).
   orientation: z.enum(["landscape", "portrait"]).default("portrait"),
 
+  // Trình độ tiếng Anh (CEFR): e.g. "a1", "a2", "b1"
+  level: z.string().optional(),
+
   // Path under public/ (resolved via staticFile) or a full https:// URL —
   // the background illustration/photo for the page.
   image: z.string(),
@@ -119,6 +122,15 @@ export const readingPageVideoSchema = z.object({
   // and bilingual secondary line. Does not affect the title, which is
   // always centered.
   bodyAlign: z.enum(["left", "justify"]).optional(),
+
+  // Nhạc nền nhẹ phát xuyên suốt video, trộn dưới giọng đọc ở âm lượng thấp hơn nhiều — không
+  // đóng gói sẵn nhạc theo skill (tránh vấn đề bản quyền), người dùng tự tải file của mình lên
+  // (xem AGENT_TOOL's save-image route, tái dùng để ghi vào audio/bg-music.<ext> của project).
+  // Path dưới public/ (qua staticFile) hoặc URL https:// đầy đủ, giống hệt `audio`/`image` ở trên.
+  // Cùng field name/hợp đồng với narrated-slideshow-video's bgMusic/bgMusicVolume để nhất quán
+  // giữa 2 skill dù code hoàn toàn tách biệt.
+  bgMusic: z.string().optional(),
+  bgMusicVolume: z.number().min(0).max(1).default(0.12),
 });
 
 export type ReadingPageVideoProps = z.infer<typeof readingPageVideoSchema>;

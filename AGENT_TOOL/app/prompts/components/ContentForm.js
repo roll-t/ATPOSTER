@@ -4,6 +4,7 @@ import { useState } from 'react';
 import CharacterPicker from './CharacterPicker.js';
 import StylePicker from './StylePicker.js';
 import LayoutPicker from './LayoutPicker.js';
+import SyllabusModal from './SyllabusModal.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
 
@@ -18,6 +19,61 @@ function suggestionPeople(sug) {
 function pickRandomSubset(pool, count) {
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
+}
+
+function LevelPicker({ field, value, onChange }) {
+  const options = field.options || [
+    { value: 'a1', label: 'A1', sublabel: 'Mới bắt đầu', icon: '🌱' },
+    { value: 'a2', label: 'A2', sublabel: 'Sơ cấp', icon: '🌿' },
+    { value: 'b1', label: 'B1', sublabel: 'Trung cấp', icon: '🌳' },
+    { value: 'b2', label: 'B2', sublabel: 'Cao cấp', icon: '🚀' },
+    { value: 'c1', label: 'C1', sublabel: 'Thành thạo', icon: '👑' },
+    { value: 'c2', label: 'C2', sublabel: 'Bậc thầy', icon: '🔥' }
+  ];
+
+  const currentVal = (value || field.defaultValue || 'a2').toLowerCase();
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '10px' }}>
+      {options.map(opt => {
+        const isSelected = currentVal === opt.value.toLowerCase() || currentVal.startsWith(opt.value.toLowerCase());
+        return (
+          <button
+            type="button"
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            style={{
+              padding: '10px 8px',
+              borderRadius: '10px',
+              border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: isSelected ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              boxShadow: isSelected ? '0 4px 14px rgba(37, 244, 238, 0.2)' : 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease-in-out',
+              fontFamily: 'inherit',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '1rem' }}>{opt.icon || '⚡'}</span>
+              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: isSelected ? 'var(--secondary)' : '#fff' }}>
+                {opt.label}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.7rem', color: isSelected ? 'rgba(255,255,255,0.9)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              {opt.sublabel || opt.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ContentForm({
@@ -97,6 +153,7 @@ export default function ContentForm({
 
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [isCharModalOpen, setIsCharModalOpen] = useState(false);
+  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
 
   return (
     <div className="glass-card" style={{ padding: '24px' }}>
@@ -247,6 +304,29 @@ export default function ContentForm({
                   {field.label}
                   {field.required && <span style={{ color: 'var(--primary)', marginLeft: '4px' }}>*</span>}
                 </span>
+                {field.key === 'scenario' && activeCategory === 'reading_practice' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSyllabusModalOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
+                      border: '1px solid rgba(37, 244, 238, 0.35)',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      color: '#fff',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 10px rgba(37, 244, 238, 0.2)',
+                      flexShrink: 0
+                    }}
+                  >
+                    📚 Lộ trình 50 bài ({currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})
+                  </button>
+                )}
                 {field.type === 'style-select' && (
                   <button
                     type="button"
@@ -327,6 +407,12 @@ export default function ContentForm({
                   value={currentInput[field.key]}
                   onChange={(key) => onFieldChange(field.key, key)}
                 />
+              ) : field.key === 'level' ? (
+                <LevelPicker
+                  field={field}
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
               ) : field.type === 'select' ? (
                 <select
                   className="form-control"
@@ -391,6 +477,22 @@ export default function ContentForm({
                   >
                     {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
                   </button>
+                  {field.key === 'scenario' && activeCategory === 'reading_practice' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsSyllabusModalOpen(true)}
+                      className="suggestion-pill"
+                      style={{
+                        background: 'rgba(254, 44, 85, 0.14)',
+                        borderColor: 'rgba(254, 44, 85, 0.35)',
+                        color: 'var(--primary)',
+                        fontWeight: 800,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📚 Xem danh sách 50 bài học ({currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -452,6 +554,17 @@ export default function ContentForm({
           </>
         )}
       </button>
+
+      {/* Modal Lộ trình học 50 bài cho mỗi Level (chỉ áp dụng cho skill Luyện Đọc Tiếng Anh) */}
+      {activeCategory === 'reading_practice' && (
+        <SyllabusModal
+          isOpen={isSyllabusModalOpen}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          currentLevel={currentInput.level || 'a2'}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
     </div>
   );
 }

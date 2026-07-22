@@ -19,7 +19,7 @@ function PromptsStudioContent() {
   const router = useRouter();
   const s = usePromptStudio();
 
-  const [activeRightTab, setActiveRightTab] = useState('process');
+  const [activeRightTab, setActiveRightTab] = useState('videos');
   const [wasGenerating, setWasGenerating] = useState(false);
 
   const categoryParam = searchParams.get('category');
@@ -45,7 +45,7 @@ function PromptsStudioContent() {
 
   useEffect(() => {
     if (!s.result && activeRightTab !== 'videos' && activeRightTab !== 'history') {
-      setActiveRightTab('history');
+      setActiveRightTab('videos');
     }
   }, [s.result]);
 
@@ -289,7 +289,22 @@ function PromptsStudioContent() {
                       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: (activeRightTab === 'history' || activeRightTab === 'videos') ? 'hidden' : 'auto' }}>
                         {activeRightTab === 'videos' && (
                           <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                            <CreatedVideosGrid category={s.activeCategory} categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label} />
+                            <CreatedVideosGrid
+                              category={s.activeCategory}
+                              categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
+                              onSelectScript={(video) => {
+                                // Nút "✏️ Sửa" trên thẻ video -> tìm đúng bản ghi kịch bản gốc trong
+                                // lịch sử (khớp theo folderPath) rồi nhảy thẳng qua tab Quy trình &
+                                // Review của kịch bản đó, giống hệt nút "Xem Video" ở tab Lịch sử.
+                                const item = s.history.find((h) => h.input?.folderPath === video.folderPath);
+                                if (item) {
+                                  s.setResult(item);
+                                  setActiveRightTab('process');
+                                } else {
+                                  alert('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
+                                }
+                              }}
+                            />
                           </div>
                         )}
 
@@ -547,124 +562,7 @@ function PromptsStudioContent() {
                 </div>
               </div>
 
-              {/* Section 2: ElevenLabs API Key & Voice IDs (Từng Tài Khoản Đi Kèm Cặp Giọng Nam & Nữ) */}
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.07)',
-                borderRadius: '14px',
-                padding: '18px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
-                    <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>🎙️</span>
-                    <div>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>Tài Khoản ElevenLabs & Cặp Voice ID</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Mỗi API Key đi kèm cặp Voice ID Nam/Nữ riêng. Tự động chuyển cặp mới khi hết quota!</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '4px 10px', borderRadius: '20px', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {(s.settings.elevenlabsAccounts || []).length} Tài khoản
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => s.setElApiKeyVisible(!s.elApiKeyVisible)}
-                      style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
-                      {s.elApiKeyVisible ? '🙈 Ẩn Key' : '👁️ Hiện Key'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = s.settings.elevenlabsAccounts || [];
-                        s.setSettings(prev => ({
-                          ...prev,
-                          elevenlabsAccounts: [...current, { apiKey: '', maleVoiceId: '', femaleVoiceId: '' }]
-                        }));
-                      }}
-                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '5px 10px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
-                      + Thêm Tài Khoản
-                    </button>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {(s.settings.elevenlabsAccounts || [{ apiKey: '', maleVoiceId: '', femaleVoiceId: '' }]).map((acc, idx, arr) => {
-                    return (
-                      <div key={idx} style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)' }}>🔑 Tài khoản ElevenLabs #{idx + 1}</span>
-                          {arr.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = arr.filter((_, i) => i !== idx);
-                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
-                              }}
-                              style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                              title="Xóa tài khoản này"
-                            >
-                              🗑️ Xóa tài khoản
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Input API Key */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>API Key ElevenLabs</label>
-                          <input
-                            type={s.elApiKeyVisible ? 'text' : 'password'}
-                            className="form-control"
-                            placeholder="sk_..."
-                            value={acc.apiKey || ''}
-                            onChange={(e) => {
-                              const updated = [...arr];
-                              updated[idx] = { ...updated[idx], apiKey: e.target.value };
-                              s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
-                            }}
-                            style={{ fontSize: '0.82rem', padding: '8px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: s.elApiKeyVisible ? 'monospace' : 'inherit' }}
-                          />
-                        </div>
-
-                        {/* Input Voice ID Nam & Nữ */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>👨 Voice ID Giọng Nam</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="ID Voice Nam của API này..."
-                              value={acc.maleVoiceId || ''}
-                              onChange={(e) => {
-                                const updated = [...arr];
-                                updated[idx] = { ...updated[idx], maleVoiceId: e.target.value.trim() };
-                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
-                              }}
-                              style={{ fontSize: '0.8rem', padding: '7px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: 'monospace' }}
-                            />
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>👩 Voice ID Giọng Nữ / Người Kể</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="ID Voice Nữ của API này..."
-                              value={acc.femaleVoiceId || ''}
-                              onChange={(e) => {
-                                const updated = [...arr];
-                                updated[idx] = { ...updated[idx], femaleVoiceId: e.target.value.trim() };
-                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
-                              }}
-                              style={{ fontSize: '0.8rem', padding: '7px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontFamily: 'monospace' }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
               {/* Section 3: MongoDB Connection */}
               <div style={{

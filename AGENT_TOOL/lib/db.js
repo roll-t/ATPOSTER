@@ -290,6 +290,14 @@ export function readDb() {
         global.defaultCaptionStyle = settings.defaultCaptionStyle || '';
         global.defaultTransitionStyle = settings.defaultTransitionStyle || '';
         global.defaultBilingual = typeof settings.defaultBilingual === 'boolean' ? settings.defaultBilingual : undefined;
+        // "Ghim mặc định" cho Nhạc nền (nút "Lưu & Áp dụng" trong Studio Thiết Kế Trang Đọc Video,
+        // xem handleSaveAndApply trong SegmentedResultView.js) — cùng cơ chế với 3 field phía trên,
+        // nhưng riêng cho tab "🎵 Nhạc nền". readingPracticeConfig là bản sao TOÀN BỘ config CapCut
+        // (font/màu/bố cục/nhạc nền...) được ghim, dùng để tự áp cho kịch bản reading_practice mới
+        // hoàn toàn chưa từng tuỳ chỉnh gì.
+        global.defaultBgMusicEnabled = typeof settings.defaultBgMusicEnabled === 'boolean' ? settings.defaultBgMusicEnabled : undefined;
+        global.defaultBgMusicVolume = settings.defaultBgMusicVolume || '';
+        global.readingPracticeConfig = (settings.readingPracticeConfig && typeof settings.readingPracticeConfig === 'object') ? settings.readingPracticeConfig : null;
       } else {
         global.customUploadsDir = '';
         global.geminiApiKey = '';
@@ -301,6 +309,9 @@ export function readDb() {
         global.defaultCaptionStyle = '';
         global.defaultTransitionStyle = '';
         global.defaultBilingual = undefined;
+        global.defaultBgMusicEnabled = undefined;
+        global.defaultBgMusicVolume = '';
+        global.readingPracticeConfig = null;
       }
 
       const cleanAccounts = accounts.map(({ _id, ...rest }) => rest);
@@ -319,7 +330,10 @@ export function readDb() {
           edgeVoiceMappings: global.edgeVoiceMappings || {},
           defaultCaptionStyle: global.defaultCaptionStyle || '',
           defaultTransitionStyle: global.defaultTransitionStyle || '',
-          defaultBilingual: global.defaultBilingual
+          defaultBilingual: global.defaultBilingual,
+          defaultBgMusicEnabled: global.defaultBgMusicEnabled,
+          defaultBgMusicVolume: global.defaultBgMusicVolume || '',
+          readingPracticeConfig: global.readingPracticeConfig || null
         }
       };
 
@@ -327,7 +341,7 @@ export function readDb() {
       return currentData;
     } catch (error) {
       console.error('Lỗi đọc database:', error);
-      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined } };
+      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined, defaultBgMusicEnabled: undefined, defaultBgMusicVolume: '', readingPracticeConfig: null } };
     }
   });
 }
@@ -365,7 +379,10 @@ export function writeDb(data) {
               edgeVoiceMappings: data.settings.edgeVoiceMappings || {},
               defaultCaptionStyle: data.settings.defaultCaptionStyle || '',
               defaultTransitionStyle: data.settings.defaultTransitionStyle || '',
-              defaultBilingual: typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : null
+              defaultBilingual: typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : null,
+              defaultBgMusicEnabled: typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : null,
+              defaultBgMusicVolume: data.settings.defaultBgMusicVolume || '',
+              readingPracticeConfig: (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null
             }
           },
           { upsert: true }
@@ -377,6 +394,9 @@ export function writeDb(data) {
         global.voiceMappings = data.settings.voiceMappings || {};
         global.ttsProvider = data.settings.ttsProvider || 'elevenlabs';
         global.edgeVoiceMappings = data.settings.edgeVoiceMappings || {};
+        global.defaultBgMusicEnabled = typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : undefined;
+        global.defaultBgMusicVolume = data.settings.defaultBgMusicVolume || '';
+        global.readingPracticeConfig = (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null;
         global.defaultCaptionStyle = data.settings.defaultCaptionStyle || '';
         global.defaultTransitionStyle = data.settings.defaultTransitionStyle || '';
         global.defaultBilingual = typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : undefined;

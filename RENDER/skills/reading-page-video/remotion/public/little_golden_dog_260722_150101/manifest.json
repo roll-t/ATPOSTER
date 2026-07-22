@@ -1,0 +1,473 @@
+{
+  "title": "The Golden Dog's Friend",
+  "isImage": true,
+  "createdAt": 1784708016899,
+  "updatedAt": 1784708176663,
+  "segments": [
+    {
+      "segmentNumber": 1,
+      "visualDescription": "A heartwarming 2D anime illustration set in a whimsical countryside with soft green hills under warm, soft sunlight. A smiling young person (around 10-12 years old) with kind eyes kneels gently, one hand softly petting 'Sparky', a small dog with shimmering golden fur and bright, intelligent eyes. Sparky's tail wags playfully, and he looks up at the person with a happy, endearing expression. In the background, a large, old tree stands tall, hinting at shared adventures. The scene captures pure friendship, joy, and unconditional love.",
+      "dialogueOrNarration": "Mia has a little dog. Its name is Sparky. Sparky has bright golden fur. His eyes are very clever and kind. He loves to play in the green garden. Every morning, Sparky waits by the door. Mia opens the door, and Sparky wags his tail. They walk together to the big tree. Sparky runs fast and barks happily. Mia throws a small red ball. Sparky brings it back. This makes Mia smile a lot. Sparky is a loyal friend. He gives Mia so much joy. [warmly] Their friendship is very special.",
+      "subtitle": "Mia has a little dog. Its name is Sparky. Sparky has bright golden fur. His eyes are very clever and kind. He loves to play in the green garden. Every morning, Sparky waits by the door. Mia opens the door, and Sparky wags his tail. They walk together to the big tree. Sparky runs fast and barks happily. Mia throws a small red ball. Sparky brings it back. This makes Mia smile a lot. Sparky is a loyal friend. He gives Mia so much joy. Their friendship is very special.\nMia có một chú chó nhỏ. Tên nó là Sparky. Sparky có bộ lông vàng óng ánh. Đôi mắt nó rất thông minh và tử tế. Nó thích chơi đùa trong vườn xanh. Mỗi sáng, Sparky đợi ở cửa. Mia mở cửa, và Sparky vẫy đuôi. Họ đi cùng nhau đến cây lớn. Sparky chạy nhanh và sủa vui vẻ. Mia ném một quả bóng nhỏ màu đỏ. Sparky mang nó về. Điều này làm Mia cười rất nhiều. Sparky là một người bạn trung thành. Nó mang lại cho Mia rất nhiều niềm vui. Tình bạn của họ rất đặc biệt.",
+      "textPrompt": "Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image). Hero illustration scene expressing the main story theme: A heartwarming 2D anime illustration set in a whimsical countryside with soft green hills under warm, soft sunlight. A smiling young person (around 10-12 years old) with kind eyes kneels gently, one hand softly petting 'Sparky', a small dog with shimmering golden fur and bright, intelligent eyes. Sparky's tail wags playfully, and he looks up at the person with a happy, endearing expression. In the background, a large, old tree stands tall, hinting at shared adventures. The scene captures pure friendship, joy, and unconditional love.. This is a top-banner hero illustration for a reading practice story video. It must visually summarize and capture the entire theme, mood, and main characters of the story in a single rich composite scene. It sits in the upper hero area of the page. Keep composition centered and aesthetically balanced. Format: aspect ratio 16:9.",
+      "durationSeconds": 36,
+      "status": "processing",
+      "files": [
+        "little_golden_dog_260722_150101/images/scene-01.jpg"
+      ],
+      "wordTimings": [
+        {
+          "word": "Mia",
+          "start": 0.1,
+          "end": 0.5125
+        },
+        {
+          "word": "has",
+          "start": 0.525,
+          "end": 0.7875000000000001
+        },
+        {
+          "word": "a",
+          "start": 0.8,
+          "end": 0.875
+        },
+        {
+          "word": "little",
+          "start": 0.8875,
+          "end": 1.2125
+        },
+        {
+          "word": "dog",
+          "start": 1.225,
+          "end": 1.6500000000000001
+        },
+        {
+          "word": "Its",
+          "start": 2.5125,
+          "end": 2.75
+        },
+        {
+          "word": "name",
+          "start": 2.7625,
+          "end": 3.1
+        },
+        {
+          "word": "is",
+          "start": 3.1125,
+          "end": 3.275
+        },
+        {
+          "word": "Sparky",
+          "start": 3.2875,
+          "end": 3.925
+        },
+        {
+          "word": "Sparky",
+          "start": 4.7875,
+          "end": 5.4375
+        },
+        {
+          "word": "has",
+          "start": 5.45,
+          "end": 5.6875
+        },
+        {
+          "word": "bright",
+          "start": 5.7,
+          "end": 6.0375000000000005
+        },
+        {
+          "word": "golden",
+          "start": 6.05,
+          "end": 6.4875
+        },
+        {
+          "word": "fur",
+          "start": 6.5,
+          "end": 6.9
+        },
+        {
+          "word": "His",
+          "start": 7.7625,
+          "end": 8.05
+        },
+        {
+          "word": "eyes",
+          "start": 8.0625,
+          "end": 8.4
+        },
+        {
+          "word": "are",
+          "start": 8.4125,
+          "end": 8.5625
+        },
+        {
+          "word": "very",
+          "start": 8.575,
+          "end": 9
+        },
+        {
+          "word": "clever",
+          "start": 9.0125,
+          "end": 9.549999999999999
+        },
+        {
+          "word": "and",
+          "start": 9.5625,
+          "end": 9.725
+        },
+        {
+          "word": "kind",
+          "start": 9.7375,
+          "end": 10.262500000000001
+        },
+        {
+          "word": "He",
+          "start": 11.125,
+          "end": 11.3375
+        },
+        {
+          "word": "loves",
+          "start": 11.35,
+          "end": 11.737499999999999
+        },
+        {
+          "word": "to",
+          "start": 11.75,
+          "end": 11.875
+        },
+        {
+          "word": "play",
+          "start": 11.8875,
+          "end": 12.25
+        },
+        {
+          "word": "in",
+          "start": 12.2625,
+          "end": 12.399999999999999
+        },
+        {
+          "word": "the",
+          "start": 12.4125,
+          "end": 12.5125
+        },
+        {
+          "word": "green",
+          "start": 12.525,
+          "end": 12.9
+        },
+        {
+          "word": "garden",
+          "start": 12.9125,
+          "end": 13.5125
+        },
+        {
+          "word": "Every",
+          "start": 14.375,
+          "end": 14.7375
+        },
+        {
+          "word": "morning",
+          "start": 14.75,
+          "end": 15.275
+        },
+        {
+          "word": "Sparky",
+          "start": 15.55,
+          "end": 16.1125
+        },
+        {
+          "word": "waits",
+          "start": 16.125,
+          "end": 16.5125
+        },
+        {
+          "word": "by",
+          "start": 16.525,
+          "end": 16.7125
+        },
+        {
+          "word": "the",
+          "start": 16.725,
+          "end": 16.8625
+        },
+        {
+          "word": "door",
+          "start": 16.875,
+          "end": 17.275
+        },
+        {
+          "word": "Mia",
+          "start": 18.1375,
+          "end": 18.55
+        },
+        {
+          "word": "opens",
+          "start": 18.5625,
+          "end": 19.0125
+        },
+        {
+          "word": "the",
+          "start": 19.025,
+          "end": 19.162499999999998
+        },
+        {
+          "word": "door",
+          "start": 19.175,
+          "end": 19.5625
+        },
+        {
+          "word": "and",
+          "start": 19.825,
+          "end": 19.974999999999998
+        },
+        {
+          "word": "Sparky",
+          "start": 19.9875,
+          "end": 20.5375
+        },
+        {
+          "word": "wags",
+          "start": 20.55,
+          "end": 20.962500000000002
+        },
+        {
+          "word": "his",
+          "start": 20.975,
+          "end": 21.1625
+        },
+        {
+          "word": "tail",
+          "start": 21.175,
+          "end": 21.6125
+        },
+        {
+          "word": "They",
+          "start": 22.475,
+          "end": 22.6875
+        },
+        {
+          "word": "walk",
+          "start": 22.7,
+          "end": 23.0625
+        },
+        {
+          "word": "together",
+          "start": 23.075,
+          "end": 23.6125
+        },
+        {
+          "word": "to",
+          "start": 23.625,
+          "end": 23.75
+        },
+        {
+          "word": "the",
+          "start": 23.7625,
+          "end": 23.8875
+        },
+        {
+          "word": "big",
+          "start": 23.9,
+          "end": 24.1875
+        },
+        {
+          "word": "tree",
+          "start": 24.2,
+          "end": 24.625
+        },
+        {
+          "word": "Sparky",
+          "start": 25.4875,
+          "end": 26.1
+        },
+        {
+          "word": "runs",
+          "start": 26.1125,
+          "end": 26.5125
+        },
+        {
+          "word": "fast",
+          "start": 26.525,
+          "end": 27
+        },
+        {
+          "word": "and",
+          "start": 27.0125,
+          "end": 27.15
+        },
+        {
+          "word": "barks",
+          "start": 27.1625,
+          "end": 27.6
+        },
+        {
+          "word": "happily",
+          "start": 27.6125,
+          "end": 28.2
+        },
+        {
+          "word": "Mia",
+          "start": 29.0625,
+          "end": 29.425
+        },
+        {
+          "word": "throws",
+          "start": 29.4375,
+          "end": 29.8375
+        },
+        {
+          "word": "a",
+          "start": 29.85,
+          "end": 29.925
+        },
+        {
+          "word": "small",
+          "start": 29.9375,
+          "end": 30.4125
+        },
+        {
+          "word": "red",
+          "start": 30.425,
+          "end": 30.725
+        },
+        {
+          "word": "ball",
+          "start": 30.7375,
+          "end": 31.125
+        },
+        {
+          "word": "Sparky",
+          "start": 31.9875,
+          "end": 32.6125
+        },
+        {
+          "word": "brings",
+          "start": 32.625,
+          "end": 32.9625
+        },
+        {
+          "word": "it",
+          "start": 32.975,
+          "end": 33.125
+        },
+        {
+          "word": "back",
+          "start": 33.1375,
+          "end": 33.5625
+        },
+        {
+          "word": "This",
+          "start": 34.425,
+          "end": 34.724999999999994
+        },
+        {
+          "word": "makes",
+          "start": 34.7375,
+          "end": 35.0625
+        },
+        {
+          "word": "Mia",
+          "start": 35.075,
+          "end": 35.375
+        },
+        {
+          "word": "smile",
+          "start": 35.3875,
+          "end": 35.875
+        },
+        {
+          "word": "a",
+          "start": 35.8875,
+          "end": 35.95
+        },
+        {
+          "word": "lot",
+          "start": 35.9625,
+          "end": 36.387499999999996
+        },
+        {
+          "word": "Sparky",
+          "start": 37.25,
+          "end": 37.95
+        },
+        {
+          "word": "is",
+          "start": 37.9625,
+          "end": 38.1125
+        },
+        {
+          "word": "a",
+          "start": 38.125,
+          "end": 38.2
+        },
+        {
+          "word": "loyal",
+          "start": 38.2125,
+          "end": 38.6625
+        },
+        {
+          "word": "friend",
+          "start": 38.675,
+          "end": 39.2125
+        },
+        {
+          "word": "He",
+          "start": 40.075,
+          "end": 40.2875
+        },
+        {
+          "word": "gives",
+          "start": 40.3,
+          "end": 40.625
+        },
+        {
+          "word": "Mia",
+          "start": 40.6375,
+          "end": 40.962500000000006
+        },
+        {
+          "word": "so",
+          "start": 40.975,
+          "end": 41.275
+        },
+        {
+          "word": "much",
+          "start": 41.2875,
+          "end": 41.612500000000004
+        },
+        {
+          "word": "joy",
+          "start": 41.625,
+          "end": 42.0375
+        },
+        {
+          "word": "Their",
+          "start": 42.9,
+          "end": 43.15
+        },
+        {
+          "word": "friendship",
+          "start": 43.1625,
+          "end": 43.8125
+        },
+        {
+          "word": "is",
+          "start": 43.825,
+          "end": 44.025000000000006
+        },
+        {
+          "word": "very",
+          "start": 44.0375,
+          "end": 44.4125
+        },
+        {
+          "word": "special",
+          "start": 44.425,
+          "end": 45.074999999999996
+        }
+      ]
+    }
+  ],
+  "bgMusic": "audio/bg-music.mp3"
+}

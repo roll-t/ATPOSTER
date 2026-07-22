@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder }) {
+function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit }) {
   const isLandscape = video.aspectRatio === '16:9';
 
   return (
@@ -122,6 +122,25 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
               {isLandscape ? '💻 16:9' : '📱 9:16'}
             </span>
 
+            {/* Level Badge */}
+            {video.level && (
+              <span style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(0,0,0,0.75)',
+                backdropFilter: 'blur(4px)',
+                color: '#fbbf24',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
+              }}>
+                ⚡ {String(video.level).toUpperCase().slice(0, 2)}
+              </span>
+            )}
+
             {/* Size Badge */}
             <span style={{
               position: 'absolute',
@@ -153,17 +172,17 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
         {video.title}
       </h5>
 
-      <p style={{
-        fontSize: '0.72rem',
-        color: 'var(--text-muted)',
-        margin: '0 0 12px 0',
+      <div style={{
         display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        fontSize: '0.73rem',
+        color: 'var(--text-muted)',
+        marginBottom: '10px'
       }}>
         <span>📅 {video.createdAt}</span>
-        {video.scenesCount > 0 && <span>🖼️ {video.scenesCount} slide</span>}
-      </p>
+        <span>🖼️ {video.scenesCount} slide</span>
+      </div>
 
       {/* Actions Footer */}
       <div style={{
@@ -173,6 +192,25 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
         paddingTop: '8px',
         borderTop: '1px solid rgba(255,255,255,0.05)'
       }}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onEdit) onEdit(video);
+          }}
+          className="btn btn-secondary"
+          style={{
+            padding: '6px 10px',
+            fontSize: '0.73rem',
+            borderRadius: '6px',
+            fontWeight: 700,
+            whiteSpace: 'nowrap'
+          }}
+          title="Sửa lại kịch bản/cấu hình video này (mở Quy trình & Review)"
+        >
+          ✏️ Sửa
+        </button>
+
         <button
           type="button"
           onClick={(e) => onOpenFolder(video.folderPath, e)}
@@ -220,6 +258,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'portrait', 'landscape'
+  const [selectedLevel, setSelectedLevel] = useState('all'); // 'all', 'a1', 'a2', 'b1', 'b2', 'c1', 'c2'
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [openingFolderId, setOpeningFolderId] = useState(null);
 
@@ -268,7 +307,15 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
         return false;
       })
     : videos;
-  const filteredVideos = categoryVideos.filter(v =>
+
+  const levelFilteredVideos = categoryVideos.filter(v => {
+    if (selectedLevel === 'all') return true;
+    if (!v.level) return false;
+    const l = String(v.level).toLowerCase();
+    return l.startsWith(selectedLevel.toLowerCase());
+  });
+
+  const filteredVideos = levelFilteredVideos.filter(v =>
     v.title.toLowerCase().includes(search.toLowerCase()) ||
     v.folderPath.toLowerCase().includes(search.toLowerCase())
   );
@@ -331,6 +378,51 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
               );
             })}
           </div>
+
+          {/* Level Filter Tabs (Chỉ áp dụng cho skill Trang Đọc Luyện Tiếng Anh) */}
+          {category === 'reading_practice' && (
+            <div style={{
+              display: 'flex',
+              gap: '3px',
+              padding: '3px',
+              background: 'rgba(0, 0, 0, 0.3)',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              {[
+                { id: 'all', label: 'Tất cả Level' },
+                { id: 'a1', label: '🌱 A1' },
+                { id: 'a2', label: '🌿 A2' },
+                { id: 'b1', label: '🌳 B1' },
+                { id: 'b2', label: '🚀 B2' },
+                { id: 'c1', label: '👑 C1' },
+                { id: 'c2', label: '🔥 C2' }
+              ].map(lTab => {
+                const active = selectedLevel === lTab.id;
+                return (
+                  <button
+                    key={lTab.id}
+                    type="button"
+                    onClick={() => setSelectedLevel(lTab.id)}
+                    style={{
+                      padding: '4px 9px',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      borderRadius: '7px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      background: active ? 'rgba(251, 191, 36, 0.22)' : 'transparent',
+                      color: active ? '#fbbf24' : 'rgba(255, 255, 255, 0.6)',
+                      boxShadow: active ? '0 2px 8px rgba(251, 191, 36, 0.25)' : 'none'
+                    }}
+                  >
+                    {lTab.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}>
@@ -400,6 +492,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       onTogglePlay={() => setActiveVideoId(activeVideoId === video.id ? null : video.id)}
                       openingFolderId={openingFolderId}
                       onOpenFolder={handleOpenFolder}
+                      onEdit={onSelectScript}
                     />
                   ))}
                 </div>
@@ -430,6 +523,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       onTogglePlay={() => setActiveVideoId(activeVideoId === video.id ? null : video.id)}
                       openingFolderId={openingFolderId}
                       onOpenFolder={handleOpenFolder}
+                      onEdit={onSelectScript}
                     />
                   ))}
                 </div>

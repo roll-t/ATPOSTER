@@ -34,11 +34,19 @@ export async function POST(req) {
       }
     }
 
+    // Nhạc nền (tuỳ chọn, người dùng tự tải lên qua Studio Thiết Kế Trang Đọc Video) — chỉ
+    // reading-page-video có tính năng này, nhưng kiểm tra vô hại cho category khác.
+    let hasBgMusic = false;
+    if (fs.existsSync(audioDir)) {
+      hasBgMusic = fs.readdirSync(audioDir).some(f => f.startsWith('bg-music.'));
+    }
+
     return NextResponse.json({
       success: true,
       imageCount,
       audioCount,
-      videoCreated
+      videoCreated,
+      hasBgMusic
     });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

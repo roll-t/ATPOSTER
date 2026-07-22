@@ -95,13 +95,149 @@ const CAPTION_STYLE_DEFAULTS = {
   // Skill riêng reading-page-video (category 'reading_practice') — không có khái niệm
   // "Kiểu phụ đề" box/tiktok/karaoke, chỉ có 1 kiểu trang giấy karaoke duy nhất.
   readingPage: {
-    font: '',
-    fontSize: '',
+    font: 'montserrat',
+    fontSize: '44',
     textColor: '#241C10',
     bgColor: '#F3EAD9',
     bgTransparent: false
   }
 };
+
+// Mẫu Video Preset Mặc Định Hệ Thống cho kịch bản Đọc Giấy Karaoke
+const SYSTEM_READING_PRESETS = [
+  {
+    id: 'sys_reading_classic',
+    name: 'Giấy Kem Classic',
+    description: 'Trang giấy kem ấm áp, chữ nâu sẫm',
+    isSystem: true,
+    config: {
+      textColor: '#241C10',
+      bgColor: '#F3EAD9',
+      isBgTransparent: false,
+      font: 'be-vietnam-pro',
+      fontSize: '44',
+      bgMusicEnabled: true,
+      bgMusicVolume: '6',
+      bgMusicTrackId: 'track1'
+    }
+  },
+  {
+    id: 'sys_reading_dark_gold',
+    name: 'Đọc Đêm Gold',
+    description: 'Trang tối sang trọng, chữ vàng hoàng gia',
+    isSystem: true,
+    config: {
+      textColor: '#FFCB4D',
+      bgColor: '#181622',
+      isBgTransparent: false,
+      font: 'montserrat',
+      fontSize: '44',
+      bgMusicEnabled: true,
+      bgMusicVolume: '6',
+      bgMusicTrackId: 'track2'
+    }
+  },
+  {
+    id: 'sys_reading_white_modern',
+    name: 'Trắng Hiện Đại',
+    description: 'Nền trắng tinh tế, chữ xanh đen sắc nét',
+    isSystem: true,
+    config: {
+      textColor: '#1E293B',
+      bgColor: '#FFFFFF',
+      isBgTransparent: false,
+      font: 'be-vietnam-pro',
+      fontSize: '44',
+      bgMusicEnabled: true,
+      bgMusicVolume: '6',
+      bgMusicTrackId: 'track3'
+    }
+  }
+];
+
+// Hàm phát hiện các nhân vật / giọng đọc THỰC SỰ có trong kịch bản hiện tại
+function detectActiveCharacters(result) {
+  const characters = [];
+  const seenKeys = new Set();
+  const scenes = result?.scenes || [];
+
+  if (result?.category === 'reading_practice') {
+    return [{
+      key: 'narrator',
+      name: 'Người kể (Narrator)',
+      gender: 'Dẫn chuyện',
+      icon: '🎙️',
+      defaultVoice: DEFAULT_EDGE_FEMALE_VOICE
+    }];
+  }
+
+  for (const scene of scenes) {
+    const text = (scene.dialogueOrNarration || scene.text || scene.content || '').trim();
+    const match = text.match(/^([A-Za-z0-9\s]+):/i);
+    if (match) {
+      const rawName = match[1].trim();
+      const lower = rawName.toLowerCase();
+      let key = lower;
+      let name = rawName;
+      let gender = 'Dẫn chuyện';
+      let icon = '🎙️';
+      let defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+
+      if (['alex', 'man', 'male', 'boy', 'guy', 'nam'].includes(lower)) {
+        key = 'alex';
+        name = 'Alex';
+        gender = 'Nam';
+        icon = '👨';
+        defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+      } else if (['mia', 'woman', 'female', 'girl', 'lady', 'nữ'].includes(lower)) {
+        key = 'mia';
+        name = 'Mia';
+        gender = 'Nữ';
+        icon = '👩';
+        defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+      } else if (['leo'].includes(lower)) {
+        key = 'leo';
+        name = 'Leo';
+        gender = 'Nam trẻ';
+        icon = '👦';
+        defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+      } else if (['narrator', 'người kể', 'reader'].includes(lower)) {
+        key = 'narrator';
+        name = 'Người kể (Narrator)';
+        gender = 'Dẫn chuyện';
+        icon = '🎙️';
+        defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+      } else {
+        if (/woman|female|mother|mom|girl|lady|bà|cụ nữ/i.test(lower)) {
+          gender = 'Nữ';
+          icon = '👩';
+          defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+        } else if (/man|male|father|dad|boy|guy|ông|cụ nam/i.test(lower)) {
+          gender = 'Nam';
+          icon = '👨';
+          defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+        }
+      }
+
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        characters.push({ key, name, gender, icon, defaultVoice });
+      }
+    }
+  }
+
+  if (characters.length === 0) {
+    characters.push({
+      key: 'narrator',
+      name: 'Người kể (Narrator)',
+      gender: 'Dẫn chuyện',
+      icon: '🎙️',
+      defaultVoice: DEFAULT_EDGE_FEMALE_VOICE
+    });
+  }
+
+  return characters;
+}
 
 // Thẻ chọn dạng lưới có ảnh xem trước (thay cho dropdown) — dùng chung cho cả 2 bộ chọn
 // kiểu phụ đề và kiểu chuyển cảnh bên dưới, để việc chọn trực quan hơn là đọc chữ trong <select>.
@@ -292,7 +428,8 @@ function ReadingPageLivePreview({
   realBodySecondary,
   showBilingual,
   bgOpacity,
-  imageMode = 'hero'
+  imageMode = 'hero',
+  level
 }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(0.25);
@@ -335,6 +472,14 @@ function ReadingPageLivePreview({
   const words = displayPrimary.split(/\s+/).filter(Boolean);
   const keywordIdx = words.findIndex(w => w.replace(/[^a-zA-ZÀ-ỹ]/g, '').length >= 5);
 
+  const levelText = (() => {
+    if (!level) return '';
+    const str = String(level).trim();
+    const match = str.match(/([a-c][1-2])/i);
+    if (match) return `LEVEL: ${match[1].toUpperCase()}`;
+    return `LEVEL: ${str.toUpperCase()}`;
+  })();
+
   return (
     <div
       ref={containerRef}
@@ -361,6 +506,32 @@ function ReadingPageLivePreview({
           overflow: 'hidden'
         }}
       >
+        {/* Badge Trình độ (Level) ở góc phải bên trên */}
+        {levelText && (
+          <div style={{
+            position: 'absolute',
+            top: '32px',
+            right: '32px',
+            zIndex: 100,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.3)',
+            color: '#FFFFFF',
+            padding: '8px 22px',
+            borderRadius: '24px',
+            fontSize: '24px',
+            fontWeight: 900,
+            letterSpacing: '0.6px',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            pointerEvents: 'none'
+          }}>
+            <span style={{ color: '#FFCB4D' }}>⚡</span>
+            <span>{levelText}</span>
+          </div>
+        )}
         {/* Full-screen background image layer (phủ 100% full màn hình phía sau để luôn hiển thị ảnh khi hạ opacity màu nền) */}
         {heroImageUrl && imageMode !== 'none' && (
           <div
@@ -450,18 +621,32 @@ function ReadingPageLivePreview({
                 })}
               </span>
 
-              {/* Bản dịch tiếng Việt — chỉ hiển thị khi bật tùy chọn Song Ngữ */}
+              {/* Bản dịch tiếng Việt — tô màu chữ theo từng câu hoàn chỉnh (không tô ô nền từng từ) */}
               {showBilingual && (
-                <span style={{
+                <div style={{
                   fontSize: `${secondaryFontSize}px`,
-                  fontWeight: 500,
-                  color: textColor,
-                  opacity: 0.78,
-                  textAlign: bodyAlign === 'justify' ? 'justify' : bodyAlign === 'center' ? 'center' : 'left',
-                  lineHeight: 1.4
+                  lineHeight: 1.4,
+                  textAlign: bodyAlign === 'justify' ? 'justify' : bodyAlign === 'center' ? 'center' : 'left'
                 }}>
-                  {displaySecondary}
-                </span>
+                  {(() => {
+                    const rawSentences = displaySecondary.match(/[^.!?\n]+[.!?\n]+/g) || [displaySecondary];
+                    const sentences = rawSentences.map(s => s.trim()).filter(Boolean);
+                    const activeColor = highlightColor || '#D97706';
+                    return sentences.map((sentence, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          color: idx === 0 ? activeColor : textColor,
+                          fontWeight: 600,
+                          opacity: idx === 0 ? 1 : 0.4,
+                          transition: 'color 0.25s ease, opacity 0.25s ease'
+                        }}
+                      >
+                        {sentence}{' '}
+                      </span>
+                    ));
+                  })()}
+                </div>
               )}
             </div>
             <div style={{ flex: `0 0 ${bottomFlex}%`, position: 'relative' }} />
@@ -551,6 +736,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
   const [customScreenBg, setCustomScreenBg] = useState('#252538');
+  const [customTab, setCustomTab] = useState('style'); // 'style' | 'layout' | 'typography'
 
   // Tuỳ chỉnh LAYOUT kiểu CapCut (chỉ dùng cho reading_practice) — để trống ('') nghĩa là
   // giữ nguyên mặc định của skill reading-page-video (25% / 10% / 40%, phần còn lại là bottom space).
@@ -564,6 +750,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderImageMode, setRenderImageMode] = useState('hero'); // 'hero' | 'full_bg' | 'none'
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  // Nhạc nền nhẹ (tuỳ chọn) — không đóng gói sẵn nhạc theo skill (tránh vấn đề bản quyền),
+  // người dùng tự tải file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã
+  // tải hay không lúc render — tắt đi không xoá file, bật lại dùng ngay không cần tải lại.
+  const [renderBgMusicEnabled, setRenderBgMusicEnabled] = useState(true);
+  const [renderBgMusicVolume, setRenderBgMusicVolume] = useState('6');
+  const [selectedBgMusicTrackId, setSelectedBgMusicTrackId] = useState(result.remotionConfig?.bgMusicTrackId || 'track1');
+  const [showCustomBgMusicVolume, setShowCustomBgMusicVolume] = useState(false);
+  const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
+  const [bgMusicUploadError, setBgMusicUploadError] = useState('');
+  const [bgMusicVersion, setBgMusicVersion] = useState(0); // bump để phá cache khi nghe thử sau khi đổi nhạc
   // Tên file ảnh hero khớp với bố cục đang chọn: "Hero Top" (dải ngang) dùng bản landscape,
   // "Full Nền Sau" (nền dọc toàn khung) dùng bản portrait - xem buildSegmentedPrompts.js/
   // content-flow.js's generateSecondaryVariant (sinh cả 2 bản, cùng gam màu, từ 1 ảnh hero).
@@ -578,7 +774,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [assetCounts, setAssetCounts] = useState({
     imageCount: 0,
     audioCount: 0,
-    videoCreated: false
+    videoCreated: false,
+    hasBgMusic: false
   });
 
   // Tự động phát hiện tỉ lệ ảnh (Ảnh nằm ngang -> mode 'hero', Ảnh nằm dọc -> mode 'full_bg')
@@ -590,7 +787,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     // Xin bản "-landscape" trước - route image-stream tự lùi về file scene-01.<ext> gốc (chưa
     // tách bản ngang/dọc) cho các dự án tạo trước khi có tính năng tách 2 tỉ lệ, nên xác định
     // orientation qua kích thước ảnh thật vẫn đúng trong cả 2 trường hợp.
-    const currentHeroUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=images/scene-01-landscape.${result.input?.imageExt || 'jpg'}${cacheBust}`;
+    const currentHeroUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=images/scene-01-landscape.${result.input?.imageExt || 'jpg'}${cacheBust}&category=${encodeURIComponent(result.category || '')}`;
 
     const img = new Image();
     img.src = currentHeroUrl;
@@ -607,6 +804,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [heroImageUploadError, setHeroImageUploadError] = useState('');
 
   const [userPresets, setUserPresets] = useState([]);
+  const [activePresetId, setActivePresetId] = useState(null);
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [presetMsg, setPresetMsg] = useState('');
@@ -665,7 +863,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       paddingPercent: renderContentPaddingPercent,
       bodyAlign: renderBodyAlign,
       imageMode: renderImageMode,
-      bilingual: renderBilingual
+      bilingual: renderBilingual,
+      bgMusicEnabled: renderBgMusicEnabled,
+      bgMusicVolume: renderBgMusicVolume,
+      bgMusicTrackId: selectedBgMusicTrackId
     };
 
     try {
@@ -678,6 +879,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (res.ok && data.success) {
         const updated = [data.preset, ...userPresets];
         setUserPresets(updated);
+        setActivePresetId(data.preset.id);
         localStorage.setItem(`custom_presets_${category}`, JSON.stringify(updated));
         setIsSavingPreset(false);
         setNewPresetName('');
@@ -699,6 +901,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (res.ok) {
         const updated = userPresets.filter(p => p.id !== presetId);
         setUserPresets(updated);
+        if (activePresetId === presetId) setActivePresetId(null);
         localStorage.setItem(`custom_presets_${category}`, JSON.stringify(updated));
       }
     } catch (err) {
@@ -711,12 +914,39 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // mặc định tại 1 thời điểm mỗi category, nên bật mặc định cho preset này sẽ tự tắt mặc định ở
   // mọi preset khác. Cập nhật lạc quan (optimistic) trên UI trước, refetch lại nếu API lỗi.
   const handleToggleDefaultPreset = async (preset) => {
-    const nextIsDefault = !preset.isDefault;
     const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    let target = preset;
+
+    // Nếu là Mẫu hệ thống chưa có trong userPresets
+    const existing = userPresets.find(p => p.id === preset.id || p.name === preset.name);
+    if (!existing && preset.isSystem) {
+      try {
+        const res = await fetch('/api/prompts/presets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: preset.name, category, config: preset.config })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          target = data.preset;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    } else if (existing) {
+      target = existing;
+    }
+
+    const nextIsDefault = !target.isDefault;
     const updated = userPresets.map(p => ({
       ...p,
-      isDefault: p.id === preset.id ? nextIsDefault : (nextIsDefault ? false : p.isDefault)
+      isDefault: p.id === target.id ? nextIsDefault : (nextIsDefault ? false : p.isDefault)
     }));
+
+    if (!userPresets.some(p => p.id === target.id)) {
+      updated.unshift({ ...target, isDefault: nextIsDefault });
+    }
+
     setUserPresets(updated);
     localStorage.setItem(`custom_presets_${category}`, JSON.stringify(updated));
 
@@ -724,7 +954,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const res = await fetch('/api/prompts/presets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: preset.id, isDefault: nextIsDefault })
+        body: JSON.stringify({ id: target.id, isDefault: nextIsDefault })
       });
       if (!res.ok) fetchPresets();
     } catch (err) {
@@ -734,6 +964,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const applyPreset = (preset) => {
+    if (preset?.id) setActivePresetId(preset.id);
     const c = preset.config || {};
     if (c.font !== undefined) setRenderCaptionFont(c.font);
     if (c.fontSize !== undefined) setRenderCaptionFontSize(c.fontSize);
@@ -750,12 +981,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.bodyAlign !== undefined) setRenderBodyAlign(c.bodyAlign);
     if (c.imageMode !== undefined) setRenderImageMode(c.imageMode);
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
+    if (c.bgMusicEnabled !== undefined) setRenderBgMusicEnabled(c.bgMusicEnabled);
+    if (c.bgMusicVolume !== undefined) setRenderBgMusicVolume(String(c.bgMusicVolume));
+    if (c.bgMusicTrackId !== undefined) {
+      setSelectedBgMusicTrackId(c.bgMusicTrackId);
+      if (c.bgMusicEnabled && c.bgMusicTrackId) {
+        handleSelectDefaultMusic(c.bgMusicTrackId);
+      }
+    }
   };
 
-  // Preset nào đang khớp với TOÀN BỘ thông số hiện tại trên form -> coi là preset "đang chọn",
-  // để hiện rõ trạng thái active thay vì mọi preset trông giống hệt nhau. Chỉ so các trường
-  // preset đó thực sự có lưu (bỏ qua field undefined), đúng như cách applyPreset() áp dụng.
-  const isPresetActive = (preset) => {
+  const isConfigMatch = (preset) => {
+    if (!preset) return false;
     const c = preset.config || {};
     const pairs = [
       [c.font, renderCaptionFont],
@@ -772,10 +1009,27 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       [c.paddingPercent, renderContentPaddingPercent],
       [c.bodyAlign, renderBodyAlign],
       [c.imageMode, renderImageMode],
-      [c.bilingual, renderBilingual]
+      [c.bilingual, renderBilingual],
+      [c.bgMusicEnabled, renderBgMusicEnabled],
+      [c.bgMusicVolume, renderBgMusicVolume]
     ];
-    return pairs.every(([saved, current]) => saved === undefined || String(saved) === String(current));
+    const definedPairs = pairs.filter(([saved]) => saved !== undefined);
+    if (definedPairs.length === 0) return false;
+    return definedPairs.every(([saved, current]) => String(saved) === String(current));
   };
+
+  // Preset nào đang active: phải khớp toàn bộ thông số cấu hình và khớp ID được chọn (nếu có activePresetId)
+  const isPresetActive = (preset) => {
+    if (!preset) return false;
+    if (!isConfigMatch(preset)) return false;
+    if (activePresetId) {
+      return preset.id === activePresetId;
+    }
+    const firstMatching = userPresets.find(p => isConfigMatch(p));
+    return firstMatching?.id === preset.id;
+  };
+
+  const activePreset = userPresets.find(p => isPresetActive(p));
 
   // Hàm chọn kiểu phụ đề — Tự động cập nhật toàn bộ thông số mặc định của type đó vào form tùy chỉnh
   const handleSelectCaptionStyle = (styleType) => {
@@ -825,7 +1079,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setAssetCounts({
           imageCount: data.imageCount,
           audioCount: data.audioCount,
-          videoCreated: data.videoCreated
+          videoCreated: data.videoCreated,
+          hasBgMusic: data.hasBgMusic || false
         });
       }
     } catch (err) {
@@ -851,6 +1106,37 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         }
         if (s.defaultBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
           setRenderBilingual(s.defaultBilingual);
+        }
+        // Ghim mặc định cho Nhạc nền (xem handleSaveAndApply) — chỉ áp cho kịch bản reading_practice
+        // CHƯA từng tuỳ chỉnh bg music (result.remotionConfig?.bgMusicEnabled === undefined), giống
+        // hệt điều kiện của defaultBilingual ở trên, để không ghi đè lựa chọn đã có của kịch bản cũ.
+        if (isReadingPractice && result.remotionConfig?.bgMusicEnabled === undefined) {
+          if (s.defaultBgMusicVolume) setRenderBgMusicVolume(String(s.defaultBgMusicVolume));
+          if (s.defaultBgMusicEnabled === true) {
+            setRenderBgMusicEnabled(true);
+            const pinnedTrackId = s.readingPracticeConfig?.bgMusicTrackId;
+            if (pinnedTrackId) {
+              setSelectedBgMusicTrackId(pinnedTrackId);
+              // Kiểm tra thẳng qua API (không dùng assetCounts state — có thể chưa load kịp do
+              // effect check-assets chạy song song) trước khi tự copy file, để không ghi đè 1 bản
+              // nhạc người dùng vừa tự tải lên/chọn cho đúng kịch bản này.
+              try {
+                const assetsRes = await fetch('/api/prompts/check-assets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ folderPath: result.input?.folderPath || 'example', category: result.category })
+                });
+                const assetsData = await assetsRes.json();
+                if (assetsRes.ok && assetsData.success && !assetsData.hasBgMusic) {
+                  await handleSelectDefaultMusic(pinnedTrackId);
+                }
+              } catch (err) {
+                console.warn('Lỗi tự động áp nhạc nền mặc định:', err);
+              }
+            }
+          } else if (s.defaultBgMusicEnabled === false) {
+            setRenderBgMusicEnabled(false);
+          }
         }
       }
     } catch (err) {
@@ -1046,6 +1332,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           transitionStyle: renderTransitionStyle,
           bilingual: renderBilingual,
           orientation: orientation,
+          level: result.input?.level || result.level || undefined,
           captionFont: renderCaptionFont || undefined,
           captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
@@ -1058,7 +1345,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           titleBodyGap: isReadingPractice && renderTitleBodyGap ? Number(renderTitleBodyGap) : undefined,
           contentPaddingPercent: isReadingPractice && renderContentPaddingPercent ? Number(renderContentPaddingPercent) : undefined,
           bodyAlign: isReadingPractice ? renderBodyAlign : undefined,
-          imageMode: isReadingPractice ? renderImageMode : undefined
+          imageMode: isReadingPractice ? renderImageMode : undefined,
+          bgMusicEnabled: isReadingPractice ? renderBgMusicEnabled : undefined,
+          bgMusicVolume: isReadingPractice && renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined
         })
       });
       const data = await res.json();
@@ -1115,6 +1404,164 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     } finally {
       setIsUploadingHeroImage(false);
     }
+  };
+
+  // Tải lên nhạc nền — ghi đè audio/bg-music.<ext> của project (dùng lại đúng route save-image,
+  // route đó chỉ ghi byte theo filename, không quan tâm nội dung là ảnh hay audio). Không đóng
+  // gói sẵn nhạc theo skill để tránh vấn đề bản quyền — người dùng tự chọn file của mình (nên
+  // dùng nhạc không lời, royalty-free, vd từ YouTube Audio Library/Pixabay Music).
+  const handleUploadBgMusic = async (file) => {
+    if (!file) return;
+    setIsUploadingBgMusic(true);
+    setBgMusicUploadError('');
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
+      const res = await fetch('/api/prompts/save-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: result.input?.folderPath || 'example',
+          filename: `audio/bg-music.${ext}`,
+          dataUrl,
+          category: result.category
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBgMusicVersion(v => v + 1);
+        setRenderBgMusicEnabled(true);
+        checkAssets();
+      } else {
+        setBgMusicUploadError(data.error || 'Không thể lưu nhạc nền.');
+      }
+    } catch (err) {
+      setBgMusicUploadError('Lỗi kết nối khi tải nhạc nền lên.');
+    } finally {
+      setIsUploadingBgMusic(false);
+    }
+  };
+
+  const [isSelectingDefaultMusic, setIsSelectingDefaultMusic] = useState(false);
+  const handleSelectDefaultMusic = async (trackId) => {
+    setIsSelectingDefaultMusic(true);
+    setBgMusicUploadError('');
+    try {
+      const res = await fetch('/api/prompts/select-default-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: result.input?.folderPath || 'example',
+          trackId,
+          category: result.category
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedBgMusicTrackId(trackId);
+        setBgMusicVersion(Date.now());
+        setRenderBgMusicEnabled(true);
+        checkAssets();
+      } else {
+        setBgMusicUploadError(data.error || 'Không thể chọn nhạc mặc định.');
+      }
+    } catch (err) {
+      setBgMusicUploadError('Lỗi kết nối khi chọn nhạc mặc định.');
+    } finally {
+      setIsSelectingDefaultMusic(false);
+    }
+  };
+
+  const [playingPreviewTrackId, setPlayingPreviewTrackId] = useState(null);
+  const previewAudioRef = useRef(null);
+
+  const togglePreviewTrack = (trackId, trackFile) => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+
+    if (playingPreviewTrackId === trackId) {
+      setPlayingPreviewTrackId(null);
+      return;
+    }
+
+    const audio = new Audio(trackFile);
+    previewAudioRef.current = audio;
+    setPlayingPreviewTrackId(trackId);
+    audio.play().catch(() => setPlayingPreviewTrackId(null));
+    audio.onended = () => setPlayingPreviewTrackId(null);
+  };
+
+  const handleSaveAndApply = async () => {
+    if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
+      try {
+        await handleSelectDefaultMusic('track1');
+      } catch (e) {
+        console.warn('Auto select track1 error:', e);
+      }
+    }
+
+    const configObj = {
+      font: renderCaptionFont,
+      fontSize: renderCaptionFontSize,
+      textColor: renderCaptionTextColor,
+      bgColor: renderCaptionBgColor,
+      bgOpacity: renderCaptionBgOpacity,
+      isBgTransparent: renderCaptionBgTransparent,
+      heroPercent: renderHeroHeightPercent,
+      titlePercent: renderTitleHeightPercent,
+      bodyPercent: renderBodyHeightPercent,
+      titleFontSize: renderTitleFontSize,
+      titleBodyGap: renderTitleBodyGap,
+      paddingPercent: renderContentPaddingPercent,
+      bodyAlign: renderBodyAlign,
+      imageMode: renderImageMode,
+      bilingual: renderBilingual,
+      bgMusicEnabled: renderBgMusicEnabled,
+      bgMusicVolume: renderBgMusicVolume,
+      bgMusicTrackId: selectedBgMusicTrackId
+    };
+
+    if (onResult && result) {
+      onResult({
+        ...result,
+        remotionConfig: {
+          ...(result.remotionConfig || {}),
+          ...configObj
+        }
+      });
+    }
+
+    try {
+      const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+      await fetch('/api/prompts/presets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Mặc định hiện tại', category, config: configObj, isDefault: true })
+      });
+
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          defaultBilingual: renderBilingual,
+          defaultBgMusicEnabled: renderBgMusicEnabled,
+          defaultBgMusicVolume: renderBgMusicVolume,
+          readingPracticeConfig: configObj
+        })
+      });
+    } catch (err) {
+      console.warn('Lỗi tự động lưu ghim mặc định:', err);
+    }
+
+    setShowCustomCapCut(false);
   };
 
   const alreadyBilingual = result.segments.length > 0 && result.segments.every(seg => (seg.subtitle || '').includes('\n'));
@@ -1399,7 +1846,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Tạo giọng lồng tiếng ({settings.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : 'Edge TTS - Miễn phí'})
+                          Bước 2: Tạo giọng lồng tiếng (Edge TTS - Miễn phí)
                         </span>
                       </div>
                     </div>
@@ -1407,7 +1854,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title={`Cấu hình giọng đọc (${settings.ttsProvider === 'elevenlabs' ? 'ElevenLabs' : 'Edge TTS'})`}
+                        title="Cấu hình giọng đọc (Edge TTS)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowVoiceConfig(!showVoiceConfig)}
                         disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
@@ -1561,6 +2008,52 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </div>
                   </div>
+
+                  {/* Nút chọn nhanh Nhạc nền trực tiếp ngoài Process */}
+                  {isReadingPractice && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '2px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🎵 Nhạc nền:</span>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {[
+                          { id: 'off', label: '🔇 Tắt nhạc' },
+                          { id: 'track1', label: '🎵 Soft Ambient' },
+                          { id: 'track2', label: '🎸 Gentle Acoustic' },
+                          { id: 'track3', label: '🕊 Moment of Peace' }
+                        ].map(opt => {
+                          const active = opt.id === 'off' ? !renderBgMusicEnabled : (renderBgMusicEnabled && selectedBgMusicTrackId === opt.id);
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                if (opt.id === 'off') {
+                                  setRenderBgMusicEnabled(false);
+                                } else {
+                                  setRenderBgMusicEnabled(true);
+                                  handleSelectDefaultMusic(opt.id);
+                                }
+                              }}
+                              disabled={isRenderingVideo || isGeneratingVoice}
+                              title={opt.id === 'off' ? 'Tắt nhạc nền khi render' : `Chọn nhạc nền: ${opt.label}`}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                borderRadius: '7px',
+                                cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer',
+                                border: active ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                                background: active ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
+                                color: active ? 'var(--secondary)' : '#fff',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
                   {isRenderingVideo && (
@@ -1837,63 +2330,63 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     </button>
                   </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
-                    </span>
-                    <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                      {seg.visualDescription}
-                    </p>
-                  </div>
-
-                  {seg.dialogueOrNarration && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
                     <div>
                       <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                        <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
                       </span>
-                      <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                        {seg.dialogueOrNarration}
+                      <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                        {seg.visualDescription}
                       </p>
                     </div>
-                  )}
 
-                  {seg.subtitle && (
-                    <div>
-                      <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>📝</span> <span>Phụ đề hiển thị</span>
-                      </span>
-                      <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                        {seg.subtitle}
-                      </p>
-                    </div>
-                  )}
-
-                  <div style={{ marginTop: '8px' }}>
-                    <details style={{ width: '100%' }}>
-                      <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                        Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
-                      </summary>
-                      <div style={{
-                        background: '#0a0912',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        fontSize: '0.76rem',
-                        fontFamily: 'monospace',
-                        marginTop: '8px',
-                        whiteSpace: 'pre-wrap',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        color: 'rgba(255,255,255,0.65)',
-                        lineHeight: 1.45
-                      }}>
-                        {seg.textPrompt}
+                    {seg.dialogueOrNarration && (
+                      <div>
+                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                        </span>
+                        <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                          {seg.dialogueOrNarration}
+                        </p>
                       </div>
-                    </details>
+                    )}
+
+                    {seg.subtitle && (
+                      <div>
+                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>📝</span> <span>Phụ đề hiển thị</span>
+                        </span>
+                        <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                          {seg.subtitle}
+                        </p>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '8px' }}>
+                      <details style={{ width: '100%' }}>
+                        <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                          Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
+                        </summary>
+                        <div style={{
+                          background: '#0a0912',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          fontSize: '0.76rem',
+                          fontFamily: 'monospace',
+                          marginTop: '8px',
+                          whiteSpace: 'pre-wrap',
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          color: 'rgba(255,255,255,0.65)',
+                          lineHeight: 1.45
+                        }}>
+                          {seg.textPrompt}
+                        </div>
+                      </details>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         </>
       )}
@@ -1926,8 +2419,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             @keyframes quota-spin { to { transform: rotate(360deg); } }
           `}</style>
           <div style={{
-            width: '90%',
-            maxWidth: '640px',
+            width: '92%',
+            maxWidth: '740px',
             background: '#1a1924',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '16px',
@@ -1938,71 +2431,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🎙️</span> Cấu hình Giọng đọc
+                <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
-              {settings.ttsProvider === 'edge' || !settings.ttsProvider ? (
-                <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  🆓 Miễn phí, không giới hạn ký tự
-                </span>
-              ) : loadingQuota ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <span className="quota-spinner" style={{
-                    width: '13px', height: '13px', borderRadius: '50%',
-                    border: '2px solid rgba(255,255,255,0.15)', borderTopColor: 'var(--secondary)',
-                    animation: 'quota-spin 0.7s linear infinite'
-                  }} />
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>Đang tải...</span>
-                </span>
-              ) : quota ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }} title={`Còn lại ${quota.remaining?.toLocaleString()} / ${quota.characterLimit?.toLocaleString()} ký tự miễn phí`}>
-                  <QuotaRing percent={quota.characterLimit ? (quota.characterCount / quota.characterLimit) * 100 : 0} />
-                  <span style={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: '#00f2fe', fontWeight: 600 }}>{quota.remaining?.toLocaleString()}</span>
-                    <span style={{ color: 'var(--text-muted)' }}>/{quota.characterLimit?.toLocaleString()} còn lại</span>
-                  </span>
-                </span>
-              ) : quotaError ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 600 }} title={quotaError}>⚠️ Lỗi quota</span>
-                  <button
-                    type="button"
-                    onClick={fetchQuota}
-                    style={{ background: 'none', border: 'none', color: 'var(--secondary)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, padding: 0, whiteSpace: 'nowrap' }}
-                  >
-                    Thử lại
-                  </button>
-                </span>
-              ) : null}
-            </div>
-
-            {/* Chọn nhà cung cấp lồng tiếng — Edge TTS (miễn phí) hoặc ElevenLabs (chất lượng cao) */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '18px' }}>
-              {[
-                { value: 'edge', label: '🆓 Edge TTS (miễn phí)', hint: 'Không giới hạn, không cần API key' },
-                { value: 'elevenlabs', label: '💎 ElevenLabs', hint: 'Chất lượng cao, giới hạn theo ký tự' }
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSettings(prev => ({ ...prev, ttsProvider: opt.value }))}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: '2px',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    border: (settings.ttsProvider || 'edge') === opt.value ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                    background: (settings.ttsProvider || 'edge') === opt.value ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.02)'
-                  }}
-                >
-                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: (settings.ttsProvider || 'edge') === opt.value ? 'var(--secondary)' : '#fff' }}>{opt.label}</span>
-                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.5)' }}>{opt.hint}</span>
-                </button>
-              ))}
+              <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                🆓 Edge TTS Miễn phí
+              </span>
             </div>
 
             {previewError && (
@@ -2011,233 +2444,162 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </p>
             )}
 
-            {settings.ttsProvider === 'edge' || !settings.ttsProvider ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-                {[
-                  { key: 'alex', label: 'Giọng Alex', gender: 'Nam' },
-                  { key: 'mia', label: 'Giọng Mia', gender: 'Nữ' },
-                  { key: 'leo', label: 'Giọng Leo', gender: 'Nam' },
-                  { key: 'narrator', label: 'Giọng Người kể (Narrator)', gender: null }
-                ].map(char => {
-                  const defaultId = char.gender === 'Nam' ? DEFAULT_EDGE_MALE_VOICE : DEFAULT_EDGE_FEMALE_VOICE;
-                  const currentVal = settings.edgeVoiceMappings?.[char.key] || defaultId;
-                  const isPreviewing = previewingKey === char.key;
+            {(() => {
+              const activeCharacters = detectActiveCharacters(result);
+              const activeCount = activeCharacters.length;
 
-                  return (
-                    <div
-                      key={char.key}
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.02)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '12px',
-                        padding: '12px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px'
-                      }}
-                    >
-                      <label style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                        <span>🎙️</span> {char.label}
-                      </label>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <select
-                          className="form-control"
-                          value={currentVal}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSettings(prev => ({
-                              ...prev,
-                              edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: val }
-                            }));
-                          }}
-                          style={{
-                            flex: 1,
-                            fontSize: '0.76rem',
-                            padding: '8px 10px',
-                            height: '36px',
-                            background: 'rgba(0, 0, 0, 0.35)',
-                            color: '#fff',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '8px'
-                          }}
-                        >
-                          {EDGE_TTS_VOICES.map(v => (
-                            <option key={v.id} value={v.id} style={{ background: '#1a1924' }}>{v.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          title="Nghe thử giọng này"
-                          disabled={isPreviewing}
-                          onClick={() => handlePreviewVoice('edge', currentVal, char.key)}
-                          style={{
-                            flexShrink: 0,
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            background: 'rgba(37, 244, 238, 0.12)',
-                            color: 'var(--secondary)',
-                            cursor: isPreviewing ? 'wait' : 'pointer',
-                            fontSize: '0.9rem'
-                          }}
-                        >
-                          {isPreviewing ? '⏳' : '🔊'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <>
-                {quotaError && (
-                  <p style={{ margin: '-10px 0 16px 0', fontSize: '0.74rem', color: 'var(--danger)', lineHeight: 1.5 }}>
-                    ⚠️ {quotaError}
-                  </p>
-                )}
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-              {[
-                { key: 'alex', label: 'Giọng Alex', gender: 'Nam', defaultId: 'wJSBXsvChUQrylZvDzav' },
-                { key: 'mia', label: 'Giọng Mia', gender: 'Nữ', defaultId: '4IQqf6fVNeEFbqnSbVxb' },
-                { key: 'leo', label: 'Giọng Leo', gender: 'Nam', defaultId: 'wJSBXsvChUQrylZvDzav' },
-                { key: 'narrator', label: 'Giọng Người kể (Narrator)', gender: null, defaultId: '4IQqf6fVNeEFbqnSbVxb' }
-              ].map(char => {
-                const currentVal = settings.voiceMappings?.[char.key] || char.defaultId;
-                const femaleId = '4IQqf6fVNeEFbqnSbVxb';
-                const maleId = 'wJSBXsvChUQrylZvDzav';
-
-                return (
-                  <div
-                    key={char.key}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '12px',
-                      padding: '12px 14px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                        <span>🎙️</span> {char.label}
-                      </label>
-
-                      {/* Hiển thị Badge giới tính cố định cho Alex (Nam), Mia (Nữ), Leo (Nam) 
-                          Giữ nút chọn Nam/Nữ cho Giọng Người kể (Narrator) */}
-                      {char.gender ? (
-                        <span style={{
-                          fontSize: '0.7rem',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          background: char.gender === 'Nam' ? 'rgba(37, 244, 238, 0.12)' : 'rgba(254, 44, 85, 0.12)',
-                          color: char.gender === 'Nam' ? 'var(--secondary)' : 'var(--primary)',
-                          border: char.gender === 'Nam' ? '1px solid rgba(37, 244, 238, 0.25)' : '1px solid rgba(254, 44, 85, 0.25)',
-                          fontWeight: 700
-                        }}>
-                          {char.gender === 'Nam' ? '👨 Nam' : '👩 Nữ'}
-                        </span>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button
-                            type="button"
-                            title="Chọn Nhanh Giọng Nam"
-                            onClick={() => setSettings(prev => ({ ...prev, voiceMappings: { ...prev.voiceMappings, [char.key]: maleId } }))}
-                            style={{
-                              padding: '3px 8px',
-                              fontSize: '0.68rem',
-                              borderRadius: '6px',
-                              border: currentVal === maleId ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                              background: currentVal === maleId ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255,255,255,0.03)',
-                              color: currentVal === maleId ? 'var(--secondary)' : 'rgba(255,255,255,0.6)',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            👨 Nam
-                          </button>
-                          <button
-                            type="button"
-                            title="Chọn Nhanh Giọng Nữ"
-                            onClick={() => setSettings(prev => ({ ...prev, voiceMappings: { ...prev.voiceMappings, [char.key]: femaleId } }))}
-                            style={{
-                              padding: '3px 8px',
-                              fontSize: '0.68rem',
-                              borderRadius: '6px',
-                              border: currentVal === femaleId ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
-                              background: currentVal === femaleId ? 'rgba(254, 44, 85, 0.15)' : 'rgba(255,255,255,0.03)',
-                              color: currentVal === femaleId ? 'var(--primary)' : 'rgba(255,255,255,0.6)',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            👩 Nữ
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Single Input Field for ElevenLabs Voice ID + nút nghe thử */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Dán ElevenLabs Voice ID vào đây..."
-                        style={{
-                          flex: 1,
-                          fontSize: '0.78rem',
-                          padding: '8px 12px',
-                          height: '36px',
-                          background: 'rgba(0, 0, 0, 0.35)',
-                          color: '#fff',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          borderRadius: '8px',
-                          fontFamily: 'monospace',
-                          letterSpacing: '0.3px'
-                        }}
-                        value={currentVal}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSettings(prev => ({
-                            ...prev,
-                            voiceMappings: {
-                              ...prev.voiceMappings,
-                              [char.key]: val
-                            }
-                          }));
-                        }}
-                      />
-                      <button
-                        type="button"
-                        title="Nghe thử giọng này"
-                        disabled={previewingKey === char.key || !currentVal}
-                        onClick={() => handlePreviewVoice('elevenlabs', currentVal, char.key)}
-                        style={{
-                          flexShrink: 0,
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(255,255,255,0.12)',
-                          background: 'rgba(37, 244, 238, 0.12)',
-                          color: 'var(--secondary)',
-                          cursor: previewingKey === char.key ? 'wait' : 'pointer',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        {previewingKey === char.key ? '⏳' : '🔊'}
-                      </button>
+              return (
+                <>
+                  <div style={{
+                    background: 'rgba(37, 244, 238, 0.08)',
+                    border: '1px solid rgba(37, 244, 238, 0.25)',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    fontSize: '0.8rem',
+                    color: '#fff'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                      <span style={{ fontSize: '1.1rem' }}>💡</span>
+                      <span>
+                        Kịch bản này có <strong style={{ color: 'var(--secondary)' }}>{activeCount} người đọc</strong>: {activeCharacters.map(c => `${c.icon} ${c.name} (${c.gender})`).join(', ')}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-                </div>
-              </>
-            )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '24px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+                    {activeCharacters.map(char => {
+                      const currentVal = settings.edgeVoiceMappings?.[char.key] || char.defaultVoice;
+
+                      return (
+                        <div
+                          key={char.key}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1.5px solid var(--secondary)',
+                            boxShadow: '0 0 16px rgba(37, 244, 238, 0.12)',
+                            borderRadius: '14px',
+                            padding: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontSize: '1.4rem' }}>{char.icon}</span>
+                              <div>
+                                <span style={{ fontSize: '0.92rem', color: '#fff', fontWeight: 800, display: 'block' }}>
+                                  {char.name}
+                                </span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  Nhân vật trong kịch bản
+                                </span>
+                              </div>
+                            </div>
+
+                            <span style={{
+                              fontSize: '0.72rem',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              background: char.gender.includes('Nam') ? 'rgba(37, 244, 238, 0.15)' : char.gender.includes('Nữ') ? 'rgba(254, 44, 85, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+                              color: char.gender.includes('Nam') ? 'var(--secondary)' : char.gender.includes('Nữ') ? 'var(--primary)' : '#fff',
+                              border: char.gender.includes('Nam') ? '1px solid rgba(37, 244, 238, 0.3)' : char.gender.includes('Nữ') ? '1px solid rgba(254, 44, 85, 0.3)' : '1px solid rgba(255, 255, 255, 0.2)',
+                              fontWeight: 700
+                            }}>
+                              Giới tính: {char.gender}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+                              Chọn giọng đọc cho {char.name}:
+                            </span>
+
+                            {/* Lưới chọn giọng đọc trực quan — BỎ HOÀN TOÀN DROPDOWN <select> */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
+                              {EDGE_TTS_VOICES.map(v => {
+                                const isSelected = currentVal === v.id;
+                                const isPreviewing = previewingKey === `${char.key}_${v.id}`;
+
+                                return (
+                                  <div
+                                    key={v.id}
+                                    onClick={() => {
+                                      setSettings(prev => ({
+                                        ...prev,
+                                        edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: v.id }
+                                      }));
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '8px',
+                                      padding: '9px 12px',
+                                      borderRadius: '10px',
+                                      border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                      background: isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)',
+                                      boxShadow: isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none',
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                      <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{v.icon}</span>
+                                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {v.name} {isSelected && '✓'}
+                                        </span>
+                                        <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {v.genderText} • {v.desc}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      title={`Nghe thử giọng ${v.name}`}
+                                      disabled={isPreviewing}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePreviewVoice('edge', v.id, `${char.key}_${v.id}`);
+                                      }}
+                                      style={{
+                                        flexShrink: 0,
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        background: isPreviewing ? 'rgba(255,255,255,0.2)' : 'rgba(37, 244, 238, 0.15)',
+                                        color: 'var(--secondary)',
+                                        cursor: isPreviewing ? 'wait' : 'pointer',
+                                        fontSize: '0.75rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                      }}
+                                    >
+                                      {isPreviewing ? '⏳' : '🔊'}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
               <button
@@ -2328,8 +2690,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             @keyframes prev-zoom-b { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
           `}</style>
           <div style={{
-            width: '90%',
-            maxWidth: isLandscape ? '700px' : '580px',
+            width: '94%',
+            maxWidth: isLandscape ? '1050px' : '920px',
             maxHeight: '88vh',
             display: 'flex',
             flexDirection: 'column',
@@ -2360,93 +2722,270 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: '6px', display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '12px' }}>
               {isReadingPractice ? (
-                // Skill reading-page-video chỉ có 1 kiểu trang giấy karaoke duy nhất
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div
-                    onClick={() => setShowCustomCapCut(true)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '14px 16px',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(37, 244, 238, 0.25)',
-                      background: 'rgba(37, 244, 238, 0.06)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div style={{
-                      width: '110px',
-                      aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
-                      borderRadius: '10px',
-                      overflow: 'hidden',
-                      position: 'relative',
-                      background: '#141419',
-                      border: '2px solid rgba(255,255,255,0.12)',
-                      flexShrink: 0
-                    }}>
-                      <CaptionStylePreview
-                        style="page"
-                        isLandscape={isLandscape}
-                        textColor={renderCaptionTextColor || undefined}
-                        bgColor={renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined)}
-                        font={renderCaptionFont || undefined}
-                        fontSize={renderCaptionFontSize || undefined}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff' }}>🎨 Tuỳ chỉnh chi tiết trang đọc...</span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                        Font chữ, cỡ chữ, màu chữ, bố cục &amp; màu nền trang giấy
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Preset Mẫu đã lưu (Hiển thị chọn nhanh trực tiếp tại đây) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span>⭐</span> Preset mẫu đã lưu:
+                // Skill reading-page-video: 2 nhóm Item (Mẫu hệ thống & Custom Presets)
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Nhóm 1: Mẫu Video Hệ Thống */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.025)', padding: '14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🎬</span> Mẫu Video Hệ Thống:
                       </span>
                       <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
-                        Nhấn 📌 trên 1 preset để đặt mặc định cho lần tạo kịch bản tiếp theo
+                        Mẫu mặc định chuẩn của hệ thống
                       </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      {userPresets.map(p => {
-                        const active = isPresetActive(p);
-                        const c = p.config || {};
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '12px' }}>
+                      {SYSTEM_READING_PRESETS.map(sysP => {
+                        const active = (activePresetId === sysP.id) || (!activePresetId && isConfigMatch(sysP));
+                        const matchedUserPreset = userPresets.find(p => p.name === sysP.name || p.id === sysP.id);
+                        const isDefaultSys = matchedUserPreset?.isDefault || false;
+                        const c = sysP.config;
                         return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => applyPreset(p)}
-                            title={active ? `Đang dùng preset "${p.name}"` : `Nhấp để chọn ngay mẫu preset "${p.name}"`}
+                          <div
+                            key={sysP.id}
+                            onClick={() => applyPreset(sysP)}
                             style={{
                               display: 'flex',
                               flexDirection: 'column',
                               alignItems: 'center',
-                              gap: '6px',
-                              width: '78px',
-                              padding: '6px',
-                              background: active ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255,255,255,0.03)',
-                              border: active ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.12)',
-                              borderRadius: '10px',
+                              gap: '8px',
+                              padding: '10px 8px',
+                              background: active ? 'rgba(37, 244, 238, 0.12)' : 'rgba(0, 0, 0, 0.35)',
+                              border: active ? '2px solid var(--secondary)' : '1px solid rgba(255,255,255,0.12)',
+                              borderRadius: '14px',
                               cursor: 'pointer',
-                              boxShadow: active ? '0 0 12px rgba(37,244,238,0.3)' : 'none',
-                              transition: 'all 0.15s ease'
+                              boxShadow: active ? '0 0 16px rgba(37,244,238,0.25)' : 'none',
+                              position: 'relative',
+                              transition: 'all 0.18s ease'
                             }}
                           >
                             <div style={{
                               width: '100%',
                               aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
-                              borderRadius: '7px',
+                              borderRadius: '10px',
                               overflow: 'hidden',
                               position: 'relative',
                               background: '#141419',
-                              border: '1.5px solid rgba(255,255,255,0.12)'
+                              border: '1px solid rgba(255,255,255,0.1)'
                             }}>
+                              {isDefaultSys && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  left: '4px',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(255, 203, 77, 0.95)',
+                                  color: '#000',
+                                  fontSize: '0.58rem',
+                                  fontWeight: 900,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                                  zIndex: 2
+                                }}>
+                                  📌 Mặc định
+                                </div>
+                              )}
+
+                              <CaptionStylePreview
+                                style="page"
+                                isLandscape={isLandscape}
+                                textColor={c.textColor}
+                                bgColor={c.bgColor}
+                                font={c.font}
+                                fontSize={c.fontSize}
+                              />
+                              {active && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '6px',
+                                  right: '6px',
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  background: 'var(--secondary)',
+                                  color: '#000',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 900,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                                  zIndex: 2
+                                }}>
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+
+                            <span style={{ fontSize: '0.78rem', fontWeight: 800, color: active ? 'var(--secondary)' : '#fff', textAlign: 'center' }}>
+                              {sysP.name}
+                            </span>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '-2px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  applyPreset(sysP);
+                                  setShowRenderConfig(false);
+                                  setShowCustomCapCut(true);
+                                }}
+                                title="Vào Studio tùy chỉnh dựa trên mẫu mặc định này"
+                                style={{
+                                  background: 'rgba(255,255,255,0.08)',
+                                  border: '1px solid rgba(255,255,255,0.18)',
+                                  color: '#fff',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  padding: '2px 6px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✏️ Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleDefaultPreset(matchedUserPreset || sysP);
+                                }}
+                                title={isDefaultSys ? 'Đang làm Mặc định cho kịch bản mới (Bấm để bỏ ghim)' : 'Bấm để ghim làm preset Mặc định cho kịch bản mới'}
+                                style={{
+                                  background: isDefaultSys ? 'rgba(255, 203, 77, 0.25)' : 'rgba(255,255,255,0.06)',
+                                  border: isDefaultSys ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
+                                  color: isDefaultSys ? '#FFCB4D' : 'rgba(255,255,255,0.7)',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  padding: '2px 6px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📌
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Nhóm 2: Mẫu Custom Presets */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.025)', padding: '14px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>⭐</span> Custom Presets (Mẫu Đã Lưu):
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
+                        Nhấn ✏️ để chỉnh sửa, 📌 để đặt Mặc định cho kịch bản mới
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: '12px' }}>
+                      {/* Dấu + Tự Tạo Mẫu Video Mới */}
+                      <div
+                        onClick={() => {
+                          setShowRenderConfig(false);
+                          setShowCustomCapCut(true);
+                        }}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '12px 8px',
+                          background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.08), rgba(0, 242, 254, 0.03))',
+                          border: '2px dashed rgba(37, 244, 238, 0.4)',
+                          borderRadius: '14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.18s ease',
+                          minHeight: '160px'
+                        }}
+                        title="Mở Studio để thiết kế và tự tạo mẫu video mới"
+                      >
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, var(--secondary), #00f2fe)',
+                          color: '#000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem',
+                          fontWeight: 900,
+                          boxShadow: '0 2px 10px rgba(37,244,238,0.3)'
+                        }}>
+                          +
+                        </div>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--secondary)', textAlign: 'center' }}>
+                          + Tạo Mẫu Mới
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.2 }}>
+                          Thiết kế mẫu mới trong Studio
+                        </span>
+                      </div>
+
+                      {/* Các Preset mẫu người dùng đã lưu */}
+                      {userPresets.map(p => {
+                        const active = isPresetActive(p);
+                        const c = p.config || {};
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => applyPreset(p)}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '10px 8px',
+                              background: active ? 'rgba(37, 244, 238, 0.12)' : 'rgba(0, 0, 0, 0.35)',
+                              border: active ? '2px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '14px',
+                              cursor: 'pointer',
+                              boxShadow: active ? '0 0 16px rgba(37,244,238,0.25)' : 'none',
+                              position: 'relative',
+                              transition: 'all 0.18s ease'
+                            }}
+                          >
+                            <div style={{
+                              width: '100%',
+                              aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
+                              borderRadius: '10px',
+                              overflow: 'hidden',
+                              position: 'relative',
+                              background: '#141419',
+                              border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                              {p.isDefault && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  left: '4px',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(255, 203, 77, 0.95)',
+                                  color: '#000',
+                                  fontSize: '0.58rem',
+                                  fontWeight: 900,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                                  zIndex: 2
+                                }}>
+                                  📌 Mặc định
+                                </div>
+                              )}
+
                               <CaptionStylePreview
                                 style="page"
                                 isLandscape={isLandscape}
@@ -2455,57 +2994,33 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 font={c.font || undefined}
                                 fontSize={c.fontSize || undefined}
                               />
-                              <div
-                                role="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleDefaultPreset(p);
-                                }}
-                                title={p.isDefault ? 'Đang là preset mặc định cho lần tạo tiếp theo — nhấn để bỏ mặc định' : 'Đặt làm preset mặc định cho lần tạo kịch bản tiếp theo'}
-                                style={{
-                                  position: 'absolute',
-                                  top: '3px',
-                                  left: '3px',
-                                  width: '17px',
-                                  height: '17px',
-                                  borderRadius: '50%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '0.62rem',
-                                  cursor: 'pointer',
-                                  background: p.isDefault ? '#FFCB4D' : 'rgba(0,0,0,0.55)',
-                                  color: p.isDefault ? '#2A2118' : 'rgba(255,255,255,0.65)',
-                                  boxShadow: p.isDefault ? '0 1px 4px rgba(0,0,0,0.5)' : 'none',
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                📌
-                              </div>
+
                               {active && (
                                 <div style={{
                                   position: 'absolute',
-                                  top: '3px',
-                                  right: '3px',
-                                  width: '17px',
-                                  height: '17px',
+                                  top: '4px',
+                                  right: '4px',
+                                  width: '20px',
+                                  height: '20px',
                                   borderRadius: '50%',
                                   background: 'var(--secondary)',
-                                  color: '#04262a',
+                                  color: '#000',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.62rem',
+                                  fontSize: '0.7rem',
                                   fontWeight: 900,
-                                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)'
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                                  zIndex: 2
                                 }}>
                                   ✓
                                 </div>
                               )}
                             </div>
+
                             <span style={{
-                              fontSize: '0.68rem',
-                              fontWeight: 700,
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
                               color: active ? 'var(--secondary)' : '#fff',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
@@ -2514,20 +3029,74 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             }}>
                               {p.name}
                             </span>
-                            {p.isDefault && (
-                              <span style={{ fontSize: '0.62rem', color: '#FFCB4D', fontWeight: 700, marginTop: '-4px' }}>
-                                📌 mặc định
-                              </span>
-                            )}
-                          </button>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '-2px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  applyPreset(p);
+                                  setShowRenderConfig(false);
+                                  setShowCustomCapCut(true);
+                                }}
+                                title="Vào Studio tùy chỉnh dựa trên preset này"
+                                style={{
+                                  background: 'rgba(255,255,255,0.08)',
+                                  border: '1px solid rgba(255,255,255,0.18)',
+                                  color: '#fff',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  padding: '2px 6px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ✏️ Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleDefaultPreset(p);
+                                }}
+                                title={p.isDefault ? 'Đang làm Mặc định cho kịch bản mới (Bấm để bỏ ghim)' : 'Bấm để ghim làm preset Mặc định cho kịch bản mới'}
+                                style={{
+                                  background: p.isDefault ? 'rgba(255, 203, 77, 0.25)' : 'rgba(255,255,255,0.06)',
+                                  border: p.isDefault ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
+                                  color: p.isDefault ? '#FFCB4D' : 'rgba(255,255,255,0.7)',
+                                  borderRadius: '6px',
+                                  fontSize: '0.68rem',
+                                  padding: '2px 6px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📌
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePreset(p.id);
+                                }}
+                                title={`Xóa vĩnh viễn preset "${p.name}"`}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'rgba(255,255,255,0.4)',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                  padding: '1px'
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
                         );
                       })}
-
-                      {userPresets.length === 0 && (
-                        <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-                          (Chưa có preset nào. Mở "Tùy chỉnh trang đọc" để tự tạo và lưu preset mới!)
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2683,16 +3252,26 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#fff',
+                  background: activePreset?.isDefault ? 'rgba(255, 203, 77, 0.15)' : 'rgba(255,255,255,0.06)',
+                  border: activePreset?.isDefault ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
+                  color: activePreset?.isDefault ? '#FFCB4D' : '#fff',
                   cursor: isPinningRenderConfig ? 'wait' : 'pointer'
                 }}
                 disabled={isPinningRenderConfig}
-                onClick={handlePinDefaultRenderConfig}
-                title="Lưu kiểu phụ đề, kiểu chuyển cảnh và phụ đề song ngữ này làm MẶC ĐỊNH cho tất cả lần tạo sau"
+                onClick={() => {
+                  if (activePreset) {
+                    handleToggleDefaultPreset(activePreset);
+                  } else {
+                    handlePinDefaultRenderConfig();
+                  }
+                }}
+                title={activePreset ? `Đặt preset "${activePreset.name}" làm mặc định cho lần tạo kịch bản tiếp theo` : 'Lưu kiểu phụ đề và cấu hình làm MẶC ĐỊNH hệ thống'}
               >
-                <span>📌</span> {isPinningRenderConfig ? 'Đang ghim...' : 'Ghim mặc định'}
+                <span>📌</span> {isPinningRenderConfig ? 'Đang ghim...' : (
+                  activePreset 
+                    ? (activePreset.isDefault ? `"${activePreset.name}" đang Mặc định` : `Ghim "${activePreset.name}" làm Mặc định`) 
+                    : 'Ghim mặc định'
+                )}
               </button>
               <button
                 type="button"
@@ -2729,11 +3308,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             maxWidth: '1150px',
             height: '92vh',
             maxHeight: '92vh',
-            background: '#181722',
+            background: '#16151f',
             border: '1.5px solid var(--secondary)',
             borderRadius: '20px',
             padding: '20px 24px',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 35px rgba(37, 244, 238, 0.2)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 40px rgba(37, 244, 238, 0.25)',
             animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             textAlign: 'left',
             display: 'flex',
@@ -2742,9 +3321,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-              <h4 style={{ fontSize: '1.08rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🎨</span> Tuỳ chỉnh Phụ Đề &amp; Bố Cục Màn Hình
-              </h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--secondary), #00f2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#000', fontWeight: 900 }}>
+                  🎨
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                    Studio Thiết Kế Trang Đọc Video
+                  </h4>
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>
+                    Tùy chỉnh bố cục, font chữ, màu sắc &amp; phụ đề song ngữ trực quan
+                  </span>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <button
                   type="button"
@@ -2753,16 +3343,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     background: 'rgba(37, 244, 238, 0.08)',
                     border: '1px solid rgba(37, 244, 238, 0.25)',
                     color: 'var(--secondary)',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    fontSize: '0.72rem',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '0.74rem',
                     cursor: 'pointer',
                     fontWeight: 700,
                     transition: 'all 0.15s ease'
                   }}
-                  title="Khôi phục về thông số mặc định của kiểu phụ đề hiện tại"
+                  title="Khôi phục về thông số mặc định ban đầu"
                 >
-                  ↺ Mặc định kiểu này
+                  ↺ Mặc định gốc
                 </button>
                 <button
                   type="button"
@@ -2771,11 +3361,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     background: 'rgba(255,255,255,0.06)',
                     border: '1px solid rgba(255,255,255,0.12)',
                     color: 'rgba(255,255,255,0.8)',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    fontSize: '0.75rem',
+                    borderRadius: '8px',
+                    width: '32px',
+                    height: '32px',
+                    fontSize: '0.9rem',
                     cursor: 'pointer',
-                    fontWeight: 600
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
                   ✕
@@ -2783,150 +3377,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </div>
             </div>
 
-            {/* Preset Selection & Save Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span>⭐</span> Preset mẫu:
-                </span>
 
-                {userPresets.map(p => (
-                  <div
-                    key={p.id}
-                    onClick={() => applyPreset(p)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 10px',
-                      background: 'rgba(37, 244, 238, 0.1)',
-                      border: '1px solid rgba(37, 244, 238, 0.3)',
-                      borderRadius: '8px',
-                      fontSize: '0.74rem',
-                      color: 'var(--secondary)',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title={`Nhấn để áp dụng ngay mẫu preset "${p.name}"`}
-                  >
-                    <span>📁 {p.name}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePreset(p.id);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'rgba(255,255,255,0.5)',
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        padding: '0 2px',
-                        lineHeight: 1
-                      }}
-                      title="Xóa preset này"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
 
-                {userPresets.length === 0 && (
-                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
-                    (Chưa có preset tùy chỉnh nào được lưu)
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsSavingPreset(!isSavingPreset)}
-                style={{
-                  background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.2), rgba(0, 242, 254, 0.2))',
-                  border: '1px solid rgba(37, 244, 238, 0.4)',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '5px 12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>💾</span> Lưu cấu hình hiện tại...
-              </button>
-            </div>
-
-            {/* Form nhập tên Preset khi lưu */}
-            {isSavingPreset && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                background: 'rgba(37, 244, 238, 0.08)',
-                border: '1px solid rgba(37, 244, 238, 0.3)',
-                borderRadius: '10px',
-                flexShrink: 0
-              }}>
-                <input
-                  type="text"
-                  placeholder="Nhập tên Mẫu Preset (vd: Đọc Sáng Gold, Card Tối, Chuẩn CapCut...)"
-                  value={newPresetName}
-                  onChange={(e) => setNewPresetName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(); }}
-                  style={{
-                    flex: 1,
-                    padding: '6px 12px',
-                    fontSize: '0.78rem',
-                    background: 'rgba(0,0,0,0.4)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '6px',
-                    color: '#fff'
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleSavePreset}
-                  style={{ padding: '6px 14px', fontSize: '0.75rem', borderRadius: '6px', fontWeight: 700 }}
-                >
-                  Lưu Preset
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => { setIsSavingPreset(false); setNewPresetName(''); }}
-                  style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
-                >
-                  Hủy
-                </button>
-              </div>
-            )}
-
-            {presetMsg && (
-              <div style={{ fontSize: '0.76rem', color: '#2ed573', fontWeight: 700, padding: '4px 10px', flexShrink: 0 }}>
-                {presetMsg}
-              </div>
-            )}
-
-            {/* Modal Body Container — 2 Column Grid (Left: Live Preview, Right: Custom Controls) */}
+            {/* Main Content Grid: Left Phone Live Preview & Right Studio Tabs */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: capcutPreviewRatio === '16:9' ? '440px 1fr' : '360px 1fr',
+              gridTemplateColumns: capcutPreviewRatio === '16:9' ? '430px 1fr' : '350px 1fr',
               gap: '20px',
               flex: 1,
               minHeight: 0,
               overflow: 'hidden'
             }}>
-              {/* LEFT COLUMN: Live Preview Screen Container */}
+              {/* LEFT COLUMN: Live Screen Preview */}
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -2934,14 +3396,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 justifyContent: 'flex-start',
                 gap: '12px',
                 padding: '16px',
-                background: 'rgba(0,0,0,0.4)',
+                background: 'rgba(0,0,0,0.45)',
                 borderRadius: '16px',
                 border: '1px solid rgba(255,255,255,0.08)',
                 height: '100%',
                 overflow: 'hidden'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', flexShrink: 0 }}>
-                  {/* Nút bấm chuyển đổi tỉ lệ màn hình mô phỏng */}
                   <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <button
                       type="button"
@@ -2954,9 +3415,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         background: capcutPreviewRatio === '9:16' ? 'rgba(254, 44, 85, 0.2)' : 'transparent',
                         color: capcutPreviewRatio === '9:16' ? 'var(--primary)' : 'rgba(255,255,255,0.6)',
                         fontWeight: 700,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.15s ease'
+                        cursor: 'pointer'
                       }}
                     >
                       📱 9:16 Màn Dọc
@@ -2972,9 +3431,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         background: capcutPreviewRatio === '16:9' ? 'rgba(37, 244, 238, 0.2)' : 'transparent',
                         color: capcutPreviewRatio === '16:9' ? 'var(--secondary)' : 'rgba(255,255,255,0.6)',
                         fontWeight: 700,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.15s ease'
+                        cursor: 'pointer'
                       }}
                     >
                       💻 16:9 Màn Ngang
@@ -2982,7 +3439,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   </div>
                 </div>
 
-                {/* Khung mô phỏng màn hình thật — Chiếm trọn chiều cao còn lại */}
                 <div style={{
                   flex: 1,
                   width: '100%',
@@ -3003,767 +3459,829 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     overflow: 'hidden',
                     background: customScreenBg,
                     border: capcutPreviewRatio === '16:9' ? '2px solid var(--secondary)' : '2px solid var(--primary)',
-                    boxShadow: capcutPreviewRatio === '16:9' ? '0 0 30px rgba(37,244,238,0.3)' : '0 0 30px rgba(254,44,85,0.3)',
-                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                    boxShadow: capcutPreviewRatio === '16:9' ? '0 0 30px rgba(37,244,238,0.3)' : '0 0 30px rgba(254,44,85,0.3)'
                   }}>
-                  {isReadingPractice ? (
-                    <ReadingPageLivePreview
-                      isLandscape={capcutPreviewRatio === '16:9'}
-                      heroPercent={renderHeroHeightPercent !== undefined && renderHeroHeightPercent !== '' ? Number(renderHeroHeightPercent) : 25}
-                      titlePercent={Number(renderTitleHeightPercent) || 10}
-                      bodyPercent={Number(renderBodyHeightPercent) || 40}
-                      titleFontSize={Number(renderTitleFontSize) || 44}
-                      bodyFontSize={Number(renderCaptionFontSize) || 20}
-                      titleGap={renderTitleBodyGap !== undefined && renderTitleBodyGap !== '' ? Number(renderTitleBodyGap) : 18}
-                      contentPaddingPercent={Number(renderContentPaddingPercent) || 10}
-                      bodyAlign={renderBodyAlign}
-                      textColor={renderCaptionTextColor || '#1A1A1A'}
-                      bgColor={renderCaptionBgColor || '#F5F2EB'}
-                      isBgTransparent={renderCaptionBgTransparent}
-                      highlightColor="#D8B07A"
-                      heroImageUrl={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/${heroFileBase}.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion}`}
-                      realTitle={result.title || result.input?.topic || result.input?.headline}
-                      realBodyPrimary={(() => {
-                        const segs = result.segments || result.prompts || [];
-                        if (Array.isArray(segs) && segs.length > 0) {
-                          const textArr = segs
-                            .filter(s => !s.isThumbnail)
-                            .map(s => {
-                              const txt = s.text || s.originalText || s.caption || s.subtitle || '';
-                              return txt.includes('\n') ? txt.split('\n')[0] : txt;
-                            })
-                            .filter(Boolean);
-                          if (textArr.length > 0) return textArr.join(' ');
-                        }
-                        if (Array.isArray(result.remotionConfig?.scenes)) {
-                          const scenesArr = result.remotionConfig.scenes
-                            .map(s => (s.caption || s.text || '').split('\n')[0])
-                            .filter(Boolean);
-                          if (scenesArr.length > 0) return scenesArr.join(' ');
-                        }
-                        return '';
-                      })()}
-                      realBodySecondary={(() => {
-                        const segs = result.segments || result.prompts || [];
-                        if (Array.isArray(segs) && segs.length > 0) {
-                          const textArr = segs
-                            .filter(s => !s.isThumbnail)
-                            .map(s => {
-                              const txt = s.subtitle || s.translation || s.text || s.caption || '';
-                              return txt.includes('\n') ? txt.split('\n')[1] : (s.translation || s.subtitle || '');
-                            })
-                            .filter(Boolean);
-                          if (textArr.length > 0) return textArr.join(' ');
-                        }
-                        if (Array.isArray(result.remotionConfig?.scenes)) {
-                          const scenesArr = result.remotionConfig.scenes
-                            .map(s => {
-                              const cap = s.caption || s.text || '';
-                              return cap.includes('\n') ? cap.split('\n')[1] : '';
-                            })
-                            .filter(Boolean);
-                          if (scenesArr.length > 0) return scenesArr.join(' ');
-                        }
-                        return '';
-                      })()}
-                      showBilingual={renderBilingual}
-                      bgOpacity={renderCaptionBgOpacity}
-                      imageMode={renderImageMode}
-                    />
-                  ) : (
-                    <CaptionStylePreview
-                      style={renderCaptionStyle}
-                      isLandscape={capcutPreviewRatio === '16:9'}
-                      textColor={renderCaptionTextColor || undefined}
-                      bgColor={renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined)}
-                      font={renderCaptionFont || undefined}
-                      fontSize={renderCaptionFontSize || undefined}
-                      isFullLiveScreen={true}
-                    />
-                  )}
+                    {isReadingPractice ? (
+                      <ReadingPageLivePreview
+                        isLandscape={capcutPreviewRatio === '16:9'}
+                        heroPercent={renderHeroHeightPercent !== undefined && renderHeroHeightPercent !== '' ? Number(renderHeroHeightPercent) : 25}
+                        titlePercent={Number(renderTitleHeightPercent) || 10}
+                        bodyPercent={Number(renderBodyHeightPercent) || 40}
+                        titleFontSize={Number(renderTitleFontSize) || 44}
+                        bodyFontSize={Number(renderCaptionFontSize) || 44}
+                        titleGap={renderTitleBodyGap !== undefined && renderTitleBodyGap !== '' ? Number(renderTitleBodyGap) : 18}
+                        contentPaddingPercent={Number(renderContentPaddingPercent) || 10}
+                        bodyAlign={renderBodyAlign}
+                        textColor={renderCaptionTextColor || '#1A1A1A'}
+                        bgColor={renderCaptionBgColor || '#F5F2EB'}
+                        isBgTransparent={renderCaptionBgTransparent}
+                        highlightColor="#D8B07A"
+                        heroImageUrl={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/${heroFileBase}.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion}&category=${encodeURIComponent(result.category || '')}`}
+                        realTitle={result.title || result.input?.topic || result.input?.headline}
+                        realBodyPrimary={(() => {
+                          const segs = result.segments || result.prompts || [];
+                          if (Array.isArray(segs) && segs.length > 0) {
+                            const textArr = segs
+                              .filter(s => !s.isThumbnail)
+                              .map(s => {
+                                const txt = s.text || s.originalText || s.caption || s.subtitle || '';
+                                return txt.includes('\n') ? txt.split('\n')[0] : txt;
+                              })
+                              .filter(Boolean);
+                            if (textArr.length > 0) return textArr.join(' ');
+                          }
+                          return '';
+                        })()}
+                        realBodySecondary={(() => {
+                          const segs = result.segments || result.prompts || [];
+                          if (Array.isArray(segs) && segs.length > 0) {
+                            const textArr = segs
+                              .filter(s => !s.isThumbnail)
+                              .map(s => {
+                                const txt = s.subtitle || s.translation || s.text || s.caption || '';
+                                return txt.includes('\n') ? txt.split('\n')[1] : (s.translation || s.subtitle || '');
+                              })
+                              .filter(Boolean);
+                            if (textArr.length > 0) return textArr.join(' ');
+                          }
+                          return '';
+                        })()}
+                        showBilingual={renderBilingual}
+                        bgOpacity={renderCaptionBgOpacity}
+                        imageMode={renderImageMode}
+                        level={result.input?.level || result.level}
+                      />
+                    ) : (
+                      <CaptionStylePreview
+                        style={renderCaptionStyle}
+                        isLandscape={capcutPreviewRatio === '16:9'}
+                        textColor={renderCaptionTextColor || undefined}
+                        bgColor={renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined)}
+                        font={renderCaptionFont || undefined}
+                        fontSize={renderCaptionFontSize || undefined}
+                        isFullLiveScreen={true}
+                      />
+                    )}
                   </div>
                 </div>
-
-                {/* Nút chọn Màu nền màn hình mô phỏng (Tối, Sáng, Gradient, Tùy chọn) — chỉ áp dụng cho
-                    kiểu phụ đề box/tiktok/karaoke */}
-                {!isReadingPractice && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Thử màu nền:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                      {[
-                        { label: '⬛ Đen', bg: '#0d0d12' },
-                        { label: '🌑 Tối', bg: '#252538' },
-                        { label: '⬜ Sáng', bg: '#e2e8f0' },
-                        { label: '🟦 Xanh', bg: '#1e3c72' },
-                        { label: '🌆 Tráng lệ', bg: 'linear-gradient(135deg, #2c3e50, #fd746c)' }
-                      ].map(preset => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          title={`Đổi nền sang ${preset.label}`}
-                          onClick={() => setCustomScreenBg(preset.bg)}
-                          style={{
-                            padding: '3px 7px',
-                            fontSize: '0.64rem',
-                            borderRadius: '5px',
-                            border: customScreenBg === preset.bg ? '1px solid #fff' : '1px solid rgba(255,255,255,0.1)',
-                            background: preset.bg,
-                            color: preset.label.includes('Sáng') ? '#000' : '#fff',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            boxShadow: customScreenBg === preset.bg ? '0 0 6px rgba(255,255,255,0.4)' : 'none',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-
-                      {/* Color Picker Tùy chỉnh màu nền màn mô phỏng */}
-                      <input
-                        type="color"
-                        title="Chọn màu nền màn hình xem trước tùy chỉnh"
-                        value={customScreenBg.startsWith('#') ? customScreenBg : '#252538'}
-                        onChange={(e) => setCustomScreenBg(e.target.value)}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          padding: 0,
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          borderRadius: '5px',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          flexShrink: 0
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* RIGHT COLUMN: Custom Controls Form Panel */}
+              {/* RIGHT COLUMN: Tabbed Customization Panel */}
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px',
-                overflowY: 'auto',
-                paddingRight: '6px'
+                gap: '14px',
+                height: '100%',
+                minHeight: 0,
+                overflow: 'hidden'
               }}>
-                {/* Hero image replace — chỉ cho reading_practice */}
-                {isReadingPractice && (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
-                      <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        backgroundImage: `url(/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=images/${heroFileBase}.${result.input?.imageExt || 'jpg'}&v=${heroImageVersion})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        border: '1px solid rgba(255,255,255,0.15)'
-                      }} />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>🖼️ Ảnh minh hoạ đầu trang</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tải ảnh từ máy để thay thế ảnh Google Flow</span>
-                        {heroImageUploadError && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--danger)' }}>⚠️ {heroImageUploadError}</span>
-                        )}
-                      </div>
-                      <label
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.74rem', borderRadius: '8px', fontWeight: 700, cursor: isUploadingHeroImage ? 'wait' : 'pointer', flexShrink: 0 }}
-                      >
-                        {isUploadingHeroImage ? '⏳ Đang tải...' : '📤 Đổi ảnh'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: 'none' }}
-                          disabled={isUploadingHeroImage}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            handleUploadHeroImage(file);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
-                    </div>
+                {/* Sticky Tab Navigation Bar */}
+                <div style={{ display: 'flex', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                  {[
+                    { key: 'style', label: '🎨 Màu & Giao diện' },
+                    { key: 'layout', label: '📐 Bố cục % & Vị trí' },
+                    { key: 'typography', label: '🔤 Font & Cỡ chữ' },
+                    ...(isReadingPractice ? [{ key: 'music', label: '🎵 Nhạc nền' }] : [])
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setCustomTab(tab.key)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 6px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        borderRadius: '9px',
+                        border: customTab === tab.key ? '1px solid var(--secondary)' : '1px solid transparent',
+                        background: customTab === tab.key ? 'rgba(37, 244, 238, 0.15)' : 'transparent',
+                        color: customTab === tab.key ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
 
-                    {/* Selector 3 Chế độ hiển thị vị trí ảnh minh hoạ */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', marginTop: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>📷 Bố cục vị trí ảnh minh hoạ (3 Chế độ):</span>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setRenderImageMode('hero')}
-                          style={{
-                            padding: '8px 6px',
-                            fontSize: '0.73rem',
-                            fontWeight: 700,
-                            borderRadius: '8px',
-                            border: renderImageMode === 'hero' ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.1)',
-                            background: renderImageMode === 'hero' ? 'rgba(254, 44, 85, 0.15)' : 'rgba(0,0,0,0.3)',
-                            color: renderImageMode === 'hero' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '2px',
-                            textAlign: 'center'
-                          }}
-                        >
-                          <span>🖼️ Hero Top</span>
-                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Ảnh nằm ngang)</span>
-                        </button>
+                {/* Scrollable Tab Panel Container */}
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                        <button
-                          type="button"
-                          onClick={() => setRenderImageMode('full_bg')}
-                          style={{
-                            padding: '8px 6px',
-                            fontSize: '0.73rem',
-                            fontWeight: 700,
-                            borderRadius: '8px',
-                            border: renderImageMode === 'full_bg' ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                            background: renderImageMode === 'full_bg' ? 'rgba(37, 244, 238, 0.15)' : 'rgba(0,0,0,0.3)',
-                            color: renderImageMode === 'full_bg' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '2px',
-                            textAlign: 'center'
-                          }}
-                        >
-                          <span>📱 Full Nền Sau</span>
-                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Ảnh nằm dọc)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setRenderImageMode('none')}
-                          style={{
-                            padding: '8px 6px',
-                            fontSize: '0.73rem',
-                            fontWeight: 700,
-                            borderRadius: '8px',
-                            border: renderImageMode === 'none' ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                            background: renderImageMode === 'none' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.3)',
-                            color: renderImageMode === 'none' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '2px',
-                            textAlign: 'center'
-                          }}
-                        >
-                          <span>🎨 Không dùng ảnh</span>
-                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', fontWeight: 400 }}>(Nền giấy/màu)</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Layout (CapCut-style) — chỉ cho reading_practice */}
-                {isReadingPractice && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>📐 Bố cục (% khung hình)</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                      {[
-                        { label: 'Ảnh minh hoạ (Hero)', value: renderHeroHeightPercent, set: setRenderHeroHeightPercent, min: 0, max: 60 },
-                        { label: 'Tiêu đề', value: renderTitleHeightPercent, set: setRenderTitleHeightPercent, min: 4, max: 30 },
-                        { label: 'Nội dung', value: renderBodyHeightPercent, set: setRenderBodyHeightPercent, min: 15, max: 75 }
-                      ].map(field => (
-                        <div key={field.label} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>{field.label}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <button
-                                type="button"
-                                title="Giảm 1%"
-                                onClick={() => {
-                                  const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
-                                  field.set(Math.max(field.min, curr - 1));
-                                }}
-                                style={{
-                                  width: '18px',
-                                  height: '18px',
-                                  padding: 0,
-                                  borderRadius: '4px',
-                                  border: '1px solid rgba(255,255,255,0.15)',
-                                  background: 'rgba(0,0,0,0.3)',
-                                  color: 'var(--secondary)',
-                                  fontSize: '0.62rem',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  lineHeight: 1
-                                }}
-                              >
-                                ▼
-                              </button>
-                              <span style={{ color: 'var(--secondary)', fontWeight: 700, minWidth: '30px', textAlign: 'center' }}>
-                                {field.value !== undefined && field.value !== '' ? `${field.value}%` : '-%'}
-                              </span>
-                              <button
-                                type="button"
-                                title="Tăng 1%"
-                                onClick={() => {
-                                  const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
-                                  field.set(Math.min(field.max, curr + 1));
-                                }}
-                                style={{
-                                  width: '18px',
-                                  height: '18px',
-                                  padding: 0,
-                                  borderRadius: '4px',
-                                  border: '1px solid rgba(255,255,255,0.15)',
-                                  background: 'rgba(0,0,0,0.3)',
-                                  color: 'var(--secondary)',
-                                  fontSize: '0.62rem',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  lineHeight: 1
-                                }}
-                              >
-                                ▲
-                              </button>
-                            </div>
-                          </label>
-                          <input
-                            type="range"
-                            min={field.min}
-                            max={field.max}
-                            step={1}
-                            value={field.value !== undefined && field.value !== '' ? field.value : 0}
-                            onChange={(e) => field.set(e.target.value)}
-                            onKeyDown={(e) => {
-                              const curr = field.value !== undefined && field.value !== '' ? Number(field.value) : field.min;
-                              if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-                                e.preventDefault();
-                                field.set(Math.min(field.max, curr + 1));
-                              } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-                                e.preventDefault();
-                                field.set(Math.max(field.min, curr - 1));
-                              }
-                            }}
-                            style={{ width: '100%', cursor: 'pointer' }}
-                          />
-                        </div>
-                      ))}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Khoảng trống cuối trang</label>
-                        <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.5)', paddingTop: '4px' }}>
-                          {Math.max(0, 100 - (Number(renderHeroHeightPercent) || 25) - (Number(renderTitleHeightPercent) || 10) - (Number(renderBodyHeightPercent) || 40))}% (tự động, phần còn lại)
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🔠 Cỡ chữ tiêu đề (px)</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          min={20}
-                          max={80}
-                          value={renderTitleFontSize}
-                          onChange={(e) => setRenderTitleFontSize(e.target.value)}
-                          style={{ fontSize: '0.8rem', padding: '8px 10px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>↕️ Khoảng cách tiêu đề - nội dung (px)</label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          min={0}
-                          max={80}
-                          value={renderTitleBodyGap}
-                          onChange={(e) => setRenderTitleBodyGap(e.target.value)}
-                          style={{ fontSize: '0.8rem', padding: '8px 10px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>↔️ Padding xung quanh (%)</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <button
-                              type="button"
-                              title="Giảm 1%"
-                              onClick={() => setRenderContentPaddingPercent(Math.max(0, (Number(renderContentPaddingPercent) || 0) - 1))}
-                              style={{
-                                width: '18px',
-                                height: '18px',
-                                padding: 0,
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                background: 'rgba(0,0,0,0.3)',
-                                color: 'var(--secondary)',
-                                fontSize: '0.62rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                lineHeight: 1
-                              }}
+                  {/* TAB 1: MÀU SẮC & GIAO DIỆN */}
+                  {customTab === 'style' && (
+                    <>
+                      {/* Ảnh minh họa & Chế độ vị trí */}
+                      {isReadingPractice && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>📷 Ảnh minh hoạ &amp; Bố cục hiển thị</span>
+                            <label
+                              className="btn btn-secondary"
+                              style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '8px', fontWeight: 700, cursor: isUploadingHeroImage ? 'wait' : 'pointer' }}
                             >
-                              ▼
-                            </button>
-                            <span style={{ color: 'var(--secondary)', fontWeight: 700, minWidth: '30px', textAlign: 'center' }}>
-                              {renderContentPaddingPercent || '0'}%
-                            </span>
-                            <button
-                              type="button"
-                              title="Tăng 1%"
-                              onClick={() => setRenderContentPaddingPercent(Math.min(30, (Number(renderContentPaddingPercent) || 0) + 1))}
-                              style={{
-                                width: '18px',
-                                height: '18px',
-                                padding: 0,
-                                borderRadius: '4px',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                background: 'rgba(0,0,0,0.3)',
-                                color: 'var(--secondary)',
-                                fontSize: '0.62rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                lineHeight: 1
-                              }}
-                            >
-                              ▲
-                            </button>
+                              {isUploadingHeroImage ? '⏳ Đang tải...' : '📤 Đổi ảnh minh họa'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                disabled={isUploadingHeroImage}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  handleUploadHeroImage(file);
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
                           </div>
-                        </label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={30}
-                          step={1}
-                          value={renderContentPaddingPercent || 0}
-                          onChange={(e) => setRenderContentPaddingPercent(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-                              e.preventDefault();
-                              setRenderContentPaddingPercent(Math.min(30, (Number(renderContentPaddingPercent) || 0) + 1));
-                            } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-                              e.preventDefault();
-                              setRenderContentPaddingPercent(Math.max(0, (Number(renderContentPaddingPercent) || 0) - 1));
-                            }
-                          }}
-                          style={{ width: '100%', cursor: 'pointer' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>📃 Căn nội dung</label>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                            {[
+                              { mode: 'hero', icon: '🖼️', title: 'Hero Top', desc: '(Ảnh nằm ngang)' },
+                              { mode: 'full_bg', icon: '📱', title: 'Full Nền Sau', desc: '(Ảnh nằm dọc)' },
+                              { mode: 'none', icon: '🎨', title: 'Không dùng ảnh', desc: '(Nền màu/giấy)' }
+                            ].map(item => (
+                              <button
+                                key={item.mode}
+                                type="button"
+                                onClick={() => setRenderImageMode(item.mode)}
+                                style={{
+                                  padding: '10px 8px',
+                                  borderRadius: '10px',
+                                  border: renderImageMode === item.mode ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
+                                  background: renderImageMode === item.mode ? 'rgba(37, 244, 238, 0.14)' : 'rgba(0,0,0,0.3)',
+                                  color: renderImageMode === item.mode ? '#fff' : 'rgba(255,255,255,0.7)',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <span style={{ fontSize: '1rem' }}>{item.icon}</span>
+                                <span style={{ fontSize: '0.76rem', fontWeight: 700 }}>{item.title}</span>
+                                <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.5)' }}>{item.desc}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bảng màu có sẵn 1-Click (Color Swatches) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>🌈 Palette màu sắc nhanh (1-Click)</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
                           {[
-                            {
-                              value: 'left',
-                              title: 'Căn trái',
-                              icon: (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M3 4h18v2H3V4zm0 5h12v2H3V9zm0 5h18v2H3v-2zm0 5h12v2H3v-2z"/>
-                                </svg>
-                              )
-                            },
-                            {
-                              value: 'center',
-                              title: 'Căn giữa',
-                              icon: (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M3 4h18v2H3V4zm3 5h12v2H6V9zm-3 5h18v2H3v-2zm3 5h12v2H6v-2z"/>
-                                </svg>
-                              )
-                            },
-                            {
-                              value: 'justify',
-                              title: 'Căn đều',
-                              icon: (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M3 4h18v2H3V4zm0 5h18v2H3V9zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/>
-                                </svg>
-                              )
-                            }
-                          ].map(opt => (
+                            { name: '📜 Vintage', bg: '#F5F2EB', text: '#1A1A1A' },
+                            { name: '🌙 Dark Mode', bg: '#0A0A0E', text: '#FFFFFF' },
+                            { name: '☁️ Clean White', bg: '#FFFFFF', text: '#111827' },
+                            { name: '🫐 Pastel Blue', bg: '#EBF3FA', text: '#1E293B' }
+                          ].map(swatch => (
                             <button
-                              key={opt.value}
+                              key={swatch.name}
                               type="button"
-                              title={opt.title}
-                              onClick={() => setRenderBodyAlign(opt.value)}
+                              onClick={() => {
+                                setRenderCaptionBgColor(swatch.bg);
+                                setRenderCaptionTextColor(swatch.text);
+                                setRenderCaptionBgTransparent(false);
+                              }}
                               style={{
-                                flex: 1,
-                                padding: '8px 6px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                gap: '8px',
+                                padding: '8px 10px',
                                 borderRadius: '8px',
+                                border: (renderCaptionBgColor === swatch.bg && renderCaptionTextColor === swatch.text) ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                                background: 'rgba(0,0,0,0.3)',
                                 cursor: 'pointer',
-                                border: renderBodyAlign === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                                background: renderBodyAlign === opt.value ? 'rgba(37,244,238,0.15)' : 'rgba(0,0,0,0.3)',
-                                color: renderBodyAlign === opt.value ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
                                 transition: 'all 0.15s ease'
                               }}
                             >
-                              {opt.icon}
+                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: swatch.bg, border: '1px solid rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: swatch.text, fontWeight: 900 }}>
+                                A
+                              </div>
+                              <span style={{ fontSize: '0.74rem', color: '#fff', fontWeight: 600 }}>{swatch.name}</span>
                             </button>
                           ))}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
 
-                {/* Controls Form Grid: Font & Cỡ chữ */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                  {/* Font chữ */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🔤 Font chữ</label>
-                    <select
-                      className="form-control"
-                      value={renderCaptionFont}
-                      onChange={(e) => setRenderCaptionFont(e.target.value)}
-                      style={{ fontSize: '0.8rem', padding: '8px 10px', height: '38px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                    >
-                      <option value="" style={{ background: '#1a1924' }}>Mặc định kiểu phụ đề</option>
-                      <option value="be-vietnam-pro" style={{ background: '#1a1924' }}>Be Vietnam Pro</option>
-                      <option value="roboto" style={{ background: '#1a1924' }}>Roboto</option>
-                      <option value="montserrat" style={{ background: '#1a1924' }}>Montserrat</option>
-                      <option value="nunito" style={{ background: '#1a1924' }}>Nunito</option>
-                      <option value="inter" style={{ background: '#1a1924' }}>Inter</option>
-                      <option value="oswald" style={{ background: '#1a1924' }}>Oswald</option>
-                      {isReadingPractice && (
-                        <option value="poppins" style={{ background: '#1a1924' }}>Poppins (không dấu tiếng Việt)</option>
-                      )}
-                    </select>
-                  </div>
+                      {/* Color Pickers Tùy chỉnh */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🖍️ Màu chữ</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                              type="color"
+                              value={renderCaptionTextColor || '#FFFFFF'}
+                              onChange={(e) => setRenderCaptionTextColor(e.target.value)}
+                              style={{ width: '38px', height: '38px', padding: '2px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', cursor: 'pointer' }}
+                            />
+                            <input
+                              type="text"
+                              value={renderCaptionTextColor || '#FFFFFF'}
+                              onChange={(e) => setRenderCaptionTextColor(e.target.value)}
+                              style={{ flex: 1, fontSize: '0.78rem', padding: '6px 10px', height: '38px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                            />
+                          </div>
+                        </div>
 
-                  {/* Cỡ chữ */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>📏 Cỡ chữ {isReadingPractice ? 'nội dung ' : ''}(px)</label>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        className="form-control"
-                        min={16}
-                        max={120}
-                        placeholder="Mặc định"
-                        value={renderCaptionFontSize}
-                        onChange={(e) => setRenderCaptionFontSize(e.target.value)}
-                        style={{ fontSize: '0.8rem', padding: '8px 10px', paddingRight: '30px', height: '38px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                      />
-                      <span style={{ position: 'absolute', right: '10px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>px</span>
-                    </div>
-                  </div>
-
-                  {/* Màu chữ */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🖍️ Màu chữ</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input
-                        type="color"
-                        value={renderCaptionTextColor || '#FFFFFF'}
-                        onChange={(e) => setRenderCaptionTextColor(e.target.value)}
-                        style={{ width: '36px', height: '36px', padding: '2px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', cursor: 'pointer', flexShrink: 0 }}
-                      />
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="#FFFFFF"
-                        value={renderCaptionTextColor}
-                        onChange={(e) => setRenderCaptionTextColor(e.target.value)}
-                        style={{ fontSize: '0.78rem', padding: '8px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontFamily: 'monospace' }}
-                      />
-                      {renderCaptionTextColor && (
-                        <button type="button" onClick={() => setRenderCaptionTextColor('')} className="btn btn-secondary" style={{ padding: '4px 8px', height: '36px', fontSize: '0.75rem', borderRadius: '8px', flexShrink: 0 }}>✕</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Màu nền */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🖼️ Màu nền {isReadingPractice ? 'trang giấy' : 'phụ đề'}</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input
-                        type="color"
-                        value={renderCaptionBgColor || '#0A0A0E'}
-                        onChange={(e) => setRenderCaptionBgColor(e.target.value)}
-                        disabled={renderCaptionBgTransparent}
-                        style={{ width: '36px', height: '36px', padding: '2px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', cursor: renderCaptionBgTransparent ? 'not-allowed' : 'pointer', opacity: renderCaptionBgTransparent ? 0.3 : 1, flexShrink: 0 }}
-                      />
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder={renderCaptionBgTransparent ? 'Trong suốt' : '#0A0A0E'}
-                        value={renderCaptionBgTransparent ? '' : renderCaptionBgColor}
-                        onChange={(e) => setRenderCaptionBgColor(e.target.value)}
-                        disabled={renderCaptionBgTransparent}
-                        style={{ fontSize: '0.78rem', padding: '8px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontFamily: 'monospace', opacity: renderCaptionBgTransparent ? 0.4 : 1 }}
-                      />
-                      {renderCaptionBgColor && !renderCaptionBgTransparent && (
-                        <button type="button" onClick={() => setRenderCaptionBgColor('')} className="btn btn-secondary" style={{ padding: '4px 8px', height: '36px', fontSize: '0.75rem', borderRadius: '8px', flexShrink: 0 }}>✕</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Độ mờ / Opacity màu nền (%) */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>💧 Độ mờ / Opacity màu nền (%)</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button
-                          type="button"
-                          title="Giảm 1%"
-                          onClick={() => setRenderCaptionBgOpacity(Math.max(0, (Number(renderCaptionBgOpacity) || 0) - 1))}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            padding: 0,
-                            borderRadius: '4px',
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            background: 'rgba(0,0,0,0.3)',
-                            color: 'var(--secondary)',
-                            fontSize: '0.62rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            lineHeight: 1
-                          }}
-                        >
-                          ▼
-                        </button>
-                        <span style={{ color: 'var(--secondary)', fontWeight: 700, minWidth: '34px', textAlign: 'center' }}>
-                          {renderCaptionBgOpacity || '100'}%
-                        </span>
-                        <button
-                          type="button"
-                          title="Tăng 1%"
-                          onClick={() => setRenderCaptionBgOpacity(Math.min(100, (Number(renderCaptionBgOpacity) || 0) + 1))}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            padding: 0,
-                            borderRadius: '4px',
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            background: 'rgba(0,0,0,0.3)',
-                            color: 'var(--secondary)',
-                            fontSize: '0.62rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            lineHeight: 1
-                          }}
-                        >
-                          ▲
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🖼️ Màu nền trang giấy</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                              type="color"
+                              value={renderCaptionBgColor || '#F5F2EB'}
+                              onChange={(e) => setRenderCaptionBgColor(e.target.value)}
+                              style={{ width: '38px', height: '38px', padding: '2px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', cursor: 'pointer' }}
+                            />
+                            <input
+                              type="text"
+                              value={renderCaptionBgColor || '#F5F2EB'}
+                              onChange={(e) => setRenderCaptionBgColor(e.target.value)}
+                              style={{ flex: 1, fontSize: '0.78rem', padding: '6px 10px', height: '38px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={renderCaptionBgOpacity || 100}
-                      disabled={renderCaptionBgTransparent}
-                      onChange={(e) => setRenderCaptionBgOpacity(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-                          e.preventDefault();
-                          setRenderCaptionBgOpacity(Math.min(100, (Number(renderCaptionBgOpacity) || 0) + 1));
-                        } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
-                          e.preventDefault();
-                          setRenderCaptionBgOpacity(Math.max(0, (Number(renderCaptionBgOpacity) || 0) - 1));
-                        }
-                      }}
-                      style={{ width: '100%', cursor: renderCaptionBgTransparent ? 'not-allowed' : 'pointer', opacity: renderCaptionBgTransparent ? 0.3 : 1 }}
-                    />
-                  </div>
-                </div>
 
-                {/* Nền trong suốt Pill Switch */}
-                <div
-                  onClick={() => setRenderCaptionBgTransparent(!renderCaptionBgTransparent)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    padding: '10px 14px',
-                    background: renderCaptionBgTransparent ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    border: renderCaptionBgTransparent ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '0.78rem', color: renderCaptionBgTransparent ? '#fff' : 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-                    👁️ {isReadingPractice ? 'Trang giấy trong suốt (bỏ nền, chỉ còn chữ trên ảnh)' : 'Nền phụ đề trong suốt (bỏ hộp màu)'}
-                  </span>
-                  <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)', flexShrink: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={renderCaptionBgTransparent}
-                      onChange={(e) => setRenderCaptionBgTransparent(e.target.checked)}
-                    />
-                    <span className="switch-slider" style={{
-                      backgroundColor: renderCaptionBgTransparent ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
-                    }}></span>
-                  </label>
-                </div>
+                      {/* Tùy chọn Switch Phụ đề song ngữ & Nền trong suốt */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div
+                          onClick={() => setRenderCaptionBgTransparent(!renderCaptionBgTransparent)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            background: renderCaptionBgTransparent ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                            border: renderCaptionBgTransparent ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>
+                            👁️ Nền trang trong suốt (bỏ khung giấy, chỉ giữ lại chữ trên ảnh)
+                          </span>
+                          <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)' }}>
+                            <input
+                              type="checkbox"
+                              checked={renderCaptionBgTransparent}
+                              onChange={(e) => setRenderCaptionBgTransparent(e.target.checked)}
+                            />
+                            <span className="switch-slider" style={{ backgroundColor: renderCaptionBgTransparent ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)' }}></span>
+                          </label>
+                        </div>
 
-                {/* Option Hiển thị phụ đề song ngữ Switch */}
-                <div
-                  onClick={() => setRenderBilingual(!renderBilingual)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    padding: '10px 14px',
-                    background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    border: renderBilingual ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    userSelect: 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '0.78rem', color: renderBilingual ? '#fff' : 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-                    🌐 Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)
-                  </span>
-                  <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)', flexShrink: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={renderBilingual}
-                      onChange={(e) => setRenderBilingual(e.target.checked)}
-                    />
-                    <span className="switch-slider" style={{
-                      backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
-                    }}></span>
-                  </label>
+                        <div
+                          onClick={() => setRenderBilingual(!renderBilingual)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                            border: renderBilingual ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>
+                            🌐 Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)
+                          </span>
+                          <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)' }}>
+                            <input
+                              type="checkbox"
+                              checked={renderBilingual}
+                              onChange={(e) => setRenderBilingual(e.target.checked)}
+                            />
+                            <span className="switch-slider" style={{ backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)' }}></span>
+                          </label>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* TAB 2: BỐ CỤC % & VỊ TRÍ */}
+                  {customTab === 'layout' && (
+                    <>
+                      {isReadingPractice ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>📐 Điều chỉnh tỷ lệ % khung hình</span>
+
+                          {[
+                            { label: 'Ảnh minh hoạ (Hero)', value: renderHeroHeightPercent, set: setRenderHeroHeightPercent, min: 0, max: 60 },
+                            { label: 'Tiêu đề bài viết', value: renderTitleHeightPercent, set: setRenderTitleHeightPercent, min: 4, max: 30 },
+                            { label: 'Khung nội dung chính', value: renderBodyHeightPercent, set: setRenderBodyHeightPercent, min: 15, max: 75 }
+                          ].map(field => (
+                            <div key={field.label} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{field.label}</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--secondary)', fontWeight: 800, background: 'rgba(37,244,238,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                  {field.value !== undefined && field.value !== '' ? `${field.value}%` : '0%'}
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min={field.min}
+                                max={field.max}
+                                step={1}
+                                value={field.value !== undefined && field.value !== '' ? field.value : 0}
+                                onChange={(e) => field.set(e.target.value)}
+                                style={{ width: '100%', cursor: 'pointer' }}
+                              />
+                            </div>
+                          ))}
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>Khoảng trống dưới trang (Bottom gap):</span>
+                            <span style={{ fontSize: '0.76rem', color: '#4ade80', fontWeight: 800 }}>
+                              {Math.max(0, 100 - (Number(renderHeroHeightPercent) || 25) - (Number(renderTitleHeightPercent) || 10) - (Number(renderBodyHeightPercent) || 40))}% (tự động)
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Padding xung quanh (%)</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--secondary)', fontWeight: 800 }}>{renderContentPaddingPercent || 0}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={0}
+                                max={30}
+                                step={1}
+                                value={renderContentPaddingPercent || 0}
+                                onChange={(e) => setRenderContentPaddingPercent(e.target.value)}
+                                style={{ width: '100%', cursor: 'pointer' }}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>📃 Căn lề văn bản</span>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {[
+                                  { value: 'left', label: '⬅️ Trái' },
+                                  { value: 'center', label: '↔️ Giữa' },
+                                  { value: 'justify', label: '↕️ Đều' }
+                                ].map(opt => (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setRenderBodyAlign(opt.value)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '6px 4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      borderRadius: '8px',
+                                      cursor: 'pointer',
+                                      border: renderBodyAlign === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                                      background: renderBodyAlign === opt.value ? 'rgba(37,244,238,0.15)' : 'rgba(0,0,0,0.3)',
+                                      color: renderBodyAlign === opt.value ? 'var(--secondary)' : 'rgba(255,255,255,0.7)'
+                                    }}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>Bố cục % chỉ áp dụng cho dạng bài trang đọc Reading Practice.</p>
+                      )}
+                    </>
+                  )}
+
+                  {/* TAB 3: FONT CHỮ & CỠ CHỮ */}
+                  {customTab === 'typography' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>🔤 Kiểu chữ &amp; Phông chữ (Typography)</span>
+
+                      {/* Font chữ Selector */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Phông chữ (Font Family)</label>
+                        <select
+                          className="form-control"
+                          value={renderCaptionFont}
+                          onChange={(e) => setRenderCaptionFont(e.target.value)}
+                          style={{ fontSize: '0.8rem', padding: '8px 12px', height: '40px', background: 'rgba(0,0,0,0.35)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}
+                        >
+                          <option value="" style={{ background: '#16151f' }}>✨ Mặc định tiêu chuẩn</option>
+                          <option value="be-vietnam-pro" style={{ background: '#16151f' }}>Be Vietnam Pro (Chuẩn Việt Nam)</option>
+                          <option value="nunito" style={{ background: '#16151f' }}>Nunito (Tròn ấm, thân thiện)</option>
+                          <option value="montserrat" style={{ background: '#16151f' }}>Montserrat (Sang trọng, nổi bật)</option>
+                          <option value="lexend" style={{ background: '#16151f' }}>Lexend (Dễ đọc cho giáo dục)</option>
+                          <option value="roboto" style={{ background: '#16151f' }}>Roboto</option>
+                          <option value="inter" style={{ background: '#16151f' }}>Inter</option>
+                        </select>
+                      </div>
+
+                      {/* Cỡ chữ tiêu đề & Cỡ chữ nội dung */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        {isReadingPractice && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Cỡ chữ tiêu đề (px)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => setRenderTitleFontSize(Math.max(20, (Number(renderTitleFontSize) || 44) - 2))}
+                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={renderTitleFontSize}
+                                onChange={(e) => setRenderTitleFontSize(e.target.value)}
+                                style={{ textAlign: 'center', fontSize: '0.8rem', padding: '6px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setRenderTitleFontSize(Math.min(80, (Number(renderTitleFontSize) || 44) + 2))}
+                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Cỡ chữ nội dung (px)</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setRenderCaptionFontSize(Math.max(16, (Number(renderCaptionFontSize) || 20) - 2))}
+                              style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              className="form-control"
+                              value={renderCaptionFontSize}
+                              onChange={(e) => setRenderCaptionFontSize(e.target.value)}
+                              style={{ textAlign: 'center', fontSize: '0.8rem', padding: '6px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setRenderCaptionFontSize(Math.min(120, (Number(renderCaptionFontSize) || 20) + 2))}
+                              style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isReadingPractice && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Khoảng cách tiêu đề - nội dung (px)</label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={60}
+                            value={renderTitleBodyGap}
+                            onChange={(e) => setRenderTitleBodyGap(e.target.value)}
+                            style={{ width: '100%', cursor: 'pointer' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 4: NHẠC NỀN (Dành riêng cho Reading Practice) */}
+                  {customTab === 'music' && isReadingPractice && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '14px',
+                      padding: '16px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 800, margin: '0 0 2px 0' }}>
+                            🎵 Nhạc nền hòa âm (Phát nhỏ dưới giọng đọc)
+                          </h4>
+                          <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>
+                            Tự động hòa âm phát xuyên suốt video ở âm lượng nhỏ, làm video thêm cảm xúc.
+                          </span>
+                        </div>
+                        {assetCounts.hasBgMusic && (
+                          <label className="custom-switch" style={{ margin: 0, transform: 'scale(0.9)', flexShrink: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={renderBgMusicEnabled}
+                              onChange={(e) => setRenderBgMusicEnabled(e.target.checked)}
+                            />
+                            <span className="switch-slider" style={{
+                              backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                            }}></span>
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Kho Nhạc Nền Mặc Định Hệ Thống (3 bản nhạc) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          ⚡ Kho nhạc nền mặc định hệ thống (3 bản nhạc nhẹ)
+                        </span>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                          {[
+                            { id: 'track1', name: 'Andriig Soft Ambient', desc: 'Êm ái, thư thái', file: '/default-bg-music/track1.mp3' },
+                            { id: 'track2', name: 'Andriig Gentle Acoustic', desc: 'Sâu lắng, ấm áp', file: '/default-bg-music/track2.mp3' },
+                            { id: 'track3', name: 'Moment of Peace', desc: 'Du dương, chữa lành', file: '/default-bg-music/track3.mp3' }
+                          ].map(track => {
+                            const isSelected = selectedBgMusicTrackId === track.id && assetCounts.hasBgMusic;
+                            return (
+                              <div
+                                key={track.id}
+                                style={{
+                                  padding: '10px',
+                                  borderRadius: '8px',
+                                  background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(0,0,0,0.35)',
+                                  border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  transition: 'all 0.18s ease'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: isSelected ? 'var(--secondary)' : '#fff', display: 'block' }}>
+                                    🎵 {track.name}
+                                  </span>
+                                  {isSelected && (
+                                    <span style={{ fontSize: '0.62rem', background: 'var(--secondary)', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>
+                                      ✓ Đang chọn
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)' }}>{track.desc}</span>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePreviewTrack(track.id, track.file)}
+                                    style={{
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      border: playingPreviewTrackId === track.id ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
+                                      cursor: 'pointer',
+                                      background: playingPreviewTrackId === track.id ? 'rgba(37,244,238,0.15)' : 'rgba(255,255,255,0.06)',
+                                      color: playingPreviewTrackId === track.id ? 'var(--secondary)' : '#fff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '4px',
+                                      transition: 'all 0.15s'
+                                    }}
+                                  >
+                                    {playingPreviewTrackId === track.id ? '⏸ Dừng' : '▶ Nghe thử'}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectDefaultMusic(track.id)}
+                                    disabled={isSelectingDefaultMusic}
+                                    style={{
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.7rem',
+                                      fontWeight: 800,
+                                      border: 'none',
+                                      cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
+                                      background: isSelected ? 'rgba(37, 244, 238, 0.25)' : 'linear-gradient(135deg, var(--secondary), #4ade80)',
+                                      color: isSelected ? 'var(--secondary)' : '#000',
+                                      transition: 'all 0.15s',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    {isSelectingDefaultMusic ? '⏳...' : (isSelected ? '✓ Đã chọn' : '✓ Chọn ngay')}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {!assetCounts.hasBgMusic ? (
+                        <div style={{ padding: '14px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '1.6rem' }}>🎼</span>
+                          <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, maxWidth: '380px' }}>
+                            Hoặc bạn cũng có thể tải lên tệp nhạc MP3/M4A tùy chỉnh riêng bên dưới.
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>✓ Đã áp dụng nhạc nền (bg-music.mp3)</span>
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>Trạng thái: {renderBgMusicEnabled ? 'Đang bật' : 'Tắt'}</span>
+                          </div>
+                          <audio
+                            key={bgMusicVersion}
+                            controls
+                            src={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=audio/bg-music.mp3&v=${bgMusicVersion}&category=${encodeURIComponent(result.category || '')}`}
+                            style={{ width: '100%', height: '36px' }}
+                          />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: renderBgMusicEnabled ? 1 : 0.5, paddingTop: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🔊 Âm lượng nhạc nền:</span>
+                                <span style={{
+                                  fontSize: '0.74rem',
+                                  fontWeight: 800,
+                                  color: 'var(--secondary)',
+                                  background: 'rgba(37,244,238,0.12)',
+                                  border: '1px solid rgba(37,244,238,0.3)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  {renderBgMusicVolume}% {String(renderBgMusicVolume) === '6' ? '(Mặc định chuẩn 6%)' : ''}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setShowCustomBgMusicVolume(!showCustomBgMusicVolume)}
+                                style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: showCustomBgMusicVolume ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
+                                  background: showCustomBgMusicVolume ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.05)',
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {showCustomBgMusicVolume ? '▲ Ẩn thanh chỉnh' : '⚙️ Tùy chỉnh âm lượng'}
+                              </button>
+                            </div>
+
+                            {showCustomBgMusicVolume && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', animation: 'fadeIn 0.2s ease-out' }}>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={40}
+                                  value={renderBgMusicVolume}
+                                  disabled={!renderBgMusicEnabled}
+                                  onChange={(e) => setRenderBgMusicVolume(e.target.value)}
+                                  style={{ width: '100%', cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed' }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
+                                  <span>0% (Tắt)</span>
+                                  <span>6% (Tiêu chuẩn)</span>
+                                  <span>40% (Tối đa)</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {bgMusicUploadError && (
+                        <span style={{ fontSize: '0.74rem', color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', padding: '8px 12px', borderRadius: '6px' }}>⚠️ {bgMusicUploadError}</span>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <label
+                          className="btn btn-secondary"
+                          style={{
+                            padding: '8px 16px',
+                            fontSize: '0.78rem',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            cursor: isUploadingBgMusic ? 'wait' : 'pointer',
+                            textAlign: 'center',
+                            alignSelf: 'flex-start',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          {isUploadingBgMusic ? '⏳ Đang tải tệp nhạc...' : '📤 Tải nhạc từ máy tính lên (MP3 / M4A)'}
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            style={{ display: 'none' }}
+                            disabled={isUploadingBgMusic}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              handleUploadBgMusic(file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Sub-Dialog Footer */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', flexShrink: 0 }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ padding: '8px 22px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, var(--secondary), #00f2fe)', color: '#000', border: 'none', cursor: 'pointer' }}
-                onClick={() => setShowCustomCapCut(false)}
-              >
-                Lưu &amp; Áp dụng
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', flexShrink: 0 }}>
+              {isSavingPreset && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  background: 'rgba(37, 244, 238, 0.08)',
+                  border: '1px solid rgba(37, 244, 238, 0.3)',
+                  borderRadius: '10px'
+                }}>
+                  <input
+                    type="text"
+                    placeholder="Nhập tên Mẫu Preset mới (vd: Đọc Sáng Gold, Card Tối, Chuẩn CapCut...)"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(); }}
+                    style={{
+                      flex: 1,
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '6px',
+                      color: '#fff'
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSavePreset}
+                    style={{ padding: '6px 14px', fontSize: '0.75rem', borderRadius: '6px', fontWeight: 700 }}
+                  >
+                    Lưu Preset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => { setIsSavingPreset(false); setNewPresetName(''); }}
+                    style={{ padding: '6px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              )}
+
+              {presetMsg && (
+                <div style={{ fontSize: '0.76rem', color: '#2ed573', fontWeight: 700, padding: '2px 4px' }}>
+                  {presetMsg}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsSavingPreset(!isSavingPreset)}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '0.78rem',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.15), rgba(0, 242, 254, 0.15))',
+                      border: '1px solid rgba(37, 244, 238, 0.4)',
+                      color: 'var(--secondary)',
+                      cursor: 'pointer'
+                    }}
+                    title="Lưu toàn bộ thông số đang chỉnh sửa hiện tại thành 1 Preset mẫu mới"
+                  >
+                    <span>💾</span> {isSavingPreset ? 'Đóng form lưu' : 'Lưu thành Preset mới...'}
+                  </button>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ padding: '8px 22px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700, background: 'linear-gradient(135deg, var(--secondary), #00f2fe)', color: '#000', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(37,244,238,0.3)' }}
+                  onClick={handleSaveAndApply}
+                >
+                  Lưu &amp; Áp dụng
+                </button>
+              </div>
             </div>
           </div>
         </div>,

@@ -1,0 +1,488 @@
+{
+  "title": "A Peaceful Rainy Day",
+  "isImage": true,
+  "createdAt": 1784713353607,
+  "updatedAt": 1784713894345,
+  "segments": [
+    {
+      "segmentNumber": 1,
+      "visualDescription": "A cozy 2D anime digital illustration of a peaceful indoor scene on a rainy day. A young woman with soft brown hair sits comfortably in a plush armchair next to a large glass window, wrapped in a warm knitted blanket. Raindrops slide down the clear window pane, blurring the gentle garden outside. She holds a steaming mug of tea in both hands, while a fluffy orange cat sleeps peacefully on a soft rug at her feet. Warm yellow ambient light emanates from a small lamp, creating a soft, serene, and relaxing atmosphere.",
+      "dialogueOrNarration": "It is a cold rainy afternoon outside. Rain droplets fall on the big glass window. Inside the house, it is very warm and cozy. Anna sits in a soft armchair near the window. She holds a warm cup of tea in her hands. [softly] She watches the rain slide down the glass. A thick blanket covers her legs. Her cute cat sleeps quietly on the soft rug. A small lamp gives a gentle yellow light. The quiet room feels warm and peaceful. Anna drinks her tea slowly. She loves this simple day at home.",
+      "subtitle": "It is a cold rainy afternoon outside. Rain droplets fall on the big glass window. Inside the house, it is very warm and cozy. Anna sits in a soft armchair near the window. She holds a warm cup of tea in her hands. She watches the rain slide down the glass. A thick blanket covers her legs. Her cute cat sleeps quietly on the soft rug. A small lamp gives a gentle yellow light. The quiet room feels warm and peaceful. Anna drinks her tea slowly. She loves this simple day at home.\nBên ngoài trời là một buổi chiều mưa lạnh. Những giọt mưa rơi trên cửa sổ kính lớn. Bên trong ngôi nhà, không khí rất ấm áp và dễ chịu. Anna ngồi trên chiếc ghế bành mềm mại gần cửa sổ. Cô ấy cầm một tách trà ấm trong tay. Cô ấy ngắm nhìn những giọt mưa lăn trên mặt kính. Một chiếc chăn dày che phủ đôi chân cô. Con mèo đáng yêu của cô đang ngủ yên tĩnh trên chiếc thảm mềm. Chiếc đèn nhỏ tỏa ra ánh sáng vàng dịu nhẹ. Căn phòng yên tĩnh mang lại cảm giác ấm áp và bình yên. Anna uống trà từ từ. Cô ấy yêu ngày đơn giản này tại nhà.",
+      "textPrompt": "Vibrant 2D digital anime webtoon vector illustration style, clean line art, warm soft lighting, expressive characters, rich atmospheric details, aesthetic 2D artwork (NO text, NO labels, NO typography in image). Hero illustration scene expressing the main story theme: A cozy 2D anime digital illustration of a peaceful indoor scene on a rainy day. A young woman with soft brown hair sits comfortably in a plush armchair next to a large glass window, wrapped in a warm knitted blanket. Raindrops slide down the clear window pane, blurring the gentle garden outside. She holds a steaming mug of tea in both hands, while a fluffy orange cat sleeps peacefully on a soft rug at her feet. Warm yellow ambient light emanates from a small lamp, creating a soft, serene, and relaxing atmosphere.. This is a top-banner hero illustration for a reading practice story video. It must visually summarize and capture the entire theme, mood, and main characters of the story in a single rich composite scene. It sits in the upper hero area of the page. Keep composition centered and aesthetically balanced. Format: aspect ratio 16:9.",
+      "durationSeconds": 38,
+      "status": "processing",
+      "files": [
+        "rainy_day_home_260722_164208/images/scene-01.jpg"
+      ],
+      "wordTimings": [
+        {
+          "word": "It",
+          "start": 0.1,
+          "end": 0.25
+        },
+        {
+          "word": "is",
+          "start": 0.2625,
+          "end": 0.4
+        },
+        {
+          "word": "a",
+          "start": 0.4125,
+          "end": 0.5
+        },
+        {
+          "word": "cold",
+          "start": 0.5125,
+          "end": 0.8999999999999999
+        },
+        {
+          "word": "rainy",
+          "start": 0.9125,
+          "end": 1.325
+        },
+        {
+          "word": "afternoon",
+          "start": 1.3375,
+          "end": 1.9874999999999998
+        },
+        {
+          "word": "outside",
+          "start": 2,
+          "end": 2.6625
+        },
+        {
+          "word": "Rain",
+          "start": 3.525,
+          "end": 3.9
+        },
+        {
+          "word": "droplets",
+          "start": 3.9125,
+          "end": 4.5625
+        },
+        {
+          "word": "fall",
+          "start": 4.575,
+          "end": 4.9625
+        },
+        {
+          "word": "on",
+          "start": 4.975,
+          "end": 5.1
+        },
+        {
+          "word": "the",
+          "start": 5.1125,
+          "end": 5.2124999999999995
+        },
+        {
+          "word": "big",
+          "start": 5.225,
+          "end": 5.512499999999999
+        },
+        {
+          "word": "glass",
+          "start": 5.525,
+          "end": 5.95
+        },
+        {
+          "word": "window",
+          "start": 5.9625,
+          "end": 6.525
+        },
+        {
+          "word": "Inside",
+          "start": 7.3875,
+          "end": 7.9375
+        },
+        {
+          "word": "the",
+          "start": 7.95,
+          "end": 8.025
+        },
+        {
+          "word": "house",
+          "start": 8.0375,
+          "end": 8.5
+        },
+        {
+          "word": "it",
+          "start": 8.8125,
+          "end": 8.925
+        },
+        {
+          "word": "is",
+          "start": 8.9375,
+          "end": 9.1125
+        },
+        {
+          "word": "very",
+          "start": 9.125,
+          "end": 9.5375
+        },
+        {
+          "word": "warm",
+          "start": 9.55,
+          "end": 9.9625
+        },
+        {
+          "word": "and",
+          "start": 9.975,
+          "end": 10.15
+        },
+        {
+          "word": "cozy",
+          "start": 10.1625,
+          "end": 10.737499999999999
+        },
+        {
+          "word": "Anna",
+          "start": 11.6,
+          "end": 11.95
+        },
+        {
+          "word": "sits",
+          "start": 11.9625,
+          "end": 12.35
+        },
+        {
+          "word": "in",
+          "start": 12.3625,
+          "end": 12.512500000000001
+        },
+        {
+          "word": "a",
+          "start": 12.525,
+          "end": 12.5875
+        },
+        {
+          "word": "soft",
+          "start": 12.6,
+          "end": 13.0375
+        },
+        {
+          "word": "armchair",
+          "start": 13.05,
+          "end": 13.662500000000001
+        },
+        {
+          "word": "near",
+          "start": 13.675,
+          "end": 13.9375
+        },
+        {
+          "word": "the",
+          "start": 13.95,
+          "end": 14.0625
+        },
+        {
+          "word": "window",
+          "start": 14.075,
+          "end": 14.625
+        },
+        {
+          "word": "She",
+          "start": 15.4875,
+          "end": 15.762500000000001
+        },
+        {
+          "word": "holds",
+          "start": 15.775,
+          "end": 16.1125
+        },
+        {
+          "word": "a",
+          "start": 16.125,
+          "end": 16.225
+        },
+        {
+          "word": "warm",
+          "start": 16.2375,
+          "end": 16.650000000000002
+        },
+        {
+          "word": "cup",
+          "start": 16.6625,
+          "end": 16.925
+        },
+        {
+          "word": "of",
+          "start": 16.9375,
+          "end": 17.125
+        },
+        {
+          "word": "tea",
+          "start": 17.1375,
+          "end": 17.5
+        },
+        {
+          "word": "in",
+          "start": 17.5125,
+          "end": 17.65
+        },
+        {
+          "word": "her",
+          "start": 17.6625,
+          "end": 17.85
+        },
+        {
+          "word": "hands",
+          "start": 17.8625,
+          "end": 18.475
+        },
+        {
+          "word": "She",
+          "start": 19.3375,
+          "end": 19.5875
+        },
+        {
+          "word": "watches",
+          "start": 19.6,
+          "end": 20.1125
+        },
+        {
+          "word": "the",
+          "start": 20.125,
+          "end": 20.2625
+        },
+        {
+          "word": "rain",
+          "start": 20.275,
+          "end": 20.674999999999997
+        },
+        {
+          "word": "slide",
+          "start": 20.6875,
+          "end": 21.15
+        },
+        {
+          "word": "down",
+          "start": 21.1625,
+          "end": 21.4375
+        },
+        {
+          "word": "the",
+          "start": 21.45,
+          "end": 21.537499999999998
+        },
+        {
+          "word": "glass",
+          "start": 21.55,
+          "end": 22.125
+        },
+        {
+          "word": "A",
+          "start": 22.9875,
+          "end": 23.1
+        },
+        {
+          "word": "thick",
+          "start": 23.1125,
+          "end": 23.5
+        },
+        {
+          "word": "blanket",
+          "start": 23.5125,
+          "end": 24.0625
+        },
+        {
+          "word": "covers",
+          "start": 24.075,
+          "end": 24.537499999999998
+        },
+        {
+          "word": "her",
+          "start": 24.55,
+          "end": 24.7
+        },
+        {
+          "word": "legs",
+          "start": 24.7125,
+          "end": 25.25
+        },
+        {
+          "word": "Her",
+          "start": 26.1125,
+          "end": 26.35
+        },
+        {
+          "word": "cute",
+          "start": 26.3625,
+          "end": 26.775000000000002
+        },
+        {
+          "word": "cat",
+          "start": 26.7875,
+          "end": 27.150000000000002
+        },
+        {
+          "word": "sleeps",
+          "start": 27.1625,
+          "end": 27.637500000000003
+        },
+        {
+          "word": "quietly",
+          "start": 27.65,
+          "end": 28.349999999999998
+        },
+        {
+          "word": "on",
+          "start": 28.3625,
+          "end": 28.525000000000002
+        },
+        {
+          "word": "the",
+          "start": 28.5375,
+          "end": 28.6125
+        },
+        {
+          "word": "soft",
+          "start": 28.625,
+          "end": 29.05
+        },
+        {
+          "word": "rug",
+          "start": 29.0625,
+          "end": 29.4375
+        },
+        {
+          "word": "A",
+          "start": 30.3,
+          "end": 30.4125
+        },
+        {
+          "word": "small",
+          "start": 30.425,
+          "end": 30.9125
+        },
+        {
+          "word": "lamp",
+          "start": 30.925,
+          "end": 31.275000000000002
+        },
+        {
+          "word": "gives",
+          "start": 31.2875,
+          "end": 31.5625
+        },
+        {
+          "word": "a",
+          "start": 31.575,
+          "end": 31.675
+        },
+        {
+          "word": "gentle",
+          "start": 31.6875,
+          "end": 32.175
+        },
+        {
+          "word": "yellow",
+          "start": 32.1875,
+          "end": 32.55
+        },
+        {
+          "word": "light",
+          "start": 32.5625,
+          "end": 32.9875
+        },
+        {
+          "word": "The",
+          "start": 33.85,
+          "end": 34
+        },
+        {
+          "word": "quiet",
+          "start": 34.0125,
+          "end": 34.525000000000006
+        },
+        {
+          "word": "room",
+          "start": 34.5375,
+          "end": 34.85
+        },
+        {
+          "word": "feels",
+          "start": 34.8625,
+          "end": 35.275
+        },
+        {
+          "word": "warm",
+          "start": 35.2875,
+          "end": 35.7
+        },
+        {
+          "word": "and",
+          "start": 35.7125,
+          "end": 35.875
+        },
+        {
+          "word": "peaceful",
+          "start": 35.8875,
+          "end": 36.5375
+        },
+        {
+          "word": "Anna",
+          "start": 37.4,
+          "end": 37.75
+        },
+        {
+          "word": "drinks",
+          "start": 37.7625,
+          "end": 38.150000000000006
+        },
+        {
+          "word": "her",
+          "start": 38.1625,
+          "end": 38.325
+        },
+        {
+          "word": "tea",
+          "start": 38.3375,
+          "end": 38.637499999999996
+        },
+        {
+          "word": "slowly",
+          "start": 38.65,
+          "end": 39.3125
+        },
+        {
+          "word": "She",
+          "start": 40.175,
+          "end": 40.4375
+        },
+        {
+          "word": "loves",
+          "start": 40.45,
+          "end": 40.875
+        },
+        {
+          "word": "this",
+          "start": 40.8875,
+          "end": 41.125
+        },
+        {
+          "word": "simple",
+          "start": 41.1375,
+          "end": 41.5375
+        },
+        {
+          "word": "day",
+          "start": 41.55,
+          "end": 41.8
+        },
+        {
+          "word": "at",
+          "start": 41.8125,
+          "end": 41.975
+        },
+        {
+          "word": "home",
+          "start": 41.9875,
+          "end": 42.4375
+        }
+      ]
+    }
+  ],
+  "bgMusic": "audio/bg-music.mp3"
+}

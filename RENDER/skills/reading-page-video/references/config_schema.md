@@ -25,6 +25,8 @@ readable field-by-field guide.
 | `captionTextColor` | CSS color string | `"#1A1A1A"` | Overrides both the title and body text color. |
 | `captionBgColor` | CSS color string, or `"transparent"` | `"#F5F2EB"` | Overrides the page's paper background color (the whole area below the hero illustration, edge-to-edge — not a floating card). `"transparent"` removes the paper texture entirely, leaving `bgColor`/the hero image showing through. |
 | `highlightColor` | CSS color string | `"#D8B07A"` (muted gold) | Overrides the karaoke highlight pill color for the currently-spoken word. Every word in the primary line gets this treatment as its turn comes — continuous, literal word-for-word karaoke for the whole reading, not a curated subset. |
+| `bgMusic` | string | — | Optional path/URL (same `staticFile`-or-`https://` convention as `image`/`audio`) to a looping background track, mixed under the narration for the whole video. Not bundled with the skill (avoids licensing issues) — populated by the user uploading their own track via AGENT_TOOL's render-config modal, which writes it to `audio/bg-music.<ext>`; `render-project.mjs` auto-detects it by filename prefix. Omit/absent → no background music. |
+| `bgMusicVolume` | number (0–1) | `0.12` | Volume multiplier for `bgMusic`, relative to the narration's own fade envelope (so it shares the same fade-in/out timing but stays much quieter). Ignored if `bgMusic` isn't set. |
 
 ## Layout overrides (CapCut-style, all optional)
 

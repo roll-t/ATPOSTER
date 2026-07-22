@@ -172,6 +172,20 @@ with the actual audio.
   inputs/toggle buttons with a live preview for `reading_practice`, plus a
   direct hero-image replace (uploads straight over `images/scene-01.<ext>`
   via the same `save-image` route Google Flow uses — no separate infra).
+- **Background music (`bgMusic` / `bgMusicVolume`)**: optional, off by
+  default. `bgMusic` is a path/URL to a looping audio track (same
+  `staticFile`-or-`https://` contract as `image`/`audio` above); when set it
+  plays under the narration for the whole video, looped, with the same
+  fade-in/out envelope as the narration track (reuses the narration's
+  `AUDIO_FADE_FRAMES` interpolation) but scaled down by `bgMusicVolume`
+  (0–1, default `0.12`) so it never competes with the voiceover. Not bundled
+  with the skill — no royalty-free track ships by default, to sidestep
+  licensing — the user uploads their own via AGENT_TOOL's render-config
+  modal ("🎵 Nhạc nền nhẹ" in the "Màu & Giao diện" tab), which writes it to
+  `audio/bg-music.<ext>` in the project folder (any filename/extension —
+  `render-project.mjs` auto-detects it by prefix, no config needed). The
+  modal also exposes a `bgMusicEnabled` toggle (mute/unmute without deleting
+  the uploaded file) and a 0–40% volume slider.
 - **Image fit**: `imageFit: "cover"` (default) or `"contain"` — applies only
   to the hero illustration band.
 - **Colors**: `bgColor` (rarely visible — a flash-of-unstyled-content

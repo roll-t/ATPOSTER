@@ -27,6 +27,8 @@
  *   --titleBodyGap=<0-80>         (px gap between title and body, default 18)
  *   --contentPaddingPercent=<0-30> (horizontal padding around title/body, % of frame width per side, default 10)
  *   --bodyAlign=left|justify      (body text alignment — "justify" = CapCut-style "canh đều", default left)
+ *   --bgMusicEnabled=true|false   (play the uploaded audio/bg-music.<ext> file, if any — default true when present)
+ *   --bgMusicVolume=<0-1>         (background music volume, default 0.12 — always much quieter than narration)
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -91,6 +93,8 @@ const titleBodyGap = parseNumberFlag(flags.titleBodyGap, 0, 80);
 const contentPaddingPercent = parseNumberFlag(flags.contentPaddingPercent, 0, 30);
 const bodyAlign = (flags.bodyAlign === "left" || flags.bodyAlign === "justify") ? flags.bodyAlign : undefined;
 const imageMode = (flags.imageMode === "hero" || flags.imageMode === "full_bg" || flags.imageMode === "none") ? flags.imageMode : undefined;
+const bgMusicEnabled = flags.bgMusicEnabled !== "false"; // mặc định bật nếu có file, trừ khi FE tắt tường minh
+const bgMusicVolume = parseNumberFlag(flags.bgMusicVolume, 0, 1);
 
 let projectPath = path.join(root, "public", projectFolder);
 let manifestPath = path.join(projectPath, "manifest.json");
@@ -160,9 +164,20 @@ if (fs.existsSync(audioDir)) {
   if (match) audExt = match.split(".").pop();
 }
 
+// Nhạc nền (tuỳ chọn) — tự dò file audio/bg-music.<ext> do người dùng tải lên qua AGENT_TOOL's
+// "Studio Thiết Kế Trang Đọc Video" (dùng chung save-image route, không đóng gói sẵn nhạc theo
+// skill). Không có file này thì đơn giản là không phát nhạc nền, không cần cấu hình gì thêm.
+let bgMusicPath = null;
+if (fs.existsSync(audioDir)) {
+  const files = fs.readdirSync(audioDir);
+  const match = files.find((f) => f.startsWith("bg-music."));
+  if (match) bgMusicPath = `${projectFolder}/audio/${match}`;
+}
+
 // Build Remotion Config object
 const remotionConfig = {
   projectTitle: manifest.title || "reading-page-video",
+  level: manifest.input?.level || manifest.level || flags.level || "",
   orientation: orientation || (manifest.orientation === "landscape" ? "landscape" : "portrait"),
   image: `${projectFolder}/images/${imageBaseName}.${imgExt}`,
   imageFit: "cover",
@@ -192,6 +207,9 @@ const remotionConfig = {
   // karaoke highlight track the exact word being spoken instead of
   // estimating from word length. Omitted entirely when absent.
   ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
+  // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh —
+  // omit hẳn field (không phải để "") khi không dùng, khớp đúng kiểu optional() của schema.
+  ...(bgMusicPath && bgMusicEnabled ? { bgMusic: bgMusicPath, bgMusicVolume: bgMusicVolume ?? 0.12 } : {}),
 };
 
 // Ensure output final directory exists

@@ -23,7 +23,7 @@ export async function POST(req) {
       folderPath, category, captionStyle, transitionStyle, bilingual, orientation,
       captionFont, captionFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
-      contentPaddingPercent, bodyAlign, imageMode
+      contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume
     } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
@@ -85,7 +85,10 @@ export async function POST(req) {
     pushRangedNumber(titleBodyGap, 'titleBodyGap', 0, 80);
     pushRangedNumber(contentPaddingPercent, 'contentPaddingPercent', 0, 30);
     if (bodyAlign === 'left' || bodyAlign === 'justify') extraArgs.push(`--bodyAlign=${bodyAlign}`);
-    if (imageMode === 'hero' || imageMode === 'full_bg' || imageMode === 'none') extraArgs.push(`--imageMode=${imageMode}`);
+    const SAFE_LEVEL_RE = /^[a-zA-Z0-9\s_\-\u00C0-\u024F\u1EA0-\u1EF9]+$/;
+    if (typeof level === 'string' && level.trim() && SAFE_LEVEL_RE.test(level)) extraArgs.push(`--level=${level.trim()}`);
+    if (typeof bgMusicEnabled === 'boolean') extraArgs.push(`--bgMusicEnabled=${bgMusicEnabled}`);
+    pushRangedNumber(bgMusicVolume, 'bgMusicVolume', 0, 1);
 
     console.log(`[API RenderVideo] Bắt đầu render cho dự án: ${projectFolder} (${extraArgs.join(' ') || 'mặc định'})`);
 

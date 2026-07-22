@@ -192,6 +192,109 @@ const WordLine: React.FC<{
   );
 };
 
+// IMPORTANT: never add a CSS `transition`/`animation` here. Remotion renders
+// frame-by-frame (each frame is captured as its own discrete DOM snapshot),
+// not in real wall-clock time — a CSS transition tries to animate toward
+// each new frame's value over real time, but the next frame's props arrive
+// before it can finish, so it's perpetually "catching up". That reads as the
+// highlighted (and even the NON-highlighted, already-settled) sentences
+// flickering/re-flashing every frame instead of holding a stable color —
+// exactly what happened here before this comment was added. If a smooth
+// cross-fade is ever wanted, drive it with `interpolate(frame, ...)` against
+// the actual frame a sentence becomes active, not CSS transition timing.
+const SentenceHighlightLine: React.FC<{
+  sentences: string[];
+  fontFamily: string;
+  fontSize: number;
+  textColor: string;
+  highlightColor: string;
+  lineHeight: number;
+  align: "center" | "left" | "justify";
+  activeSentenceIndex: number;
+}> = ({
+  sentences,
+  fontFamily,
+  fontSize,
+  textColor,
+  highlightColor,
+  lineHeight,
+  align,
+  activeSentenceIndex,
+}) => {
+  const activeColor = highlightColor || "#D97706";
+
+  return (
+    <div
+      style={{
+        fontFamily,
+        lineHeight,
+        fontSize,
+        textAlign: align === "justify" ? "justify" : align,
+      }}
+    >
+      {sentences.map((sentence, i) => {
+        const isActive = i === activeSentenceIndex;
+        const isPast = i < activeSentenceIndex;
+
+        return (
+          <span
+            key={i}
+            style={{
+              fontSize,
+              fontWeight: 600,
+              color: isActive ? activeColor : textColor,
+              opacity: isActive ? 1 : isPast ? 0.85 : 0.38,
+            }}
+          >
+            {sentence}{" "}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+function splitSentences(text: string): string[] {
+  if (!text) return [];
+  const raw = text.match(/[^.!?\n]+[.!?\n]+/g) || [text];
+  const sentences = raw.map((s) => s.trim()).filter(Boolean);
+  return sentences.length > 0 ? sentences : [text.trim()];
+}
+
+function resolveActiveSentenceIndex(
+  primaryText: string,
+  secondaryText: string,
+  activeWordIdx: number
+): number {
+  const pSentences = splitSentences(primaryText);
+  const sSentences = splitSentences(secondaryText);
+  if (sSentences.length === 0) return 0;
+  if (pSentences.length === 0) return 0;
+
+  const pWords = splitWords(primaryText);
+  let pSentenceIdx = 0;
+  let wordCounter = 0;
+
+  for (let sIdx = 0; sIdx < pSentences.length; sIdx++) {
+    const sWords = splitWords(pSentences[sIdx]);
+    wordCounter += sWords.length;
+    if (activeWordIdx < wordCounter) {
+      pSentenceIdx = sIdx;
+      break;
+    }
+    if (sIdx === pSentences.length - 1) {
+      pSentenceIdx = pSentences.length - 1;
+    }
+  }
+
+  if (pSentences.length === sSentences.length) {
+    return pSentenceIdx;
+  }
+
+  const ratio = pSentenceIdx / Math.max(1, pSentences.length - 1);
+  return Math.min(sSentences.length - 1, Math.round(ratio * (sSentences.length - 1)));
+}
+
 // A believable "paper" texture built entirely from CSS/SVG — no external
 // image asset to bundle or go stale. Layers a few soft creases under a fine
 // SVG feTurbulence grain. Fills its parent edge-to-edge (no rounded card
@@ -285,22 +388,10 @@ export const ReadingCard: React.FC<{
   const [primaryTextRaw, secondaryTextRaw] = body.split("\n").map((s) => s.trim());
   const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
   const primaryWords = useMemo(() => splitWords(primaryTextRaw), [primaryTextRaw]);
-  const secondaryWords = useMemo(() => (hasSecondary ? splitWords(secondaryTextRaw) : []), [hasSecondary, secondaryTextRaw]);
+  const secondarySentences = useMemo(() => (hasSecondary ? splitSentences(secondaryTextRaw) : []), [hasSecondary, secondaryTextRaw]);
 
   const activeIdx = resolveActiveWordIndex(primaryWords, wordTimings, durationInFrames, fps, frame);
-
-  // Tiếng Việt/Anh không có ánh xạ từ-đối-từ thật (thứ tự từ, số từ đều khác nhau), nên không
-  // thể biết chính xác từ tiếng Việt nào "tương ứng" với từ tiếng Anh đang đọc. Xấp xỉ bằng vị
-  // trí TỶ LỆ trong câu — từ đang đọc chiếm bao nhiêu % chiều dài câu tiếng Anh thì sáng đúng từ
-  // ở vị trí % tương ứng trong câu tiếng Việt — cùng cách resolveActiveWordIndex() đã dùng để bù
-  // lệch số từ giữa wordTimings và words, và cùng tinh thần với chunkIntoCount() của
-  // narrated-slideshow-video's Caption.tsx (đồng bộ 2 dòng song ngữ theo tỷ lệ, không phải nghĩa).
-  const secondaryActiveIdx = hasSecondary && secondaryWords.length > 0
-    ? Math.min(
-        secondaryWords.length - 1,
-        Math.round((activeIdx / Math.max(1, primaryWords.length - 1)) * (secondaryWords.length - 1))
-      )
-    : undefined;
+  const activeSentenceIdx = resolveActiveSentenceIndex(primaryTextRaw, secondaryTextRaw, activeIdx);
 
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
   const bodyFontSize = captionFontSize ?? autoBodyFontSize(primaryWords.length);
@@ -389,19 +480,16 @@ export const ReadingCard: React.FC<{
           highlightColor={pillColor}
         />
         {hasSecondary && (
-          <div style={{ opacity: 0.7 }}>
-            <WordLine
-              words={secondaryWords}
-              fontFamily={resolvedFontFamily}
-              fontSize={secondaryFontSize}
-              fontWeight={500}
-              color={textColor}
-              lineHeight={1.4}
-              align={resolvedBodyAlign}
-              highlightIndex={secondaryActiveIdx}
-              highlightColor={pillColor}
-            />
-          </div>
+          <SentenceHighlightLine
+            sentences={secondarySentences}
+            fontFamily={resolvedFontFamily}
+            fontSize={secondaryFontSize}
+            textColor={textColor}
+            highlightColor={pillColor}
+            lineHeight={1.4}
+            align={resolvedBodyAlign}
+            activeSentenceIndex={activeSentenceIdx}
+          />
         )}
       </div>
 

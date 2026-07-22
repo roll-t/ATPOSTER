@@ -42,7 +42,9 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
     titleBodyGap,
     contentPaddingPercent,
     bodyAlign,
-    imageMode = "hero"
+    imageMode = "hero",
+    bgMusic,
+    bgMusicVolume
   } = props;
 
   const audioVolume = interpolate(
@@ -59,6 +61,10 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
     <AbsoluteFill>
       <Background color={bgColor} />
       <Audio src={resolveSrc(audio)} volume={audioVolume} />
+      {/* Nhạc nền nhẹ (tuỳ chọn) — lặp xuyên suốt video, cùng đường bao fade-in/out ở đầu/cuối
+          như giọng đọc (tái dùng audioVolume) nhưng nhân thêm bgMusicVolume để luôn nhỏ hơn
+          nhiều so với giọng đọc chính, không cạnh tranh sự chú ý với phần đọc. */}
+      {bgMusic ? <Audio src={resolveSrc(bgMusic)} volume={audioVolume * (bgMusicVolume ?? 0.12)} loop /> : null}
 
       {/* Nền ảnh phủ 100% full màn hình phía sau (để hiển thị xuyên qua khi hạ opacity màu nền trang giấy) */}
       {image && imageMode !== "none" && (
@@ -68,6 +74,38 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
       )}
 
       <AbsoluteFill style={{ flexDirection: "column", zIndex: 1 }}>
+        {/* Level Badge ở góc phải bên trên */}
+        {props.level && (
+          <div style={{
+            position: "absolute",
+            top: 32,
+            right: 32,
+            zIndex: 100,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(10px)",
+            border: "1.5px solid rgba(255, 255, 255, 0.3)",
+            color: "#FFFFFF",
+            padding: "8px 22px",
+            borderRadius: 24,
+            fontSize: 24,
+            fontWeight: 900,
+            letterSpacing: "0.6px",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            pointerEvents: "none"
+          }}>
+            <span style={{ color: "#FFCB4D" }}>⚡</span>
+            <span>{(() => {
+              const str = String(props.level).trim();
+              const match = str.match(/([a-c][1-2])/i);
+              if (match) return `LEVEL: ${match[1].toUpperCase()}`;
+              return `LEVEL: ${str.toUpperCase()}`;
+            })()}</span>
+          </div>
+        )}
+
         {/* Mode hero: Ảnh nằm ngang nằm ở băng Hero trên cùng */}
         {imageMode === "hero" && (
           <div style={{ flex: `0 0 ${heroPercent}%`, position: "relative", overflow: "hidden" }}>

@@ -219,9 +219,12 @@ export const PROMPT_CATEGORIES = {
         required: true,
         defaultValue: 'a2',
         options: [
-          { value: 'a1', label: 'A1 - Mới bắt đầu' },
-          { value: 'a2', label: 'A2 - Sơ cấp' },
-          { value: 'b1', label: 'B1 - Trung cấp' }
+          { value: 'a1', label: 'A1', sublabel: 'Mới bắt đầu', icon: '🌱' },
+          { value: 'a2', label: 'A2', sublabel: 'Sơ cấp', icon: '🌿' },
+          { value: 'b1', label: 'B1', sublabel: 'Trung cấp', icon: '🌳' },
+          { value: 'b2', label: 'B2', sublabel: 'Cao cấp', icon: '🚀' },
+          { value: 'c1', label: 'C1', sublabel: 'Thành thạo', icon: '👑' },
+          { value: 'c2', label: 'C2', sublabel: 'Bậc thầy', icon: '🔥' }
         ]
       },
       {

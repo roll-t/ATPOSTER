@@ -15,6 +15,7 @@ export async function GET() {
     // promptHistory mới biết chủ đề nào đã sinh ra folder đó). Bản ghi mới hơn (createdAt
     // lớn hơn) ghi đè bản cũ nếu có nhiều lần tạo trùng tên thư mục.
     const folderToCategory = new Map();
+    const folderToLevel = new Map();
     try {
       const db = await getMongoClientDb();
       const historyItems = await db.collection('promptHistory').find({}).toArray();
@@ -23,10 +24,14 @@ export async function GET() {
         .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
         .forEach(item => {
           const folder = item.input?.folderPath;
-          if (folder) folderToCategory.set(folder, item.category);
+          if (folder) {
+            folderToCategory.set(folder, item.category);
+            const lvl = item.input?.level || item.level;
+            if (lvl) folderToLevel.set(folder, lvl);
+          }
         });
     } catch (e) {
-      console.warn('[API CreatedVideos] Không tra cứu được category từ promptHistory:', e.message);
+      console.warn('[API CreatedVideos] Không tra cứu được category/level từ promptHistory:', e.message);
     }
 
     const videos = [];
@@ -64,12 +69,15 @@ export async function GET() {
         const configPath = path.join(projectDir, 'final', 'config.json');
         const manifestPath = path.join(projectDir, 'manifest.json');
 
+        let itemLevel = folderToLevel.get(folderName) || null;
+
         let categoryFromConfig = null;
         if (fs.existsSync(configPath)) {
           try {
             const configJson = JSON.parse(fs.readFileSync(configPath, 'utf8'));
             if (configJson.title) title = configJson.title;
             if (configJson.category) categoryFromConfig = configJson.category;
+            if (configJson.level) itemLevel = configJson.level;
             if (configJson.orientation === 'landscape' || configJson.aspectRatio === '16:9') {
               aspectRatio = '16:9';
             }
@@ -89,6 +97,9 @@ export async function GET() {
             }
             if (manifestJson.category && !categoryFromConfig) {
               categoryFromConfig = manifestJson.category;
+            }
+            if (manifestJson.level || manifestJson.input?.level) {
+              itemLevel = manifestJson.level || manifestJson.input?.level;
             }
             if (manifestJson.orientation === 'landscape' || manifestJson.aspectRatio === '16:9') {
               aspectRatio = '16:9';
@@ -134,6 +145,7 @@ export async function GET() {
           folderPath: folderName,
           category: itemCategory,
           title,
+          level: itemLevel,
           aspectRatio,
           scenesCount,
           sizeMB: `${sizeMB} MB`,
@@ -147,7 +159,7 @@ export async function GET() {
           }),
           videoUrl: `/api/prompts/video-stream?folderPath=${encodeURIComponent(folderName)}`,
           thumbnailUrl: thumbnailFile
-            ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderName)}&file=images/${encodeURIComponent(thumbnailFile)}`
+            ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderName)}&file=images/${encodeURIComponent(thumbnailFile)}${itemCategory ? `&category=${encodeURIComponent(itemCategory)}` : ''}`
             : null
         });
       }

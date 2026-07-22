@@ -1,5 +1,6 @@
 {
   "projectTitle": "Shadow Shapes at Night",
+  "level": "",
   "orientation": "portrait",
   "image": "boy_who_afraid_dark_260721_213958/images/scene-01.jpg",
   "imageFit": "cover",
@@ -13,7 +14,7 @@
   "captionFontSize": 43,
   "captionTextColor": "#241C10",
   "captionBgColor": "#F3EAD9",
-  "captionBgOpacity": 100,
+  "captionBgOpacity": 80,
   "heroHeightPercent": 20,
   "titleHeightPercent": 8,
   "bodyHeightPercent": 56,

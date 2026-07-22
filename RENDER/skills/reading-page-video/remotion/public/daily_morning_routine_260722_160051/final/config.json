@@ -1,0 +1,545 @@
+{
+  "projectTitle": "My Calm Morning Routine",
+  "level": "a1",
+  "orientation": "portrait",
+  "image": "daily_morning_routine_260722_160051/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "daily_morning_routine_260722_160051/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "My Calm Morning Routine",
+  "body": "Maya wakes up early each day. The soft sun shines through her window. She stretches her arms and legs slowly. First, she goes to the bathroom. She washes her face with cool water. Then, she brushes her teeth carefully. Next, Maya makes a warm cup of green tea. She also eats a small, fresh apple. She sits near her window. She watches the birds fly past. Maya thinks about her tasks for the new day. She makes a quick plan in her mind. This quiet morning time helps her feel calm and strong. It makes her ready for everything. Her routine is peaceful.\nMỗi ngày Maya thức dậy sớm. Nắng dịu chiếu qua cửa sổ của cô. Cô vươn vai và chân chậm rãi. Đầu tiên, cô đi vào phòng tắm. Cô rửa mặt bằng nước mát. Sau đó, cô đánh răng cẩn thận. Tiếp theo, Maya pha một tách trà xanh ấm. Cô cũng ăn một quả táo nhỏ, tươi. Cô ngồi gần cửa sổ. Cô ngắm nhìn những chú chim bay qua. Maya nghĩ về các việc cần làm trong ngày mới. Cô lập một kế hoạch nhanh trong đầu. Khoảng thời gian buổi sáng yên tĩnh này giúp cô cảm thấy bình tĩnh và khỏe khoắn. Nó giúp cô sẵn sàng cho mọi việc. Lịch trình của cô thật bình yên.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFont": "be-vietnam-pro",
+  "captionFontSize": 44,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "captionBgOpacity": 100,
+  "heroHeightPercent": 20,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "wordTimings": [
+    {
+      "word": "Maya",
+      "start": 0.1,
+      "end": 0.475
+    },
+    {
+      "word": "wakes",
+      "start": 0.4875,
+      "end": 0.8374999999999999
+    },
+    {
+      "word": "up",
+      "start": 0.85,
+      "end": 1.05
+    },
+    {
+      "word": "early",
+      "start": 1.0625,
+      "end": 1.425
+    },
+    {
+      "word": "each",
+      "start": 1.4375,
+      "end": 1.7125
+    },
+    {
+      "word": "day",
+      "start": 1.725,
+      "end": 2.075
+    },
+    {
+      "word": "The",
+      "start": 2.9375,
+      "end": 3.0875
+    },
+    {
+      "word": "soft",
+      "start": 3.1,
+      "end": 3.5125
+    },
+    {
+      "word": "sun",
+      "start": 3.525,
+      "end": 3.8874999999999997
+    },
+    {
+      "word": "shines",
+      "start": 3.9,
+      "end": 4.425
+    },
+    {
+      "word": "through",
+      "start": 4.4375,
+      "end": 4.6625
+    },
+    {
+      "word": "her",
+      "start": 4.675,
+      "end": 4.8875
+    },
+    {
+      "word": "window",
+      "start": 4.9,
+      "end": 5.4375
+    },
+    {
+      "word": "She",
+      "start": 6.3,
+      "end": 6.55
+    },
+    {
+      "word": "stretches",
+      "start": 6.5625,
+      "end": 7.1625
+    },
+    {
+      "word": "her",
+      "start": 7.175,
+      "end": 7.375
+    },
+    {
+      "word": "arms",
+      "start": 7.3875,
+      "end": 7.8625
+    },
+    {
+      "word": "and",
+      "start": 7.875,
+      "end": 8.1125
+    },
+    {
+      "word": "legs",
+      "start": 8.125,
+      "end": 8.4875
+    },
+    {
+      "word": "slowly",
+      "start": 8.5,
+      "end": 9.15
+    },
+    {
+      "word": "First",
+      "start": 10.0125,
+      "end": 10.549999999999999
+    },
+    {
+      "word": "she",
+      "start": 10.825,
+      "end": 11.049999999999999
+    },
+    {
+      "word": "goes",
+      "start": 11.0625,
+      "end": 11.3625
+    },
+    {
+      "word": "to",
+      "start": 11.375,
+      "end": 11.4875
+    },
+    {
+      "word": "the",
+      "start": 11.5,
+      "end": 11.6125
+    },
+    {
+      "word": "bathroom",
+      "start": 11.625,
+      "end": 12.325
+    },
+    {
+      "word": "She",
+      "start": 13.1875,
+      "end": 13.4375
+    },
+    {
+      "word": "washes",
+      "start": 13.45,
+      "end": 13.975
+    },
+    {
+      "word": "her",
+      "start": 13.9875,
+      "end": 14.137500000000001
+    },
+    {
+      "word": "face",
+      "start": 14.15,
+      "end": 14.575000000000001
+    },
+    {
+      "word": "with",
+      "start": 14.5875,
+      "end": 14.825000000000001
+    },
+    {
+      "word": "cool",
+      "start": 14.8375,
+      "end": 15.1875
+    },
+    {
+      "word": "water",
+      "start": 15.2,
+      "end": 15.674999999999999
+    },
+    {
+      "word": "Then",
+      "start": 16.5375,
+      "end": 16.9125
+    },
+    {
+      "word": "she",
+      "start": 17.2,
+      "end": 17.425
+    },
+    {
+      "word": "brushes",
+      "start": 17.4375,
+      "end": 17.9625
+    },
+    {
+      "word": "her",
+      "start": 17.975,
+      "end": 18.137500000000003
+    },
+    {
+      "word": "teeth",
+      "start": 18.15,
+      "end": 18.5125
+    },
+    {
+      "word": "carefully",
+      "start": 18.525,
+      "end": 19.2125
+    },
+    {
+      "word": "Next",
+      "start": 20.075,
+      "end": 20.625
+    },
+    {
+      "word": "Maya",
+      "start": 20.9125,
+      "end": 21.35
+    },
+    {
+      "word": "makes",
+      "start": 21.3625,
+      "end": 21.675
+    },
+    {
+      "word": "a",
+      "start": 21.6875,
+      "end": 21.775
+    },
+    {
+      "word": "warm",
+      "start": 21.7875,
+      "end": 22.212500000000002
+    },
+    {
+      "word": "cup",
+      "start": 22.225,
+      "end": 22.4875
+    },
+    {
+      "word": "of",
+      "start": 22.5,
+      "end": 22.675
+    },
+    {
+      "word": "green",
+      "start": 22.6875,
+      "end": 23.0875
+    },
+    {
+      "word": "tea",
+      "start": 23.1,
+      "end": 23.475
+    },
+    {
+      "word": "She",
+      "start": 24.3375,
+      "end": 24.612499999999997
+    },
+    {
+      "word": "also",
+      "start": 24.625,
+      "end": 25.0875
+    },
+    {
+      "word": "eats",
+      "start": 25.1,
+      "end": 25.337500000000002
+    },
+    {
+      "word": "a",
+      "start": 25.35,
+      "end": 25.425
+    },
+    {
+      "word": "small",
+      "start": 25.4375,
+      "end": 25.95
+    },
+    {
+      "word": "fresh",
+      "start": 26.225,
+      "end": 26.587500000000002
+    },
+    {
+      "word": "apple",
+      "start": 26.6,
+      "end": 27.1
+    },
+    {
+      "word": "She",
+      "start": 27.9625,
+      "end": 28.224999999999998
+    },
+    {
+      "word": "sits",
+      "start": 28.2375,
+      "end": 28.575
+    },
+    {
+      "word": "near",
+      "start": 28.5875,
+      "end": 28.875
+    },
+    {
+      "word": "her",
+      "start": 28.8875,
+      "end": 29.099999999999998
+    },
+    {
+      "word": "window",
+      "start": 29.1125,
+      "end": 29.6625
+    },
+    {
+      "word": "She",
+      "start": 30.525,
+      "end": 30.775
+    },
+    {
+      "word": "watches",
+      "start": 30.7875,
+      "end": 31.3
+    },
+    {
+      "word": "the",
+      "start": 31.3125,
+      "end": 31.4375
+    },
+    {
+      "word": "birds",
+      "start": 31.45,
+      "end": 31.8875
+    },
+    {
+      "word": "fly",
+      "start": 31.9,
+      "end": 32.2125
+    },
+    {
+      "word": "past",
+      "start": 32.225,
+      "end": 32.7875
+    },
+    {
+      "word": "Maya",
+      "start": 33.65,
+      "end": 34.0625
+    },
+    {
+      "word": "thinks",
+      "start": 34.075,
+      "end": 34.4125
+    },
+    {
+      "word": "about",
+      "start": 34.425,
+      "end": 34.699999999999996
+    },
+    {
+      "word": "her",
+      "start": 34.7125,
+      "end": 34.8625
+    },
+    {
+      "word": "tasks",
+      "start": 34.875,
+      "end": 35.4375
+    },
+    {
+      "word": "for",
+      "start": 35.45,
+      "end": 35.612500000000004
+    },
+    {
+      "word": "the",
+      "start": 35.625,
+      "end": 35.7125
+    },
+    {
+      "word": "new",
+      "start": 35.725,
+      "end": 35.9625
+    },
+    {
+      "word": "day",
+      "start": 35.975,
+      "end": 36.325
+    },
+    {
+      "word": "She",
+      "start": 37.1875,
+      "end": 37.425
+    },
+    {
+      "word": "makes",
+      "start": 37.4375,
+      "end": 37.7375
+    },
+    {
+      "word": "a",
+      "start": 37.75,
+      "end": 37.825
+    },
+    {
+      "word": "quick",
+      "start": 37.8375,
+      "end": 38.199999999999996
+    },
+    {
+      "word": "plan",
+      "start": 38.2125,
+      "end": 38.625
+    },
+    {
+      "word": "in",
+      "start": 38.6375,
+      "end": 38.7875
+    },
+    {
+      "word": "her",
+      "start": 38.8,
+      "end": 38.9625
+    },
+    {
+      "word": "mind",
+      "start": 38.975,
+      "end": 39.475
+    },
+    {
+      "word": "This",
+      "start": 40.3375,
+      "end": 40.6125
+    },
+    {
+      "word": "quiet",
+      "start": 40.625,
+      "end": 41.1
+    },
+    {
+      "word": "morning",
+      "start": 41.1125,
+      "end": 41.537499999999994
+    },
+    {
+      "word": "time",
+      "start": 41.55,
+      "end": 41.9375
+    },
+    {
+      "word": "helps",
+      "start": 41.95,
+      "end": 42.325
+    },
+    {
+      "word": "her",
+      "start": 42.3375,
+      "end": 42.475
+    },
+    {
+      "word": "feel",
+      "start": 42.4875,
+      "end": 42.824999999999996
+    },
+    {
+      "word": "calm",
+      "start": 42.8375,
+      "end": 43.225
+    },
+    {
+      "word": "and",
+      "start": 43.2375,
+      "end": 43.4
+    },
+    {
+      "word": "strong",
+      "start": 43.4125,
+      "end": 43.975
+    },
+    {
+      "word": "It",
+      "start": 44.8375,
+      "end": 45
+    },
+    {
+      "word": "makes",
+      "start": 45.0125,
+      "end": 45.35
+    },
+    {
+      "word": "her",
+      "start": 45.3625,
+      "end": 45.537499999999994
+    },
+    {
+      "word": "ready",
+      "start": 45.55,
+      "end": 45.875
+    },
+    {
+      "word": "for",
+      "start": 45.8875,
+      "end": 46.150000000000006
+    },
+    {
+      "word": "everything",
+      "start": 46.1625,
+      "end": 46.85
+    },
+    {
+      "word": "Her",
+      "start": 47.7125,
+      "end": 47.949999999999996
+    },
+    {
+      "word": "routine",
+      "start": 47.9625,
+      "end": 48.525
+    },
+    {
+      "word": "is",
+      "start": 48.5375,
+      "end": 48.737500000000004
+    },
+    {
+      "word": "peaceful",
+      "start": 48.75,
+      "end": 49.4125
+    }
+  ],
+  "bgMusic": "daily_morning_routine_260722_160051/audio/bg-music.mp3",
+  "bgMusicVolume": 0.06
+}
