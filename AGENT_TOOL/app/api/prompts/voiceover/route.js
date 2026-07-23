@@ -379,10 +379,19 @@ export async function POST(request) {
         const edgeVoice = getEdgeVoiceForText(text, settingsRecord?.edgeVoiceMappings);
         try {
           if (isCapcutVoice(edgeVoice)) {
-            const capcutResult = await synthesizeCapcutTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
-            buffer = capcutResult.buffer;
-            wordTimings = null; // CapCut TTS doesn't return wordTimings
-            console.log(`[API Voiceover CapCut] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+            try {
+              const capcutResult = await synthesizeCapcutTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
+              buffer = capcutResult.buffer;
+              wordTimings = null; // CapCut TTS doesn't return wordTimings
+              console.log(`[API Voiceover CapCut] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+            } catch (capcutErr) {
+              console.warn(`[API Voiceover CapCut Fallback] Slide ${segmentNumber}: CapCut bị lỗi (${capcutErr.message}), chuyển tự động sang Edge TTS...`);
+              const fallbackVoice = (edgeVoice.includes('female') || edgeVoice.includes('huong') || edgeVoice.includes('peiqi') || edgeVoice.includes('yangguang') || edgeVoice.includes('richgirl')) ? 'vi-VN-HoaiMyNeural' : 'vi-VN-NamMinhNeural';
+              const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: fallbackVoice, readingSpeed });
+              buffer = edgeResult.buffer;
+              wordTimings = edgeResult.wordTimings;
+              console.log(`[API Voiceover CapCut Fallback] Slide ${segmentNumber} -> Edge Fallback Voice: ${fallbackVoice}`);
+            }
           } else {
             const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
             buffer = edgeResult.buffer;

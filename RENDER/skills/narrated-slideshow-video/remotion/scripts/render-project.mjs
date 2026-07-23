@@ -121,24 +121,37 @@ const audioDir = path.join(projectPath, "audio");
 const scenes = manifest.segments.map((seg) => {
   const paddedNum = String(seg.segmentNumber).padStart(2, "0");
   
-  // Detect image extension (fallback to jpg)
-  let imgExt = "jpg";
-  if (fs.existsSync(imageDir)) {
+  // Detect image extension and file path (supports multiple images per scene like scene-03_1.jpg)
+  let imagePath = `${projectFolder}/images/scene-${paddedNum}.jpg`;
+
+  if (Array.isArray(seg.files) && seg.files.length > 0) {
+    const firstFile = seg.files[0];
+    const relPath = firstFile.startsWith(projectFolder)
+      ? firstFile
+      : `${projectFolder}/${firstFile.replace(/^\/+/, '')}`;
+    if (fs.existsSync(path.join(root, "public", relPath))) {
+      imagePath = relPath;
+    }
+  }
+
+  if (!fs.existsSync(path.join(root, "public", imagePath)) && fs.existsSync(imageDir)) {
     const files = fs.readdirSync(imageDir);
-    const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`));
-    if (match) imgExt = match.split(".").pop();
+    const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`) || f.startsWith(`scene-${paddedNum}_`));
+    if (match) {
+      imagePath = `${projectFolder}/images/${match}`;
+    }
   }
 
   // Detect audio extension (fallback to mp3)
   let audExt = "mp3";
   if (fs.existsSync(audioDir)) {
     const files = fs.readdirSync(audioDir);
-    const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`));
+    const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`) || f.startsWith(`scene-${paddedNum}_`));
     if (match) audExt = match.split(".").pop();
   }
 
   return {
-    image: `${projectFolder}/images/scene-${paddedNum}.${imgExt}`,
+    image: imagePath,
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
     caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
     // Real per-word timing from ElevenLabs' alignment API, if the voiceover

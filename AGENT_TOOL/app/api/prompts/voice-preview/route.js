@@ -36,8 +36,15 @@ export async function POST(request) {
         .trim();
       let buffer;
       if (isCapcutVoice(voiceId)) {
-        const result = await synthesizeCapcutTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
-        buffer = result.buffer;
+        try {
+          const result = await synthesizeCapcutTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
+          buffer = result.buffer;
+        } catch (capcutErr) {
+          console.warn(`[CapCut Preview Fallback] CapCut bị lỗi (${capcutErr.message}), tự động chuyển sang Edge TTS...`);
+          const fallbackVoice = (voiceId.includes('female') || voiceId.includes('huong') || voiceId.includes('peiqi') || voiceId.includes('yangguang') || voiceId.includes('richgirl')) ? 'vi-VN-HoaiMyNeural' : 'vi-VN-NamMinhNeural';
+          const result = await synthesizeEdgeTts({ text: sampleText, voice: fallbackVoice, readingSpeed: 'medium' });
+          buffer = result.buffer;
+        }
       } else {
         const result = await synthesizeEdgeTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
         buffer = result.buffer;

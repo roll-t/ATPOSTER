@@ -22,6 +22,22 @@ const DEFAULT_DEVICE = {
   "tdid": "7647183892936328721",
 };
 
+function generateDeviceId() {
+  const randomDigits = Array.from({ length: 18 }, () => Math.floor(Math.random() * 10)).join('');
+  return '7' + randomDigits;
+}
+
+function getDynamicDevice() {
+  const devId = generateDeviceId();
+  const iid = generateDeviceId();
+  return {
+    ...DEFAULT_DEVICE,
+    device_id: devId,
+    iid: iid,
+    tdid: devId,
+  };
+}
+
 const TTS_SIGN_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmTd34Lw4b7IuldSXh/zY
 CMla+ITdGG5TeWz6ad+OySd4r+IrY45AoqrYUxhQ2dl+7z+i7r/5vEa8rr39BYfB
@@ -191,8 +207,8 @@ function ttsNewBody(texts, voice, resourceId, rate, device) {
   return { babi, body };
 }
 
-function buildRequest(texts, voice, resourceId, rate) {
-  const device = { ...DEFAULT_DEVICE };
+function buildRequest(texts, voice, resourceId, rate, customDevice = null) {
+  const device = customDevice || getDynamicDevice();
   const { babi, body } = ttsNewBody(texts, voice, resourceId, rate, device);
   const bodyText = JSON.stringify(body);
   const path = "/lv/v1/common_task/new";
@@ -212,11 +228,11 @@ function buildRequest(texts, voice, resourceId, rate) {
   if (!lowerHeaders["sign"]) {
     headers["sign"] = makeSignHeader(url, device["appvr"], lowerHeaders["device-time"], device["tdid"]);
   }
-  return { url, headers, bodyText };
+  return { url, headers, bodyText, device };
 }
 
-async function requestTts(texts, voice, resourceId, rate = "1.0") {
-  const { url, headers, bodyText } = buildRequest(texts, voice, resourceId, rate);
+async function requestTts(texts, voice, resourceId, rate = "1.0", customDevice = null) {
+  const { url, headers, bodyText, device } = buildRequest(texts, voice, resourceId, rate, customDevice);
   
   return new Promise((resolve, reject) => {
     const req = http.request(url, {
@@ -228,6 +244,7 @@ async function requestTts(texts, voice, resourceId, rate = "1.0") {
       res.on('end', () => {
         try {
           const json = JSON.parse(body);
+          json._device = device;
           resolve(json);
         } catch (e) {
           reject(new Error('Failed to parse response: ' + body));
@@ -241,8 +258,8 @@ async function requestTts(texts, voice, resourceId, rate = "1.0") {
   });
 }
 
-async function queryTts(taskId, token) {
-  const device = { ...DEFAULT_DEVICE };
+async function queryTts(taskId, token, customDevice = null) {
+  const device = customDevice || getDynamicDevice();
   const body = {
     tasks: [{
       bind_id: "",
@@ -333,7 +350,7 @@ async function synthesizeCapcutTts({ text, voice, readingSpeed = 'medium' }) {
   let attempts = 0;
   while (attempts < 60) {
     await new Promise(r => setTimeout(r, 1000));
-    const statusRes = await queryTts(taskId, token);
+    const statusRes = await queryTts(taskId, token, result._device);
     const queryTask = statusRes.data?.tasks?.[0];
     const status = queryTask?.status || 'unknown';
     console.log(`[CapCut TTS Poll] Task ${taskId} - Lần thử ${attempts + 1}/60 - Trạng thái: ${status}`);
