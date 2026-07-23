@@ -8,6 +8,7 @@ import { synthesizeEdgeTts } from '@/lib/tts/edgeTts.js';
 import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
 import { synthesizeGeminiTts } from '@/lib/tts/geminiTts.js';
 import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
+import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
 
 // Default voice fallbacks for custom designed voices (free tier)
 const DEFAULT_MALE_VOICE = 'wJSBXsvChUQrylZvDzav';
@@ -328,6 +329,11 @@ export async function POST(request) {
     console.log(`[API Voiceover] Thư mục lưu audio: ${targetDir} (Nhà cung cấp: ${isElevenLabs ? `ElevenLabs, ${prioritizedAccounts.length} tài khoản` : 'Edge TTS (miễn phí)'})`);
 
     const results = [];
+    // Giãn cách nhẹ giữa các lần gọi Edge TTS liên tiếp — dịch vụ miễn phí này thỉnh thoảng bắt
+    // đầu treo/đóng kết nối sớm (xem synthesizeEdgeTts) sau một loạt request bắn liên tục không
+    // nghỉ (project nhiều slide, vd 6+ slide). Không phải cấu hình chính thức từ Microsoft, chỉ
+    // là giảm khả năng bị coi là spam theo kinh nghiệm thực tế.
+    let isFirstEdgeCall = true;
 
     for (const scene of scenes) {
       const { segmentNumber, dialogueOrNarration } = scene;
@@ -338,6 +344,14 @@ export async function POST(request) {
       }
 
       const textToSend = text
+        .replace(/^[A-Za-z0-9\s]+:\s*/, '')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Edge & CapCut TTS: Xoá hoàn toàn các [thẻ cảm xúc] trong ngoặc vuông
+      // để tránh việc các công cụ đọc to chúng lên hoặc gây lỗi định dạng âm thanh.
+      const textForEdge = text
         .replace(/^[A-Za-z0-9\s]+:\s*/, '')
         .replace(/\[[^\]]*\]/g, ' ')
         .replace(/\s+/g, ' ')
@@ -358,16 +372,27 @@ export async function POST(request) {
 
       if (!isElevenLabs) {
         // Edge TTS: mỗi lần gọi trả về audio + mốc thời gian THẬT theo từng từ luôn kèm sẵn
+        if (!isFirstEdgeCall) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        isFirstEdgeCall = false;
         const edgeVoice = getEdgeVoiceForText(text, settingsRecord?.edgeVoiceMappings);
         try {
-          const edgeResult = await synthesizeEdgeTts({ text: textToSend, voice: edgeVoice, readingSpeed });
-          buffer = edgeResult.buffer;
-          wordTimings = edgeResult.wordTimings;
-          console.log(`[API Voiceover Edge] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+          if (isCapcutVoice(edgeVoice)) {
+            const capcutResult = await synthesizeCapcutTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
+            buffer = capcutResult.buffer;
+            wordTimings = null; // CapCut TTS doesn't return wordTimings
+            console.log(`[API Voiceover CapCut] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+          } else {
+            const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
+            buffer = edgeResult.buffer;
+            wordTimings = edgeResult.wordTimings;
+            console.log(`[API Voiceover Edge] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+          }
         } catch (err) {
-          console.error(`[API Voiceover Edge Error] Slide ${segmentNumber}:`, err.message);
+          console.error(`[API Voiceover TTS Error] Slide ${segmentNumber}:`, err.message);
           return NextResponse.json({
-            error: `Lỗi gọi Edge TTS cho Slide ${segmentNumber}: ${err.message}`
+            error: `Lỗi gọi TTS cho Slide ${segmentNumber}: ${err.message}`
           }, { status: 500 });
         }
       } else {

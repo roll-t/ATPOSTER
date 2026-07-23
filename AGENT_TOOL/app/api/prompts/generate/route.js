@@ -5,6 +5,21 @@ import { generateSegmentedScript, translateAndExpandInputs } from '@/lib/prompts
 import { getStickFigureCastOverrides } from '@/lib/prompts/castOverrides.js';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
 
+// Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình,
+// dù tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem voiceover/route.js — nơi tag
+// được strip trước khi gửi tổng hợp giọng). Strip luôn ở đây để bản JSON cấu hình Remotion xuất
+// ra (record.remotionConfig, hiển thị/copy được trong UI "Xem cấu hình Remotion nâng cao") sạch
+// tag ngay từ nguồn — component Caption.tsx phía render cũng tự strip lại 1 lớp nữa, phòng
+// trường hợp remotionConfig tới từ nơi khác (chỉnh tay JSON, dự án cũ đã lỡ lưu kèm tag).
+function stripEmotionTags(text) {
+  // Strip theo TỪNG DÒNG, không strip \s+ toàn chuỗi — caption song ngữ dùng "\n" làm ranh giới
+  // dòng chính/dịch (xem Caption.tsx), gộp \s+ sẽ xoá mất ranh giới đó.
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.replace(/\[[^\]]*\]/g, ' ').replace(/[ \t]+/g, ' ').trim())
+    .join('\n');
+}
+
 export async function POST(request) {
   try {
     const { category, input, useGemini: requestedUseGemini, durationRange, geminiApiKey } = await request.json();
@@ -28,7 +43,7 @@ export async function POST(request) {
         if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
           return NextResponse.json({ error: 'Vui lòng nhập Tình huống / bối cảnh.' }, { status: 400 });
         }
-      } else if (category === 'stick_figure_slideshow') {
+      } else if (category === 'stick_figure_slideshow' || category === 'moral_talk_slideshow') {
         if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
           return NextResponse.json({ error: 'Vui lòng nhập Chủ đề / vấn nạn muốn thuyết minh.' }, { status: 400 });
         }
@@ -60,7 +75,7 @@ export async function POST(request) {
       }
     } else if (category === 'english_tips') {
       return NextResponse.json({ error: 'Định dạng "Video Mẹo Học Tiếng Anh" chỉ hỗ trợ tạo qua Gemini AI phân đoạn. Vui lòng bật "Tự động tạo kịch bản & phân đoạn bằng Gemini AI".' }, { status: 400 });
-    } else if (category === 'stick_figure_slideshow') {
+    } else if (category === 'stick_figure_slideshow' || category === 'moral_talk_slideshow') {
       if (!cleanInput.scenario || !String(cleanInput.scenario).trim()) {
         return NextResponse.json({ error: 'Vui lòng nhập Chủ đề / vấn nạn muốn thuyết minh.' }, { status: 400 });
       }
@@ -150,7 +165,7 @@ export async function POST(request) {
         isSegmented: true,
         createdAt: new Date().toISOString()
       };
-    } else if (category === 'stick_figure_slideshow') {
+    } else if (category === 'stick_figure_slideshow' || category === 'moral_talk_slideshow') {
       // Chế độ thủ công cho slideshow: chia theo dòng kịch bản người dùng nhập
       let scriptText = processedInput.script || '';
       
@@ -246,7 +261,7 @@ export async function POST(request) {
       };
     }
 
-    if (category === 'stick_figure_slideshow' && record.segments) {
+    if ((category === 'stick_figure_slideshow' || category === 'moral_talk_slideshow') && record.segments) {
       const folder = processedInput.folderPath || 'example';
       const imgExt = processedInput.imageExt || 'jpg';
       const audExt = processedInput.audioExt || 'mp3';
@@ -274,7 +289,7 @@ export async function POST(request) {
           return {
             image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
             audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
-            caption: seg.subtitle || seg.dialogueOrNarration || ""
+            caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || '')
           };
         })
       };

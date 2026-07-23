@@ -17,6 +17,7 @@
  *   --captionFontSize=<16-120>
  *   --captionTextColor=<CSS color, e.g. "#FFFFFF">
  *   --captionBgColor=<CSS color, or "transparent" to remove the box>
+ *   --highlightColor=<CSS color> (karaoke/page active-word highlight pill)
  *
  * --captionStyle=page automatically switches captionMode to "full" and
  * captionPosition to "center" (a whole scene's text held on screen, word-
@@ -75,6 +76,20 @@ const captionTextColor = flags.captionTextColor && CSS_COLOR_RE.test(flags.capti
 const captionBgColor = flags.captionBgColor && CSS_COLOR_RE.test(flags.captionBgColor)
   ? flags.captionBgColor
   : undefined;
+const highlightColor = flags.highlightColor && CSS_COLOR_RE.test(flags.highlightColor)
+  ? flags.highlightColor
+  : undefined;
+
+// Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
+// tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
+// nơi tag được strip trước khi gửi tổng hợp giọng). Strip theo TỪNG DÒNG (không strip \s+ toàn
+// chuỗi) vì caption song ngữ dùng "\n" làm ranh giới dòng chính/dịch — xem Caption.tsx.
+function stripEmotionTags(text) {
+  return String(text || "")
+    .split("\n")
+    .map((line) => line.replace(/\[[^\]]*\]/g, " ").replace(/[ \t]+/g, " ").trim())
+    .join("\n");
+}
 
 const projectPath = path.join(root, "public", projectFolder);
 const manifestPath = path.join(projectPath, "manifest.json");
@@ -114,7 +129,7 @@ const scenes = manifest.segments.map((seg) => {
   return {
     image: `${projectFolder}/images/scene-${paddedNum}.${imgExt}`,
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
-    caption: seg.subtitle || seg.dialogueOrNarration || "",
+    caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
     // Real per-word timing from ElevenLabs' alignment API, if the voiceover
     // step captured it (see AGENT_TOOL's voiceover/route.js) — lets
     // captionStyle: "karaoke" highlight the exact word being spoken instead
@@ -123,6 +138,20 @@ const scenes = manifest.segments.map((seg) => {
     ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
   };
 });
+
+// Nhạc nền (tuỳ chọn) — tự dò file audio/bg-music.<ext>
+let bgMusicPath = null;
+if (fs.existsSync(audioDir)) {
+  const files = fs.readdirSync(audioDir);
+  const match = files.find((f) => f.startsWith("bg-music."));
+  if (match) bgMusicPath = `${projectFolder}/audio/${match}`;
+}
+
+const bgMusicEnabled = flags.bgMusicEnabled === undefined ? true : flags.bgMusicEnabled !== "false";
+const parsedBgMusicVolume = flags.bgMusicVolume !== undefined ? Number(flags.bgMusicVolume) : NaN;
+const bgMusicVolume = Number.isFinite(parsedBgMusicVolume) && parsedBgMusicVolume >= 0 && parsedBgMusicVolume <= 1
+  ? parsedBgMusicVolume
+  : 0.12;
 
 // Build Remotion Config object
 const remotionConfig = {
@@ -145,10 +174,12 @@ const remotionConfig = {
   captionFontSize,
   captionTextColor,
   captionBgColor,
+  highlightColor,
   showBilingual,
   audioPaddingSeconds: 0.4,
-  bgMusicVolume: 0.12,
   scenes: scenes,
+  // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh
+  ...(bgMusicPath && bgMusicEnabled ? { bgMusic: bgMusicPath, bgMusicVolume } : {}),
 };
 
 // Ensure output final directory exists

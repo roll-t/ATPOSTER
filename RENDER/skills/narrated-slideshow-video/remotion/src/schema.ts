@@ -202,6 +202,11 @@ export const slideshowVideoSchema = z.object({
   // Set to "transparent" to remove the background entirely. Has no visible
   // effect on captionStyle: "tiktok", which never renders a background box.
   captionBgColor: z.string().optional(),
+  // Overrides the karaoke/page-style active-word highlight pill color (CSS
+  // color string). Only visible on captionStyle: "karaoke" (default
+  // "#FE2C55") or "page" (default "#FFCB4D") — no effect on "box"/"tiktok",
+  // which never highlight individual words.
+  highlightColor: z.string().optional(),
 
   // Whether to show the secondary (translation) line of a bilingual
   // caption ("English\nTiếng Việt" — see Caption.tsx). Sceneswith no

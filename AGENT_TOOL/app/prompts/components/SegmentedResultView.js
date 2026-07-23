@@ -1,9 +1,125 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
+
+// Component Trình Phát Nhạc Đồ Thị Sóng Âm (Waveform Display - Đồng bộ phát từ các thẻ ở trên)
+function AudioWaveformPlayer({
+  src,
+  externalAudioRef,
+  externalCurrentTime,
+  externalDuration,
+  externalOnSeek
+}) {
+  const internalAudioRef = useRef(null);
+  const [internalCurrentTime, setInternalCurrentTime] = useState(0);
+  const [internalDuration, setInternalDuration] = useState(0);
+
+  const audioRef = externalAudioRef || internalAudioRef;
+  const currentTime = externalCurrentTime !== undefined ? externalCurrentTime : internalCurrentTime;
+  const duration = externalDuration !== undefined ? externalDuration : internalDuration;
+
+  const barHeights = useMemo(() => {
+    // 65 thanh đồ thị sóng âm nhấp nhô chân thực
+    return [
+      15, 25, 42, 60, 85, 70, 50, 32, 20, 15, 28, 55, 78, 92, 68, 42, 25, 18,
+      32, 60, 82, 98, 72, 52, 30, 22, 40, 68, 88, 74, 56, 38, 20, 35, 62, 85,
+      100, 82, 60, 42, 28, 48, 72, 94, 76, 52, 32, 18, 36, 64, 86, 70, 48, 28,
+      40, 68, 82, 62, 42, 25, 18
+    ];
+  }, []);
+
+  const handleSeek = (e) => {
+    const targetDuration = duration;
+    if (!targetDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(1, clickX / rect.width));
+    const newTime = percent * targetDuration;
+
+    if (externalOnSeek) {
+      externalOnSeek(newTime);
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setInternalCurrentTime(newTime);
+    }
+  };
+
+  const formatTime = (secs) => {
+    if (isNaN(secs) || secs < 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px',
+      background: 'rgba(0,0,0,0.35)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      padding: '10px 16px',
+      borderRadius: '12px',
+      width: '100%'
+    }}>
+      {!externalAudioRef && src && (
+        <audio
+          ref={internalAudioRef}
+          src={src}
+          onTimeUpdate={() => internalAudioRef.current && setInternalCurrentTime(internalAudioRef.current.currentTime)}
+          onLoadedMetadata={() => internalAudioRef.current && setInternalDuration(internalAudioRef.current.duration)}
+          onEnded={() => setInternalCurrentTime(0)}
+        />
+      )}
+
+      {/* Đồ thị sóng âm thanh Waveform (Interactive) */}
+      <div
+        onClick={handleSeek}
+        title="Bấm hoặc kéo để tua nhạc"
+        style={{
+          flex: 1,
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '2px',
+          cursor: 'pointer',
+          position: 'relative',
+          padding: '0 2px'
+        }}
+      >
+        {barHeights.map((h, i) => {
+          const barPercent = (i / barHeights.length) * 100;
+          const isPlayed = barPercent <= progressPercent;
+
+          return (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                height: `${h}%`,
+                maxHeight: '100%',
+                borderRadius: '2px',
+                background: isPlayed ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.22)',
+                boxShadow: isPlayed ? '0 0 4px rgba(37, 244, 238, 0.35)' : 'none',
+                transition: 'background 0.1s ease'
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Hiển thị thời gian */}
+      <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, minWidth: '65px', textAlign: 'right', flexShrink: 0 }}>
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </span>
+    </div>
+  );
+}
 
 // Vòng tròn hiển thị % ký tự ElevenLabs ĐÃ DÙNG (phần tô màu đầy dần lên theo mức đã dùng,
 // phần xám còn lại là số ký tự chưa dùng tới). Màu đổi xanh -> vàng -> đỏ khi sắp hết quota.
@@ -69,28 +185,32 @@ const CAPTION_STYLE_DEFAULTS = {
     fontSize: '40',
     textColor: '#FFFFFF',
     bgColor: '#0A0A0E',
-    bgTransparent: false
+    bgTransparent: false,
+    highlightColor: '#FE2C55'
   },
   tiktok: {
     font: 'montserrat',
     fontSize: '48',
     textColor: '#FFFFFF',
     bgColor: '#000000',
-    bgTransparent: true
+    bgTransparent: true,
+    highlightColor: '#FE2C55'
   },
   karaoke: {
     font: 'be-vietnam-pro',
     fontSize: '44',
     textColor: '#FFFFFF',
     bgColor: '#0A0A0E',
-    bgTransparent: false
+    bgTransparent: false,
+    highlightColor: '#FE2C55'
   },
   page: {
     font: 'nunito',
     fontSize: '36',
     textColor: '#2A2118',
     bgColor: '#FBF3E3',
-    bgTransparent: false
+    bgTransparent: false,
+    highlightColor: '#FFCB4D'
   },
   // Skill riêng reading-page-video (category 'reading_practice') — không có khái niệm
   // "Kiểu phụ đề" box/tiktok/karaoke, chỉ có 1 kiểu trang giấy karaoke duy nhất.
@@ -99,7 +219,8 @@ const CAPTION_STYLE_DEFAULTS = {
     fontSize: '44',
     textColor: '#241C10',
     bgColor: '#F3EAD9',
-    bgTransparent: false
+    bgTransparent: false,
+    highlightColor: '#D8B07A'
   }
 };
 
@@ -117,7 +238,7 @@ const SYSTEM_READING_PRESETS = [
       font: 'be-vietnam-pro',
       fontSize: '44',
       bgMusicEnabled: true,
-      bgMusicVolume: '6',
+      bgMusicVolume: '10',
       bgMusicTrackId: 'track1'
     }
   },
@@ -133,7 +254,7 @@ const SYSTEM_READING_PRESETS = [
       font: 'montserrat',
       fontSize: '44',
       bgMusicEnabled: true,
-      bgMusicVolume: '6',
+      bgMusicVolume: '10',
       bgMusicTrackId: 'track2'
     }
   },
@@ -149,7 +270,7 @@ const SYSTEM_READING_PRESETS = [
       font: 'be-vietnam-pro',
       fontSize: '44',
       bgMusicEnabled: true,
-      bgMusicVolume: '6',
+      bgMusicVolume: '10',
       bgMusicTrackId: 'track3'
     }
   }
@@ -161,13 +282,17 @@ function detectActiveCharacters(result) {
   const seenKeys = new Set();
   const scenes = result?.scenes || [];
 
-  if (result?.category === 'reading_practice') {
+  const isVietnameseCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+  const defaultNarratorVoice = isVietnameseCategory ? 'multi_male_felipe_uranus_bigtts' : DEFAULT_EDGE_FEMALE_VOICE;
+  const defaultMaleVoice = isVietnameseCategory ? 'multi_male_felipe_uranus_bigtts' : DEFAULT_EDGE_MALE_VOICE;
+
+  if (result?.category === 'reading_practice' || (isVietnameseCategory && scenes.length === 0)) {
     return [{
       key: 'narrator',
       name: 'Người kể (Narrator)',
       gender: 'Dẫn chuyện',
       icon: '🎙️',
-      defaultVoice: DEFAULT_EDGE_FEMALE_VOICE
+      defaultVoice: 'multi_male_felipe_uranus_bigtts'
     }];
   }
 
@@ -181,41 +306,41 @@ function detectActiveCharacters(result) {
       let name = rawName;
       let gender = 'Dẫn chuyện';
       let icon = '🎙️';
-      let defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+      let defaultVoice = defaultNarratorVoice;
 
       if (['alex', 'man', 'male', 'boy', 'guy', 'nam'].includes(lower)) {
         key = 'alex';
         name = 'Alex';
         gender = 'Nam';
         icon = '👨';
-        defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+        defaultVoice = defaultMaleVoice;
       } else if (['mia', 'woman', 'female', 'girl', 'lady', 'nữ'].includes(lower)) {
         key = 'mia';
         name = 'Mia';
         gender = 'Nữ';
         icon = '👩';
-        defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+        defaultVoice = isVietnameseCategory ? 'vi_female_huong' : DEFAULT_EDGE_FEMALE_VOICE;
       } else if (['leo'].includes(lower)) {
         key = 'leo';
         name = 'Leo';
         gender = 'Nam trẻ';
         icon = '👦';
-        defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+        defaultVoice = defaultMaleVoice;
       } else if (['narrator', 'người kể', 'reader'].includes(lower)) {
         key = 'narrator';
         name = 'Người kể (Narrator)';
         gender = 'Dẫn chuyện';
         icon = '🎙️';
-        defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+        defaultVoice = defaultNarratorVoice;
       } else {
         if (/woman|female|mother|mom|girl|lady|bà|cụ nữ/i.test(lower)) {
           gender = 'Nữ';
           icon = '👩';
-          defaultVoice = DEFAULT_EDGE_FEMALE_VOICE;
+          defaultVoice = isVietnameseCategory ? 'vi-VN-HoaiMyNeural' : DEFAULT_EDGE_FEMALE_VOICE;
         } else if (/man|male|father|dad|boy|guy|ông|cụ nam/i.test(lower)) {
           gender = 'Nam';
           icon = '👨';
-          defaultVoice = DEFAULT_EDGE_MALE_VOICE;
+          defaultVoice = defaultMaleVoice;
         }
       }
 
@@ -232,7 +357,7 @@ function detectActiveCharacters(result) {
       name: 'Người kể (Narrator)',
       gender: 'Dẫn chuyện',
       icon: '🎙️',
-      defaultVoice: DEFAULT_EDGE_FEMALE_VOICE
+      defaultVoice: defaultNarratorVoice
     });
   }
 
@@ -724,6 +849,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
   const [renderTransitionStyle, setRenderTransitionStyle] = useState('crossfade');
   const [renderBilingual, setRenderBilingual] = useState(true);
+  const [isBilingualHovered, setIsBilingualHovered] = useState(false);
   const [showRenderConfig, setShowRenderConfig] = useState(false);
 
   // Tuỳ chỉnh phụ đề kiểu CapCut — tự động đồng bộ theo thông số mặc định của kiểu phụ đề được chọn
@@ -733,6 +859,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderCaptionBgColor, setRenderCaptionBgColor] = useState(initialDefaults.bgColor);
   const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState('100');
   const [renderCaptionBgTransparent, setRenderCaptionBgTransparent] = useState(initialDefaults.bgTransparent);
+  // Màu pill tô sáng từ đang đọc (chỉ có tác dụng thấy được với kiểu "karaoke"/"page") — trước
+  // đây bị hardcode cứng trong Caption.tsx, giờ có thể tuỳ chỉnh qua highlightColor (schema.ts).
+  const [renderHighlightColor, setRenderHighlightColor] = useState(initialDefaults.highlightColor || '#FE2C55');
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
   const [customScreenBg, setCustomScreenBg] = useState('#252538');
@@ -754,9 +883,30 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // người dùng tự tải file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã
   // tải hay không lúc render — tắt đi không xoá file, bật lại dùng ngay không cần tải lại.
   const [renderBgMusicEnabled, setRenderBgMusicEnabled] = useState(true);
-  const [renderBgMusicVolume, setRenderBgMusicVolume] = useState('6');
-  const [selectedBgMusicTrackId, setSelectedBgMusicTrackId] = useState(result.remotionConfig?.bgMusicTrackId || 'track1');
+  const [renderBgMusicVolume, setRenderBgMusicVolume] = useState(() => {
+    if (result.remotionConfig?.bgMusicVolume !== undefined && result.remotionConfig?.bgMusicVolume !== null) {
+      const v = Number(result.remotionConfig.bgMusicVolume);
+      const percent = v <= 1 ? Math.round(v * 100) : v;
+      return percent === 6 ? '10' : String(percent);
+    }
+    return '10';
+  });
+  const [defaultBgMusicTrackId, setDefaultBgMusicTrackId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('default_bg_music_track_id') || 'track1';
+    }
+    return 'track1';
+  });
+  const [selectedBgMusicTrackId, setSelectedBgMusicTrackId] = useState(() => {
+    if (result.remotionConfig?.bgMusicTrackId) return result.remotionConfig.bgMusicTrackId;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('default_bg_music_track_id') || 'track1';
+    }
+    return 'track1';
+  });
+  const [pinTrackMsg, setPinTrackMsg] = useState('');
   const [showCustomBgMusicVolume, setShowCustomBgMusicVolume] = useState(false);
+  const [showBgMusicModal, setShowBgMusicModal] = useState(false);
   const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
   const [bgMusicUploadError, setBgMusicUploadError] = useState('');
   const [bgMusicVersion, setBgMusicVersion] = useState(0); // bump để phá cache khi nghe thử sau khi đổi nhạc
@@ -857,9 +1007,58 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (lastResultIdRef.current !== result?.id) {
       lastResultIdRef.current = result?.id;
       hasAppliedDefaultPresetRef.current = false;
+
+      const savedTrack = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_track_id') : null) || settings?.defaultBgMusicTrackId || 'track1';
+      const activeTrack = result?.remotionConfig?.bgMusicTrackId || savedTrack;
+      setSelectedBgMusicTrackId(activeTrack);
+      setDefaultBgMusicTrackId(savedTrack);
+
+      if (result?.remotionConfig?.bgMusicVolume !== undefined && result?.remotionConfig?.bgMusicVolume !== null) {
+        const v = Number(result.remotionConfig.bgMusicVolume);
+        const percent = v <= 1 ? Math.round(v * 100) : v;
+        setRenderBgMusicVolume(percent === 6 ? '10' : String(percent));
+      } else {
+        setRenderBgMusicVolume('10');
+      }
     }
     fetchPresets();
   }, [showCustomCapCut, isReadingPractice, result?.id]);
+
+  const handlePinDefaultTrack = async (trackId) => {
+    try {
+      setDefaultBgMusicTrackId(trackId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('default_bg_music_track_id', trackId);
+      }
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          defaultBgMusicTrackId: trackId
+        })
+      });
+      const trackObj = [
+        { id: 'track1', name: 'Andriig Soft Ambient' },
+        { id: 'track2', name: 'Andriig Gentle Acoustic' },
+        { id: 'track3', name: 'Moment of Peace' }
+      ].find(t => t.id === trackId);
+      const trackName = trackObj ? trackObj.name : trackId;
+      setPinTrackMsg(`✓ Đã đặt "${trackName}" làm nhạc nền mặc định cho các dự án mới!`);
+      setTimeout(() => setPinTrackMsg(''), 4000);
+      await fetchSettings();
+    } catch (err) {
+      console.warn('Lỗi lưu nhạc mặc định hệ thống:', err);
+    }
+  };
+
+  // Tự động sao chép file nhạc nền mặc định (bg-music.mp3) vào dự án mới nếu nhạc BẬT nhưng chưa có file trên đĩa
+  useEffect(() => {
+    if (renderBgMusicEnabled && !assetCounts.hasBgMusic && result.input?.folderPath) {
+      const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
+      handleSelectDefaultMusic(activeTrack);
+    }
+  }, [result.input?.folderPath, assetCounts.hasBgMusic, renderBgMusicEnabled]);
 
   const handleSavePreset = async () => {
     if (!newPresetName || !newPresetName.trim()) {
@@ -1004,7 +1203,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.imageMode !== undefined) setRenderImageMode(c.imageMode);
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
     if (c.bgMusicEnabled !== undefined) setRenderBgMusicEnabled(c.bgMusicEnabled);
-    if (c.bgMusicVolume !== undefined) setRenderBgMusicVolume(String(c.bgMusicVolume));
+    if (c.bgMusicVolume !== undefined) {
+      const vol = Number(c.bgMusicVolume);
+      const percent = vol <= 1 ? Math.round(vol * 100) : vol;
+      setRenderBgMusicVolume(percent === 6 ? '10' : String(percent));
+    }
     if (c.bgMusicTrackId !== undefined) {
       setSelectedBgMusicTrackId(c.bgMusicTrackId);
       if (c.bgMusicEnabled && c.bgMusicTrackId) {
@@ -1064,10 +1267,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderCaptionTextColor(defaults.textColor);
     setRenderCaptionBgColor(defaults.bgColor);
     setRenderCaptionBgTransparent(defaults.bgTransparent);
+    setRenderHighlightColor(defaults.highlightColor || '#FE2C55');
   };
   const capcutPanelRef = useRef(null);
   const [mounted, setMounted] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
+  // Nghe thử kết quả lồng tiếng (Bước 2) — mỗi slide có 1 file audio riêng (scene-01.mp3,
+  // scene-02.mp3...) nên cần chọn slide muốn nghe thay vì phát 1 file duy nhất như bg music.
+  // voicePreviewVersion bump sau mỗi lần "Tạo/Lồng Tiếng Lại" thành công để phá cache trình
+  // duyệt, đúng pattern đã dùng cho heroImageVersion/bgMusicVersion.
+  const [showVoicePreview, setShowVoicePreview] = useState(false);
+  const [previewSlideNumber, setPreviewSlideNumber] = useState(1);
+  const [voicePreviewVersion, setVoicePreviewVersion] = useState(0);
   const [renderProgress, setRenderProgress] = useState(0);
   const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const [openFolderError, setOpenFolderError] = useState('');
@@ -1080,11 +1291,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [quotaError, setQuotaError] = useState('');
   const [previewingKey, setPreviewingKey] = useState('');
   const [previewError, setPreviewError] = useState('');
+  const [activeLangTab, setActiveLangTab] = useState({});
 
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
   // Cả 2 chủ đề đều dùng chung quy trình 3 bước (Google Flow ảnh -> ElevenLabs giọng ->
   // Remotion render) thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
-  const isSlideshowPipeline = result.category === 'stick_figure_slideshow' || isReadingPractice;
+  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice;
 
   const checkAssets = async () => {
     try {
@@ -1281,8 +1493,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const data = await res.json();
       if (res.ok && data.success) {
         setVoiceMsg(`✓ Đã tạo thành công! Lưu tại: ${data.targetDirectory}`);
+        setVoicePreviewVersion(v => v + 1);
         fetchQuota();
         checkAssets();
+        if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
+          const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
+          handleSelectDefaultMusic(activeTrack);
+        }
       } else {
         setVoiceMsg(`Lỗi: ${data.error || 'Không thể tạo âm thanh.'}`);
       }
@@ -1317,6 +1534,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setIsRenderingVideo(true);
     setRenderMsg('');
     try {
+      if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
+        const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
+        try {
+          await handleSelectDefaultMusic(activeTrack);
+        } catch (e) {
+          console.warn('Auto copy default bg music error:', e);
+        }
+      }
       const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
       const orientation = isLandscape ? 'landscape' : 'portrait';
 
@@ -1335,6 +1560,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
           captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
+          highlightColor: (!isReadingPractice && renderCaptionStyle === 'karaoke') ? (renderHighlightColor || undefined) : undefined,
           captionBgOpacity: isReadingPractice && renderCaptionBgOpacity ? Number(renderCaptionBgOpacity) : undefined,
           heroHeightPercent: isReadingPractice && renderHeroHeightPercent ? Number(renderHeroHeightPercent) : undefined,
           titleHeightPercent: isReadingPractice && renderTitleHeightPercent ? Number(renderTitleHeightPercent) : undefined,
@@ -1344,8 +1570,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           contentPaddingPercent: isReadingPractice && renderContentPaddingPercent ? Number(renderContentPaddingPercent) : undefined,
           bodyAlign: isReadingPractice ? renderBodyAlign : undefined,
           imageMode: isReadingPractice ? renderImageMode : undefined,
-          bgMusicEnabled: isReadingPractice ? renderBgMusicEnabled : undefined,
-          bgMusicVolume: isReadingPractice && renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined
+          bgMusicEnabled: renderBgMusicEnabled,
+          bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined
         })
       });
       const data = await res.json();
@@ -1476,6 +1702,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const [playingPreviewTrackId, setPlayingPreviewTrackId] = useState(null);
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
   const previewAudioRef = useRef(null);
 
   const togglePreviewTrack = (trackId, trackFile) => {
@@ -1486,15 +1714,45 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
     if (playingPreviewTrackId === trackId) {
       setPlayingPreviewTrackId(null);
+      setPreviewCurrentTime(0);
+      setPreviewDuration(0);
       return;
     }
 
     const audio = new Audio(trackFile);
     previewAudioRef.current = audio;
     setPlayingPreviewTrackId(trackId);
+
+    audio.ontimeupdate = () => {
+      if (previewAudioRef.current) {
+        setPreviewCurrentTime(previewAudioRef.current.currentTime);
+      }
+    };
+    audio.onloadedmetadata = () => {
+      if (previewAudioRef.current) {
+        setPreviewDuration(previewAudioRef.current.duration);
+      }
+    };
+    audio.onended = () => {
+      setPlayingPreviewTrackId(null);
+      setPreviewCurrentTime(0);
+    };
+
     audio.play().catch(() => setPlayingPreviewTrackId(null));
-    audio.onended = () => setPlayingPreviewTrackId(null);
   };
+
+  // Tự động dừng nhạc nghe thử khi đóng/thoát Modal Cài Đặt Nhạc Nền
+  useEffect(() => {
+    if (!showBgMusicModal) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+      setPlayingPreviewTrackId(null);
+      setPreviewCurrentTime(0);
+      setPreviewDuration(0);
+    }
+  }, [showBgMusicModal]);
 
   const handleSaveAndApply = async () => {
     if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
@@ -1666,6 +1924,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     checkAssets();
   }, [result.input?.folderPath, result.category]);
 
+  // Reset panel nghe thử lồng tiếng khi chuyển sang dự án khác — tránh giữ previewSlideNumber
+  // cũ vượt quá số slide của dự án mới.
+  useEffect(() => {
+    setShowVoicePreview(false);
+    setPreviewSlideNumber(1);
+  }, [result.input?.folderPath, result.category]);
+
   useEffect(() => {
     if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
       checkAssets();
@@ -1740,7 +2005,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           marginBottom: '24px'
         }}>
           <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⚙️</span> Quy trình sản xuất video (3 Bước)
+            <span>⚙️</span> Quy trình sản xuất video (4 Bước)
           </h4>
 
           {/* Steps Pipeline */}
@@ -1861,7 +2126,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Tạo giọng lồng tiếng (Edge TTS - Miễn phí)
+                          Bước 2: Tạo giọng lồng tiếng (Edge &amp; CapCut TTS - Miễn phí)
                         </span>
                       </div>
                     </div>
@@ -1869,13 +2134,34 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title="Cấu hình giọng đọc (Edge TTS)"
+                        title="Cấu hình giọng đọc (Edge / CapCut)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowVoiceConfig(!showVoiceConfig)}
                         disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
                       >
                         ⚙️
                       </button>
+                      {isStep2Done && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          title="Nghe thử kết quả lồng tiếng"
+                          style={{
+                            padding: '7px 10px',
+                            fontSize: '0.76rem',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            background: showVoicePreview ? 'rgba(37,244,238,0.15)' : undefined,
+                            border: showVoicePreview ? '1px solid rgba(37,244,238,0.4)' : undefined,
+                            color: showVoicePreview ? 'var(--secondary)' : undefined
+                          }}
+                          onClick={() => setShowVoicePreview(v => !v)}
+                          disabled={isGeneratingVoice || isRenderingVideo}
+                        >
+                          🔊 Nghe thử
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn"
@@ -1898,6 +2184,77 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </div>
                   </div>
+
+                  {/* Nghe thử kết quả lồng tiếng — mỗi slide 1 file audio riêng nên cho chọn
+                      slide bằng nút lùi/tiến, phát qua image-stream (đã hỗ trợ Content-Length/
+                      Range cho audio, xem route đó) thay vì tạo route mới trùng lặp. */}
+                  {isStep2Done && showVoicePreview && (() => {
+                    const folder = result.input?.folderPath || 'example';
+                    const audExt = result.input?.audioExt || 'mp3';
+                    // Kẹp lại phòng trường hợp previewSlideNumber còn giữ giá trị cũ từ 1 dự án
+                    // khác có nhiều slide hơn (state không tự reset khi đổi dự án).
+                    const safeSlideNumber = Math.min(Math.max(1, previewSlideNumber), total);
+                    const paddedNum = String(safeSlideNumber).padStart(2, '0');
+                    const previewSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        padding: '10px 12px',
+                        background: 'rgba(0,0,0,0.25)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.06)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideNumber(n => Math.max(1, n - 1))}
+                              disabled={previewSlideNumber <= 1}
+                              style={{ padding: '3px 9px', fontSize: '0.76rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', cursor: previewSlideNumber <= 1 ? 'not-allowed' : 'pointer', opacity: previewSlideNumber <= 1 ? 0.4 : 1 }}
+                            >
+                              ◀
+                            </button>
+                            <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700, minWidth: '70px', textAlign: 'center' }}>
+                              Slide {safeSlideNumber}/{total}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewSlideNumber(n => Math.min(total, n + 1))}
+                              disabled={previewSlideNumber >= total}
+                              style={{ padding: '3px 9px', fontSize: '0.76rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', cursor: previewSlideNumber >= total ? 'not-allowed' : 'pointer', opacity: previewSlideNumber >= total ? 0.4 : 1 }}
+                            >
+                              ▶
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowVoicePreview(false)}
+                            title="Đóng nghe thử"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'rgba(255, 255, 255, 0.4)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              transition: 'color 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = '#ff4757'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
+                          >
+                            ✕ Đóng
+                          </button>
+                        </div>
+                        <audio key={previewSrc} controls autoPlay src={previewSrc} style={{ width: '100%', height: '34px' }} />
+                      </div>
+                    );
+                  })()}
 
                   {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
                       dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
@@ -1948,22 +2305,27 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               );
             })()}
 
-            {/* Bước 3: Render video */}
             {(() => {
               const total = result.segments.length;
               const isStep2Done = assetCounts.audioCount >= total;
-              const isStep3Done = assetCounts.videoCreated;
+              const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
+
+              const currentTrackName = selectedBgMusicTrackId === 'track1' ? 'Soft Ambient'
+                : selectedBgMusicTrackId === 'track2' ? 'Gentle Acoustic'
+                : selectedBgMusicTrackId === 'track3' ? 'Moment of Peace'
+                : 'Tệp tải lên';
 
               return (
-                <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
+                <div style={{
                   display: 'flex',
                   flexDirection: 'column',
                   padding: '12px 16px',
                   background: 'rgba(255, 255, 255, 0.015)',
-                  border: isRenderingVideo ? '1.5px solid transparent' : isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep2Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
                   borderRadius: '10px',
-                  opacity: isStep2Done ? 1 : 0.5,
-                  gap: '10px'
+                  opacity: (isStep2Done && renderBgMusicEnabled) ? 1 : 0.5,
+                  gap: '10px',
+                  transition: 'all 0.2s ease'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
@@ -1978,14 +2340,106 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         color: '#fff',
                         fontWeight: 800,
                         fontSize: '0.8rem',
-                        flexShrink: 0,
-                        animation: isRenderingVideo ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                        flexShrink: 0
                       }}>
                         {isStep3Done ? '✓' : '3'}
                       </div>
+                      <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 3: Nhạc nền hòa âm (Remotion)
+                        </span>
+                        <span style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          background: renderBgMusicEnabled ? 'rgba(37, 244, 238, 0.12)' : 'rgba(255, 255, 255, 0.08)',
+                          color: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.5)',
+                          border: renderBgMusicEnabled ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+                        }}>
+                          {renderBgMusicEnabled ? `🎵 ${currentTrackName} (${renderBgMusicVolume}%)` : '🔇 Tắt nhạc'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      {/* Nút Cài đặt dạng Icon (bị vô hiệu hoá khi Tắt nhạc nền) */}
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        title={!renderBgMusicEnabled ? 'Nhạc nền đang tắt. Hãy bật nhạc nền trước khi cài đặt.' : 'Cấu hình kho nhạc & âm lượng nhạc nền'}
+                        style={{
+                          padding: '7px 10px',
+                          fontSize: '0.76rem',
+                          borderRadius: '8px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          opacity: (!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
+                          cursor: (!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
+                        }}
+                        onClick={() => setShowBgMusicModal(true)}
+                        disabled={!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice}
+                      >
+                        ⚙️
+                      </button>
+
+                      {/* Công tắc Bật/Tắt Nhạc Nền */}
+                      <label className="custom-switch" title={renderBgMusicEnabled ? 'Đang bật nhạc nền' : 'Đang tắt nhạc nền'} style={{ margin: 0, transform: 'scale(0.85)' }}>
+                        <input
+                          type="checkbox"
+                          checked={renderBgMusicEnabled}
+                          disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                          onChange={(e) => setRenderBgMusicEnabled(e.target.checked)}
+                        />
+                        <span className="switch-slider" style={{
+                          backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                        }}></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Bước Render video */}
+            {(() => {
+              const total = result.segments.length;
+              const isStep2Done = assetCounts.audioCount >= total;
+              const isRenderDone = assetCounts.videoCreated;
+              const stepNum = '4';
+
+              return (
+                <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '12px 16px',
+                  background: 'rgba(255, 255, 255, 0.015)',
+                  border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  borderRadius: '10px',
+                  opacity: isStep2Done ? 1 : 0.5,
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: isRenderDone ? '#10b981' : isStep2Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '0.8rem',
+                        flexShrink: 0,
+                        animation: isRenderingVideo ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                      }}>
+                        {isRenderDone ? '✓' : stepNum}
+                      </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 3: Biên tập & Xuất Video (Remotion)
+                          Bước {stepNum}: Biên tập & Xuất Video (Remotion)
                         </span>
                       </div>
                     </div>
@@ -2008,10 +2462,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           fontSize: '0.76rem',
                           borderRadius: '8px',
                           fontWeight: 700,
-                          background: isStep3Done ? 'rgba(46, 213, 115, 0.15)' : isStep2Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                          color: isStep3Done ? '#2ed573' : isStep2Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                          border: isStep3Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep2Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                          boxShadow: isStep3Done || !isStep2Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                          background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isStep2Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                          color: isRenderDone ? '#2ed573' : isStep2Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                          border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isStep2Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: isRenderDone || !isStep2Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
                           cursor: (!isStep2Done || isRenderingVideo) ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap',
                           flexShrink: 0
@@ -2019,56 +2473,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         onClick={handleRenderVideo}
                         disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
                       >
-                        {isRenderingVideo ? '⏳ Đang render...' : isStep3Done ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
+                        {isRenderingVideo ? '⏳ Đang render...' : isRenderDone ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
                       </button>
                     </div>
                   </div>
-
-                  {/* Nút chọn nhanh Nhạc nền trực tiếp ngoài Process */}
-                  {isReadingPractice && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '2px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🎵 Nhạc nền:</span>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {[
-                          { id: 'off', label: '🔇 Tắt nhạc' },
-                          { id: 'track1', label: '🎵 Soft Ambient' },
-                          { id: 'track2', label: '🎸 Gentle Acoustic' },
-                          { id: 'track3', label: '🕊 Moment of Peace' }
-                        ].map(opt => {
-                          const active = opt.id === 'off' ? !renderBgMusicEnabled : (renderBgMusicEnabled && selectedBgMusicTrackId === opt.id);
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => {
-                                if (opt.id === 'off') {
-                                  setRenderBgMusicEnabled(false);
-                                } else {
-                                  setRenderBgMusicEnabled(true);
-                                  handleSelectDefaultMusic(opt.id);
-                                }
-                              }}
-                              disabled={isRenderingVideo || isGeneratingVoice}
-                              title={opt.id === 'off' ? 'Tắt nhạc nền khi render' : `Chọn nhạc nền: ${opt.label}`}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '0.74rem',
-                                fontWeight: 700,
-                                borderRadius: '7px',
-                                cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer',
-                                border: active ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                                background: active ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
-                                color: active ? 'var(--secondary)' : '#fff',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
                   {isRenderingVideo && (
@@ -2449,7 +2857,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
               <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                🆓 Edge TTS Miễn phí
+                🆓 Giọng đọc Miễn phí (Edge &amp; CapCut)
               </span>
             </div>
 
@@ -2532,19 +2940,63 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
 
                           <div>
-                            <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-                              Chọn giọng đọc cho {char.name}:
-                            </span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                              <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
+                                Chọn giọng đọc cho {char.name}:
+                              </span>
+                              
+                              {/* Tab ngôn ngữ cực kỳ xịn sò */}
+                              <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                {[
+                                  { code: 'vi', label: '🇻🇳 Tiếng Việt' },
+                                  { code: 'en', label: '🇺🇸 Tiếng Anh' }
+                                ].map(langTab => {
+                                  const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                  const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
+                                  const isTabActive = activeTabVal === langTab.code;
+                                  return (
+                                    <button
+                                      key={langTab.code}
+                                      type="button"
+                                      onClick={() => setActiveLangTab(prev => ({ ...prev, [char.key]: langTab.code }))}
+                                      style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: isTabActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
+                                        color: isTabActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      {langTab.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
                             {/* Lưới chọn giọng đọc trực quan — BỎ HOÀN TOÀN DROPDOWN <select> */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
-                              {EDGE_TTS_VOICES.map(v => {
-                                const isSelected = currentVal === v.id;
-                                const isPreviewing = previewingKey === `${char.key}_${v.id}`;
+                              {(() => {
+                                const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
+                                const filteredVoices = EDGE_TTS_VOICES.filter(v => {
+                                  if (activeTabVal === 'vi') {
+                                    return v.category === 'vi';
+                                  } else {
+                                    return v.category !== 'vi';
+                                  }
+                                });
+                                return filteredVoices.map(v => {
+                                  const isSelected = currentVal === v.id;
+                                  const isPreviewing = previewingKey === `${char.key}_${v.id}`;
 
-                                return (
-                                  <div
-                                    key={v.id}
+                                  return (
+                                    <div
+                                      key={v.id}
                                     onClick={() => {
                                       setSettings(prev => ({
                                         ...prev,
@@ -2605,8 +3057,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                     </button>
                                   </div>
                                 );
-                              })}
-                            </div>
+                              });
+                            })()}
+                          </div>
                           </div>
                         </div>
                       );
@@ -3197,43 +3650,76 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               {/* Hiển thị phụ đề song ngữ (Card Container với Toggle Switch xịn) */}
               <div
                 onClick={() => setRenderBilingual(!renderBilingual)}
+                onMouseEnter={() => setIsBilingualHovered(true)}
+                onMouseLeave={() => setIsBilingualHovered(false)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '16px',
-                  padding: '14px 16px',
-                  borderRadius: '12px',
-                  border: renderBilingual ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                  boxShadow: renderBilingual ? '0 4px 20px rgba(37, 244, 238, 0.15)' : 'none',
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  border: renderBilingual
+                    ? '1px solid rgba(37, 244, 238, 0.35)'
+                    : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: renderBilingual
+                    ? (isBilingualHovered
+                      ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.12), rgba(37, 244, 238, 0.04))'
+                      : 'linear-gradient(135deg, rgba(37, 244, 238, 0.08), rgba(37, 244, 238, 0.02))')
+                    : (isBilingualHovered
+                      ? 'rgba(255, 255, 255, 0.05)'
+                      : 'rgba(255, 255, 255, 0.02)'),
+                  boxShadow: renderBilingual
+                    ? '0 8px 32px rgba(37, 244, 238, 0.08), inset 0 1px 0 rgba(255,255,255,0.1)'
+                    : 'none',
                   cursor: 'pointer',
                   userSelect: 'none',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                  transform: isBilingualHovered ? 'translateY(-2px)' : 'translateY(0)',
+                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                   <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
-                    background: renderBilingual ? 'rgba(37, 244, 238, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: renderBilingual
+                      ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.2), rgba(254, 44, 85, 0.1))'
+                      : 'rgba(255, 255, 255, 0.05)',
+                    boxShadow: renderBilingual ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.2rem',
-                    flexShrink: 0
+                    fontSize: '1.3rem',
+                    flexShrink: 0,
+                    transition: 'all 0.25s ease'
                   }}>
                     🌐
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                       Hiện phụ đề song ngữ
                       {settings?.defaultBilingual !== undefined && settings.defaultBilingual === renderBilingual && (
-                        <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
+                        <span style={{
+                          fontSize: '0.62rem',
+                          color: '#FFCB4D',
+                          background: 'rgba(255, 203, 77, 0.12)',
+                          border: '1px solid rgba(255, 203, 77, 0.25)',
+                          padding: '2px 8px',
+                          borderRadius: '20px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          boxShadow: '0 2px 6px rgba(255, 203, 77, 0.05)'
+                        }}>
+                          📌 Mặc định
+                        </span>
                       )}
                     </span>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
                       Hiển thị 2 dòng: Tiếng Anh (trên) &amp; Dịch tiếng Việt (dưới)
                     </span>
                   </div>
@@ -3295,6 +3781,370 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 className="btn btn-primary"
                 style={{ padding: '8px 18px', fontSize: '0.8rem', borderRadius: '8px', fontWeight: 700 }}
                 onClick={() => setShowRenderConfig(false)}
+              >
+                Xong
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Dialog Modal Cài Đặt Nhạc Nền */}
+      {showBgMusicModal && mounted && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 999999,
+          padding: '20px',
+          backdropFilter: 'blur(8px)',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            background: '#16151f',
+            border: '1.5px solid var(--secondary)',
+            borderRadius: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(37, 244, 238, 0.2)',
+            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            overflow: 'hidden'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(0, 0, 0, 0.3)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.3rem' }}>🎵</span>
+                <div>
+                  <h3 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 800 }}>
+                    Cài Đặt Nhạc Nền Hòa Âm
+                  </h3>
+                  <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>
+                    Tự động hòa âm phát xuyên suốt video ở âm lượng nhỏ, làm video thêm cảm xúc.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBgMusicModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  color: '#fff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Kho Nhạc Nền Mặc Định Hệ Thống (3 bản nhạc) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    ⚡ Kho nhạc nền mặc định hệ thống (3 bản nhạc nhẹ)
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePinDefaultTrack(selectedBgMusicTrackId)}
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: selectedBgMusicTrackId === defaultBgMusicTrackId ? '#FFCB4D' : 'rgba(255,255,255,0.85)',
+                      background: selectedBgMusicTrackId === defaultBgMusicTrackId ? 'rgba(255, 203, 77, 0.18)' : 'rgba(255,255,255,0.06)',
+                      border: selectedBgMusicTrackId === defaultBgMusicTrackId ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s'
+                    }}
+                    title="Đặt bài nhạc đang chọn làm Mặc Định hệ thống cho các dự án mới về sau"
+                  >
+                    <span>📌</span>
+                    {selectedBgMusicTrackId === defaultBgMusicTrackId ? 'Đang Mặc Định' : 'Đặt làm Mặc Định'}
+                  </button>
+                </div>
+
+                {pinTrackMsg && (
+                  <span style={{ fontSize: '0.74rem', color: '#4ade80', fontWeight: 700, background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', padding: '4px 10px', borderRadius: '6px' }}>
+                    {pinTrackMsg}
+                  </span>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                  {[
+                    { id: 'track1', name: 'Andriig Soft Ambient', desc: 'Êm ái, thư thái', file: '/default-bg-music/track1.mp3' },
+                    { id: 'track2', name: 'Andriig Gentle Acoustic', desc: 'Sâu lắng, ấm áp', file: '/default-bg-music/track2.mp3' },
+                    { id: 'track3', name: 'Moment of Peace', desc: 'Du dương, chữa lành', file: '/default-bg-music/track3.mp3' }
+                  ].map(track => {
+                    const isSelected = selectedBgMusicTrackId === track.id && assetCounts.hasBgMusic;
+                    const isPlaying = playingPreviewTrackId === track.id;
+                    const isDefaultTrack = track.id === defaultBgMusicTrackId;
+
+                    return (
+                      <div
+                        key={track.id}
+                        onClick={() => {
+                          setRenderBgMusicEnabled(true);
+                          handleSelectDefaultMusic(track.id);
+                          togglePreviewTrack(track.id, track.file);
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(255,255,255,0.03)',
+                          border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
+                          boxShadow: isSelected ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          userSelect: 'none'
+                        }}
+                      >
+                        {/* Nút Play / Pause nghe thử */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePreviewTrack(track.id, track.file);
+                          }}
+                          title={isPlaying ? 'Tạm dừng nghe thử' : 'Nghe thử bản nhạc'}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: isPlaying ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
+                            cursor: 'pointer',
+                            background: isPlaying ? 'rgba(37, 244, 238, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                            color: isPlaying ? 'var(--secondary)' : '#fff',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                            lineHeight: 0,
+                            flexShrink: 0,
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {isPlaying ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
+                              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', marginLeft: '1px' }}>
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Tên & Mô tả ngắn bản nhạc */}
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: isSelected ? 'var(--secondary)' : '#fff',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {track.name}
+                            </span>
+                            {isDefaultTrack && (
+                              <span style={{
+                                fontSize: '0.58rem',
+                                fontWeight: 800,
+                                color: '#FFCB4D',
+                                background: 'rgba(255, 203, 77, 0.2)',
+                                border: '1px solid rgba(255, 203, 77, 0.4)',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                flexShrink: 0
+                              }}>
+                                📌 Mặc định
+                              </span>
+                            )}
+                          </div>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            color: isSelected ? 'rgba(37, 244, 238, 0.7)' : 'rgba(255, 255, 255, 0.45)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {track.desc}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Trình nghe thử & Âm lượng nhạc nền hiện tại */}
+              {assetCounts.hasBgMusic && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>✓ Đã áp dụng nhạc nền (bg-music.mp3)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>Trạng thái: {renderBgMusicEnabled ? 'Đang bật' : 'Tắt'}</span>
+                  </div>
+                  <AudioWaveformPlayer
+                    key={`${bgMusicVersion}_${playingPreviewTrackId || 'default'}`}
+                    src={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=audio/bg-music.mp3&v=${bgMusicVersion}&category=${encodeURIComponent(result.category || '')}`}
+                    externalAudioRef={playingPreviewTrackId ? previewAudioRef : null}
+                    externalCurrentTime={playingPreviewTrackId ? previewCurrentTime : undefined}
+                    externalDuration={playingPreviewTrackId ? previewDuration : undefined}
+                    externalOnSeek={playingPreviewTrackId ? (time) => {
+                      if (previewAudioRef.current) {
+                        previewAudioRef.current.currentTime = time;
+                        setPreviewCurrentTime(time);
+                      }
+                    } : undefined}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: renderBgMusicEnabled ? 1 : 0.5, paddingTop: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🔊 Âm lượng nhạc nền:</span>
+                        <span style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          color: 'var(--secondary)',
+                          background: 'rgba(37,244,238,0.12)',
+                          border: '1px solid rgba(37,244,238,0.3)',
+                          padding: '2px 8px',
+                          borderRadius: '6px'
+                        }}>
+                          {renderBgMusicVolume}% {String(renderBgMusicVolume) === '10' ? '(Mặc định chuẩn 10%)' : ''}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomBgMusicVolume(!showCustomBgMusicVolume)}
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: showCustomBgMusicVolume ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
+                          background: showCustomBgMusicVolume ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {showCustomBgMusicVolume ? '▲ Ẩn thanh chỉnh' : '⚙️ Tùy chỉnh âm lượng'}
+                      </button>
+                    </div>
+
+                    {showCustomBgMusicVolume && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', animation: 'fadeIn 0.2s ease-out' }}>
+                        <input
+                          type="range"
+                          min={0}
+                          max={40}
+                          value={renderBgMusicVolume}
+                          disabled={!renderBgMusicEnabled}
+                          onChange={(e) => setRenderBgMusicVolume(e.target.value)}
+                          style={{ width: '100%', cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
+                          <span>0% (Tắt)</span>
+                          <span>10% (Tiêu chuẩn)</span>
+                          <span>40% (Tối đa)</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {bgMusicUploadError && (
+                <span style={{ fontSize: '0.74rem', color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', padding: '8px 12px', borderRadius: '6px' }}>⚠️ {bgMusicUploadError}</span>
+              )}
+
+              {/* Tải nhạc từ máy tính lên */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <label
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '0.78rem',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: isUploadingBgMusic ? 'wait' : 'pointer',
+                    textAlign: 'center',
+                    alignSelf: 'flex-start',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {isUploadingBgMusic ? '⏳ Đang tải tệp nhạc...' : '📤 Tải nhạc từ máy tính lên (MP3 / M4A)'}
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    style={{ display: 'none' }}
+                    disabled={isUploadingBgMusic}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setRenderBgMusicEnabled(true);
+                        handleUploadBgMusic(file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              justify: 'flex-end',
+              alignItems: 'center',
+              width: '100%',
+              flexShrink: 0,
+              background: 'rgba(0, 0, 0, 0.3)'
+            }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '8px 24px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700, marginLeft: 'auto' }}
+                onClick={() => setShowBgMusicModal(false)}
               >
                 Xong
               </button>
@@ -3557,8 +4407,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   {[
                     { key: 'style', label: '🎨 Màu & Giao diện' },
                     { key: 'layout', label: '📐 Bố cục % & Vị trí' },
-                    { key: 'typography', label: '🔤 Font & Cỡ chữ' },
-                    ...(isReadingPractice ? [{ key: 'music', label: '🎵 Nhạc nền' }] : [])
+                    { key: 'typography', label: '🔤 Font & Cỡ chữ' }
                   ].map(tab => (
                     <button
                       key={tab.key}
@@ -3956,6 +4805,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         </div>
                       </div>
 
+                      {/* Màu tô sáng từ đang đọc — chỉ có tác dụng thấy được với Kiểu phụ đề
+                          "Karaoke tô màu từ" trên skill slideshow (narrated-slideshow-video);
+                          trước đây bị khoá cứng màu đỏ hồng trong Caption.tsx, giờ chỉnh được. Ẩn
+                          cho reading_practice vì skill đó (reading-page-video) là 1 pipeline hoàn
+                          toàn riêng, chưa nối field này. */}
+                      {!isReadingPractice && renderCaptionStyle === 'karaoke' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Màu tô sáng từ đang đọc (Karaoke)</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                              type="color"
+                              value={renderHighlightColor || '#FE2C55'}
+                              onChange={(e) => setRenderHighlightColor(e.target.value)}
+                              style={{ width: '38px', height: '38px', padding: '2px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', cursor: 'pointer', flexShrink: 0 }}
+                            />
+                            <input
+                              type="text"
+                              value={renderHighlightColor || ''}
+                              onChange={(e) => setRenderHighlightColor(e.target.value)}
+                              placeholder="#FE2C55"
+                              style={{ flex: 1, fontSize: '0.78rem', padding: '6px 10px', height: '38px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {isReadingPractice && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Khoảng cách tiêu đề - nội dung (px)</label>
@@ -3972,240 +4847,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     </div>
                   )}
 
-                  {/* TAB 4: NHẠC NỀN (Dành riêng cho Reading Practice) */}
-                  {customTab === 'music' && isReadingPractice && (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '14px',
-                      padding: '16px',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '12px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
-                        <div>
-                          <h4 style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 800, margin: '0 0 2px 0' }}>
-                            🎵 Nhạc nền hòa âm (Phát nhỏ dưới giọng đọc)
-                          </h4>
-                          <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)' }}>
-                            Tự động hòa âm phát xuyên suốt video ở âm lượng nhỏ, làm video thêm cảm xúc.
-                          </span>
-                        </div>
-                        {assetCounts.hasBgMusic && (
-                          <label className="custom-switch" style={{ margin: 0, transform: 'scale(0.9)', flexShrink: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={renderBgMusicEnabled}
-                              onChange={(e) => setRenderBgMusicEnabled(e.target.checked)}
-                            />
-                            <span className="switch-slider" style={{
-                              backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
-                            }}></span>
-                          </label>
-                        )}
-                      </div>
 
-                      {/* Kho Nhạc Nền Mặc Định Hệ Thống (3 bản nhạc) */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          ⚡ Kho nhạc nền mặc định hệ thống (3 bản nhạc nhẹ)
-                        </span>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
-                          {[
-                            { id: 'track1', name: 'Andriig Soft Ambient', desc: 'Êm ái, thư thái', file: '/default-bg-music/track1.mp3' },
-                            { id: 'track2', name: 'Andriig Gentle Acoustic', desc: 'Sâu lắng, ấm áp', file: '/default-bg-music/track2.mp3' },
-                            { id: 'track3', name: 'Moment of Peace', desc: 'Du dương, chữa lành', file: '/default-bg-music/track3.mp3' }
-                          ].map(track => {
-                            const isSelected = selectedBgMusicTrackId === track.id && assetCounts.hasBgMusic;
-                            return (
-                              <div
-                                key={track.id}
-                                style={{
-                                  padding: '10px',
-                                  borderRadius: '8px',
-                                  background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(0,0,0,0.35)',
-                                  border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px',
-                                  transition: 'all 0.18s ease'
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: isSelected ? 'var(--secondary)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    🎵 {track.name}
-                                  </span>
-                                  {isSelected && (
-                                    <span style={{ fontSize: '0.62rem', background: 'var(--secondary)', color: '#000', padding: '1px 5px', borderRadius: '4px', fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                      ✓ Đang chọn
-                                    </span>
-                                  )}
-                                </div>
-                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)' }}>{track.desc}</span>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePreviewTrack(track.id, track.file)}
-                                    style={{
-                                      padding: '6px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 700,
-                                      border: playingPreviewTrackId === track.id ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
-                                      cursor: 'pointer',
-                                      background: playingPreviewTrackId === track.id ? 'rgba(37,244,238,0.15)' : 'rgba(255,255,255,0.06)',
-                                      color: playingPreviewTrackId === track.id ? 'var(--secondary)' : '#fff',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      gap: '4px',
-                                      transition: 'all 0.15s'
-                                    }}
-                                  >
-                                    {playingPreviewTrackId === track.id ? '⏸ Dừng' : '▶ Nghe thử'}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectDefaultMusic(track.id)}
-                                    disabled={isSelectingDefaultMusic}
-                                    style={{
-                                      padding: '6px 8px',
-                                      borderRadius: '6px',
-                                      fontSize: '0.7rem',
-                                      fontWeight: 800,
-                                      border: 'none',
-                                      cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
-                                      background: isSelected ? 'rgba(37, 244, 238, 0.25)' : 'linear-gradient(135deg, var(--secondary), #4ade80)',
-                                      color: isSelected ? 'var(--secondary)' : '#000',
-                                      transition: 'all 0.15s',
-                                      whiteSpace: 'nowrap'
-                                    }}
-                                  >
-                                    {isSelectingDefaultMusic ? '⏳...' : (isSelected ? '✓ Đã chọn' : '✓ Chọn ngay')}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {!assetCounts.hasBgMusic ? (
-                        <div style={{ padding: '14px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1.6rem' }}>🎼</span>
-                          <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, maxWidth: '380px' }}>
-                            Hoặc bạn cũng có thể tải lên tệp nhạc MP3/M4A tùy chỉnh riêng bên dưới.
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>✓ Đã áp dụng nhạc nền (bg-music.mp3)</span>
-                            <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>Trạng thái: {renderBgMusicEnabled ? 'Đang bật' : 'Tắt'}</span>
-                          </div>
-                          <audio
-                            key={bgMusicVersion}
-                            controls
-                            src={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=audio/bg-music.mp3&v=${bgMusicVersion}&category=${encodeURIComponent(result.category || '')}`}
-                            style={{ width: '100%', height: '36px' }}
-                          />
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: renderBgMusicEnabled ? 1 : 0.5, paddingTop: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🔊 Âm lượng nhạc nền:</span>
-                                <span style={{
-                                  fontSize: '0.74rem',
-                                  fontWeight: 800,
-                                  color: 'var(--secondary)',
-                                  background: 'rgba(37,244,238,0.12)',
-                                  border: '1px solid rgba(37,244,238,0.3)',
-                                  padding: '2px 8px',
-                                  borderRadius: '6px'
-                                }}>
-                                  {renderBgMusicVolume}% {String(renderBgMusicVolume) === '6' ? '(Mặc định chuẩn 6%)' : ''}
-                                </span>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => setShowCustomBgMusicVolume(!showCustomBgMusicVolume)}
-                                style={{
-                                  fontSize: '0.72rem',
-                                  fontWeight: 700,
-                                  color: showCustomBgMusicVolume ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
-                                  background: showCustomBgMusicVolume ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.05)',
-                                  border: '1px solid rgba(255,255,255,0.1)',
-                                  padding: '4px 10px',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {showCustomBgMusicVolume ? '▲ Ẩn thanh chỉnh' : '⚙️ Tùy chỉnh âm lượng'}
-                              </button>
-                            </div>
-
-                            {showCustomBgMusicVolume && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', animation: 'fadeIn 0.2s ease-out' }}>
-                                <input
-                                  type="range"
-                                  min={0}
-                                  max={40}
-                                  value={renderBgMusicVolume}
-                                  disabled={!renderBgMusicEnabled}
-                                  onChange={(e) => setRenderBgMusicVolume(e.target.value)}
-                                  style={{ width: '100%', cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed' }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
-                                  <span>0% (Tắt)</span>
-                                  <span>6% (Tiêu chuẩn)</span>
-                                  <span>40% (Tối đa)</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {bgMusicUploadError && (
-                        <span style={{ fontSize: '0.74rem', color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', padding: '8px 12px', borderRadius: '6px' }}>⚠️ {bgMusicUploadError}</span>
-                      )}
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <label
-                          className="btn btn-secondary"
-                          style={{
-                            padding: '8px 16px',
-                            fontSize: '0.78rem',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            cursor: isUploadingBgMusic ? 'wait' : 'pointer',
-                            textAlign: 'center',
-                            alignSelf: 'flex-start',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                        >
-                          {isUploadingBgMusic ? '⏳ Đang tải tệp nhạc...' : '📤 Tải nhạc từ máy tính lên (MP3 / M4A)'}
-                          <input
-                            type="file"
-                            accept="audio/*"
-                            style={{ display: 'none' }}
-                            disabled={isUploadingBgMusic}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              handleUploadBgMusic(file);
-                              e.target.value = '';
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

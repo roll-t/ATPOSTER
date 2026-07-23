@@ -1,0 +1,494 @@
+{
+  "projectTitle": "A Happy Day for Whiskers",
+  "level": "a1",
+  "orientation": "portrait",
+  "image": "cute_cat_whiskers_260723_093741/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "cute_cat_whiskers_260723_093741/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "A Happy Day for Whiskers",
+  "body": "Whiskers is a cute and fluffy white cat. He lives in a warm and cozy home. Today, bright sunlight shines into the living room. Soft colorful cushions rest on the clean floor. Whiskers jumps on a big blue cushion. He rolls around and purrs softly. Then, he sees a small red ball of yarn. He hits it gently with his soft paw. The ball rolls across the soft rug. Whiskers runs fast and catches the red ball. He feels very happy and tired now. He curls up on the cozy cushion and sleeps.\nWhiskers là một chú mèo trắng xù bông rất đáng yêu. Chú sống trong một ngôi nhà ấm áp và dễ chịu. Hôm nay, ánh nắng tươi sáng chiếu vào phòng khách. Những chiếc gối mềm mại đầy màu sắc nằm trên sàn nhà sạch sẽ. Whiskers nhảy lên một chiếc gối lớn màu xanh. Chú lăn qua lăn lại và kêu gừ gừ êm ái. Sau đó, chú nhìn thấy một cuộn len nhỏ màu đỏ. Chú khẽ chạm nhẹ chân vào nó. Cuộn len lăn qua chiếc thảm mềm. Whiskers chạy nhanh và bắt lấy cuộn len. Bây giờ chú cảm thấy rất hạnh phúc và đã mệt. Chú cuộn tròn trên chiếc gối êm ái và ngủ ngon.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFontSize": 43,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "captionBgOpacity": 100,
+  "heroHeightPercent": 20,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "wordTimings": [
+    {
+      "word": "Whiskers",
+      "start": 0.1,
+      "end": 0.6875
+    },
+    {
+      "word": "is",
+      "start": 0.7,
+      "end": 0.85
+    },
+    {
+      "word": "a",
+      "start": 0.8625,
+      "end": 0.9500000000000001
+    },
+    {
+      "word": "cute",
+      "start": 0.9625,
+      "end": 1.3875
+    },
+    {
+      "word": "and",
+      "start": 1.4,
+      "end": 1.575
+    },
+    {
+      "word": "fluffy",
+      "start": 1.5875,
+      "end": 2.0375
+    },
+    {
+      "word": "white",
+      "start": 2.05,
+      "end": 2.3874999999999997
+    },
+    {
+      "word": "cat",
+      "start": 2.4,
+      "end": 2.7875
+    },
+    {
+      "word": "He",
+      "start": 3.65,
+      "end": 3.8625
+    },
+    {
+      "word": "lives",
+      "start": 3.875,
+      "end": 4.225
+    },
+    {
+      "word": "in",
+      "start": 4.2375,
+      "end": 4.35
+    },
+    {
+      "word": "a",
+      "start": 4.3625,
+      "end": 4.45
+    },
+    {
+      "word": "warm",
+      "start": 4.4625,
+      "end": 4.8875
+    },
+    {
+      "word": "and",
+      "start": 4.9,
+      "end": 5.075
+    },
+    {
+      "word": "cozy",
+      "start": 5.0875,
+      "end": 5.5375000000000005
+    },
+    {
+      "word": "home",
+      "start": 5.55,
+      "end": 5.975
+    },
+    {
+      "word": "Today",
+      "start": 6.8375,
+      "end": 7.2875000000000005
+    },
+    {
+      "word": "bright",
+      "start": 7.6125,
+      "end": 7.925
+    },
+    {
+      "word": "sunlight",
+      "start": 7.9375,
+      "end": 8.525
+    },
+    {
+      "word": "shines",
+      "start": 8.5375,
+      "end": 9.025
+    },
+    {
+      "word": "into",
+      "start": 9.0375,
+      "end": 9.35
+    },
+    {
+      "word": "the",
+      "start": 9.3625,
+      "end": 9.5
+    },
+    {
+      "word": "living",
+      "start": 9.5125,
+      "end": 9.8875
+    },
+    {
+      "word": "room",
+      "start": 9.9,
+      "end": 10.25
+    },
+    {
+      "word": "Soft",
+      "start": 11.1125,
+      "end": 11.600000000000001
+    },
+    {
+      "word": "colorful",
+      "start": 11.6125,
+      "end": 12.175
+    },
+    {
+      "word": "cushions",
+      "start": 12.1875,
+      "end": 12.7375
+    },
+    {
+      "word": "rest",
+      "start": 12.75,
+      "end": 13.1375
+    },
+    {
+      "word": "on",
+      "start": 13.15,
+      "end": 13.275
+    },
+    {
+      "word": "the",
+      "start": 13.2875,
+      "end": 13.375
+    },
+    {
+      "word": "clean",
+      "start": 13.3875,
+      "end": 13.75
+    },
+    {
+      "word": "floor",
+      "start": 13.7625,
+      "end": 14.237499999999999
+    },
+    {
+      "word": "Whiskers",
+      "start": 15.1,
+      "end": 15.7
+    },
+    {
+      "word": "jumps",
+      "start": 15.7125,
+      "end": 16.1125
+    },
+    {
+      "word": "on",
+      "start": 16.125,
+      "end": 16.2875
+    },
+    {
+      "word": "a",
+      "start": 16.3,
+      "end": 16.375
+    },
+    {
+      "word": "big",
+      "start": 16.3875,
+      "end": 16.724999999999998
+    },
+    {
+      "word": "blue",
+      "start": 16.7375,
+      "end": 17.0125
+    },
+    {
+      "word": "cushion",
+      "start": 17.025,
+      "end": 17.5875
+    },
+    {
+      "word": "He",
+      "start": 18.45,
+      "end": 18.65
+    },
+    {
+      "word": "rolls",
+      "start": 18.6625,
+      "end": 19.075000000000003
+    },
+    {
+      "word": "around",
+      "start": 19.0875,
+      "end": 19.575
+    },
+    {
+      "word": "and",
+      "start": 19.5875,
+      "end": 19.7625
+    },
+    {
+      "word": "purrs",
+      "start": 19.775,
+      "end": 20.174999999999997
+    },
+    {
+      "word": "softly",
+      "start": 20.1875,
+      "end": 20.8625
+    },
+    {
+      "word": "Then",
+      "start": 21.725,
+      "end": 22.1125
+    },
+    {
+      "word": "he",
+      "start": 22.4375,
+      "end": 22.6
+    },
+    {
+      "word": "sees",
+      "start": 22.6125,
+      "end": 22.925
+    },
+    {
+      "word": "a",
+      "start": 22.9375,
+      "end": 23.025
+    },
+    {
+      "word": "small",
+      "start": 23.0375,
+      "end": 23.525000000000002
+    },
+    {
+      "word": "red",
+      "start": 23.5375,
+      "end": 23.825000000000003
+    },
+    {
+      "word": "ball",
+      "start": 23.8375,
+      "end": 24.15
+    },
+    {
+      "word": "of",
+      "start": 24.1625,
+      "end": 24.2875
+    },
+    {
+      "word": "yarn",
+      "start": 24.3,
+      "end": 24.8125
+    },
+    {
+      "word": "He",
+      "start": 25.675,
+      "end": 25.900000000000002
+    },
+    {
+      "word": "hits",
+      "start": 25.9125,
+      "end": 26.225
+    },
+    {
+      "word": "it",
+      "start": 26.2375,
+      "end": 26.400000000000002
+    },
+    {
+      "word": "gently",
+      "start": 26.4125,
+      "end": 26.9375
+    },
+    {
+      "word": "with",
+      "start": 26.95,
+      "end": 27.15
+    },
+    {
+      "word": "his",
+      "start": 27.1625,
+      "end": 27.337500000000002
+    },
+    {
+      "word": "soft",
+      "start": 27.35,
+      "end": 27.775000000000002
+    },
+    {
+      "word": "paw",
+      "start": 27.7875,
+      "end": 28.1625
+    },
+    {
+      "word": "The",
+      "start": 29.025,
+      "end": 29.1875
+    },
+    {
+      "word": "ball",
+      "start": 29.2,
+      "end": 29.55
+    },
+    {
+      "word": "rolls",
+      "start": 29.5625,
+      "end": 29.9375
+    },
+    {
+      "word": "across",
+      "start": 29.95,
+      "end": 30.4
+    },
+    {
+      "word": "the",
+      "start": 30.4125,
+      "end": 30.525000000000002
+    },
+    {
+      "word": "soft",
+      "start": 30.5375,
+      "end": 30.9375
+    },
+    {
+      "word": "rug",
+      "start": 30.95,
+      "end": 31.3375
+    },
+    {
+      "word": "Whiskers",
+      "start": 32.2,
+      "end": 32.8125
+    },
+    {
+      "word": "runs",
+      "start": 32.825,
+      "end": 33.212500000000006
+    },
+    {
+      "word": "fast",
+      "start": 33.225,
+      "end": 33.7
+    },
+    {
+      "word": "and",
+      "start": 33.7125,
+      "end": 33.875
+    },
+    {
+      "word": "catches",
+      "start": 33.8875,
+      "end": 34.400000000000006
+    },
+    {
+      "word": "the",
+      "start": 34.4125,
+      "end": 34.5375
+    },
+    {
+      "word": "red",
+      "start": 34.55,
+      "end": 34.849999999999994
+    },
+    {
+      "word": "ball",
+      "start": 34.8625,
+      "end": 35.2375
+    },
+    {
+      "word": "He",
+      "start": 36.1,
+      "end": 36.3125
+    },
+    {
+      "word": "feels",
+      "start": 36.325,
+      "end": 36.75
+    },
+    {
+      "word": "very",
+      "start": 36.7625,
+      "end": 37.175000000000004
+    },
+    {
+      "word": "happy",
+      "start": 37.1875,
+      "end": 37.6625
+    },
+    {
+      "word": "and",
+      "start": 37.675,
+      "end": 37.8625
+    },
+    {
+      "word": "tired",
+      "start": 37.875,
+      "end": 38.3625
+    },
+    {
+      "word": "now",
+      "start": 38.375,
+      "end": 38.7125
+    },
+    {
+      "word": "He",
+      "start": 39.575,
+      "end": 39.7875
+    },
+    {
+      "word": "curls",
+      "start": 39.8,
+      "end": 40.224999999999994
+    },
+    {
+      "word": "up",
+      "start": 40.2375,
+      "end": 40.4375
+    },
+    {
+      "word": "on",
+      "start": 40.45,
+      "end": 40.575
+    },
+    {
+      "word": "the",
+      "start": 40.5875,
+      "end": 40.675
+    },
+    {
+      "word": "cozy",
+      "start": 40.6875,
+      "end": 41.15
+    },
+    {
+      "word": "cushion",
+      "start": 41.1625,
+      "end": 41.6625
+    },
+    {
+      "word": "and",
+      "start": 41.675,
+      "end": 41.8625
+    },
+    {
+      "word": "sleeps",
+      "start": 41.875,
+      "end": 42.525
+    }
+  ],
+  "bgMusic": "cute_cat_whiskers_260723_093741/audio/bg-music.mp3",
+  "bgMusicVolume": 0.1
+}

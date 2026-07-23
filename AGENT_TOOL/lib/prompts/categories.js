@@ -434,5 +434,71 @@ export const PROMPT_CATEGORIES = {
       aspectRatio: '9:16',
       durationSeconds: 30
     }
+  },
+
+  moral_talk_slideshow: {
+    key: 'moral_talk_slideshow',
+    type: 'slideshow',
+    label: 'Video Nói Chuyện Đạo Lý',
+    icon: '🗣️',
+    description: 'Kể một tình huống đời thường rút ra bài học sống (đạo lý), minh hoạ bằng pictogram trắng phát sáng trên nền đen, hỗ trợ lồng tiếng & phụ đề song ngữ Việt-Anh, linh hoạt chọn ngôn ngữ đọc chính.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'narrationLanguage',
+        label: 'Ngôn ngữ đọc chính (lồng tiếng)',
+        type: 'select',
+        required: true,
+        defaultValue: 'vi',
+        options: [
+          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' },
+          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' }
+        ]
+      },
+      {
+        key: 'moralTheme',
+        label: 'Nhóm chủ đề gợi ý',
+        type: 'moral-theme-select',
+        required: true,
+        defaultValue: 'self_help'
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / bài học đạo lý muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Lòng biết ơn sẽ luôn được đền đáp',
+        suggestions: [
+          { text: 'Lòng biết ơn sẽ luôn được đền đáp', people: 1 },
+          { text: 'Sự tử tế nhỏ bé có thể thay đổi cả một cuộc đời', people: 1 },
+          { text: 'Kiên trì sẽ luôn được đền đáp xứng đáng', people: 1 },
+          { text: 'Tha thứ là món quà bạn tặng cho chính mình', people: 1 },
+          { text: 'Gia đình luôn là chỗ dựa vững chắc nhất', people: 2 },
+          { text: 'Khiêm tốn học hỏi giúp bạn đi xa hơn', people: 1 },
+          { text: 'Cho đi không cần mong nhận lại', people: 1 },
+          { text: 'Đừng đánh giá người khác qua vẻ bề ngoài', people: 2 },
+          { text: 'Thành công thật sự đến từ sự chân thành', people: 1 },
+          { text: 'Một lời động viên đúng lúc có thể cứu cả một ngày tồi tệ của ai đó', people: 2 },
+          { text: 'Biết đủ là hạnh phúc', people: 1 },
+          { text: 'Đối xử tốt với người khác dù họ không thể trả ơn bạn', people: 2 }
+        ]
+      },
+      { key: 'script', label: 'Gợi ý nội dung câu chuyện (tuỳ chọn — hệ thống sẽ viết lại thành lời kể mạch lạc)', type: 'textarea', required: false, placeholder: 'Một cậu bé thường chia sẻ bữa trưa của mình cho một chú chó hoang đói bụng mỗi ngày. Nhiều năm sau, khi cậu bị lạc trong rừng, chính chú chó ấy (giờ đã lớn) đã tìm và cứu cậu.' }
+    ],
+    defaultStyle: {
+      series: 'Moral Talk Pictogram Slideshow',
+      aspectRatio: '9:16',
+      durationSeconds: 30
+    }
   }
 };

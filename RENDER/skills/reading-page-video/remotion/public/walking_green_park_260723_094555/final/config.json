@@ -1,0 +1,519 @@
+{
+  "projectTitle": "A Peaceful Walk in the Park",
+  "level": "a1",
+  "orientation": "portrait",
+  "image": "walking_green_park_260723_094555/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "walking_green_park_260723_094555/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "A Peaceful Walk in the Park",
+  "body": "Anna walks in a large green park. The sun shines brightly in the blue sky. Warm sunlight shines through the tall green trees. Beautiful yellow and red flowers bloom everywhere. Anna walks slowly on the clean stone path. She feels very happy and quiet today. Birds sing sweet songs in the branches. A gentle wind blows through her dark hair. She stops and looks at a small lake. Some ducks swim peacefully in the cool water. Anna smiles and takes a deep breath. The park is a wonderful place to relax. She loves her peaceful morning walk very much.\nAnna đi dạo trong một công viên xanh mướt rộng lớn. Mặt trời tỏa sáng rực rỡ trên bầu trời xanh. Ánh nắng ấm áp chiếu qua những hàng cây xanh cao vút. Những bông hoa màu vàng và màu đỏ đẹp đẽ nở rộ khắp nơi. Anna thong thả bước đi trên con đường lát đá sạch sẽ. Cô cảm thấy rất hạnh phúc và bình yên hôm nay. Những chú chim hót những bài hát líu lo trên cành cây. Một làn gió nhẹ thổi qua mái tóc đen của cô. Cô dừng lại và ngắm nhìn một hồ nước nhỏ. Mấy chú vịt bơi lội bình yên trên làn nước mát lành. Anna mỉm cười và hít một hơi thật sâu. Công viên là một nơi tuyệt vời để thư giãn. Cô rất yêu thích buổi đi dạo buổi sáng bình yên của mình.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFontSize": 43,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "captionBgOpacity": 100,
+  "heroHeightPercent": 20,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "wordTimings": [
+    {
+      "word": "Anna",
+      "start": 0.1,
+      "end": 0.42500000000000004
+    },
+    {
+      "word": "walks",
+      "start": 0.4375,
+      "end": 0.8625
+    },
+    {
+      "word": "in",
+      "start": 0.875,
+      "end": 1.0125
+    },
+    {
+      "word": "a",
+      "start": 1.025,
+      "end": 1.0875
+    },
+    {
+      "word": "large",
+      "start": 1.1,
+      "end": 1.5750000000000002
+    },
+    {
+      "word": "green",
+      "start": 1.5875,
+      "end": 1.95
+    },
+    {
+      "word": "park",
+      "start": 1.9625,
+      "end": 2.4499999999999997
+    },
+    {
+      "word": "The",
+      "start": 3.3125,
+      "end": 3.475
+    },
+    {
+      "word": "sun",
+      "start": 3.4875,
+      "end": 3.8249999999999997
+    },
+    {
+      "word": "shines",
+      "start": 3.8375,
+      "end": 4.325
+    },
+    {
+      "word": "brightly",
+      "start": 4.3375,
+      "end": 4.8875
+    },
+    {
+      "word": "in",
+      "start": 4.9,
+      "end": 5.0375000000000005
+    },
+    {
+      "word": "the",
+      "start": 5.05,
+      "end": 5.1499999999999995
+    },
+    {
+      "word": "blue",
+      "start": 5.1625,
+      "end": 5.4375
+    },
+    {
+      "word": "sky",
+      "start": 5.45,
+      "end": 5.925
+    },
+    {
+      "word": "Warm",
+      "start": 6.7875,
+      "end": 7.199999999999999
+    },
+    {
+      "word": "sunlight",
+      "start": 7.2125,
+      "end": 7.8375
+    },
+    {
+      "word": "shines",
+      "start": 7.85,
+      "end": 8.4
+    },
+    {
+      "word": "through",
+      "start": 8.4125,
+      "end": 8.612499999999999
+    },
+    {
+      "word": "the",
+      "start": 8.625,
+      "end": 8.75
+    },
+    {
+      "word": "tall",
+      "start": 8.7625,
+      "end": 9.112499999999999
+    },
+    {
+      "word": "green",
+      "start": 9.125,
+      "end": 9.5375
+    },
+    {
+      "word": "trees",
+      "start": 9.55,
+      "end": 10.125
+    },
+    {
+      "word": "Beautiful",
+      "start": 10.9875,
+      "end": 11.5875
+    },
+    {
+      "word": "yellow",
+      "start": 11.6,
+      "end": 12.0875
+    },
+    {
+      "word": "and",
+      "start": 12.1,
+      "end": 12.325
+    },
+    {
+      "word": "red",
+      "start": 12.3375,
+      "end": 12.5875
+    },
+    {
+      "word": "flowers",
+      "start": 12.6,
+      "end": 13.1875
+    },
+    {
+      "word": "bloom",
+      "start": 13.2,
+      "end": 13.587499999999999
+    },
+    {
+      "word": "everywhere",
+      "start": 13.6,
+      "end": 14.299999999999999
+    },
+    {
+      "word": "Anna",
+      "start": 15.1625,
+      "end": 15.487499999999999
+    },
+    {
+      "word": "walks",
+      "start": 15.5,
+      "end": 15.925
+    },
+    {
+      "word": "slowly",
+      "start": 15.9375,
+      "end": 16.525
+    },
+    {
+      "word": "on",
+      "start": 16.5375,
+      "end": 16.700000000000003
+    },
+    {
+      "word": "the",
+      "start": 16.7125,
+      "end": 16.799999999999997
+    },
+    {
+      "word": "clean",
+      "start": 16.8125,
+      "end": 17.2
+    },
+    {
+      "word": "stone",
+      "start": 17.2125,
+      "end": 17.6375
+    },
+    {
+      "word": "path",
+      "start": 17.65,
+      "end": 18.099999999999998
+    },
+    {
+      "word": "She",
+      "start": 18.9625,
+      "end": 19.224999999999998
+    },
+    {
+      "word": "feels",
+      "start": 19.2375,
+      "end": 19.625
+    },
+    {
+      "word": "very",
+      "start": 19.6375,
+      "end": 20.05
+    },
+    {
+      "word": "happy",
+      "start": 20.0625,
+      "end": 20.525
+    },
+    {
+      "word": "and",
+      "start": 20.5375,
+      "end": 20.712500000000002
+    },
+    {
+      "word": "quiet",
+      "start": 20.725,
+      "end": 21.212500000000002
+    },
+    {
+      "word": "today",
+      "start": 21.225,
+      "end": 21.675
+    },
+    {
+      "word": "Birds",
+      "start": 22.5375,
+      "end": 22.950000000000003
+    },
+    {
+      "word": "sing",
+      "start": 22.9625,
+      "end": 23.287499999999998
+    },
+    {
+      "word": "sweet",
+      "start": 23.3,
+      "end": 23.712500000000002
+    },
+    {
+      "word": "songs",
+      "start": 23.725,
+      "end": 24.212500000000002
+    },
+    {
+      "word": "in",
+      "start": 24.225,
+      "end": 24.3625
+    },
+    {
+      "word": "the",
+      "start": 24.375,
+      "end": 24.4625
+    },
+    {
+      "word": "branches",
+      "start": 24.475,
+      "end": 25.225
+    },
+    {
+      "word": "A",
+      "start": 26.0875,
+      "end": 26.2125
+    },
+    {
+      "word": "gentle",
+      "start": 26.225,
+      "end": 26.75
+    },
+    {
+      "word": "wind",
+      "start": 26.7625,
+      "end": 27.15
+    },
+    {
+      "word": "blows",
+      "start": 27.1625,
+      "end": 27.6
+    },
+    {
+      "word": "through",
+      "start": 27.6125,
+      "end": 27.837500000000002
+    },
+    {
+      "word": "her",
+      "start": 27.85,
+      "end": 28.0375
+    },
+    {
+      "word": "dark",
+      "start": 28.05,
+      "end": 28.4125
+    },
+    {
+      "word": "hair",
+      "start": 28.425,
+      "end": 28.837500000000002
+    },
+    {
+      "word": "She",
+      "start": 29.7,
+      "end": 29.9625
+    },
+    {
+      "word": "stops",
+      "start": 29.975,
+      "end": 30.5
+    },
+    {
+      "word": "and",
+      "start": 30.5125,
+      "end": 30.724999999999998
+    },
+    {
+      "word": "looks",
+      "start": 30.7375,
+      "end": 31.025000000000002
+    },
+    {
+      "word": "at",
+      "start": 31.0375,
+      "end": 31.1875
+    },
+    {
+      "word": "a",
+      "start": 31.2,
+      "end": 31.2625
+    },
+    {
+      "word": "small",
+      "start": 31.275,
+      "end": 31.737499999999997
+    },
+    {
+      "word": "lake",
+      "start": 31.75,
+      "end": 32.15
+    },
+    {
+      "word": "Some",
+      "start": 33.0125,
+      "end": 33.4125
+    },
+    {
+      "word": "ducks",
+      "start": 33.425,
+      "end": 33.787499999999994
+    },
+    {
+      "word": "swim",
+      "start": 33.8,
+      "end": 34.162499999999994
+    },
+    {
+      "word": "peacefully",
+      "start": 34.175,
+      "end": 34.824999999999996
+    },
+    {
+      "word": "in",
+      "start": 34.8375,
+      "end": 34.9625
+    },
+    {
+      "word": "the",
+      "start": 34.975,
+      "end": 35.075
+    },
+    {
+      "word": "cool",
+      "start": 35.0875,
+      "end": 35.425
+    },
+    {
+      "word": "water",
+      "start": 35.4375,
+      "end": 35.9
+    },
+    {
+      "word": "Anna",
+      "start": 36.7625,
+      "end": 37.087500000000006
+    },
+    {
+      "word": "smiles",
+      "start": 37.1,
+      "end": 37.725
+    },
+    {
+      "word": "and",
+      "start": 37.7375,
+      "end": 37.9375
+    },
+    {
+      "word": "takes",
+      "start": 37.95,
+      "end": 38.275000000000006
+    },
+    {
+      "word": "a",
+      "start": 38.2875,
+      "end": 38.4125
+    },
+    {
+      "word": "deep",
+      "start": 38.425,
+      "end": 38.7125
+    },
+    {
+      "word": "breath",
+      "start": 38.725,
+      "end": 39.175000000000004
+    },
+    {
+      "word": "The park",
+      "start": 40.0375,
+      "end": 40.625
+    },
+    {
+      "word": "is",
+      "start": 40.6375,
+      "end": 40.800000000000004
+    },
+    {
+      "word": "a",
+      "start": 40.8125,
+      "end": 40.9
+    },
+    {
+      "word": "wonderful",
+      "start": 40.9125,
+      "end": 41.5375
+    },
+    {
+      "word": "place",
+      "start": 41.55,
+      "end": 41.949999999999996
+    },
+    {
+      "word": "to",
+      "start": 41.9625,
+      "end": 42.125
+    },
+    {
+      "word": "relax",
+      "start": 42.1375,
+      "end": 42.825
+    },
+    {
+      "word": "She",
+      "start": 43.6875,
+      "end": 43.95
+    },
+    {
+      "word": "loves",
+      "start": 43.9625,
+      "end": 44.3375
+    },
+    {
+      "word": "her",
+      "start": 44.35,
+      "end": 44.5
+    },
+    {
+      "word": "peaceful",
+      "start": 44.5125,
+      "end": 45.0125
+    },
+    {
+      "word": "morning",
+      "start": 45.025,
+      "end": 45.449999999999996
+    },
+    {
+      "word": "walk",
+      "start": 45.4625,
+      "end": 45.8125
+    },
+    {
+      "word": "very",
+      "start": 45.825,
+      "end": 46.1875
+    },
+    {
+      "word": "much",
+      "start": 46.2,
+      "end": 46.6875
+    }
+  ],
+  "bgMusic": "walking_green_park_260723_094555/audio/bg-music.mp3",
+  "bgMusicVolume": 0.1
+}

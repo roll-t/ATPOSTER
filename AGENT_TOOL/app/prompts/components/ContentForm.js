@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CharacterPicker from './CharacterPicker.js';
 import StylePicker from './StylePicker.js';
 import LayoutPicker from './LayoutPicker.js';
 import SyllabusModal from './SyllabusModal.js';
+import MoralSyllabusModal from './MoralSyllabusModal.js';
+import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
 
@@ -76,6 +78,59 @@ function LevelPicker({ field, value, onChange }) {
   );
 }
 
+function MoralThemePicker({ value, onChange }) {
+  const options = [
+    { value: 'self_help', label: 'Self-Help', sublabel: 'Động lực & Kỷ luật', icon: '💪' },
+    { value: 'top_lists', label: 'Top Những Thứ', sublabel: 'Cảnh báo & Mẹo', icon: '📌' },
+    { value: 'rules_of_life', label: 'Quy Tắc Ứng Xử', sublabel: 'Giao tiếp & Kỹ năng', icon: '🤝' }
+  ];
+
+  const currentVal = value || 'self_help';
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+      {options.map(opt => {
+        const isSelected = currentVal === opt.value;
+        return (
+          <button
+            type="button"
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            style={{
+              padding: '10px 4px',
+              borderRadius: '10px',
+              border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
+              background: isSelected ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              boxShadow: isSelected ? '0 4px 14px rgba(37, 244, 238, 0.2)' : 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease-in-out',
+              fontFamily: 'inherit',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
+              <span style={{ fontWeight: 800, fontSize: '0.82rem', color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap' }}>
+                {opt.label}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.66rem', color: isSelected ? 'rgba(255,255,255,0.9)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
+              {opt.sublabel}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+
 export default function ContentForm({
   category, activeCategory, currentInput,
   useGemini, setUseGemini, durationRange, setDurationRange,
@@ -95,17 +150,45 @@ export default function ContentForm({
       .filter(Boolean)
   );
 
+  // Reset suggestions for moral_talk_slideshow when theme changes
+  useEffect(() => {
+    if (activeCategory === 'moral_talk_slideshow') {
+      setDynamicSuggestions(prev => ({ ...prev, scenario: [] }));
+      setSuggestionSubsets(prev => {
+        const themeKey = currentInput.moralTheme || 'self_help';
+        const pool = MORAL_SYLLABUS[themeKey] || [];
+        return {
+          ...prev,
+          scenario: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
+        };
+      });
+    }
+  }, [currentInput.moralTheme, activeCategory]);
+
   const shuffleSuggestions = (field) => {
+    let pool = field.suggestions || [];
+    if (activeCategory === 'moral_talk_slideshow' && field.key === 'scenario') {
+      const themeKey = currentInput.moralTheme || 'self_help';
+      pool = MORAL_SYLLABUS[themeKey] || [];
+    }
     setSuggestionSubsets(prev => ({
       ...prev,
-      [field.key]: pickRandomSubset(field.suggestions, VISIBLE_SUGGESTIONS_COUNT)
+      [field.key]: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
     }));
   };
 
   const fetchMoreSuggestions = async (field) => {
     setLoadingSuggestions(prev => ({ ...prev, [field.key]: true }));
     try {
-      const currentList = dynamicSuggestions[field.key] || field.suggestions || [];
+      let currentList = dynamicSuggestions[field.key] || [];
+      if (currentList.length === 0) {
+        if (activeCategory === 'moral_talk_slideshow' && field.key === 'scenario') {
+          const themeKey = currentInput.moralTheme || 'self_help';
+          currentList = MORAL_SYLLABUS[themeKey] || [];
+        } else {
+          currentList = field.suggestions || [];
+        }
+      }
       const res = await fetch('/api/prompts/generate-suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,7 +218,15 @@ export default function ContentForm({
   };
 
   const visibleSuggestions = (field) => {
-    const rawList = dynamicSuggestions[field.key] || suggestionSubsets[field.key] || field.suggestions || [];
+    let rawList = dynamicSuggestions[field.key] || suggestionSubsets[field.key];
+    if (!rawList || rawList.length === 0) {
+      if (activeCategory === 'moral_talk_slideshow' && field.key === 'scenario') {
+        const themeKey = currentInput.moralTheme || 'self_help';
+        rawList = MORAL_SYLLABUS[themeKey] || [];
+      } else {
+        rawList = field.suggestions || [];
+      }
+    }
     
     // Lọc loại bỏ hoàn toàn các kịch bản đã từng được tạo trong lịch sử
     const filtered = rawList.filter(sug => {
@@ -162,7 +253,7 @@ export default function ContentForm({
           <span style={{ flexShrink: 0 }}>{category.icon}</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.label}</span>
         </h3>
-        {!isImageCategory && !['stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && (
+        {!isImageCategory && !['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice'].includes(activeCategory) && (
           <button
             type="button"
             onClick={onOpenStyleEditor}
@@ -272,10 +363,10 @@ export default function ContentForm({
                 value={durationRange}
                 onChange={(e) => setDurationRange(e.target.value)}
               >
-                <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
-                <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
-                <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
-                <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '8 - 12 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
               </select>
             </div>
           )}
@@ -289,7 +380,7 @@ export default function ContentForm({
           // Ẩn các trường kịch bản chi tiết thủ công khi bật Gemini AI để làm gọn giao diện
           const isHiddenForGemini = effectiveUseGemini && (
             (activeCategory === 'english_quiz' && ['options', 'correctAnswer', 'explanation'].includes(field.key)) ||
-            (['stick_figure', 'stick_figure_slideshow', 'reading_practice'].includes(activeCategory) && field.key === 'script') ||
+            (['stick_figure', 'stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice'].includes(activeCategory) && field.key === 'script') ||
             (activeCategory === 'moral_wisdom' && field.key === 'quote')
           );
           if (isHiddenForGemini) return null;
@@ -304,7 +395,7 @@ export default function ContentForm({
                   {field.label}
                   {field.required && <span style={{ color: 'var(--primary)', marginLeft: '4px' }}>*</span>}
                 </span>
-                {field.key === 'scenario' && activeCategory === 'reading_practice' && (
+                {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow'].includes(activeCategory) && (
                   <button
                     type="button"
                     onClick={() => setIsSyllabusModalOpen(true)}
@@ -324,7 +415,10 @@ export default function ContentForm({
                       flexShrink: 0
                     }}
                   >
-                    📚 Lộ trình 50 bài ({currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})
+                    {activeCategory === 'reading_practice'
+                      ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
+                      : `📚 Lộ trình 50 chủ đề (${(currentInput.moralTheme === 'self_help' ? 'Self-help' : currentInput.moralTheme === 'top_lists' ? 'Top những thứ' : 'Quy tắc ứng xử')})`
+                    }
                   </button>
                 )}
                 {field.type === 'style-select' && (
@@ -413,6 +507,11 @@ export default function ContentForm({
                   value={currentInput[field.key]}
                   onChange={(val) => onFieldChange(field.key, val)}
                 />
+              ) : field.type === 'moral-theme-select' ? (
+                <MoralThemePicker
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
               ) : field.type === 'select' ? (
                 <select
                   className="form-control"
@@ -444,7 +543,7 @@ export default function ContentForm({
                 />
               )}
               
-              {Array.isArray(field.suggestions) && field.suggestions.length > 0 && (
+              {((Array.isArray(field.suggestions) && field.suggestions.length > 0 && activeCategory !== 'moral_talk_slideshow') && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
                   {visibleSuggestions(field).map(sug => {
                     const text = suggestionText(sug);
@@ -477,7 +576,7 @@ export default function ContentForm({
                   >
                     {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
                   </button>
-                  {field.key === 'scenario' && activeCategory === 'reading_practice' && (
+                  {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow'].includes(activeCategory) && (
                     <button
                       type="button"
                       onClick={() => setIsSyllabusModalOpen(true)}
@@ -490,11 +589,14 @@ export default function ContentForm({
                         cursor: 'pointer'
                       }}
                     >
-                      📚 Xem danh sách 50 bài học ({currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})
+                      {activeCategory === 'reading_practice'
+                        ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
+                        : `📚 Xem danh sách 50 chủ đề (${(currentInput.moralTheme === 'self_help' ? 'Self-help' : currentInput.moralTheme === 'top_lists' ? 'Top những thứ' : 'Quy tắc ứng xử')})`
+                      }
                     </button>
                   )}
                 </div>
-              )}
+              ))}
             </div>
           );
         })}
@@ -561,6 +663,17 @@ export default function ContentForm({
           isOpen={isSyllabusModalOpen}
           onClose={() => setIsSyllabusModalOpen(false)}
           currentLevel={currentInput.level || 'a2'}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
+
+      {/* Modal Lộ trình 50 chủ đề cho mỗi nhóm (áp dụng cho Nói Chuyện Đạo Lý) */}
+      {activeCategory === 'moral_talk_slideshow' && (
+        <MoralSyllabusModal
+          isOpen={isSyllabusModalOpen}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          currentTheme={currentInput.moralTheme || 'self_help'}
           onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
           history={history}
         />

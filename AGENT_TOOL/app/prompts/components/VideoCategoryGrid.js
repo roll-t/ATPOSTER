@@ -17,12 +17,20 @@ const CARD_CONFIGS = {
     badgeBg: 'linear-gradient(135deg, #00f2fe, #4ade80)',
     accentColor: '#25f4ee',
     glowColor: 'rgba(37, 244, 238, 0.25)',
+    buttonTextColor: '#000',
     tags: ['🎤 Giọng Đọc Tô Sáng Karaoke', '🇻🇳 Vietsub Tự Động', '📖 Lộ Trình 300 Bài CEFR']
+  },
+  moral_talk_slideshow: {
+    badge: '🇻🇳 LỒNG TIẾNG VIỆT',
+    badgeBg: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
+    accentColor: '#a78bfa',
+    glowColor: 'rgba(167, 139, 250, 0.25)',
+    tags: ['✨ Pictogram Phát Sáng', '🇻🇳🇬🇧 Việt/Anh Linh Hoạt', '🎙️ Lồng Tiếng Tự Động']
   }
 };
 
 export default function VideoCategoryGrid({ onSelectCategory }) {
-  const allCategoryKeys = ['stick_figure_slideshow', 'reading_practice'].filter(k => PROMPT_CATEGORIES[k]);
+  const allCategoryKeys = ['stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow'].filter(k => PROMPT_CATEGORIES[k]);
 
   return (
     <div style={{ padding: '8px 8px 36px 8px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -214,10 +222,8 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                   <div style={{
                     padding: '8px 18px',
                     borderRadius: '10px',
-                    background: cfg.accentColor === '#fe2c55'
-                      ? 'linear-gradient(135deg, #fe2c55, #ff0055)'
-                      : 'linear-gradient(135deg, #00f2fe, #4ade80)',
-                    color: cfg.accentColor === '#fe2c55' ? '#fff' : '#000',
+                    background: cfg.badgeBg || 'linear-gradient(135deg, #fe2c55, #ff0055)',
+                    color: cfg.buttonTextColor || '#fff',
                     fontSize: '0.85rem',
                     fontWeight: 900,
                     display: 'flex',

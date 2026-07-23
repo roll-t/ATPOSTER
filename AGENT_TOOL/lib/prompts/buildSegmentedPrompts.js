@@ -9,7 +9,8 @@ const CATEGORY_ENGLISH_LABELS = {
   english_tips: 'English Tips Video',
   character_ref: 'Character Reference Image',
   stick_figure_slideshow: 'Stick Figure Slideshow Image',
-  reading_practice: 'Reading Practice Page Image'
+  reading_practice: 'Reading Practice Page Image',
+  moral_talk_slideshow: 'Moral Talk Pictogram Slideshow Image'
 };
 
 /**
@@ -83,60 +84,63 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
         textPrompt
       };
     });
+  }
 
-    // --- Bổ sung Slot cuối cùng: Ảnh Thu Nhỏ YouTube (YouTube Thumbnail) ---
-    const thumbnailData = input.thumbnail || {};
-    const thumbnailVisual = thumbnailData.visualDescription ||
-      `High-impact, eye-catching YouTube thumbnail illustration in minimalist hand-drawn whiteboard line-art style on plain white background. Summarizing the core emotional dilemma and theme of "${title}". The stick figure character dramatically depicting the central challenge: "${input.scenario || title}", featuring strong visual contrast, expressive gestures, curiosity-inducing composition, and a bold 2-4 word headline text on a banner/sign for maximum Click-Through Rate (CTR) on YouTube (16:9 widescreen).`;
+  // --- Nếu là Video Nói Chuyện Đạo Lý (pictogram trắng phát sáng trên nền đen) ---
+  // Nhánh RIÊNG, tách biệt hoàn toàn khỏi stick_figure_slideshow ở trên — không dùng chung
+  // IMAGE_STYLES.stick_figure (đó là nét vẽ tay đen trên nền trắng), và KHÔNG có khái niệm
+  // nhân vật cố định xuyên suốt — mỗi slide là 1 nhóm pictogram tượng trưng riêng cho khoảnh
+  // khắc đang kể (đúng tinh thần bộ icon "Human Pictogram" tham chiếu).
+  if (categoryKey === 'moral_talk_slideshow') {
+    const selectedAspectRatio = input.aspectRatio || '9:16';
+    const visualStyle = 'Minimalist glowing white pictogram icon style on a solid pure black background. Simple flat white human-silhouette figures (no facial detail, no outline stroke, solid white fill) with a soft white outer glow/bloom, exactly like professional pictogram icon sets used in presentations. Include simple symbolic prop icons in the same white-glow style when needed (question marks, exclamation marks, speech bubbles, hearts, arrows, luggage, flags) to reinforce the moment being narrated. No text, no color, no shading detail, no background scenery — pure black background with only the glowing white silhouette figures and props, centered composition, generous negative space.';
+    const background = 'Solid pure black background, no scenery, no props other than simple white-glow symbolic icons that directly support the moment.';
+    const colorPalette = ['#000000 (background)', '#FFFFFF (glowing pictogram figures/icons)'];
+    const paletteList = colorPalette.join(', ');
+    const sceneRenderNote = 'This is a single static symbolic pictogram frame (NOT a character reference sheet, NOT a hand-drawn illustration) — depict only simple glowing white silhouette figures/icons on solid black, exactly like a professional pictogram icon set, with no labeled callouts, no arrows-as-annotations, no text of any kind anywhere in the image.';
 
-    const thumbnailSegNumber = mappedPrompts.length + 1;
-    const thumbnailHeadline = thumbnailData.headlineText ? ` [Key Text: ${thumbnailData.headlineText}]` : '';
+    return segments.map(seg => {
+      const jsonPrompt = {
+        title: `${title} - Slide ${seg.segmentNumber}`,
+        category: 'Moral Talk Pictogram Slideshow',
+        image_style: 'Glowing White Pictogram (Black Background)',
+        aspect_ratio: selectedAspectRatio,
+        style: {
+          visual_style: visualStyle,
+          background,
+          color_palette: colorPalette,
+          render_note: sceneRenderNote
+        },
+        scene: {
+          setting: seg.visualDescription
+        },
+        audio: {
+          dialogue_lines: [seg.dialogueOrNarration]
+        },
+        on_screen_captions: {
+          subtitle: seg.subtitle
+        }
+      };
 
-    const thumbnailJsonPrompt = {
-      title: `${title} - Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)`,
-      category: 'YouTube Thumbnail Image',
-      image_style: imageStyle.label,
-      aspect_ratio: selectedAspectRatio,
-      style: {
-        visual_style: imageStyle.visualStyle,
-        background: imageStyle.background,
-        color_palette: imageStyle.colorPalette,
-        render_note: 'This is a dedicated high-CTR YouTube thumbnail image — make it bold, dramatic, highly emotional, eye-catching, clean, and clear at small size.'
-      },
-      scene: {
-        setting: thumbnailVisual,
-        characters: charactersDescription || 'Main character'
-      },
-      audio: {
-        dialogue_lines: ['[Ảnh Thu Nhỏ YouTube - Thumbnail]']
-      },
-      on_screen_captions: {
-        subtitle: '[Ảnh Thu Nhỏ YouTube - Tóm tắt nội dung]'
-      }
-    };
+      const textPrompt = [
+        `${visualStyle}`,
+        `Scene description: ${seg.visualDescription}.`,
+        `Background setting: ${background}`,
+        `Color palette: ${paletteList}.`,
+        `${sceneRenderNote}`,
+        `Format: aspect ratio ${selectedAspectRatio}.`
+      ].filter(Boolean).join(' ');
 
-    const thumbnailTextPrompt = [
-      `High-impact YouTube thumbnail illustration for "${title}".`,
-      `${imageStyle.visualStyle}.`,
-      `Scene description: ${thumbnailVisual}.`,
-      charactersDescription ? `Featuring characters: ${charactersDescription}.` : '',
-      imageStyle.background ? `Background setting: ${imageStyle.background}.` : '',
-      `Format: aspect ratio ${selectedAspectRatio}.`,
-      `Goal: High CTR YouTube thumbnail summarizing the entire video's story/theme.`
-    ].filter(Boolean).join(' ');
-
-    mappedPrompts.push({
-      segmentNumber: thumbnailSegNumber,
-      isThumbnail: true,
-      durationSeconds: 0,
-      visualDescription: thumbnailVisual,
-      dialogueOrNarration: `🖼️ [Ảnh Thu Nhỏ YouTube - Thumbnail]${thumbnailHeadline}`,
-      subtitle: `🖼️ [Ảnh Thu Nhỏ YouTube - Tóm tắt nội dung & Thu hút lượt xem]`,
-      jsonPrompt: thumbnailJsonPrompt,
-      textPrompt: thumbnailTextPrompt
+      return {
+        segmentNumber: seg.segmentNumber,
+        durationSeconds: 10,
+        visualDescription: seg.visualDescription,
+        dialogueOrNarration: seg.dialogueOrNarration,
+        subtitle: seg.subtitle,
+        jsonPrompt,
+        textPrompt
+      };
     });
-
-    return mappedPrompts;
   }
 
   // --- Nếu là Trang Đọc Luyện Tiếng Anh (graded reader, có ảnh Hero minh hoạ phía trên và trang đọc phía dưới) ---

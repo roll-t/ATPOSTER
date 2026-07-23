@@ -67,6 +67,7 @@ export const Scene: React.FC<{
   captionFontSize: SlideshowVideoProps["captionFontSize"];
   captionTextColor: SlideshowVideoProps["captionTextColor"];
   captionBgColor: SlideshowVideoProps["captionBgColor"];
+  highlightColor: SlideshowVideoProps["highlightColor"];
   showBilingual: boolean;
   fontFamily: string;
 }> = ({
@@ -86,6 +87,7 @@ export const Scene: React.FC<{
   captionFontSize,
   captionTextColor,
   captionBgColor,
+  highlightColor,
   showBilingual,
   fontFamily,
 }) => {
@@ -139,6 +141,7 @@ export const Scene: React.FC<{
         captionFontSize={captionFontSize}
         captionTextColor={captionTextColor}
         captionBgColor={captionBgColor}
+        highlightColor={highlightColor}
         showBilingual={showBilingual}
         durationInFrames={sceneDurationInFrames}
         wordTimings={scene.wordTimings}

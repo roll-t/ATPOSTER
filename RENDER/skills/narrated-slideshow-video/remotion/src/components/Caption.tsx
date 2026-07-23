@@ -27,6 +27,17 @@ function splitWords(text: string): string[] {
   return text.trim().split(/\s+/).filter(Boolean);
 }
 
+// Gemini có thể chèn [emotion tag] (vd "[warmly]", "[pause]") vào lời kể để hướng dẫn giọng đọc
+// TTS diễn cảm hơn (xem voiceover/route.js, nơi các tag này được strip trước khi gửi cho TTS
+// tổng hợp giọng) — nhưng field hiển thị trên màn hình (subtitle/caption) là 1 field RIÊNG mà
+// Gemini không phải lúc nào cũng tách bạch tuyệt đối khỏi narration, nên đôi khi tag lọt vào và
+// bị đọc-hiển-thị ra thành chữ trên video. Strip ở đây là lớp bảo vệ cuối cùng tại chính nơi
+// render — đảm bảo tag không bao giờ hiện thành text dù lọt qua từ bất kỳ nguồn nào (kịch bản
+// Gemini, chỉnh tay JSON cấu hình Remotion...), thay vì phải sửa từng nơi ghi ra caption.
+function stripEmotionTags(text: string): string {
+  return text.replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 // Splits text into exactly `count` chunks (by word count, as evenly as
 // possible) rather than by a fixed words-per-chunk size — used for the
 // secondary (translation) line so it always has the same number of chunks
@@ -186,6 +197,7 @@ export const Caption: React.FC<{
   captionFontSize?: SlideshowVideoProps["captionFontSize"];
   captionTextColor?: SlideshowVideoProps["captionTextColor"];
   captionBgColor?: SlideshowVideoProps["captionBgColor"];
+  highlightColor?: SlideshowVideoProps["highlightColor"];
   showBilingual: boolean;
   durationInFrames: number;
   wordTimings?: WordTiming[];
@@ -201,6 +213,7 @@ export const Caption: React.FC<{
   captionFontSize,
   captionTextColor,
   captionBgColor,
+  highlightColor: highlightColorOverride,
   showBilingual,
   durationInFrames,
   wordTimings,
@@ -215,7 +228,7 @@ export const Caption: React.FC<{
   // (e.g. English) line, a literal "\n", then the secondary (e.g.
   // Vietnamese) translation line. A caption with no "\n" behaves exactly
   // as before — single line, no schema/config changes needed to opt in.
-  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => s.trim());
+  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => stripEmotionTags(s));
   const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
 
   const allWords = splitWords(primaryTextRaw);
@@ -265,6 +278,10 @@ export const Caption: React.FC<{
   const primaryColor = captionTextColor || (isPage ? "#2A2118" : "#FFFFFF");
   const isTransparentBg = captionBgColor === "transparent";
   const boxBgColor = captionBgColor || (isPage ? "#FBF3E3" : "rgba(10, 10, 14, 0.72)");
+  // CapCut-style override for the karaoke/page active-word highlight pill — same
+  // optional-override contract as captionTextColor/captionBgColor above (unset
+  // keeps each style's own built-in default).
+  const resolvedHighlightColor = highlightColorOverride || (isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : undefined);
 
   const primaryLine = (
     <CaptionLine
@@ -276,7 +293,7 @@ export const Caption: React.FC<{
       lineHeight={isPage ? 1.55 : 1.35}
       strokeColor={isTiktok ? "#000000" : undefined}
       highlightIndex={highlightsWords ? localActiveIndex : undefined}
-      highlightColor={isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : undefined}
+      highlightColor={resolvedHighlightColor}
       highlightTextColor={isPage ? "#2A2118" : "#FFFFFF"}
     />
   );

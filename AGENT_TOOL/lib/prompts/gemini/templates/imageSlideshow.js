@@ -60,7 +60,7 @@ NARRATION SCRIPT GUIDELINES:
 4. ${isBilingual
     ? 'Subtitle language: for EVERY segment, the "subtitle" field must contain the English line, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line (e.g. "Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ."). Keep the Vietnamese translation short and natural, matching the meaning of the English line above it — do not translate dialogueOrNarration, only subtitle.'
     : 'Display the English-only subtitle/text clearly.'}
-5. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g., "[sighs] So many people struggle with this every day.", "[softly] But it does not have to stay this way."). Use standard tags like [sighs], [softly], [gasp], [whispering], [pause]. Do not include Vietnamese emotional tags, only English ones.
+5. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g., "[sighs] So many people struggle with this every day.", "[softly] But it does not have to stay this way."). Use standard tags like [sighs], [softly], [gasp], [whispering], [pause]. Do not include Vietnamese emotional tags, only English ones. IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).
 
 
 YÊU CẦU BẮT BUỘC DÀNH CHO ẢNH THU NHỎ YOUTUBE (YOUTUBE THUMBNAIL):

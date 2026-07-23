@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/lib/db.js';
 import { synthesizeEdgeTts } from '@/lib/tts/edgeTts.js';
 import { parseElevenlabsAccounts } from '@/app/api/prompts/voiceover/route.js';
-import { synthesizeGeminiTts } from '@/lib/tts/geminiTts.js';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
+import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
 
 // Câu mẫu ngắn để "nghe thử" 1 giọng trước khi dùng thật cho cả video — không ghi ra đĩa,
 // không đụng tới project/manifest nào, chỉ trả thẳng audio base64 để phát ngay trên trình duyệt.
 const DEFAULT_PREVIEW_TEXT = {
   en: 'Hello, this is a quick preview of this voice.',
-  vi: 'Xin chào, đây là đoạn nghe thử của giọng đọc này.',
+  vi: 'Kẻ yếu chạy theo hào quang của người khác, kẻ mạnh tự thắp lửa trong tâm.',
 };
 
 function guessPreviewLang(voiceId) {
-  return typeof voiceId === 'string' && voiceId.toLowerCase().startsWith('vi-') ? 'vi' : 'en';
+  const vid = String(voiceId || '').toLowerCase();
+  return vid.startsWith('vi-') || vid.startsWith('vi_') || vid.startsWith('multi_') || vid.startsWith('bv') ? 'vi' : 'en';
 }
 
 export async function POST(request) {
@@ -28,8 +28,20 @@ export async function POST(request) {
     }
 
     if (provider === 'edge') {
-      const sampleText = (text && text.trim()) || DEFAULT_PREVIEW_TEXT[guessPreviewLang(voiceId)];
-      const { buffer } = await synthesizeEdgeTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
+      const rawSampleText = (text && text.trim()) || DEFAULT_PREVIEW_TEXT[guessPreviewLang(voiceId)];
+      const sampleText = rawSampleText
+        .replace(/^[A-Za-z0-9\s]+:\s*/, '')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      let buffer;
+      if (isCapcutVoice(voiceId)) {
+        const result = await synthesizeCapcutTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
+        buffer = result.buffer;
+      } else {
+        const result = await synthesizeEdgeTts({ text: sampleText, voice: voiceId, readingSpeed: 'medium' });
+        buffer = result.buffer;
+      }
       return NextResponse.json({
         success: true,
         audioBase64: buffer.toString('base64'),

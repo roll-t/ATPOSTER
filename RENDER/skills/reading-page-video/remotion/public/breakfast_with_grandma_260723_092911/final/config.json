@@ -1,0 +1,454 @@
+{
+  "projectTitle": "A Warm Breakfast with Grandma",
+  "level": "a1",
+  "orientation": "portrait",
+  "image": "breakfast_with_grandma_260723_092911/images/scene-01.jpg",
+  "imageFit": "cover",
+  "audio": "breakfast_with_grandma_260723_092911/audio/scene-01.mp3",
+  "audioPaddingSeconds": 0.5,
+  "title": "A Warm Breakfast with Grandma",
+  "body": "It is a beautiful sunny morning today. Leo sits at the big wooden table. His kind grandmother sits next to him. She serves hot green tea and sweet pancakes. Warm steam rises from the food. They smile and talk about their day. Old family photos hang on the cozy wall. Sunlight shines brightly through the window. Leo loves these quiet morning moments. Grandma tells a fun story from the past. Leo listens happily and drinks his tea. Breakfast with grandma is always full of love.\nHôm nay là một buổi sáng nắng đẹp. Leo ngồi ở chiếc bàn gỗ lớn. Người bà tốt bụng của cậu ngồi bên cạnh cậu. Bà dọn trà xanh nóng và bánh kếp ngọt ngào. Hơi nước ấm áp bốc lên từ thức ăn. Họ mỉm cười và trò chuyện về ngày mới. Những bức ảnh gia đình cũ treo trên bức tường ấm cúng. Ánh nắng mặt trời chiếu sáng rực rỡ qua cửa sổ. Leo yêu thích những khoảnh khắc buổi sáng yên bình này. Bà kể một câu chuyện vui từ ngày xưa. Leo vui vẻ lắng nghe và uống trà. Bữa sáng với bà luôn ngập tràn tình yêu thương.",
+  "showBilingual": true,
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionFontSize": 43,
+  "captionTextColor": "#241C10",
+  "captionBgColor": "#F3EAD9",
+  "captionBgOpacity": 100,
+  "heroHeightPercent": 20,
+  "titleHeightPercent": 8,
+  "bodyHeightPercent": 56,
+  "titleFontSize": 65,
+  "titleBodyGap": 1,
+  "contentPaddingPercent": 5,
+  "bodyAlign": "justify",
+  "wordTimings": [
+    {
+      "word": "It",
+      "start": 0.1,
+      "end": 0.25
+    },
+    {
+      "word": "is",
+      "start": 0.2625,
+      "end": 0.4
+    },
+    {
+      "word": "a",
+      "start": 0.4125,
+      "end": 0.5
+    },
+    {
+      "word": "beautiful",
+      "start": 0.5125,
+      "end": 1.1124999999999998
+    },
+    {
+      "word": "sunny",
+      "start": 1.125,
+      "end": 1.4875
+    },
+    {
+      "word": "morning",
+      "start": 1.5,
+      "end": 1.9625
+    },
+    {
+      "word": "today",
+      "start": 1.975,
+      "end": 2.4375
+    },
+    {
+      "word": "Leo",
+      "start": 3.3,
+      "end": 3.6875
+    },
+    {
+      "word": "sits",
+      "start": 3.7,
+      "end": 4.075
+    },
+    {
+      "word": "at",
+      "start": 4.0875,
+      "end": 4.2250000000000005
+    },
+    {
+      "word": "the",
+      "start": 4.2375,
+      "end": 4.35
+    },
+    {
+      "word": "big",
+      "start": 4.3625,
+      "end": 4.6875
+    },
+    {
+      "word": "wooden",
+      "start": 4.7,
+      "end": 5.025
+    },
+    {
+      "word": "table",
+      "start": 5.0375,
+      "end": 5.5625
+    },
+    {
+      "word": "His",
+      "start": 6.425,
+      "end": 6.6499999999999995
+    },
+    {
+      "word": "kind",
+      "start": 6.6625,
+      "end": 7.0375
+    },
+    {
+      "word": "grandmother",
+      "start": 7.05,
+      "end": 7.7124999999999995
+    },
+    {
+      "word": "sits",
+      "start": 7.725,
+      "end": 8.0625
+    },
+    {
+      "word": "next",
+      "start": 8.075,
+      "end": 8.462499999999999
+    },
+    {
+      "word": "to",
+      "start": 8.475,
+      "end": 8.575
+    },
+    {
+      "word": "him",
+      "start": 8.5875,
+      "end": 8.9375
+    },
+    {
+      "word": "She",
+      "start": 9.8,
+      "end": 10.05
+    },
+    {
+      "word": "serves",
+      "start": 10.0625,
+      "end": 10.475
+    },
+    {
+      "word": "hot",
+      "start": 10.4875,
+      "end": 10.8375
+    },
+    {
+      "word": "green",
+      "start": 10.85,
+      "end": 11.275
+    },
+    {
+      "word": "tea",
+      "start": 11.2875,
+      "end": 11.65
+    },
+    {
+      "word": "and",
+      "start": 11.6625,
+      "end": 11.875
+    },
+    {
+      "word": "sweet",
+      "start": 11.8875,
+      "end": 12.2875
+    },
+    {
+      "word": "pancakes",
+      "start": 12.3,
+      "end": 13.175
+    },
+    {
+      "word": "Warm",
+      "start": 14.0375,
+      "end": 14.45
+    },
+    {
+      "word": "steam",
+      "start": 14.4625,
+      "end": 14.9375
+    },
+    {
+      "word": "rises",
+      "start": 14.95,
+      "end": 15.487499999999999
+    },
+    {
+      "word": "from",
+      "start": 15.5,
+      "end": 15.725
+    },
+    {
+      "word": "the",
+      "start": 15.7375,
+      "end": 15.8375
+    },
+    {
+      "word": "food",
+      "start": 15.85,
+      "end": 16.3
+    },
+    {
+      "word": "They",
+      "start": 17.1625,
+      "end": 17.375
+    },
+    {
+      "word": "smile",
+      "start": 17.3875,
+      "end": 17.9375
+    },
+    {
+      "word": "and",
+      "start": 17.95,
+      "end": 18.0875
+    },
+    {
+      "word": "talk",
+      "start": 18.1,
+      "end": 18.4375
+    },
+    {
+      "word": "about",
+      "start": 18.45,
+      "end": 18.7625
+    },
+    {
+      "word": "their",
+      "start": 18.775,
+      "end": 18.974999999999998
+    },
+    {
+      "word": "day",
+      "start": 18.9875,
+      "end": 19.35
+    },
+    {
+      "word": "Old",
+      "start": 20.2125,
+      "end": 20.5125
+    },
+    {
+      "word": "family",
+      "start": 20.525,
+      "end": 20.987499999999997
+    },
+    {
+      "word": "photos",
+      "start": 21,
+      "end": 21.525
+    },
+    {
+      "word": "hang",
+      "start": 21.5375,
+      "end": 21.85
+    },
+    {
+      "word": "on",
+      "start": 21.8625,
+      "end": 21.9875
+    },
+    {
+      "word": "the",
+      "start": 22,
+      "end": 22.075
+    },
+    {
+      "word": "cozy",
+      "start": 22.0875,
+      "end": 22.537499999999998
+    },
+    {
+      "word": "wall",
+      "start": 22.55,
+      "end": 22.975
+    },
+    {
+      "word": "Sunlight",
+      "start": 23.8375,
+      "end": 24.487499999999997
+    },
+    {
+      "word": "shines",
+      "start": 24.5,
+      "end": 24.9875
+    },
+    {
+      "word": "brightly",
+      "start": 25,
+      "end": 25.5125
+    },
+    {
+      "word": "through",
+      "start": 25.525,
+      "end": 25.775
+    },
+    {
+      "word": "the",
+      "start": 25.7875,
+      "end": 25.900000000000002
+    },
+    {
+      "word": "window",
+      "start": 25.9125,
+      "end": 26.462500000000002
+    },
+    {
+      "word": "Leo",
+      "start": 27.325,
+      "end": 27.724999999999998
+    },
+    {
+      "word": "loves",
+      "start": 27.7375,
+      "end": 28.150000000000002
+    },
+    {
+      "word": "these",
+      "start": 28.1625,
+      "end": 28.425
+    },
+    {
+      "word": "quiet",
+      "start": 28.4375,
+      "end": 28.8875
+    },
+    {
+      "word": "morning",
+      "start": 28.9,
+      "end": 29.349999999999998
+    },
+    {
+      "word": "moments",
+      "start": 29.3625,
+      "end": 30.05
+    },
+    {
+      "word": "Grandma",
+      "start": 30.9125,
+      "end": 31.387500000000003
+    },
+    {
+      "word": "tells",
+      "start": 31.4,
+      "end": 31.75
+    },
+    {
+      "word": "a",
+      "start": 31.7625,
+      "end": 31.849999999999998
+    },
+    {
+      "word": "fun",
+      "start": 31.8625,
+      "end": 32.1875
+    },
+    {
+      "word": "story",
+      "start": 32.2,
+      "end": 32.6875
+    },
+    {
+      "word": "from",
+      "start": 32.7,
+      "end": 32.925000000000004
+    },
+    {
+      "word": "the",
+      "start": 32.9375,
+      "end": 33.025
+    },
+    {
+      "word": "past",
+      "start": 33.0375,
+      "end": 33.5875
+    },
+    {
+      "word": "Leo",
+      "start": 34.45,
+      "end": 34.825
+    },
+    {
+      "word": "listens",
+      "start": 34.8375,
+      "end": 35.35
+    },
+    {
+      "word": "happily",
+      "start": 35.3625,
+      "end": 35.974999999999994
+    },
+    {
+      "word": "and",
+      "start": 35.9875,
+      "end": 36.15
+    },
+    {
+      "word": "drinks",
+      "start": 36.1625,
+      "end": 36.575
+    },
+    {
+      "word": "his",
+      "start": 36.5875,
+      "end": 36.8125
+    },
+    {
+      "word": "tea",
+      "start": 36.825,
+      "end": 37.175000000000004
+    },
+    {
+      "word": "Breakfast",
+      "start": 38.0375,
+      "end": 38.675000000000004
+    },
+    {
+      "word": "with",
+      "start": 38.6875,
+      "end": 38.8625
+    },
+    {
+      "word": "grandma",
+      "start": 38.875,
+      "end": 39.4625
+    },
+    {
+      "word": "is",
+      "start": 39.475,
+      "end": 39.737500000000004
+    },
+    {
+      "word": "always",
+      "start": 39.75,
+      "end": 40.2125
+    },
+    {
+      "word": "full",
+      "start": 40.225,
+      "end": 40.5
+    },
+    {
+      "word": "of",
+      "start": 40.5125,
+      "end": 40.6625
+    },
+    {
+      "word": "love",
+      "start": 40.675,
+      "end": 41.099999999999994
+    }
+  ],
+  "bgMusic": "breakfast_with_grandma_260723_092911/audio/bg-music.mp3",
+  "bgMusicVolume": 0.06
+}
