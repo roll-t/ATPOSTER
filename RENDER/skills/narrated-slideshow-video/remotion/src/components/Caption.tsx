@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { SlideshowVideoProps, Scene } from "../schema";
 import { resolveCaptionFontFamily } from "../captionFonts";
 
@@ -36,6 +36,15 @@ function splitWords(text: string): string[] {
 // Gemini, chỉnh tay JSON cấu hình Remotion...), thay vì phải sửa từng nơi ghi ra caption.
 function stripEmotionTags(text: string): string {
   return text.replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// captionStyle: "hook" — scenes after the first are often a numbered list
+// item ("1. ...", "2. ..."), since this style targets "top N" listicle-type
+// scripts. The reference design shows the text WITHOUT its number (the card
+// itself is the visual "beat", it doesn't need a redundant digit), so strip
+// a leading "N." / "N)" / "N:" if the caption happens to start with one.
+function stripListNumber(text: string): string {
+  return text.replace(/^\s*\d+[.):]\s*/, "").trim();
 }
 
 // Splits text into exactly `count` chunks (by word count, as evenly as
@@ -188,6 +197,8 @@ const CaptionLine: React.FC<{
 
 export const Caption: React.FC<{
   text: string;
+  sceneIndex?: number;
+  videoTitle?: string;
   position: "top" | "bottom" | "center";
   fontFamily: string;
   mode: "chunked" | "full";
@@ -204,6 +215,8 @@ export const Caption: React.FC<{
   opacity: number;
 }> = ({
   text,
+  sceneIndex = 0,
+  videoTitle,
   position,
   fontFamily,
   mode,
@@ -221,6 +234,28 @@ export const Caption: React.FC<{
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  // captionStyle: "hook" has its own content routing (scene 0 = video title,
+  // every other scene = its own caption) and layout/animation, structurally
+  // separate from the shared box/tiktok/karaoke/page logic below — see
+  // HookCaption's own doc comment.
+  if (style === "hook") {
+    return (
+      <HookCaption
+        text={text}
+        sceneIndex={sceneIndex}
+        videoTitle={videoTitle}
+        fontFamily={fontFamily}
+        captionFont={captionFont}
+        captionFontSize={captionFontSize}
+        captionTextColor={captionTextColor}
+        captionBgColor={captionBgColor}
+        showBilingual={showBilingual}
+        durationInFrames={durationInFrames}
+        opacity={opacity}
+      />
+    );
+  }
 
   if (!text) return null;
 
@@ -364,6 +399,137 @@ export const Caption: React.FC<{
           {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
         </div>
       )}
+    </AbsoluteFill>
+  );
+};
+
+// Slide+fade duration for captionStyle: "hook"'s entrance/exit (~0.4s @
+// 30fps) — independent of the whole-scene crossfade/slide transition in
+// Scene.tsx (that one moves the ENTIRE frame; this one only moves the
+// caption card, so the two layer naturally without conflicting).
+const HOOK_ANIM_FRAMES = 12;
+
+/**
+ * captionStyle: "hook" — a top-anchored dark title card, structurally
+ * separate from the box/tiktok/karaoke/page styles above (no chunking, no
+ * per-word highlight, no bottom/center positioning) rather than threaded
+ * through their shared logic, since its content source differs by scene:
+ * scene 0 shows the video's own `videoTitle` (the "hook", first ~3s of the
+ * video) in a big uppercase headline; every other scene shows its own
+ * `text` (that scene's caption) in a smaller sentence-case card, with any
+ * leading "N." list-number prefix stripped. See schema.ts's captionStyle
+ * doc comment and Scene.tsx (which also nudges the image down for this
+ * style — SceneImage.tsx's topOffsetPercent).
+ */
+const HookCaption: React.FC<{
+  text: string;
+  sceneIndex: number;
+  videoTitle?: string;
+  fontFamily: string;
+  captionFont?: SlideshowVideoProps["captionFont"];
+  captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionTextColor?: SlideshowVideoProps["captionTextColor"];
+  captionBgColor?: SlideshowVideoProps["captionBgColor"];
+  showBilingual: boolean;
+  durationInFrames: number;
+  opacity: number;
+}> = ({
+  text,
+  sceneIndex,
+  videoTitle,
+  fontFamily,
+  captionFont,
+  captionFontSize,
+  captionTextColor,
+  captionBgColor,
+  showBilingual,
+  durationInFrames,
+  opacity,
+}) => {
+  const frame = useCurrentFrame();
+  const isFirstScene = sceneIndex === 0;
+
+  const rawText = isFirstScene && videoTitle ? videoTitle : text;
+  if (!rawText) return null;
+
+  const [primaryTextRaw, secondaryTextRaw] = rawText.split("\n").map((s) => stripEmotionTags(s));
+  // Uppercase the STRING itself in JS (not via CSS text-transform: uppercase below) — Chromium's
+  // CSS uppercase transform doesn't reliably recompose Vietnamese combining diacritics (renders
+  // broken/mismatched tone marks, e.g. "ừ" -> a garbled "Ừ"), while JS's .toUpperCase() produces
+  // proper precomposed Unicode codepoints that render correctly.
+  const primaryText = isFirstScene ? primaryTextRaw.toUpperCase() : stripListNumber(primaryTextRaw);
+  const hasSecondary = !isFirstScene && showBilingual && Boolean(secondaryTextRaw);
+  const secondaryText = hasSecondary ? stripListNumber(secondaryTextRaw) : "";
+
+  if (!primaryText) return null;
+
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const basePrimaryFontSize = isFirstScene ? 52 : 38;
+  const primaryFontSize = captionFontSize
+    ? Math.round(isFirstScene ? captionFontSize * 1.3 : captionFontSize)
+    : basePrimaryFontSize;
+  const secondaryFontSize = Math.round(primaryFontSize * 0.6);
+  const primaryColor = captionTextColor || "#FFFFFF";
+  const isTransparentBg = captionBgColor === "transparent";
+  const boxBgColor = captionBgColor && !isTransparentBg ? captionBgColor : "rgba(8, 8, 11, 0.88)";
+
+  // Entrance (frame 0 -> HOOK_ANIM_FRAMES): fade in + slide down from above.
+  // Exit (last HOOK_ANIM_FRAMES of the scene's own duration): the exact
+  // reverse — fade out + slide back up.
+  const inProgress = Math.min(1, frame / HOOK_ANIM_FRAMES);
+  const outStart = durationInFrames - HOOK_ANIM_FRAMES;
+  const outProgress = frame >= outStart ? Math.min(1, Math.max(0, (frame - outStart) / HOOK_ANIM_FRAMES)) : 0;
+  const animProgress = outProgress > 0 ? 1 - outProgress : inProgress;
+  const animOpacity = animProgress;
+  const animTranslateY = interpolate(animProgress, [0, 1], [-28, 0]);
+
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: "flex-start",
+        alignItems: "center",
+        padding: "0 56px",
+        opacity: opacity * animOpacity,
+      }}
+    >
+      <div
+        style={{
+          marginTop: 48,
+          maxWidth: "90%",
+          background: isTransparentBg ? "transparent" : boxBgColor,
+          borderRadius: 24,
+          padding: isFirstScene ? "32px 40px" : "20px 32px",
+          boxShadow: isTransparentBg ? "none" : "0 12px 40px rgba(0,0,0,0.45)",
+          textAlign: "center",
+          transform: `translateY(${animTranslateY}px)`,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: resolvedFontFamily,
+            fontSize: primaryFontSize,
+            fontWeight: 800,
+            lineHeight: 1.3,
+            color: primaryColor,
+            letterSpacing: isFirstScene ? "0.5px" : "normal",
+          }}
+        >
+          {primaryText}
+        </div>
+        {hasSecondary && (
+          <div
+            style={{
+              fontFamily: resolvedFontFamily,
+              fontSize: secondaryFontSize,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.75)",
+              marginTop: 8,
+            }}
+          >
+            {secondaryText}
+          </div>
+        )}
+      </div>
     </AbsoluteFill>
   );
 };

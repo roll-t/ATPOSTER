@@ -174,9 +174,17 @@ export const slideshowVideoSchema = z.object({
   // light "paper" card meant for `captionMode: "full"` + `captionPosition:
   // "center"` — the whole scene's text (a "page" of a story) held on
   // screen at once with the currently-spoken word highlighted, like a
-  // read-along/graded-reader video rather than a short subtitle. See
+  // read-along/graded-reader video rather than a short subtitle. "hook" =
+  // top-anchored dark title card, forced full/top regardless of
+  // captionMode/captionPosition — scene 0 shows the video's own `title`
+  // (uppercase, large, meant to hook the viewer in the first few seconds),
+  // every other scene shows its own caption (smaller, sentence case, any
+  // leading "N. " list-number prefix stripped) in the same card. Slides
+  // down + fades in on entry, slides up + fades out on exit. Also nudges
+  // the scene's own image down a little (see SceneImage.tsx) to leave
+  // headroom for the card instead of the card sitting on top of it. See
   // Caption.tsx.
-  captionStyle: z.enum(["box", "tiktok", "karaoke", "page"]).default("box"),
+  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook"]).default("box"),
 
   // CapCut-style manual overrides on top of whatever captionStyle already looks
   // like — every field here is optional and only overrides that one visual

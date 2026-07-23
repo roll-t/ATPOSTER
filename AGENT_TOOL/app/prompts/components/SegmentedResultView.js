@@ -212,6 +212,14 @@ const CAPTION_STYLE_DEFAULTS = {
     bgTransparent: false,
     highlightColor: '#FFCB4D'
   },
+  hook: {
+    font: 'be-vietnam-pro',
+    fontSize: '40',
+    textColor: '#FFFFFF',
+    bgColor: 'rgba(8, 8, 11, 0.88)',
+    bgTransparent: false,
+    highlightColor: '#FE2C55'
+  },
   // Skill riêng reading-page-video (category 'reading_practice') — không có khái niệm
   // "Kiểu phụ đề" box/tiktok/karaoke, chỉ có 1 kiểu trang giấy karaoke duy nhất.
   readingPage: {
@@ -477,9 +485,14 @@ function CaptionStylePreview({ style, isLandscape = false, textColor, bgColor, f
       position: 'absolute',
       inset: 0,
       display: 'flex',
-      alignItems: style === 'page' ? 'center' : 'flex-end',
+      alignItems: style === 'page' ? 'center' : style === 'hook' ? 'flex-start' : 'flex-end',
       justifyContent: 'center',
-      padding: isFullLiveScreen ? (isLandscape ? '0 12px 14px' : '0 10px 16px') : (isLandscape ? '0 8px 6px' : '0 8px 10px'),
+      // "hook" là kiểu DUY NHẤT neo TRÊN (flex-start) — các kiểu còn lại neo dưới nên padding gốc
+      // chỉ có bottom, không có top. Không thêm padding-top riêng cho "hook" thì thẻ dính sát mép
+      // trên, không giống bản render thật (Caption.tsx có marginTop: 48 cho thẻ hook).
+      padding: style === 'hook'
+        ? (isFullLiveScreen ? (isLandscape ? '14px 12px 0' : '16px 10px 0') : (isLandscape ? '6px 8px 0' : '8px 8px 0'))
+        : (isFullLiveScreen ? (isLandscape ? '0 12px 14px' : '0 10px 16px') : (isLandscape ? '0 8px 6px' : '0 8px 10px')),
       fontFamily
     }}>
       {style === 'tiktok' ? (
@@ -503,6 +516,18 @@ function CaptionStylePreview({ style, isLandscape = false, textColor, bgColor, f
             up.
           </div>
           <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(42,33,24,0.65)', marginTop: '2px' }}>Đừng bỏ cuộc.</div>
+        </div>
+      ) : style === 'hook' ? (
+        <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(8,8,11,0.88)'), borderRadius: '10px', padding: isLandscape ? '18px 24px' : '16px 20px', textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', maxWidth: '95%' }}>
+          {/* Chữ hoa gõ SẴN trong text, không dùng CSS text-transform: uppercase — Chromium
+              (engine Remotion dùng để render) không luôn ghép đúng dấu thanh tiếng Việt khi
+              transform bằng CSS (vd "ừ" -> "Ừ" bị vỡ dấu), trong khi gõ hoa sẵn thì luôn đúng. */}
+          <div style={{ fontSize: mainFontSize, fontWeight: 800, color: textColor || '#fff', lineHeight: 1.3, letterSpacing: '0.3px' }}>
+            ĐỪNG BỎ CUỘC
+          </div>
+          <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>
+            Don&apos;t give up
+          </div>
         </div>
       ) : (
         <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
@@ -849,7 +874,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
   const [renderTransitionStyle, setRenderTransitionStyle] = useState('crossfade');
   const [renderBilingual, setRenderBilingual] = useState(true);
-  const [isBilingualHovered, setIsBilingualHovered] = useState(false);
   const [showRenderConfig, setShowRenderConfig] = useState(false);
 
   // Tuỳ chỉnh phụ đề kiểu CapCut — tự động đồng bộ theo thông số mặc định của kiểu phụ đề được chọn
@@ -2312,8 +2336,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
               const currentTrackName = selectedBgMusicTrackId === 'track1' ? 'Soft Ambient'
                 : selectedBgMusicTrackId === 'track2' ? 'Gentle Acoustic'
-                : selectedBgMusicTrackId === 'track3' ? 'Moment of Peace'
-                : 'Tệp tải lên';
+                  : selectedBgMusicTrackId === 'track3' ? 'Moment of Peace'
+                    : 'Tệp tải lên';
 
               return (
                 <div style={{
@@ -2944,7 +2968,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>
                                 Chọn giọng đọc cho {char.name}:
                               </span>
-                              
+
                               {/* Tab ngôn ngữ cực kỳ xịn sò */}
                               <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                 {[
@@ -2997,69 +3021,69 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                   return (
                                     <div
                                       key={v.id}
-                                    onClick={() => {
-                                      setSettings(prev => ({
-                                        ...prev,
-                                        edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: v.id }
-                                      }));
-                                    }}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      gap: '8px',
-                                      padding: '9px 12px',
-                                      borderRadius: '10px',
-                                      border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                      background: isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)',
-                                      boxShadow: isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none',
-                                      cursor: 'pointer',
-                                      userSelect: 'none',
-                                      transition: 'all 0.15s ease'
-                                    }}
-                                  >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                                      <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{v.icon}</span>
-                                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          {v.name} {isSelected && '✓'}
-                                        </span>
-                                        <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                          {v.genderText} • {v.desc}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      title={`Nghe thử giọng ${v.name}`}
-                                      disabled={isPreviewing}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePreviewVoice('edge', v.id, `${char.key}_${v.id}`);
+                                      onClick={() => {
+                                        setSettings(prev => ({
+                                          ...prev,
+                                          edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: v.id }
+                                        }));
                                       }}
                                       style={{
-                                        flexShrink: 0,
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '6px',
-                                        border: '1px solid rgba(255,255,255,0.15)',
-                                        background: isPreviewing ? 'rgba(255,255,255,0.2)' : 'rgba(37, 244, 238, 0.15)',
-                                        color: 'var(--secondary)',
-                                        cursor: isPreviewing ? 'wait' : 'pointer',
-                                        fontSize: '0.75rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center'
+                                        justifyContent: 'space-between',
+                                        gap: '8px',
+                                        padding: '9px 12px',
+                                        borderRadius: '10px',
+                                        border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                        background: isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)',
+                                        boxShadow: isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none',
+                                        cursor: 'pointer',
+                                        userSelect: 'none',
+                                        transition: 'all 0.15s ease'
                                       }}
                                     >
-                                      {isPreviewing ? '⏳' : '🔊'}
-                                    </button>
-                                  </div>
-                                );
-                              });
-                            })()}
-                          </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                        <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{v.icon}</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {v.name} {isSelected && '✓'}
+                                          </span>
+                                          <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {v.genderText} • {v.desc}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        title={`Nghe thử giọng ${v.name}`}
+                                        disabled={isPreviewing}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePreviewVoice('edge', v.id, `${char.key}_${v.id}`);
+                                        }}
+                                        style={{
+                                          flexShrink: 0,
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '6px',
+                                          border: '1px solid rgba(255,255,255,0.15)',
+                                          background: isPreviewing ? 'rgba(255,255,255,0.2)' : 'rgba(37, 244, 238, 0.15)',
+                                          color: 'var(--secondary)',
+                                          cursor: isPreviewing ? 'wait' : 'pointer',
+                                          fontSize: '0.75rem',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                      >
+                                        {isPreviewing ? '⏳' : '🔊'}
+                                      </button>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
                           </div>
                         </div>
                       );
@@ -3585,7 +3609,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       {[
                         { value: 'box', label: 'Hộp bo tròn' },
                         { value: 'tiktok', label: 'Viền chữ TikTok' },
-                        { value: 'karaoke', label: 'Karaoke tô màu từ' }
+                        { value: 'karaoke', label: 'Karaoke tô màu từ' },
+                        { value: 'hook', label: 'Tiêu đề mở đầu' }
                       ].map(opt => {
                         const isPinned = settings?.defaultCaptionStyle === opt.value;
                         return (
@@ -3650,76 +3675,43 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               {/* Hiển thị phụ đề song ngữ (Card Container với Toggle Switch xịn) */}
               <div
                 onClick={() => setRenderBilingual(!renderBilingual)}
-                onMouseEnter={() => setIsBilingualHovered(true)}
-                onMouseLeave={() => setIsBilingualHovered(false)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: '16px',
-                  padding: '16px 20px',
-                  borderRadius: '16px',
-                  border: renderBilingual
-                    ? '1px solid rgba(37, 244, 238, 0.35)'
-                    : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: renderBilingual
-                    ? (isBilingualHovered
-                      ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.12), rgba(37, 244, 238, 0.04))'
-                      : 'linear-gradient(135deg, rgba(37, 244, 238, 0.08), rgba(37, 244, 238, 0.02))')
-                    : (isBilingualHovered
-                      ? 'rgba(255, 255, 255, 0.05)'
-                      : 'rgba(255, 255, 255, 0.02)'),
-                  boxShadow: renderBilingual
-                    ? '0 8px 32px rgba(37, 244, 238, 0.08), inset 0 1px 0 rgba(255,255,255,0.1)'
-                    : 'none',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: renderBilingual ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                  boxShadow: renderBilingual ? '0 4px 20px rgba(37, 244, 238, 0.15)' : 'none',
                   cursor: 'pointer',
                   userSelect: 'none',
-                  transform: isBilingualHovered ? 'translateY(-2px)' : 'translateY(0)',
-                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                   <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '12px',
-                    background: renderBilingual
-                      ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.2), rgba(254, 44, 85, 0.1))'
-                      : 'rgba(255, 255, 255, 0.05)',
-                    boxShadow: renderBilingual ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: renderBilingual ? 'rgba(37, 244, 238, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.3rem',
-                    flexShrink: 0,
-                    transition: 'all 0.25s ease'
+                    fontSize: '1.2rem',
+                    flexShrink: 0
                   }}>
                     🌐
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Hiện phụ đề song ngữ
                       {settings?.defaultBilingual !== undefined && settings.defaultBilingual === renderBilingual && (
-                        <span style={{
-                          fontSize: '0.62rem',
-                          color: '#FFCB4D',
-                          background: 'rgba(255, 203, 77, 0.12)',
-                          border: '1px solid rgba(255, 203, 77, 0.25)',
-                          padding: '2px 8px',
-                          borderRadius: '20px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '2px',
-                          boxShadow: '0 2px 6px rgba(255, 203, 77, 0.05)'
-                        }}>
-                          📌 Mặc định
-                        </span>
+                        <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
                       )}
                     </span>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
                       Hiển thị 2 dòng: Tiếng Anh (trên) &amp; Dịch tiếng Việt (dưới)
                     </span>
                   </div>
@@ -3771,8 +3763,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 title={activePreset ? `Đặt preset "${activePreset.name}" làm mặc định cho lần tạo kịch bản tiếp theo` : 'Lưu kiểu phụ đề và cấu hình làm MẶC ĐỊNH hệ thống'}
               >
                 <span>📌</span> {isPinningRenderConfig ? 'Đang ghim...' : (
-                  activePreset 
-                    ? (activePreset.isDefault ? `"${activePreset.name}" đang Mặc định` : `Ghim "${activePreset.name}" làm Mặc định`) 
+                  activePreset
+                    ? (activePreset.isDefault ? `"${activePreset.name}" đang Mặc định` : `Ghim "${activePreset.name}" làm Mặc định`)
                     : 'Ghim mặc định'
                 )}
               </button>
@@ -3959,11 +3951,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         >
                           {isPlaying ? (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
-                              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                             </svg>
                           ) : (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', marginLeft: '1px' }}>
-                              <path d="M8 5v14l11-7z"/>
+                              <path d="M8 5v14l11-7z" />
                             </svg>
                           )}
                         </button>

@@ -8,6 +8,7 @@ import { resolveSrc, sceneSeconds } from "./utils";
 export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
   const { fps } = useVideoConfig();
   const {
+    title,
     scenes,
     captionPosition,
     imageFit,
@@ -56,6 +57,7 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
             <Scene
               scene={scene}
               sceneIndex={i}
+              videoTitle={title}
               sceneDurationInFrames={sceneDurationInFrames}
               visualDurationInFrames={visualDurationInFrames}
               transitionFrames={transitionFrames}

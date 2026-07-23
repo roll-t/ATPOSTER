@@ -50,9 +50,16 @@ function transitionFrame(
   }
 }
 
+// How far down (% of frame height) the image is nudged for captionStyle:
+// "hook", to leave headroom under the top-anchored title card instead of
+// the card sitting on top of the image content. Paired with a compensating
+// scale bump in SceneImage.tsx so no gap shows at the top edge.
+const HOOK_IMAGE_OFFSET_PERCENT = 12;
+
 export const Scene: React.FC<{
   scene: SceneConfig;
   sceneIndex: number;
+  videoTitle?: string;
   sceneDurationInFrames: number;
   visualDurationInFrames: number;
   transitionFrames: number;
@@ -73,6 +80,7 @@ export const Scene: React.FC<{
 }> = ({
   scene,
   sceneIndex,
+  videoTitle,
   sceneDurationInFrames,
   visualDurationInFrames,
   transitionFrames,
@@ -126,12 +134,15 @@ export const Scene: React.FC<{
         fit={scene.imageFit ?? globalImageFit}
         kenBurns={kenBurns}
         durationInFrames={visualDurationInFrames}
+        topOffsetPercent={captionStyle === "hook" ? HOOK_IMAGE_OFFSET_PERCENT : 0}
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
       <Sfx cues={scene.sfx} />
       <Arrows cues={scene.arrows} />
       <Caption
         text={scene.caption}
+        sceneIndex={sceneIndex}
+        videoTitle={videoTitle}
         position={captionPosition}
         fontFamily={fontFamily}
         mode={captionMode}

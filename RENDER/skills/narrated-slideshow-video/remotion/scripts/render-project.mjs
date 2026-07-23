@@ -10,7 +10,7 @@
  *   node scripts/render-project.mjs my-video --captionStyle=karaoke --transitionStyle=slide-left --bilingual=false
  *
  * Options (all optional, fall back to the skill's original defaults):
- *   --captionStyle=box|tiktok|karaoke|page
+ *   --captionStyle=box|tiktok|karaoke|page|hook
  *   --transitionStyle=crossfade|slide-left|slide-right|slide-up|zoom
  *   --bilingual=true|false   (show/hide the "\n"-separated translation line)
  *   --captionFont=be-vietnam-pro|roboto|montserrat|nunito|inter|oswald
@@ -24,6 +24,13 @@
  * highlighted, centered) instead of the default chunked/bottom subtitle —
  * that combination is what makes the "page" style read as a book page
  * rather than a short caption. See Caption.tsx / schema.ts.
+ *
+ * --captionStyle=hook is a top-anchored title card: scene 0 shows the
+ * video's own title (big, uppercase, meant to hook the viewer in the first
+ * few seconds), every other scene shows its own caption in a smaller card
+ * (any leading "N." list-number prefix stripped). Slides down + fades in on
+ * entry, slides up + fades out on exit. Also nudges the scene's image down
+ * a little to leave headroom under the card. See Caption.tsx / schema.ts.
  *
  * The 4 --caption*Font/Size/Color flags are CapCut-style manual overrides on
  * top of whatever captionStyle already looks like — each is independent and
@@ -50,7 +57,7 @@ for (const arg of process.argv.slice(3)) {
   const match = arg.match(/^--([a-zA-Z]+)=(.*)$/);
   if (match) flags[match[1]] = match[2];
 }
-const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page"];
+const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook"];
 const TRANSITION_STYLES = ["crossfade", "slide-left", "slide-right", "slide-up", "zoom"];
 const CAPTION_FONTS = ["be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald"];
 // Loose allowlist for freeform color strings (hex, rgb()/rgba(), "transparent",
@@ -64,6 +71,10 @@ const transitionStyle = TRANSITION_STYLES.includes(flags.transitionStyle) ? flag
 const showBilingual = flags.bilingual === undefined ? true : flags.bilingual !== "false";
 // "page" only makes sense as a whole-scene, centered block — see the usage note above.
 const isPageStyle = captionStyle === "page";
+// "hook" ignores captionPosition/captionMode entirely (Caption.tsx hardcodes its own
+// top/full layout for this style) — set them to reflect that anyway so config.json stays
+// accurate for anyone reading it, same reasoning as isPageStyle above.
+const isHookStyle = captionStyle === "hook";
 
 const captionFont = CAPTION_FONTS.includes(flags.captionFont) ? flags.captionFont : undefined;
 const parsedFontSize = flags.captionFontSize !== undefined ? Number(flags.captionFontSize) : NaN;
@@ -160,14 +171,14 @@ const remotionConfig = {
   orientation: (flags.orientation === "landscape" || flags.orientation === "portrait")
     ? flags.orientation
     : (manifest.orientation === "landscape" ? "landscape" : "portrait"),
-  captionPosition: isPageStyle ? "center" : "bottom",
+  captionPosition: isPageStyle ? "center" : isHookStyle ? "top" : "bottom",
   imageFit: "cover",
   kenBurns: !isPageStyle,
   transitionSeconds: 0.5,
   transitionStyle,
   bgColor: "#0E0F13",
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-  captionMode: isPageStyle ? "full" : "chunked",
+  captionMode: isPageStyle || isHookStyle ? "full" : "chunked",
   captionWordsPerChunk: 4,
   captionStyle,
   captionFont,

@@ -8,7 +8,7 @@ import { getRemotionDir, getRemotionPublicDir, resolveProjectDir } from '@/lib/r
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
 // việc chèn ký tự đặc biệt của shell khi giá trị này được dùng làm tham số dòng lệnh.
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
-const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page'];
+const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook'];
 const TRANSITION_STYLES = ['crossfade', 'slide-left', 'slide-right', 'slide-up', 'zoom'];
 const CAPTION_FONTS = ['be-vietnam-pro', 'roboto', 'montserrat', 'nunito', 'inter', 'oswald'];
 // Loose allowlist for freeform CapCut-style color overrides (hex, rgb()/rgba(),
