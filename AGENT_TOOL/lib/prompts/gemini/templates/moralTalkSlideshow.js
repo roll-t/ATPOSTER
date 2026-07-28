@@ -9,24 +9,37 @@
  * narrationLanguage ('vi' mặc định | 'en') quyết định NGÔN NGỮ CHÍNH của lời kể
  * (dialogueOrNarration — chính là văn bản sẽ được lồng tiếng), và ngôn ngữ nào
  * đứng dòng đầu trong subtitle song ngữ.
+ *
+ * moralTheme quyết định CẢ nhịp độ (pacingGuidance) LẪN giọng văn/kỹ thuật viết
+ * (styleReferenceBlock, xem moralTalkVoiceStyle.js — dùng chung với
+ * buildRegenerateNarrationPrompt để nút "Viết lại lời kể" không lệch văn phong).
  */
+import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
+import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
+
 export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isLandscape = input.aspectRatio === '16:9';
   const isVietnamesePrimary = (input.narrationLanguage || 'vi') !== 'en';
 
   const theme = input.moralTheme || 'self_help';
-  
+  const { isReflectiveTheme, narrationModeLine, styleReferenceBlock } = getMoralTalkStyleReference(theme);
+
   let pacingGuidance = '';
-  if (theme === 'self_help' || theme === 'rules_of_life') {
-    // Requires deeper explanation, so fewer slides but longer duration per slide
-    let targetSlides = '4 đến 6';
-    if (durationRange === '1_2m') targetSlides = '8 đến 12';
-    else if (durationRange === '2_3m') targetSlides = '12 đến 18';
-    else if (durationRange === '3_4m') targetSlides = '18 đến 25';
+
+  if (isReflectiveTheme) {
+    // Requires deeper explanation, so fewer slides but longer duration per slide. Bumped up
+    // from an earlier, thinner ladder (4-6/8-12/12-18/18-25) after a real under_1m generation
+    // came out at only ~25s total — too short for a 45s target — because 4-6 slides at the low
+    // end of the narration-length range undershoots badly. Keeping fewer slides than "top_lists"
+    // below (each slide still carries more narration weight), just no longer at the thin end.
+    let targetSlides = '6 đến 9';
+    if (durationRange === '1_2m') targetSlides = '10 đến 14';
+    else if (durationRange === '2_3m') targetSlides = '16 đến 20';
+    else if (durationRange === '3_4m') targetSlides = '20 đến 26';
 
     pacingGuidance = `- THEME CHARACTERISTIC: This is a "${theme === 'self_help' ? 'Self-Help / Motivation / Discipline' : 'Rules of Life / Communication / Etiquette'}" topic. This theme requires deep explanation and rich narration context per slide.
-- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides.
-- NARRATION LENGTH PER SLIDE: Allow each slide's narration (dialogueOrNarration) to be longer (around 8 to 15 seconds of speech, equivalent to 25 to 45 words). Write descriptive, meaningful, and warm narration that fully explains the concept or context for the slide's image, rather than having short 3-second segments.`;
+- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. Treat this as a firm floor, not a suggestion — a shorter script that undershoots this count reads as thin and rushed, never as "concise".
+- NARRATION LENGTH PER SLIDE: Each slide's narration (dialogueOrNarration) should be around 8 to 15 seconds of speech (roughly 25 to 45 words). Write descriptive, meaningful, and warm narration that fully explains the concept or context for the slide's image, rather than having short 3-second segments.`;
   } else {
     // top_lists: lists points, can have slightly more slides but still reasonable
     let targetSlides = '5 đến 8';
@@ -36,28 +49,34 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
 
     pacingGuidance = `- THEME CHARACTERISTIC: This is a "Top Lists / Warnings / Tips / Taboos" topic, listing specific items/points.
 - REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. One slide for introduction, one slide for each list point, and one slide for the conclusion.
-- NARRATION LENGTH PER SLIDE: Each slide should have about 6 to 10 seconds of speech (equivalent to 18 to 30 words), allowing enough explanation for each point.`;
+- NARRATION LENGTH PER SLIDE: Each slide should have about 6 to 10 seconds of speech (equivalent to 18 to 30 words), allowing enough explanation for each point.
+- The INTRODUCTION slide's narration must state the exact NUMBER of points the list has, leading with the number itself — e.g. "5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." or "Top 5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." — NEVER opening with "Có" (e.g. NOT "Có 5 nguyên tắc..."). That number must equal exactly how many list-point slides you actually write, so the viewer knows upfront how long the list is and can follow along.`;
   }
 
   const compositionGuidance = isLandscape
-    ? `- FRAME ORIENTATION: This slide is a WIDE 16:9 landscape frame. Use the extra horizontal space — you may place the main pictogram figure to one side with a smaller supporting icon/element on the other side (e.g. a clock, a signpost, a second figure), as long as it stays clean, symbolic, and readable at a glance.`
-    : `- FRAME ORIENTATION: This slide is a TALL 9:16 portrait frame. Keep the composition simple and centered — one clear symbolic pictogram grouping per slide, generous empty black space around it, reads instantly on a phone screen.`;
+    ? `- FRAME ORIENTATION: This slide is a WIDE 16:9 landscape frame. Use the extra horizontal space — you may place the main pictogram figure to one side with a smaller supporting icon/element on the other side (e.g. a clock, a signpost, a second figure), as long as it stays clean, symbolic, and readable at a glance.
+- TOP SAFE ZONE: the video's caption text is overlaid across the TOP portion of the frame. Keep the pictogram figure(s)/prop(s) confined to roughly the BOTTOM two-thirds of the frame — leave the top third pure black, with no part of the figure/props reaching up into it, so the caption text has clean empty space to sit on.`
+    : `- FRAME ORIENTATION: This slide is a TALL 9:16 portrait frame. Keep the composition simple and centered — one clear symbolic pictogram grouping per slide, generous empty black space around it, reads instantly on a phone screen.
+- TOP SAFE ZONE: the video's caption text is overlaid across the TOP portion of the frame. Keep the pictogram figure(s)/prop(s) confined to roughly the BOTTOM two-thirds of the frame — leave the top third pure black, with no part of the figure/props reaching up into it, so the caption text has clean empty space to sit on.`;
 
   const narrationLanguageBlock = isVietnamesePrimary
     ? `- The narration (dialogueOrNarration) MUST be written in natural, warm, spoken VIETNAMESE — this is the primary spoken language of the video (it will be sent directly to a Vietnamese voice narrator). Use simple, everyday Vietnamese, short sentences, a calm and heartfelt storytelling tone — NOT preachy or lecturing.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate simple-English translation of that same line (e.g. "Một hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life."). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).`
+- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate simple-English translation of that same line (e.g. "Một hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life."). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).
+- ${buildVietnamesePronunciationNote()}`
     : `- The narration (dialogueOrNarration) MUST be written in simple, natural, spoken ENGLISH (CEFR A2-B1 level) — this is the primary spoken language of the video (it will be sent directly to an English voice narrator). Short sentences, calm and heartfelt storytelling tone — NOT preachy or lecturing.
 - Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line (e.g. "A small act of kindness can change an entire life.\\nMột hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời."). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).`;
 
   return `
-You are a professional documentary-style scriptwriter and an expert AI image prompt engineer, specialized in short "moral lesson / life wisdom" storytelling videos (the Vietnamese "nói chuyện đạo lý" genre) — videos that tell a brief relatable everyday story and draw out a heartfelt life lesson from it.
-Your task is to write a short third-person NARRATION (voiceover) script telling one such story/lesson, and design a detailed image generation prompt for each slide of the video.
+You are a professional scriptwriter specialized in short "moral lesson / life wisdom" spoken-word videos (the Vietnamese "nói chuyện đạo lý" genre).
+Your task is to write a short NARRATION (voiceover) script in the exact voice/style described below, and design a detailed image generation prompt for each slide of the video.
 
 NARRATION STYLE REQUIREMENTS (IMPORTANT):
 - This is NOT a conversation/dialogue between characters. Do NOT write back-and-forth lines like "A: ... / B: ...".
-- Write it as ONE narrator's voiceover (third-person, warm storytelling tone) describing a short, relatable everyday situation, then gently drawing out the life lesson/moral it teaches — reflective and heartfelt, never preachy or lecturing, never using the words "moral" or "lesson" explicitly if it can be shown instead of said.
-- Each slide's pictogram simply depicts / symbolizes whatever moment the narration is describing right then. Figures are silent symbolic pictograms — no speech, no dialogue, no speech bubbles.
+${narrationModeLine}
+- Each slide's pictogram simply depicts / symbolizes whatever the narration is evoking right then — this can be a literal everyday scene OR a symbolic/metaphorical image (e.g. an adult pictogram figure standing face to face with a small child pictogram figure, a figure looking into a mirror-shaped outline, a figure holding a glowing folded paper). Figures are silent symbolic pictograms — no speech, no dialogue, no speech bubbles.
 ${narrationLanguageBlock}
+
+${styleReferenceBlock}
 
 VISUAL STYLE & IMAGE PROMPT REQUIREMENTS:
 - The style is: minimalist glowing white pictogram icon illustrations on a solid pure black background — exactly like professional "human pictogram" icon packs (simple flat white human-silhouette figures with a soft white outer glow, no facial detail, no color, no scenery).
@@ -80,9 +99,11 @@ Draft story suggestion (if any):
 "${input.script || 'Freely write a natural, heartfelt short story illustrating this life lesson'}"
 
 NARRATION SCRIPT GUIDELINES:
-1. The script must tell ONE short, relatable everyday story (a specific small moment or situation, not an abstract lecture) that naturally leads to the stated life lesson/topic.
-2. The narration (dialogueOrNarration) must be third-person storytelling voiceover, spoken in a natural, warm, calm narrating voice — never a scripted conversation between named characters.
-3. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g., "[softly]", "[pause]", "[warmly]", "[gently]"). Keep these tags in the SAME language as the narration's own bracket convention (English tag words like [softly]/[pause] are fine even inside Vietnamese narration, since these are voice-engine instructions, not spoken text).
+1. The script must speak about the stated life lesson/topic, following the VOICE & STYLE REFERENCE above — not a third-person story about someone else, and not an abstract lecture.
+2. The narration (dialogueOrNarration) must follow the narration mode described above, spoken in a natural, calm voice — never a scripted conversation between named characters.
+3. Do NOT include bracketed tags like "[pause]", "[softly]", "[warmly]", "[gently]" anywhere in the narration — the voice engine does not read them and does not act on them, they have zero effect on the spoken audio and only show up as clutter in the text. Express emotion/pacing through word choice and punctuation instead (see below), never through bracket tags.
+4. ${buildPunctuationRhythmGuidance()}
+5. On-screen emphasis markup: in the "subtitle" field's PRIMARY line only (never the translation line, and NEVER inside "dialogueOrNarration"), wrap 1 to 3 short key words/phrases per line in double asterisks so they render in a highlight color on screen — e.g. "Hai. Có **mượn** thì phải **trả**." For a "top_lists" point that happens to be a contrast ("A, không phải B"), highlight the core word/phrase in BOTH the A and B halves. For a reflective line, highlight whichever single word or short phrase carries the emotional weight of that sentence. Keep it sparse — only the words that truly deserve visual punch, never whole clauses.
 
 YÊU CẦU BẮT BUỘC DÀNH CHO ẢNH THU NHỎ YOUTUBE (YOUTUBE THUMBNAIL):
 - Bên cạnh các slide phân cảnh câu chuyện, bạn BẮT BUỘC phải sinh thêm 1 mục "thumbnail" ở cuối JSON.
@@ -96,10 +117,10 @@ Return the result as a JSON object matching exactly this schema:
     {
       "segmentNumber": 1,
       "visualDescription": "Detailed visual description in English of the glowing white pictogram slide image, focusing on which symbolic figure(s)/props best depict this exact narration moment, their pose/positioning, and the soft white glow on pure black background. No text/labels in the image. (e.g. A single glowing white pictogram figure sits alone on the ground, head resting on knees, a small dim question-mark icon glowing faintly above their head, pure black background, soft white outer glow, generous negative space, minimalist symbolic composition.)",
-      "dialogueOrNarration": "Full narration line, third-person voiceover style, in the primary language specified above.",
+      "dialogueOrNarration": "Full narration line following the VOICE & STYLE REFERENCE above, in the primary language specified above.",
       "subtitle": "${isVietnamesePrimary
-        ? 'Một hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life.'
-        : 'A small act of kindness can change an entire life.\\nMột hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.'}"
+        ? 'Một hành động **tử tế** nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life.'
+        : 'A small act of **kindness** can change an entire life.\\nMột hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.'}"
     }
   ],
   "thumbnail": {

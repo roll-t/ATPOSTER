@@ -46,7 +46,7 @@ STORY GUIDELINES:
 3. Keep it warm, simple, and easy to follow — this is reading/listening PRACTICE material for English learners, not literary prose.
 4. Target length: about ${targetWords} words for the body paragraph (to roughly fill ${durationInfo.label} / ~${durationInfo.targetSeconds}s of narration at a natural, clear reading pace) — a bit shorter or longer is fine, but do not pad with filler just to hit a word count, and do not write multiple disconnected paragraphs.
 5. The body must read naturally as ONE continuous paragraph (multiple full sentences, no line breaks) — it will be shown as a single block of text and read aloud start to finish.
-6. Emotion tags: You MAY include natural emotional/expressive sound tags in square brackets within the narration where appropriate to help the voice generator sound realistic (e.g. "[softly]", "[warmly]", "[pause]"). Use them sparingly.
+6. Do NOT include bracketed tags like "[softly]", "[warmly]", "[pause]" anywhere in the text — the voice engine does not read them and does not act on them, they have zero effect on the spoken audio and only show up as clutter in the reading text. Express emotion/pacing through word choice and punctuation instead.
 
 USER'S TOPIC / STORY IDEA:
 "${input.scenario || 'No specific topic given'}"

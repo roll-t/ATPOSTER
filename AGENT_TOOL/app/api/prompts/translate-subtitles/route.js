@@ -16,7 +16,7 @@ const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
  */
 export async function POST(request) {
   try {
-    const { id, folderPath, segments, geminiApiKey } = await request.json();
+    const { id, folderPath, category, segments, geminiApiKey } = await request.json();
 
     if (!segments || !Array.isArray(segments) || segments.length === 0) {
       return NextResponse.json({ error: 'Không tìm thấy danh sách phân cảnh.' }, { status: 400 });
@@ -70,12 +70,12 @@ export async function POST(request) {
     }
 
     // Cập nhật cả manifest.json trên đĩa (nếu ảnh đã được sinh qua Google Flow từ trước) —
-    // để lần Render (Bước 3) tiếp theo đọc đúng phụ đề song ngữ mới, vì render-project.mjs
+    // để lần Render (Bước 4) tiếp theo đọc đúng phụ đề song ngữ mới, vì render-project.mjs
     // của skill luôn lấy caption từ manifest.json, không phải từ bản ghi trong DB.
     let manifestUpdated = false;
     const cleanFolder = (folderPath || '').trim();
     if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder)) {
-      const manifestPath = path.join(resolveProjectDir(cleanFolder), 'manifest.json');
+      const manifestPath = path.join(resolveProjectDir(cleanFolder, category), 'manifest.json');
       if (fs.existsSync(manifestPath)) {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         const subtitleByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s.subtitle]));

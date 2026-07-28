@@ -12,6 +12,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     scenes,
     captionPosition,
     imageFit,
+    imageScale,
+    imageTranslateY,
+    captionMarginY,
     kenBurns,
     transitionSeconds,
     transitionStyle,
@@ -22,6 +25,7 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     captionStyle,
     captionFont,
     captionFontSize,
+    captionSecondaryFontSize,
     captionTextColor,
     captionBgColor,
     highlightColor,
@@ -64,12 +68,16 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               transitionStyle={transitionStyle}
               globalKenBurns={kenBurns}
               globalImageFit={imageFit}
+              imageScale={imageScale}
+              imageTranslateY={imageTranslateY}
+              captionMarginY={captionMarginY}
               captionPosition={captionPosition}
               captionMode={captionMode}
               captionWordsPerChunk={captionWordsPerChunk}
               captionStyle={captionStyle}
               captionFont={captionFont}
               captionFontSize={captionFontSize}
+              captionSecondaryFontSize={captionSecondaryFontSize}
               captionTextColor={captionTextColor}
               captionBgColor={captionBgColor}
               highlightColor={highlightColor}

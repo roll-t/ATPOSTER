@@ -100,12 +100,21 @@ class LocalCollection {
 
   _getCollectionData() {
     const all = this._readAll();
+    if (this.name === 'settings') {
+      if (!all.settings) return [];
+      if (Array.isArray(all.settings)) return all.settings;
+      return [all.settings];
+    }
     return Array.isArray(all[this.name]) ? all[this.name] : [];
   }
 
   _setCollectionData(list) {
     const all = this._readAll();
-    all[this.name] = list;
+    if (this.name === 'settings') {
+      all.settings = Array.isArray(list) && list.length > 0 ? list[0] : (list || {});
+    } else {
+      all[this.name] = list;
+    }
     this._writeAll(all);
   }
 
@@ -283,6 +292,8 @@ export function readDb() {
         // của Microsoft Edge TTS (vd "en-US-AriaNeural") thay vì Voice ID của ElevenLabs.
         global.ttsProvider = settings.ttsProvider || 'elevenlabs';
         global.edgeVoiceMappings = settings.edgeVoiceMappings || {};
+        global.vieneuServerUrl = settings.vieneuServerUrl || 'http://127.0.0.1:8001';
+        global.vieneuVoiceMappings = settings.vieneuVoiceMappings || {};
         // "Ghim mặc định" ở modal Cấu hình kiểu render (SegmentedResultView.js) — kiểu phụ đề /
         // kiểu chuyển cảnh / song ngữ được ghim làm mặc định cho MỌI kịch bản slideshow tiếp
         // theo (áp dụng lúc mở modal, xem fetchSettings() trong SegmentedResultView.js), khác
@@ -297,6 +308,10 @@ export function readDb() {
         // hoàn toàn chưa từng tuỳ chỉnh gì.
         global.defaultBgMusicEnabled = typeof settings.defaultBgMusicEnabled === 'boolean' ? settings.defaultBgMusicEnabled : undefined;
         global.defaultBgMusicVolume = settings.defaultBgMusicVolume || '';
+        // Bản nhạc (track1/2/3) đã ghim làm mặc định hệ thống ở modal "Cài Đặt Nhạc Nền Hòa Âm"
+        // (nút "📌 Đặt làm Mặc Định", xem handlePinDefaultTrack trong SegmentedResultView.js) —
+        // đi kèm defaultBgMusicVolume ở trên, cùng ghim 1 lượt.
+        global.defaultBgMusicTrackId = settings.defaultBgMusicTrackId || '';
         global.readingPracticeConfig = (settings.readingPracticeConfig && typeof settings.readingPracticeConfig === 'object') ? settings.readingPracticeConfig : null;
       } else {
         global.customUploadsDir = '';
@@ -306,11 +321,14 @@ export function readDb() {
         global.voiceMappings = {};
         global.ttsProvider = 'elevenlabs';
         global.edgeVoiceMappings = {};
+        global.vieneuServerUrl = 'http://127.0.0.1:8001';
+        global.vieneuVoiceMappings = {};
         global.defaultCaptionStyle = '';
         global.defaultTransitionStyle = '';
         global.defaultBilingual = undefined;
         global.defaultBgMusicEnabled = undefined;
         global.defaultBgMusicVolume = '';
+        global.defaultBgMusicTrackId = '';
         global.readingPracticeConfig = null;
       }
 
@@ -328,11 +346,14 @@ export function readDb() {
           voiceMappings: global.voiceMappings || {},
           ttsProvider: global.ttsProvider || 'elevenlabs',
           edgeVoiceMappings: global.edgeVoiceMappings || {},
+          vieneuServerUrl: global.vieneuServerUrl || 'http://127.0.0.1:8001',
+          vieneuVoiceMappings: global.vieneuVoiceMappings || {},
           defaultCaptionStyle: global.defaultCaptionStyle || '',
           defaultTransitionStyle: global.defaultTransitionStyle || '',
           defaultBilingual: global.defaultBilingual,
           defaultBgMusicEnabled: global.defaultBgMusicEnabled,
           defaultBgMusicVolume: global.defaultBgMusicVolume || '',
+          defaultBgMusicTrackId: global.defaultBgMusicTrackId || '',
           readingPracticeConfig: global.readingPracticeConfig || null
         }
       };
@@ -341,7 +362,7 @@ export function readDb() {
       return currentData;
     } catch (error) {
       console.error('Lỗi đọc database:', error);
-      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined, defaultBgMusicEnabled: undefined, defaultBgMusicVolume: '', readingPracticeConfig: null } };
+      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined, defaultBgMusicEnabled: undefined, defaultBgMusicVolume: '', defaultBgMusicTrackId: '', readingPracticeConfig: null } };
     }
   });
 }
@@ -377,11 +398,14 @@ export function writeDb(data) {
               voiceMappings: data.settings.voiceMappings || {},
               ttsProvider: data.settings.ttsProvider || 'elevenlabs',
               edgeVoiceMappings: data.settings.edgeVoiceMappings || {},
+              vieneuServerUrl: data.settings.vieneuServerUrl || 'http://127.0.0.1:8001',
+              vieneuVoiceMappings: data.settings.vieneuVoiceMappings || {},
               defaultCaptionStyle: data.settings.defaultCaptionStyle || '',
               defaultTransitionStyle: data.settings.defaultTransitionStyle || '',
               defaultBilingual: typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : null,
               defaultBgMusicEnabled: typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : null,
               defaultBgMusicVolume: data.settings.defaultBgMusicVolume || '',
+              defaultBgMusicTrackId: data.settings.defaultBgMusicTrackId || '',
               readingPracticeConfig: (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null
             }
           },
@@ -394,8 +418,11 @@ export function writeDb(data) {
         global.voiceMappings = data.settings.voiceMappings || {};
         global.ttsProvider = data.settings.ttsProvider || 'elevenlabs';
         global.edgeVoiceMappings = data.settings.edgeVoiceMappings || {};
+        global.vieneuServerUrl = data.settings.vieneuServerUrl || 'http://127.0.0.1:8001';
+        global.vieneuVoiceMappings = data.settings.vieneuVoiceMappings || {};
         global.defaultBgMusicEnabled = typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : undefined;
         global.defaultBgMusicVolume = data.settings.defaultBgMusicVolume || '';
+        global.defaultBgMusicTrackId = data.settings.defaultBgMusicTrackId || '';
         global.readingPracticeConfig = (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null;
         global.defaultCaptionStyle = data.settings.defaultCaptionStyle || '';
         global.defaultTransitionStyle = data.settings.defaultTransitionStyle || '';

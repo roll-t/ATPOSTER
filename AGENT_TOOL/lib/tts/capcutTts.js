@@ -27,15 +27,28 @@ function generateDeviceId() {
   return '7' + randomDigits;
 }
 
+// QUAN TRỌNG: sinh 1 device_id/iid NGẪU NHIÊN nhưng CHỈ MỘT LẦN (cache ở module-level), không
+// sinh mới cho MỖI request như trước đây. Trước đây getDynamicDevice() bị gọi lại (sinh device
+// mới hoàn toàn) cho MỖI slide — nghĩa là mỗi slide trong cùng 1 video "giả vờ" tới từ 1 thiết bị
+// CapCut hoàn toàn khác nhau. Đối chiếu với client tham khảo chính thức
+// (github.com/K07VN/capcut-tts-api) thì DEFAULT_DEVICE của họ dùng device_id CỐ ĐỊNH, không đổi
+// giữa các request — xác nhận CapCut backend kỳ vọng 1 device_id ổn định cho 1 "phiên" sử dụng.
+// Đổi device liên tục giữa các request rất có thể là nguyên nhân khiến giọng đọc (timbre của
+// giọng multi-speaker "uranus_bigtts") nghe không nhất quán giữa các slide dù cùng chọn 1 voice
+// ID — sinh 1 lần duy nhất cho cả tiến trình server để mọi slide dùng chung 1 "thiết bị ảo".
+let cachedDevice = null;
 function getDynamicDevice() {
-  const devId = generateDeviceId();
-  const iid = generateDeviceId();
-  return {
-    ...DEFAULT_DEVICE,
-    device_id: devId,
-    iid: iid,
-    tdid: devId,
-  };
+  if (!cachedDevice) {
+    const devId = generateDeviceId();
+    const iid = generateDeviceId();
+    cachedDevice = {
+      ...DEFAULT_DEVICE,
+      device_id: devId,
+      iid: iid,
+      tdid: devId,
+    };
+  }
+  return cachedDevice;
 }
 
 const TTS_SIGN_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----

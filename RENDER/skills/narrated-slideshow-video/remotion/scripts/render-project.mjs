@@ -15,6 +15,7 @@
  *   --bilingual=true|false   (show/hide the "\n"-separated translation line)
  *   --captionFont=be-vietnam-pro|roboto|montserrat|nunito|inter|oswald
  *   --captionFontSize=<16-120>
+ *   --captionSecondaryFontSize=<10-100> (bilingual translation line, independent of captionFontSize)
  *   --captionTextColor=<CSS color, e.g. "#FFFFFF">
  *   --captionBgColor=<CSS color, or "transparent" to remove the box>
  *   --highlightColor=<CSS color> (karaoke/page active-word highlight pill)
@@ -81,6 +82,10 @@ const parsedFontSize = flags.captionFontSize !== undefined ? Number(flags.captio
 const captionFontSize = Number.isFinite(parsedFontSize) && parsedFontSize >= 16 && parsedFontSize <= 120
   ? parsedFontSize
   : undefined;
+const parsedSecondaryFontSize = flags.captionSecondaryFontSize !== undefined ? Number(flags.captionSecondaryFontSize) : NaN;
+const captionSecondaryFontSize = Number.isFinite(parsedSecondaryFontSize) && parsedSecondaryFontSize >= 10 && parsedSecondaryFontSize <= 100
+  ? parsedSecondaryFontSize
+  : undefined;
 const captionTextColor = flags.captionTextColor && CSS_COLOR_RE.test(flags.captionTextColor)
   ? flags.captionTextColor
   : undefined;
@@ -90,6 +95,10 @@ const captionBgColor = flags.captionBgColor && CSS_COLOR_RE.test(flags.captionBg
 const highlightColor = flags.highlightColor && CSS_COLOR_RE.test(flags.highlightColor)
   ? flags.highlightColor
   : undefined;
+
+const imageScale = flags.imageScale !== undefined ? Number(flags.imageScale) : 1.0;
+const imageTranslateY = flags.imageTranslateY !== undefined ? Number(flags.imageTranslateY) : 0;
+const captionMarginY = flags.captionMarginY !== undefined ? Number(flags.captionMarginY) : 0;
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
@@ -189,17 +198,25 @@ const remotionConfig = {
   kenBurns: !isPageStyle,
   transitionSeconds: 0.5,
   transitionStyle,
-  bgColor: "#0E0F13",
+  // "hook" (pictogram trắng phát sáng trên nền ĐEN TUYỆT ĐỐI, xem moral_talk_slideshow) cần nền
+  // video khớp CHÍNH XÁC #000000 với nền ảnh — #0E0F13 (xám xanh rất tối) mặc định cho các style
+  // khác lộ ra thành viền/mảng màu lệch tông thấy được ở mép ảnh lúc Ken Burns pan/zoom hoặc lúc
+  // chuyển cảnh, vì ảnh và nền không cùng 1 màu đen tuyệt đối.
+  bgColor: isHookStyle ? "#000000" : "#0E0F13",
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
   captionMode: isPageStyle || isHookStyle ? "full" : "chunked",
   captionWordsPerChunk: 4,
   captionStyle,
   captionFont,
   captionFontSize,
+  captionSecondaryFontSize,
   captionTextColor,
   captionBgColor,
   highlightColor,
   showBilingual,
+  imageScale,
+  imageTranslateY,
+  captionMarginY,
   audioPaddingSeconds: 0.4,
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh

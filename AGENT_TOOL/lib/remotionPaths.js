@@ -15,6 +15,32 @@ function skillFolderForCategory(category) {
   return CATEGORY_SKILL_FOLDER[category] || DEFAULT_SKILL_FOLDER;
 }
 
+// TRƯỚC ĐÂY: mọi category dùng chung DEFAULT_SKILL_FOLDER (stick_figure_slideshow VÀ
+// moral_talk_slideshow) đều lưu project của mình PHẲNG ngay dưới public/ của skill đó —
+// project của 2 category khác nhau nằm LẪN làm anh em cùng cấp, không phân biệt được bằng
+// mắt thường trong Explorer (chỉ phân biệt được qua field category trong DB). category nào
+// có skill RIÊNG (reading_practice) thì không cần xử lý gì thêm — public/ của skill đó vốn
+// đã chỉ chứa đúng 1 category.
+//
+// GIẢI PHÁP: với category dùng chung DEFAULT_SKILL_FOLDER, project MỚI được lồng thêm 1 cấp
+// thư mục theo tên category: public/<category>/<folderPath>/ thay vì public/<folderPath>/.
+// Project CŨ (tạo trước khi có thay đổi này) vẫn nằm nguyên ở vị trí phẳng cũ — resolveProjectDir
+// bên dưới tìm CẢ 2 vị trí (ưu tiên vị trí mới trước) nên project cũ vẫn mở/render bình thường,
+// không cần di chuyển thủ công.
+function needsCategorySubfolder(category) {
+  return Boolean(category) && skillFolderForCategory(category) === DEFAULT_SKILL_FOLDER;
+}
+
+// Đoạn thư mục (có thể là "category/folderPath" hoặc chỉ "folderPath") dùng làm ĐỊNH DANH
+// project ở MỌI nơi cần 1 chuỗi path: tham số dòng lệnh truyền cho render-project.mjs, và
+// các chuỗi đường dẫn tương đối ghi vào remotionConfig (scenes[].image/.audio, bgMusic) mà
+// Remotion sẽ tự resolve so với public/ của chính nó. CHỈ dùng khi TẠO MỚI 1 project — không
+// dùng để tìm project đã tồn tại (dùng resolveProjectDir cho việc đó, vì project cũ có thể
+// đang ở vị trí phẳng cũ).
+export function getEffectiveFolderPath(folderPath, category) {
+  return needsCategorySubfolder(category) ? `${category}/${folderPath}` : folderPath;
+}
+
 // Xác định thư mục chứa project Remotion của 1 skill cụ thể, mà không phụ thuộc
 // vào việc ATPOSTER được đặt ở đâu trên máy.
 // Thứ tự ưu tiên:
@@ -77,8 +103,20 @@ export function resolveProjectDir(folderPath, categoryHint) {
     : ALL_SKILL_FOLDERS;
 
   for (const folder of searchOrder) {
-    const candidate = path.join(resolveSkillRemotionDir(folder), 'public', folderPath);
-    if (fs.existsSync(candidate)) return candidate;
+    const skillPublicDir = path.join(resolveSkillRemotionDir(folder), 'public');
+    // Vị trí MỚI (lồng theo category) chỉ có thể đúng ở đúng skill của categoryHint — thử
+    // trước vị trí PHẲNG cũ, vì project tạo SAU thay đổi này luôn nằm ở đây.
+    if (categoryHint && folder === preferredFolder && needsCategorySubfolder(categoryHint)) {
+      const nestedCandidate = path.join(skillPublicDir, categoryHint, folderPath);
+      if (fs.existsSync(nestedCandidate)) return nestedCandidate;
+    }
+    // Vị trí PHẲNG cũ — vẫn thử ở MỌI skill như trước đây, để project tạo TRƯỚC thay đổi
+    // này (chưa từng lồng theo category) tiếp tục mở/render được bình thường.
+    const flatCandidate = path.join(skillPublicDir, folderPath);
+    if (fs.existsSync(flatCandidate)) return flatCandidate;
   }
-  return path.join(getRemotionPublicDir(categoryHint), folderPath);
+
+  // Chưa tồn tại ở đâu cả — đây là lần ghi ĐẦU TIÊN cho 1 project HOÀN TOÀN MỚI, tạo thẳng ở
+  // vị trí mới (lồng theo category nếu category đó cần) thay vì vị trí phẳng cũ.
+  return path.join(getRemotionPublicDir(categoryHint), getEffectiveFolderPath(folderPath, categoryHint));
 }

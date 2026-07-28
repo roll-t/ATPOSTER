@@ -5,6 +5,19 @@ import { createPortal } from 'react-dom';
 import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
 
+// [tag cảm xúc] (vd "[pause]", "[softly]") không có tác dụng gì với giọng đọc thật — API tổng
+// hợp giọng (voiceover/route.js) đã tự strip sạch trước khi gửi đi, tag chỉ còn sót lại ở các ô
+// hiển thị/copy trong trang này (Toàn bộ lời thuyết minh, Sao chép toàn bộ, Lời thoại từng slide).
+// Nếu người dùng dán nguyên văn (có tag) sang 1 công cụ TTS khác không hiểu convention này, công
+// cụ đó sẽ ĐỌC TO cả cụm "[pause]" ra thành lời — gây giọng đọc méo/nghe lạ ở đúng chỗ có tag. Vì
+// vậy strip tag ở MỌI nơi hiển thị/copy lời thoại cho người dùng xem hoặc dán ra ngoài.
+function stripEmotionTagsForDisplay(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.replace(/\[[^\]]*\]/g, ' ').replace(/[ \t]+/g, ' ').trim())
+    .join('\n');
+}
+
 // Component Trình Phát Nhạc Đồ Thị Sóng Âm (Waveform Display - Đồng bộ phát từ các thẻ ở trên)
 function AudioWaveformPlayer({
   src,
@@ -217,7 +230,9 @@ const CAPTION_STYLE_DEFAULTS = {
     fontSize: '40',
     textColor: '#FFFFFF',
     bgColor: 'rgba(8, 8, 11, 0.88)',
-    bgTransparent: false,
+    // Transparent theo đúng video mẫu tham khảo (chữ nổi trực tiếp trên nền đen của ảnh
+    // pictogram, không có khung/hộp nền phía sau) — trước đây mặc định có khung mờ.
+    bgTransparent: true,
     highlightColor: '#FE2C55'
   },
   // Skill riêng reading-page-video (category 'reading_practice') — không có khái niệm
@@ -230,6 +245,15 @@ const CAPTION_STYLE_DEFAULTS = {
     bgTransparent: false,
     highlightColor: '#D8B07A'
   }
+};
+
+// "hook" là Kiểu phụ đề DÙNG CHUNG cho nhiều category (không riêng gì moral_talk_slideshow), nên
+// không thể sửa thẳng CAPTION_STYLE_DEFAULTS.hook.fontSize — sẽ đổi luôn mặc định của MỌI category
+// khác cũng có thể chọn kiểu "hook". Map này cho phép ghi đè cỡ chữ mặc định riêng theo TỪNG
+// category + style, chỉ áp dụng khi kịch bản CHƯA từng lưu fontSize riêng (dự án hoàn toàn mới,
+// hoặc bấm "↺ Mặc định gốc") — xem initialDefaults/handleSelectCaptionStyle bên dưới.
+const CATEGORY_STYLE_FONT_SIZE_OVERRIDES = {
+  moral_talk_slideshow: { hook: '50' }
 };
 
 // Mẫu Video Preset Mặc Định Hệ Thống cho kịch bản Đọc Giấy Karaoke
@@ -454,31 +478,50 @@ function PickerCard({ selected, onClick, onCustomize, label, children, width, is
 
 // Ảnh xem trước kiểu phụ đề — cập nhật thời gian thực (Real-time live preview) theo Font, Cỡ chữ, Màu chữ & Màu nền đang nhập
 // Ảnh xem trước kiểu phụ đề — cập nhật thời gian thực (Real-time live preview) theo Font, Cỡ chữ, Màu chữ & Màu nền đang nhập
-function CaptionStylePreview({ style, isLandscape = false, textColor, bgColor, font, fontSize, isFullLiveScreen = false }) {
+function CaptionStylePreview({
+  style,
+  isLandscape = false,
+  textColor,
+  bgColor,
+  font,
+  fontSize,
+  secondaryFontSize,
+  highlightColor,
+  isFullLiveScreen = false,
+  imageUrl = '',
+  imageScale = 1,
+  imageTranslateY = 0,
+  captionMarginY = 0
+}) {
   const strokeShadow = '-1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, -1.5px 1.5px 0 #000, 0 1.5px 0 #000, 1.5px 1.5px 0 #000';
 
-  // Tính cỡ chữ xem trước trực quan
+  // Tính cỡ chữ xem trước trực quan. Trần trên (max) phải phủ hết khoảng giá trị người dùng có
+  // thể nhập ở ô "Cỡ chữ nội dung" (16-120px, xem input type="number" bên dưới) — trước đây trần
+  // chỉ 26px/17px (tính vừa đủ cho khoảng 40-58px thực), nên mọi giá trị lớn hơn ~58px đều bị ép
+  // về CÙNG 1 kích thước hiển thị y hệt nhau trên preview — tăng cỡ chữ (vd 60 -> 100) trông như
+  // không có tác dụng gì dù giá trị đã lưu đúng, khiến người dùng tưởng nhầm là "không lưu được".
   const defaultSize = isFullLiveScreen ? (isLandscape ? 16 : 15) : (isLandscape ? 12 : 11);
   const customPx = fontSize ? Number(fontSize) : null;
   const calcSize = customPx
-    ? (isFullLiveScreen ? Math.min(26, Math.max(10, Math.round(customPx * 0.45))) : Math.min(17, Math.max(8, Math.round(customPx * 0.26))))
+    ? (isFullLiveScreen ? Math.min(58, Math.max(10, Math.round(customPx * 0.45))) : Math.min(34, Math.max(8, Math.round(customPx * 0.26))))
     : defaultSize;
 
   const mainFontSize = `${calcSize}px`;
-  const subFontSize = `${Math.max(7, calcSize - 3)}px`;
+  // Nếu người dùng đã đặt riêng "Cỡ chữ dòng dịch / Sub", tính preview theo đúng giá trị đó
+  // (cùng công thức scale với dòng chính) thay vì luôn suy ra từ calcSize - 3px cố định.
+  const customSubPx = secondaryFontSize ? Number(secondaryFontSize) : null;
+  const calcSubSize = customSubPx
+    ? (isFullLiveScreen ? Math.min(58, Math.max(8, Math.round(customSubPx * 0.45))) : Math.min(34, Math.max(7, Math.round(customSubPx * 0.26))))
+    : Math.max(7, calcSize - 3);
+  const subFontSize = `${calcSubSize}px`;
   const padding = isLandscape ? '6px 12px' : '5px 8px';
   const isTransparentBg = bgColor === 'transparent';
 
-  // Map font family xem trước
-  const fontFamilyMap = {
-    'be-vietnam-pro': "'Be Vietnam Pro', sans-serif",
-    'roboto': "'Roboto', sans-serif",
-    'montserrat': "'Montserrat', sans-serif",
-    'nunito': "'Nunito', sans-serif",
-    'inter': "'Inter', sans-serif",
-    'oswald': "'Oswald', sans-serif"
-  };
-  const fontFamily = font && fontFamilyMap[font] ? fontFamilyMap[font] : 'inherit';
+  const fontFamily = 'inherit';
+
+  // Tỉ lệ scale dịch chuyển phụ đề trong preview so với thực tế (1080x1920)
+  const scaleFactor = isFullLiveScreen ? 0.25 : 0.1;
+  const visualMarginY = captionMarginY * scaleFactor;
 
   return (
     <div style={{
@@ -487,54 +530,74 @@ function CaptionStylePreview({ style, isLandscape = false, textColor, bgColor, f
       display: 'flex',
       alignItems: style === 'page' ? 'center' : style === 'hook' ? 'flex-start' : 'flex-end',
       justifyContent: 'center',
-      // "hook" là kiểu DUY NHẤT neo TRÊN (flex-start) — các kiểu còn lại neo dưới nên padding gốc
-      // chỉ có bottom, không có top. Không thêm padding-top riêng cho "hook" thì thẻ dính sát mép
-      // trên, không giống bản render thật (Caption.tsx có marginTop: 48 cho thẻ hook).
       padding: style === 'hook'
         ? (isFullLiveScreen ? (isLandscape ? '14px 12px 0' : '16px 10px 0') : (isLandscape ? '6px 8px 0' : '8px 8px 0'))
         : (isFullLiveScreen ? (isLandscape ? '0 12px 14px' : '0 10px 16px') : (isLandscape ? '0 8px 6px' : '0 8px 10px')),
-      fontFamily
+      fontFamily,
+      overflow: 'hidden'
     }}>
-      {style === 'tiktok' ? (
-        <div style={{ textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto' }}>
-          <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', textShadow: strokeShadow, letterSpacing: '0.3px' }}>DON&apos;T</div>
-          <div style={{ fontSize: subFontSize, fontWeight: 600, color: '#FFE14D', textShadow: strokeShadow, marginTop: '2px' }}>Đừng bỏ cuộc</div>
-        </div>
-      ) : style === 'karaoke' ? (
-        <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
-          <div style={{ fontSize: mainFontSize, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            <span style={{ background: '#FE2C55', color: '#fff', borderRadius: '3px', padding: '0 4px' }}>Don&apos;t</span>{' '}
-            <span style={{ color: textColor || '#fff' }}>give up</span>
-          </div>
-          <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
-        </div>
-      ) : style === 'page' ? (
-        <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || '#FBF3E3'), border: isTransparentBg ? 'none' : '1px solid rgba(42,33,24,0.08)', borderRadius: '8px', padding, textAlign: 'center', width: isFullLiveScreen ? '88%' : 'auto', maxWidth: '92%' }}>
-          <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#2A2118', lineHeight: 1.4 }}>
-            Don&apos;t{' '}
-            <span style={{ background: '#FFCB4D', color: '#2A2118', borderRadius: '3px', padding: '0 4px' }}>give</span>{' '}
-            up.
-          </div>
-          <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(42,33,24,0.65)', marginTop: '2px' }}>Đừng bỏ cuộc.</div>
-        </div>
-      ) : style === 'hook' ? (
-        <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(8,8,11,0.88)'), borderRadius: '10px', padding: isLandscape ? '18px 24px' : '16px 20px', textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', maxWidth: '95%' }}>
-          {/* Chữ hoa gõ SẴN trong text, không dùng CSS text-transform: uppercase — Chromium
-              (engine Remotion dùng để render) không luôn ghép đúng dấu thanh tiếng Việt khi
-              transform bằng CSS (vd "ừ" -> "Ừ" bị vỡ dấu), trong khi gõ hoa sẵn thì luôn đúng. */}
-          <div style={{ fontSize: mainFontSize, fontWeight: 800, color: textColor || '#fff', lineHeight: 1.3, letterSpacing: '0.3px' }}>
-            ĐỪNG BỎ CUỘC
-          </div>
-          <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>
-            Don&apos;t give up
-          </div>
-        </div>
-      ) : (
-        <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
-          <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', whiteSpace: 'nowrap' }}>Don&apos;t give up</div>
-          <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
+      {imageUrl && (
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
+          <img
+            src={imageUrl}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: `scale(${imageScale}) translateY(${imageTranslateY}%)`,
+              transformOrigin: 'center center'
+            }}
+          />
         </div>
       )}
+      <div style={{
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        zIndex: 1,
+        transform: `translateY(${-visualMarginY}px)`
+      }}>
+        {style === 'tiktok' ? (
+          <div style={{ textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto' }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', textShadow: strokeShadow, letterSpacing: '0.3px' }}>DON&apos;T</div>
+            <div style={{ fontSize: subFontSize, fontWeight: 600, color: '#FFE14D', textShadow: strokeShadow, marginTop: '2px' }}>Đừng bỏ cuộc</div>
+          </div>
+        ) : style === 'karaoke' ? (
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <span style={{ background: '#FE2C55', color: '#fff', borderRadius: '3px', padding: '0 4px' }}>Don&apos;t</span>{' '}
+              <span style={{ color: textColor || '#fff' }}>give up</span>
+            </div>
+            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
+          </div>
+        ) : style === 'page' ? (
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || '#FBF3E3'), border: isTransparentBg ? 'none' : '1px solid rgba(42,33,24,0.08)', borderRadius: '8px', padding, textAlign: 'center', width: isFullLiveScreen ? '88%' : 'auto', maxWidth: '92%' }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#2A2118', lineHeight: 1.4 }}>
+              Don&apos;t{' '}
+              <span style={{ background: '#FFCB4D', color: '#2A2118', borderRadius: '3px', padding: '0 4px' }}>give</span>{' '}
+              up.
+            </div>
+            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(42,33,24,0.65)', marginTop: '2px' }}>Đừng bỏ cuộc.</div>
+          </div>
+        ) : style === 'hook' ? (
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(8,8,11,0.88)'), borderRadius: '10px', padding: isLandscape ? '18px 24px' : '16px 20px', textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', maxWidth: '95%' }}>
+            {/* Chữ hoa gõ SẴN trong text, không dùng CSS text-transform: uppercase — Chromium
+                (engine Remotion dùng để render) không luôn ghép đúng dấu thanh tiếng Việt khi
+                transform bằng CSS (vd "ừ" -> "Ừ" bị vỡ dấu), trong khi gõ hoa sẵn thì luôn đúng. */}
+            <div style={{ fontSize: mainFontSize, fontWeight: 800, color: textColor || '#fff', lineHeight: 1.3, letterSpacing: '0.3px' }}>
+              ĐỪNG <span style={{ color: highlightColor || '#FE2C55' }}>BỎ CUỘC</span>
+            </div>
+            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>
+              Don&apos;t give up
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', whiteSpace: 'nowrap' }}>Don&apos;t give up</div>
+            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -846,6 +909,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [voiceMsg, setVoiceMsg] = useState('');
   const [isTranslatingSubtitles, setIsTranslatingSubtitles] = useState(false);
   const [subtitleMsg, setSubtitleMsg] = useState('');
+  const [isRegeneratingNarration, setIsRegeneratingNarration] = useState(false);
+  const [regenerateNarrationMsg, setRegenerateNarrationMsg] = useState('');
   const [extQueueState, setExtQueueState] = useState(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [renderMsg, setRenderMsg] = useState('');
@@ -863,13 +928,31 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // reading_practice không có khái niệm "Kiểu phụ đề" để chọn — luôn là kiểu trang giấy
   // karaoke duy nhất (khớp preview 'page' đã có sẵn), chỉ có phần tuỳ chỉnh font/màu/cỡ chữ.
   const initialStyle = isReadingPractice ? 'page' : (result.remotionConfig?.captionStyle || 'box');
+  // QUAN TRỌNG: phải ưu tiên giá trị đã lưu trong result.remotionConfig trước khi rơi về mặc
+  // định "cứng" của kiểu phụ đề (CAPTION_STYLE_DEFAULTS) — trước đây nhánh không phải
+  // reading_practice bỏ qua hẳn result.remotionConfig, nên MỌI lần mở lại kịch bản (rời trang
+  // rồi quay lại, mở từ "Lịch sử đã tạo"...) đều nạp lại đúng font/cỡ chữ/màu MẶC ĐỊNH của style
+  // đó thay vì giá trị người dùng đã tuỳ chỉnh và bấm "Lưu & Áp dụng" trước đó — trông như "lưu
+  // không được" dù bản ghi remotionConfig trong DB vẫn đúng.
   const initialDefaults = isReadingPractice
     ? {
       ...CAPTION_STYLE_DEFAULTS.readingPage,
       textColor: result.remotionConfig?.captionTextColor || CAPTION_STYLE_DEFAULTS.readingPage.textColor,
       bgColor: result.remotionConfig?.captionBgColor || CAPTION_STYLE_DEFAULTS.readingPage.bgColor
     }
-    : (CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box);
+    : (() => {
+      const styleDefault = CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box;
+      const categoryFontSizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[initialStyle];
+      const rc = result.remotionConfig || {};
+      return {
+        font: rc.font || styleDefault.font,
+        fontSize: rc.fontSize || categoryFontSizeOverride || styleDefault.fontSize,
+        textColor: rc.textColor || styleDefault.textColor,
+        bgColor: rc.bgColor || styleDefault.bgColor,
+        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : styleDefault.bgTransparent,
+        highlightColor: rc.highlightColor || styleDefault.highlightColor
+      };
+    })();
 
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
   const [renderTransitionStyle, setRenderTransitionStyle] = useState('crossfade');
@@ -879,6 +962,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Tuỳ chỉnh phụ đề kiểu CapCut — tự động đồng bộ theo thông số mặc định của kiểu phụ đề được chọn
   const [renderCaptionFont, setRenderCaptionFont] = useState(initialDefaults.font);
   const [renderCaptionFontSize, setRenderCaptionFontSize] = useState(initialDefaults.fontSize);
+  // Cỡ chữ dòng dịch (bilingual "sub") — ĐỘC LẬP với cỡ chữ chính ở trên, để trống ('') nghĩa là
+  // giữ tỉ lệ mặc định có sẵn của từng kiểu phụ đề (65%/69%/60% tuỳ style, xem Caption.tsx) so
+  // với cỡ chữ chính, thay vì luôn bị khoá cứng theo 1 tỉ lệ cố định không tuỳ chỉnh được.
+  const [renderCaptionSecondaryFontSize, setRenderCaptionSecondaryFontSize] = useState(() => {
+    return result.remotionConfig?.captionSecondaryFontSize !== undefined && result.remotionConfig?.captionSecondaryFontSize !== null
+      ? String(result.remotionConfig.captionSecondaryFontSize)
+      : '';
+  });
   const [renderCaptionTextColor, setRenderCaptionTextColor] = useState(initialDefaults.textColor);
   const [renderCaptionBgColor, setRenderCaptionBgColor] = useState(initialDefaults.bgColor);
   const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState('100');
@@ -901,6 +992,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState('10');
   const [renderBodyAlign, setRenderBodyAlign] = useState('left');
   const [renderImageMode, setRenderImageMode] = useState('hero'); // 'hero' | 'full_bg' | 'none'
+  const [renderImageScale, setRenderImageScale] = useState(() => {
+    return result.remotionConfig?.imageScale !== undefined ? String(Math.round(result.remotionConfig.imageScale * 100)) : '100';
+  });
+  const [renderImageTranslateY, setRenderImageTranslateY] = useState(() => {
+    return result.remotionConfig?.imageTranslateY !== undefined ? String(result.remotionConfig.imageTranslateY) : '0';
+  });
+  const [renderCaptionMarginY, setRenderCaptionMarginY] = useState(() => {
+    return result.remotionConfig?.captionMarginY !== undefined ? String(result.remotionConfig.captionMarginY) : '0';
+  });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
   // Nhạc nền nhẹ (tuỳ chọn) — không đóng gói sẵn nhạc theo skill (tránh vấn đề bản quyền),
@@ -921,6 +1021,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return 'track1';
   });
+  // Âm lượng đã ghim làm mặc định hệ thống CÙNG với bản nhạc (xem handlePinDefaultTrack) — dùng
+  // để so sánh hiển thị nút "Đang Mặc Định"/"Đặt làm Mặc Định" và làm giá trị mặc định cho các
+  // kịch bản mới, tách biệt khỏi cơ chế Preset đầy đủ (xem chú thích ở fetchSettings bên dưới).
+  const [defaultBgMusicVolume, setDefaultBgMusicVolume] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('default_bg_music_volume') || '10';
+    }
+    return '10';
+  });
   const [selectedBgMusicTrackId, setSelectedBgMusicTrackId] = useState(() => {
     if (result.remotionConfig?.bgMusicTrackId) return result.remotionConfig.bgMusicTrackId;
     if (typeof window !== 'undefined') {
@@ -928,6 +1037,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return 'track1';
   });
+  // Nút "Đang Mặc Định"/"Đặt làm Mặc Định" chỉ hiện đã ghim khi CẢ bản nhạc lẫn âm lượng đang
+  // chọn đều khớp với giá trị đã lưu làm mặc định — vd đổi âm lượng sau khi đã ghim bản nhạc thì
+  // vẫn cần bấm ghim lại để lưu mức âm lượng mới.
+  const isBgMusicDefaultPinned = selectedBgMusicTrackId === defaultBgMusicTrackId
+    && String(renderBgMusicVolume) === String(defaultBgMusicVolume);
   const [pinTrackMsg, setPinTrackMsg] = useState('');
   const [showCustomBgMusicVolume, setShowCustomBgMusicVolume] = useState(false);
   const [showBgMusicModal, setShowBgMusicModal] = useState(false);
@@ -1037,12 +1151,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setSelectedBgMusicTrackId(activeTrack);
       setDefaultBgMusicTrackId(savedTrack);
 
+      const savedVolume = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null) || settings?.defaultBgMusicVolume || '10';
+      setDefaultBgMusicVolume(savedVolume);
+
       if (result?.remotionConfig?.bgMusicVolume !== undefined && result?.remotionConfig?.bgMusicVolume !== null) {
         const v = Number(result.remotionConfig.bgMusicVolume);
         const percent = v <= 1 ? Math.round(v * 100) : v;
         setRenderBgMusicVolume(percent === 6 ? '10' : String(percent));
       } else {
-        setRenderBgMusicVolume('10');
+        setRenderBgMusicVolume(savedVolume);
       }
     }
     fetchPresets();
@@ -1051,15 +1168,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const handlePinDefaultTrack = async (trackId) => {
     try {
       setDefaultBgMusicTrackId(trackId);
+      setDefaultBgMusicVolume(renderBgMusicVolume);
       if (typeof window !== 'undefined') {
         localStorage.setItem('default_bg_music_track_id', trackId);
+        localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
       }
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
-          defaultBgMusicTrackId: trackId
+          defaultBgMusicTrackId: trackId,
+          defaultBgMusicVolume: renderBgMusicVolume
         })
       });
       const trackObj = [
@@ -1068,7 +1188,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         { id: 'track3', name: 'Moment of Peace' }
       ].find(t => t.id === trackId);
       const trackName = trackObj ? trackObj.name : trackId;
-      setPinTrackMsg(`✓ Đã đặt "${trackName}" làm nhạc nền mặc định cho các dự án mới!`);
+      setPinTrackMsg(`✓ Đã đặt "${trackName}" (${renderBgMusicVolume}% âm lượng) làm nhạc nền mặc định cho các dự án mới!`);
       setTimeout(() => setPinTrackMsg(''), 4000);
       await fetchSettings();
     } catch (err) {
@@ -1093,6 +1213,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const config = {
       font: renderCaptionFont,
       fontSize: renderCaptionFontSize,
+      secondaryFontSize: renderCaptionSecondaryFontSize,
       textColor: renderCaptionTextColor,
       bgColor: renderCaptionBgColor,
       bgOpacity: renderCaptionBgOpacity,
@@ -1108,7 +1229,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bilingual: renderBilingual,
       bgMusicEnabled: renderBgMusicEnabled,
       bgMusicVolume: renderBgMusicVolume,
-      bgMusicTrackId: selectedBgMusicTrackId
+      bgMusicTrackId: selectedBgMusicTrackId,
+      imageScale: Number(renderImageScale) / 100,
+      imageTranslateY: Number(renderImageTranslateY),
+      captionMarginY: Number(renderCaptionMarginY)
     };
 
     try {
@@ -1213,6 +1337,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const c = preset.config || {};
     if (c.font !== undefined) setRenderCaptionFont(c.font);
     if (c.fontSize !== undefined) setRenderCaptionFontSize(c.fontSize);
+    if (c.secondaryFontSize !== undefined) setRenderCaptionSecondaryFontSize(c.secondaryFontSize);
     if (c.textColor !== undefined) setRenderCaptionTextColor(c.textColor);
     if (c.bgColor !== undefined) setRenderCaptionBgColor(c.bgColor);
     if (c.bgOpacity !== undefined) setRenderCaptionBgOpacity(c.bgOpacity);
@@ -1225,6 +1350,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.paddingPercent !== undefined) setRenderContentPaddingPercent(c.paddingPercent);
     if (c.bodyAlign !== undefined) setRenderBodyAlign(c.bodyAlign);
     if (c.imageMode !== undefined) setRenderImageMode(c.imageMode);
+    if (c.imageScale !== undefined) setRenderImageScale(String(Math.round(c.imageScale * 100)));
+    if (c.imageTranslateY !== undefined) setRenderImageTranslateY(String(c.imageTranslateY));
+    if (c.captionMarginY !== undefined) setRenderCaptionMarginY(String(c.captionMarginY));
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
     if (c.bgMusicEnabled !== undefined) setRenderBgMusicEnabled(c.bgMusicEnabled);
     if (c.bgMusicVolume !== undefined) {
@@ -1258,6 +1386,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       [c.paddingPercent, renderContentPaddingPercent],
       [c.bodyAlign, renderBodyAlign],
       [c.imageMode, renderImageMode],
+      [c.imageScale !== undefined ? String(Math.round(c.imageScale * 100)) : undefined, renderImageScale],
+      [c.imageTranslateY !== undefined ? String(c.imageTranslateY) : undefined, renderImageTranslateY],
+      [c.captionMarginY !== undefined ? String(c.captionMarginY) : undefined, renderCaptionMarginY],
       [c.bilingual, renderBilingual],
       [c.bgMusicEnabled, renderBgMusicEnabled],
       [c.bgMusicVolume, renderBgMusicVolume]
@@ -1286,8 +1417,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const defaults = isReadingPractice
       ? CAPTION_STYLE_DEFAULTS.readingPage
       : (CAPTION_STYLE_DEFAULTS[styleType] || CAPTION_STYLE_DEFAULTS.box);
+    const categoryFontSizeOverride = !isReadingPractice ? CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[styleType] : undefined;
     setRenderCaptionFont(defaults.font);
-    setRenderCaptionFontSize(defaults.fontSize);
+    setRenderCaptionFontSize(categoryFontSizeOverride || defaults.fontSize);
+    setRenderCaptionSecondaryFontSize('');
     setRenderCaptionTextColor(defaults.textColor);
     setRenderCaptionBgColor(defaults.bgColor);
     setRenderCaptionBgTransparent(defaults.bgTransparent);
@@ -1296,29 +1429,93 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const capcutPanelRef = useRef(null);
   const [mounted, setMounted] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
-  // Nghe thử kết quả lồng tiếng (Bước 2) — mỗi slide có 1 file audio riêng (scene-01.mp3,
-  // scene-02.mp3...) nên cần chọn slide muốn nghe thay vì phát 1 file duy nhất như bg music.
-  // voicePreviewVersion bump sau mỗi lần "Tạo/Lồng Tiếng Lại" thành công để phá cache trình
-  // duyệt, đúng pattern đã dùng cho heroImageVersion/bgMusicVersion.
-  const [showVoicePreview, setShowVoicePreview] = useState(false);
-  const [previewSlideNumber, setPreviewSlideNumber] = useState(1);
+  // Nghe thử kết quả lồng tiếng (Bước 1) phát liên tục từ đầu đến cuối
+  const voicePreviewAudioRef = useRef(null);
+  const [previewAudioPlaying, setPreviewAudioPlaying] = useState(false);
+  const [previewAudioIndex, setPreviewAudioIndex] = useState(0);
   const [voicePreviewVersion, setVoicePreviewVersion] = useState(0);
   const [renderProgress, setRenderProgress] = useState(0);
   const [isOpeningFolder, setIsOpeningFolder] = useState(false);
   const [openFolderError, setOpenFolderError] = useState('');
 
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
-  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {} });
+  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {} });
+  const [vieneuVoices, setVieneuVoices] = useState([]);
+  const [loadingVieneuVoices, setLoadingVieneuVoices] = useState(false);
+  const [vieneuConnectionStatus, setVieneuConnectionStatus] = useState(null); // 'connected' | 'error' | null
+  // Nhân bản giọng đọc tuỳ chỉnh cho VieNeu-TTS (voice cloning từ 1 file audio mẫu) — xem
+  // handleAddVieneuVoice/handleRemoveVieneuVoice bên dưới.
+  const [newVieneuVoiceName, setNewVieneuVoiceName] = useState('');
+  const [newVieneuVoiceFile, setNewVieneuVoiceFile] = useState(null);
+  const [isAddingVieneuVoice, setIsAddingVieneuVoice] = useState(false);
+  const [addVieneuVoiceMsg, setAddVieneuVoiceMsg] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [quota, setQuota] = useState(null);
   const [loadingQuota, setLoadingQuota] = useState(false);
   const [quotaError, setQuotaError] = useState('');
-  const [previewingKey, setPreviewingKey] = useState('');
+  const [activePreviewState, setActivePreviewState] = useState({ key: '', status: 'idle' }); // 'idle' | 'generating' | 'playing'
+  const characterPreviewAudioRef = useRef(null);
   const [previewError, setPreviewError] = useState('');
+  // Cache audio mẫu "Nghe thử" theo provider+voiceId — gọi API tạo giọng mẫu 1 LẦN duy nhất cho
+  // mỗi giọng, những lần bấm nghe lại sau chỉ phát lại từ cache, không gọi API nữa (đỡ chậm).
+  // Dùng useRef (không phải state) vì đây chỉ là cache nội bộ, không cần re-render khi cập nhật.
+  const voicePreviewCacheRef = useRef({});
   const [activeLangTab, setActiveLangTab] = useState({});
 
+  const stopVoicePreview = () => {
+    if (voicePreviewAudioRef.current) {
+      voicePreviewAudioRef.current.pause();
+      voicePreviewAudioRef.current = null;
+    }
+    setPreviewAudioPlaying(false);
+    setPreviewAudioIndex(0);
+  };
+
+  const playVoicePreview = (index = 0) => {
+    if (voicePreviewAudioRef.current) {
+      voicePreviewAudioRef.current.pause();
+      voicePreviewAudioRef.current = null;
+    }
+
+    const segments = result?.segments || [];
+    const total = segments.length;
+    if (index >= total) {
+      setPreviewAudioPlaying(false);
+      setPreviewAudioIndex(0);
+      return;
+    }
+
+    setPreviewAudioPlaying(true);
+    setPreviewAudioIndex(index);
+
+    const folder = result.input?.folderPath || 'example';
+    const audExt = result.input?.audioExt || 'mp3';
+    const paddedNum = String(index + 1).padStart(2, '0');
+    const previewSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
+
+    const audio = new Audio(previewSrc);
+    voicePreviewAudioRef.current = audio;
+
+    audio.play().catch(err => {
+      console.warn('Playback error, skipping to next:', err);
+      playVoicePreview(index + 1);
+    });
+
+    audio.onended = () => {
+      playVoicePreview(index + 1);
+    };
+  };
+
+  const toggleVoicePreview = () => {
+    if (previewAudioPlaying) {
+      stopVoicePreview();
+    } else {
+      playVoicePreview(0);
+    }
+  };
+
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
-  // Cả 2 chủ đề đều dùng chung quy trình 3 bước (Google Flow ảnh -> ElevenLabs giọng ->
+  // Cả 2 chủ đề đều dùng chung quy trình các bước (ElevenLabs giọng -> Google Flow ảnh ->
   // Remotion render) thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
   const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice;
 
@@ -1432,35 +1629,201 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     fetchSettings();
   }, []);
 
+  const fetchVieneuVoices = async (url) => {
+    const targetUrl = url || settings.vieneuServerUrl || 'http://127.0.0.1:8001';
+    setLoadingVieneuVoices(true);
+    setVieneuConnectionStatus(null);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(`${targetUrl}/voices`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.voices)) {
+        setVieneuVoices(data.voices);
+        setVieneuConnectionStatus('connected');
+      } else {
+        throw new Error(data.error || 'Lỗi server VieNeu-TTS');
+      }
+    } catch (err) {
+      console.warn('VieNeu-TTS connection check failed, using static presets fallback:', err.message);
+      setVieneuConnectionStatus('error');
+      // Fallback static list of v3 preset voices
+      setVieneuVoices([
+        { id: 'Phạm Tuyên', name: 'Phạm Tuyên (Bắc - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👨', genderText: 'Nam', desc: 'Bắc Tự nhiên/Tin tức/Truyện' },
+        { id: 'Trúc Ly', name: 'Trúc Ly (Bắc - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👩', genderText: 'Nữ', desc: 'Bắc Tự nhiên/Tin tức/Truyện' },
+        { id: 'Minh Đức', name: 'Minh Đức (Bắc - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👨', genderText: 'Nam', desc: 'Bắc Tự nhiên/Tin tức/Truyện' },
+        { id: 'Ngọc Huyền', name: 'Ngọc Huyền (Bắc - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👩', genderText: 'Nữ', desc: 'Bắc Tự nhiên/Tin tức/Truyện' },
+        { id: 'Ngọc Trân', name: 'Ngọc Trân (Trung - Tự nhiên)', icon: '🇻🇳 👩', genderText: 'Nữ', desc: 'Trung Tự nhiên' },
+        { id: 'Quang Sơn', name: 'Quang Sơn (Trung - Tự nhiên)', icon: '🇻🇳 👨', genderText: 'Nam', desc: 'Trung Tự nhiên' },
+        { id: 'Thảo Chi', name: 'Thảo Chi (Nam - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👩', genderText: 'Nữ', desc: 'Nam Tự nhiên/Tin tức/Truyện' },
+        { id: 'Duy Minh', name: 'Duy Minh (Nam - Tự nhiên/Tin tức/Truyện)', icon: '🇻🇳 👨', genderText: 'Nam', desc: 'Nam Tự nhiên/Tin tức/Truyện' }
+      ]);
+    } finally {
+      setLoadingVieneuVoices(false);
+    }
+  };
+
+  // Nhân bản 1 giọng đọc mới cho VieNeu-TTS từ file audio mẫu người dùng tải lên (voice cloning
+  // zero-shot — không cần huấn luyện lại model) — gọi thẳng tới server Python (CORS đã mở sẵn ở
+  // vieneu_server.py), cùng cách fetchVieneuVoices() ở trên đang gọi /voices trực tiếp.
+  const handleAddVieneuVoice = async () => {
+    const cleanName = newVieneuVoiceName.trim();
+    if (!cleanName) {
+      setAddVieneuVoiceMsg('Vui lòng đặt tên cho giọng mới.');
+      return;
+    }
+    if (!newVieneuVoiceFile) {
+      setAddVieneuVoiceMsg('Vui lòng chọn file audio mẫu (mp3/wav).');
+      return;
+    }
+    const targetUrl = settings.vieneuServerUrl || 'http://127.0.0.1:8001';
+    setIsAddingVieneuVoice(true);
+    setAddVieneuVoiceMsg('');
+    try {
+      const formData = new FormData();
+      formData.append('name', cleanName);
+      formData.append('audio', newVieneuVoiceFile);
+      const res = await fetch(`${targetUrl}/add_voice`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAddVieneuVoiceMsg(`✓ Đã thêm giọng "${cleanName}"!`);
+        setNewVieneuVoiceName('');
+        setNewVieneuVoiceFile(null);
+        await fetchVieneuVoices(targetUrl);
+      } else {
+        setAddVieneuVoiceMsg(`Lỗi: ${data.detail || data.error || 'Không thể thêm giọng.'}`);
+      }
+    } catch (err) {
+      setAddVieneuVoiceMsg('Lỗi: Không thể kết nối tới server VieNeu-TTS.');
+    } finally {
+      setIsAddingVieneuVoice(false);
+    }
+  };
+
+  const handleRemoveVieneuVoice = async (voiceId) => {
+    if (!confirm(`Xoá giọng tuỳ chỉnh "${voiceId}"?`)) return;
+    const targetUrl = settings.vieneuServerUrl || 'http://127.0.0.1:8001';
+    try {
+      const res = await fetch(`${targetUrl}/remove_voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: voiceId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        await fetchVieneuVoices(targetUrl);
+      } else {
+        alert(`Lỗi: ${data.detail || data.error || 'Không thể xoá giọng.'}`);
+      }
+    } catch (err) {
+      alert('Lỗi: Không thể kết nối tới server VieNeu-TTS.');
+    }
+  };
+
   useEffect(() => {
     if (showVoiceConfig) {
       fetchSettings();
     }
   }, [showVoiceConfig]);
 
+  useEffect(() => {
+    if (showVoiceConfig && settings.ttsProvider === 'vieneu') {
+      fetchVieneuVoices();
+    }
+  }, [showVoiceConfig, settings.ttsProvider]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup character preview audio when component unmounts
+      if (characterPreviewAudioRef.current) {
+        characterPreviewAudioRef.current.pause();
+        characterPreviewAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showVoiceConfig) {
+      // Stop character preview audio when modal is closed
+      if (characterPreviewAudioRef.current) {
+        characterPreviewAudioRef.current.pause();
+        characterPreviewAudioRef.current = null;
+      }
+      setActivePreviewState({ key: '', status: 'idle' });
+    }
+  }, [showVoiceConfig]);
+
   // "Nghe thử" — tạo 1 đoạn mẫu ngắn bằng chính giọng đang cấu hình cho nhân vật `key` và phát
   // ngay trên trình duyệt, không ghi ra đĩa/không đụng project nào.
   const handlePreviewVoice = async (provider, voiceId, key) => {
-    setPreviewingKey(key);
     setPreviewError('');
 
+    // Stop any currently playing character preview audio
+    if (characterPreviewAudioRef.current) {
+      characterPreviewAudioRef.current.pause();
+      characterPreviewAudioRef.current = null;
+    }
+
+    const cacheKey = `${provider}:${voiceId}`;
+    const cachedDataUri = voicePreviewCacheRef.current[cacheKey];
+
+    const playAudio = (dataUri) => {
+      const audio = new Audio(dataUri);
+      characterPreviewAudioRef.current = audio;
+      
+      setActivePreviewState({ key, status: 'playing' });
+      
+      audio.play().catch(playErr => {
+        console.warn('Playback error:', playErr);
+        setPreviewError('Không thể phát âm thanh mẫu.');
+        setActivePreviewState({ key: '', status: 'idle' });
+        characterPreviewAudioRef.current = null;
+      });
+
+      audio.onended = () => {
+        setActivePreviewState({ key: '', status: 'idle' });
+        characterPreviewAudioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setActivePreviewState({ key: '', status: 'idle' });
+        characterPreviewAudioRef.current = null;
+      };
+
+      audio.onpause = () => {
+        setActivePreviewState({ key: '', status: 'idle' });
+      };
+    };
+
     try {
+      if (cachedDataUri) {
+        playAudio(cachedDataUri);
+        return;
+      }
+
+      setActivePreviewState({ key, status: 'generating' });
+
       const res = await fetch('/api/prompts/voice-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, voiceId })
+        body: JSON.stringify({
+          provider,
+          voiceId
+        })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        const audio = new Audio(`data:${data.mime || 'audio/wav'};base64,${data.audioBase64}`);
-        await audio.play();
+        const dataUri = `data:${data.mime || 'audio/wav'};base64,${data.audioBase64}`;
+        voicePreviewCacheRef.current[cacheKey] = dataUri;
+        playAudio(dataUri);
       } else {
         setPreviewError(data.error || 'Không tạo được giọng mẫu.');
+        setActivePreviewState({ key: '', status: 'idle' });
       }
     } catch (err) {
       setPreviewError(err.message || 'Lỗi phát âm thanh mẫu.');
-    } finally {
-      setPreviewingKey('');
+      setActivePreviewState({ key: '', status: 'idle' });
     }
   };
 
@@ -1497,6 +1860,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const handleGenerateVoice = async () => {
     setIsGeneratingVoice(true);
     setVoiceMsg('');
+    setVoiceProgress(0);
     try {
       const res = await fetch('/api/prompts/voiceover', {
         method: 'POST',
@@ -1514,9 +1878,55 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           }))
         })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setVoiceMsg(`✓ Đã tạo thành công! Lưu tại: ${data.targetDirectory}`);
+
+      // Lỗi validate trước khi bắt đầu stream (thiếu scenes/folderPath, chưa cấu hình
+      // ElevenLabs...) vẫn trả về JSON thường (status 400), không có res.body dạng NDJSON.
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        setVoiceMsg(`Lỗi: ${data.error || 'Không thể tạo âm thanh.'}`);
+        return;
+      }
+
+      // Đọc stream NDJSON: mỗi dòng là 1 sự kiện JSON ("progress" sau mỗi slide xong, "done" khi
+      // hoàn tất, "error" nếu có slide lỗi) — nhờ vậy thanh tiến độ tăng đúng theo tiến độ THẬT
+      // của server thay vì đếm giả lập theo thời gian ước tính như trước.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let doneEvent = null;
+      let errorEvent = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let evt;
+          try {
+            evt = JSON.parse(line);
+          } catch (_) {
+            continue;
+          }
+          if (evt.type === 'progress') {
+            setVoiceProgress(evt.completed);
+          } else if (evt.type === 'done') {
+            doneEvent = evt;
+          } else if (evt.type === 'error') {
+            errorEvent = evt;
+          }
+        }
+      }
+
+      if (errorEvent) {
+        setVoiceMsg(`Lỗi: ${errorEvent.error || 'Không thể tạo âm thanh.'}`);
+      } else if (doneEvent) {
+        const fallbackNote = Array.isArray(doneEvent.capcutFallbackSlides) && doneEvent.capcutFallbackSlides.length > 0
+          ? ` ⚠️ Slide ${doneEvent.capcutFallbackSlides.join(', ')} bị lỗi giọng CapCut đã chọn, tạm dùng giọng Edge dự phòng nên nghe khác giọng — có thể tạo lại giọng đọc để thử lại.`
+          : '';
+        setVoiceMsg(`✓ Đã tạo thành công! Lưu tại: ${doneEvent.targetDirectory}${fallbackNote}`);
         setVoicePreviewVersion(v => v + 1);
         fetchQuota();
         checkAssets();
@@ -1525,7 +1935,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           handleSelectDefaultMusic(activeTrack);
         }
       } else {
-        setVoiceMsg(`Lỗi: ${data.error || 'Không thể tạo âm thanh.'}`);
+        setVoiceMsg('Lỗi: Không nhận được phản hồi hoàn chỉnh từ server.');
       }
     } catch (err) {
       setVoiceMsg('Lỗi: Không thể kết nối tới server.');
@@ -1541,7 +1951,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const res = await fetch('/api/prompts/open-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderPath: result.input?.folderPath || 'example' })
+        body: JSON.stringify({ folderPath: result.input?.folderPath || 'example', category: result.category })
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -1582,6 +1992,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           level: result.input?.level || result.level || undefined,
           captionFont: renderCaptionFont || undefined,
           captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
+          captionSecondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
           captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
           highlightColor: (!isReadingPractice && renderCaptionStyle === 'karaoke') ? (renderHighlightColor || undefined) : undefined,
@@ -1595,7 +2006,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           bodyAlign: isReadingPractice ? renderBodyAlign : undefined,
           imageMode: isReadingPractice ? renderImageMode : undefined,
           bgMusicEnabled: renderBgMusicEnabled,
-          bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined
+          bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined,
+          imageScale: Number(renderImageScale) / 100,
+          imageTranslateY: Number(renderImageTranslateY),
+          captionMarginY: Number(renderCaptionMarginY)
         })
       });
       const data = await res.json();
@@ -1788,8 +2202,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
 
     const configObj = {
+      // captionStyle trước đây KHÔNG nằm trong configObj này — nghĩa là đổi Kiểu phụ đề (vd
+      // sang "hook") rồi bấm "Lưu & Áp dụng" chỉ có tác dụng cho phiên đang mở, mở lại kịch bản
+      // (rời trang/từ "Lịch sử đã tạo") sẽ tự rơi về "box" đã lưu lúc tạo kịch bản ban đầu. Thêm
+      // vào đây để Kiểu phụ đề cũng được lưu bền như mọi tuỳ chỉnh khác trong modal này.
+      captionStyle: renderCaptionStyle,
       font: renderCaptionFont,
       fontSize: renderCaptionFontSize,
+      secondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
       textColor: renderCaptionTextColor,
       bgColor: renderCaptionBgColor,
       bgOpacity: renderCaptionBgOpacity,
@@ -1805,7 +2225,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bilingual: renderBilingual,
       bgMusicEnabled: renderBgMusicEnabled,
       bgMusicVolume: renderBgMusicVolume,
-      bgMusicTrackId: selectedBgMusicTrackId
+      bgMusicTrackId: selectedBgMusicTrackId,
+      imageScale: Number(renderImageScale) / 100,
+      imageTranslateY: Number(renderImageTranslateY),
+      captionMarginY: Number(renderCaptionMarginY)
     };
 
     const mergedRemotionConfig = {
@@ -1858,6 +2281,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       console.warn('Lỗi tự động lưu ghim mặc định:', err);
     }
 
+    // QUAN TRỌNG: remotionConfig đã lưu xuống DB ở trên (PATCH /api/prompts/history), nhưng
+    // mảng "s.history" ở component cha (dùng cho CẢ tab "🗂️ Lịch sử đã tạo" LẪN nút "✏️ Sửa" ở
+    // tab "🎥 Video đã tạo") chỉ được fetch 1 lần và giữ nguyên trong bộ nhớ — nếu không làm mới
+    // ở đây, mở lại kịch bản này từ 1 trong 2 lối đó sẽ nạp lại đúng bản ghi CŨ (còn cache từ
+    // trước khi lưu), làm mất y hệt các tuỳ chỉnh vừa "Lưu & Áp dụng" (font/cỡ chữ/kiểu phụ đề...)
+    // dù bản ghi thật trong DB đã đúng.
+    if (result.id) onHistoryRefresh?.();
+
     setShowCustomCapCut(false);
   };
 
@@ -1873,6 +2304,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         body: JSON.stringify({
           id: result.id,
           folderPath: result.input?.folderPath || '',
+          category: result.category,
           segments: result.segments
         })
       });
@@ -1891,7 +2323,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         if (result.id) onHistoryRefresh?.();
         setSubtitleMsg(
           data.manifestUpdated
-            ? '✓ Đã cập nhật phụ đề song ngữ! Nhấn "Tạo Lại Video" ở Bước 3 để video mới hiển thị phụ đề song ngữ.'
+            ? '✓ Đã cập nhật phụ đề song ngữ! Nhấn "Tạo Lại Video" ở Bước 4 để video mới hiển thị phụ đề song ngữ.'
             : '✓ Đã cập nhật phụ đề song ngữ!'
         );
       } else {
@@ -1904,27 +2336,54 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // Viết lại RIÊNG lời kể (dialogueOrNarration/subtitle) của kịch bản, giữ nguyên toàn bộ ảnh
+  // (visualDescription/files) đã tạo — dùng khi người dùng ưng bộ ảnh nhưng muốn thử lời kể khác
+  // (vd áp dụng hướng dẫn nhịp điệu/chiều sâu tâm lý mới) trước khi tạo lại giọng đọc ở Bước 2.
+  const handleRegenerateNarration = async () => {
+    setIsRegeneratingNarration(true);
+    setRegenerateNarrationMsg('');
+    try {
+      const res = await fetch('/api/prompts/regenerate-narration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: result.id,
+          folderPath: result.input?.folderPath || '',
+          category: result.category,
+          input: result.input,
+          segments: result.segments
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updatedRemotionConfig = result.remotionConfig?.scenes
+          ? {
+            ...result.remotionConfig,
+            scenes: result.remotionConfig.scenes.map((scene, idx) => ({
+              ...scene,
+              caption: data.segments[idx]?.subtitle ?? scene.caption
+            }))
+          }
+          : result.remotionConfig;
+        onResult?.({ ...result, segments: data.segments, remotionConfig: updatedRemotionConfig });
+        if (result.id) onHistoryRefresh?.();
+        setRegenerateNarrationMsg('✓ Đã viết lại lời kể mới (ảnh giữ nguyên)! Nhấn "Tạo Giọng Đọc" ở Bước 1 để tạo giọng đọc theo lời kể mới, rồi "Tạo Lại Video" ở Bước 4.');
+      } else {
+        setRegenerateNarrationMsg(`Lỗi: ${data.error || 'Không thể viết lại lời kể.'}`);
+      }
+    } catch (err) {
+      setRegenerateNarrationMsg('Lỗi: Không thể kết nối tới server.');
+    } finally {
+      setIsRegeneratingNarration(false);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
 
 
-
-  // Bước 2 (ElevenLabs) chạy 1 lệnh xử lý tuần tự từng slide phía server, không có tiến trình
-  // real-time gửi về - nên mô phỏng đếm dần "n/tổng" theo ước tính ~1.3s/slide để đồng bộ hiệu
-  // ứng với Bước 1, dừng lại ở tổng-1 chờ API trả về thật rồi mới coi là xong (assetCounts.audioCount).
-  useEffect(() => {
-    if (!isGeneratingVoice) {
-      setVoiceProgress(0);
-      return;
-    }
-    const total = result.segments.length;
-    const timer = setInterval(() => {
-      setVoiceProgress(prev => (prev < total - 1 ? prev + 1 : prev));
-    }, 1300);
-    return () => clearInterval(timer);
-  }, [isGeneratingVoice, result.segments.length]);
 
   // Bước 3 (Remotion render) cũng chỉ là 1 lệnh chạy 1 lần, không có % thật - mô phỏng thanh %
   // tăng dần theo đường cong ease-out (nhanh lúc đầu, chậm dần) dựa trên thời lượng ước tính theo
@@ -1948,11 +2407,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     checkAssets();
   }, [result.input?.folderPath, result.category]);
 
-  // Reset panel nghe thử lồng tiếng khi chuyển sang dự án khác — tránh giữ previewSlideNumber
-  // cũ vượt quá số slide của dự án mới.
   useEffect(() => {
-    setShowVoicePreview(false);
-    setPreviewSlideNumber(1);
+    stopVoicePreview();
+    return () => {
+      if (voicePreviewAudioRef.current) {
+        voicePreviewAudioRef.current.pause();
+        voicePreviewAudioRef.current = null;
+      }
+    };
   }, [result.input?.folderPath, result.category]);
 
   useEffect(() => {
@@ -2008,7 +2470,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               className="btn btn-secondary"
               style={{ padding: '8px 16px', fontSize: '0.85rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
               onClick={() => {
-                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${s.dialogueOrNarration}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
                 onCopy(allPrompts, 'all_segments');
               }}
             >
@@ -2035,22 +2497,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           {/* Steps Pipeline */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
 
-            {/* Bước 1: Sinh & tải ảnh */}
+            {/* Bước 1: Tạo giọng nói */}
             {(() => {
               const total = result.segments.length;
-              const completedFlow = flowStatus ? flowStatus.completed : 0;
-              const isFlowDone = flowStatus && flowStatus.phase === 'completed';
-              const hasAllImages = assetCounts.imageCount >= total;
-              const isStep1Done = isFlowDone || hasAllImages;
-              const isStep1Running = !isStep1Done && flowStatus && flowStatus.phase === 'running';
+              const isStep1Done = assetCounts.audioCount >= total;
 
               return (
-                <div className={isStep1Running ? 'running-glow-card' : ''} style={{
+                <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
                   display: 'flex',
                   flexDirection: 'column',
                   padding: '12px 16px',
                   background: 'rgba(255, 255, 255, 0.015)',
-                  border: isStep1Running ? '1.5px solid transparent' : isStep1Done ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
+                  border: isGeneratingVoice ? '1.5px solid transparent' : isStep1Done ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
                   borderRadius: '10px',
                   gap: '10px'
                 }}>
@@ -2068,89 +2526,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         fontWeight: 800,
                         fontSize: '0.8rem',
                         flexShrink: 0,
-                        animation: isStep1Running ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                        animation: isGeneratingVoice ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
                       }}>
                         {isStep1Done ? '✓' : '1'}
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 1: Sinh & tải ảnh tự động (Google Flow)
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{
-                        padding: '7px 14px',
-                        fontSize: '0.76rem',
-                        borderRadius: '8px',
-                        fontWeight: 700,
-                        background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
-                        color: isStep1Done ? '#2ed573' : '#fff',
-                        border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
-                        boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}
-                      onClick={() => pushToFlow(flowStatus)}
-                    >
-                      {flowButtonLabel(flowStatus)}
-                    </button>
-                  </div>
-
-                  {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
-                  {isStep1Running && flowStatus && flowStatus.total > 0 && (
-                    <StepProgressBar
-                      percent={(flowStatus.completed / flowStatus.total) * 100}
-                      label={`${flowStatus.completed}/${flowStatus.total}`}
-                      color={flowStatus.color}
-                      showShimmer={true}
-                    />
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Bước 2: Tạo giọng nói */}
-            {(() => {
-              const total = result.segments.length;
-              const isStep1Done = (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total);
-              const isStep2Done = assetCounts.audioCount >= total;
-
-              return (
-                <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: isGeneratingVoice ? '1.5px solid transparent' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                  borderRadius: '10px',
-                  opacity: isStep1Done ? 1 : 0.5,
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        flexShrink: 0,
-                        animation: isGeneratingVoice ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                      }}>
-                        {isStep2Done ? '✓' : '2'}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Tạo giọng lồng tiếng (Edge &amp; CapCut TTS - Miễn phí)
+                          Bước 1: Tạo giọng lồng tiếng
                         </span>
                       </div>
                     </div>
@@ -2161,29 +2543,29 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         title="Cấu hình giọng đọc (Edge / CapCut)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowVoiceConfig(!showVoiceConfig)}
-                        disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
+                        disabled={isGeneratingVoice || isRenderingVideo}
                       >
                         ⚙️
                       </button>
-                      {isStep2Done && (
+                      {isStep1Done && (
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          title="Nghe thử kết quả lồng tiếng"
+                          title={previewAudioPlaying ? "Bấm để dừng nghe thử" : "Nghe thử toàn bộ kết quả lồng tiếng từ đầu đến cuối"}
                           style={{
                             padding: '7px 10px',
                             fontSize: '0.76rem',
                             borderRadius: '8px',
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
-                            background: showVoicePreview ? 'rgba(37,244,238,0.15)' : undefined,
-                            border: showVoicePreview ? '1px solid rgba(37,244,238,0.4)' : undefined,
-                            color: showVoicePreview ? 'var(--secondary)' : undefined
+                            background: previewAudioPlaying ? 'rgba(37,244,238,0.15)' : undefined,
+                            border: previewAudioPlaying ? '1px solid rgba(37,244,238,0.4)' : undefined,
+                            color: previewAudioPlaying ? 'var(--secondary)' : undefined
                           }}
-                          onClick={() => setShowVoicePreview(v => !v)}
+                          onClick={toggleVoicePreview}
                           disabled={isGeneratingVoice || isRenderingVideo}
                         >
-                          🔊 Nghe thử
+                          {previewAudioPlaying ? `⏹ Dừng nghe (Slide ${previewAudioIndex + 1}/${total})` : '🔊 Nghe thử'}
                         </button>
                       )}
                       <button
@@ -2194,91 +2576,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           fontSize: '0.76rem',
                           borderRadius: '8px',
                           fontWeight: 700,
-                          background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                          color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                          border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                          boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                          cursor: (!isStep1Done || isGeneratingVoice) ? 'not-allowed' : 'pointer',
+                          background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
+                          color: isStep1Done ? '#2ed573' : '#fff',
+                          border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
+                          boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                          cursor: isGeneratingVoice ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap'
                         }}
                         onClick={handleGenerateVoice}
-                        disabled={!isStep1Done || isGeneratingVoice || isRenderingVideo}
+                        disabled={isGeneratingVoice || isRenderingVideo}
                       >
-                        {isGeneratingVoice ? '⏳ Đang tạo...' : isStep2Done ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng'}
+                        {isGeneratingVoice ? '⏳ Đang tạo...' : isStep1Done ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng'}
                       </button>
                     </div>
                   </div>
-
-                  {/* Nghe thử kết quả lồng tiếng — mỗi slide 1 file audio riêng nên cho chọn
-                      slide bằng nút lùi/tiến, phát qua image-stream (đã hỗ trợ Content-Length/
-                      Range cho audio, xem route đó) thay vì tạo route mới trùng lặp. */}
-                  {isStep2Done && showVoicePreview && (() => {
-                    const folder = result.input?.folderPath || 'example';
-                    const audExt = result.input?.audioExt || 'mp3';
-                    // Kẹp lại phòng trường hợp previewSlideNumber còn giữ giá trị cũ từ 1 dự án
-                    // khác có nhiều slide hơn (state không tự reset khi đổi dự án).
-                    const safeSlideNumber = Math.min(Math.max(1, previewSlideNumber), total);
-                    const paddedNum = String(safeSlideNumber).padStart(2, '0');
-                    const previewSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
-                    return (
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                        padding: '10px 12px',
-                        background: 'rgba(0,0,0,0.25)',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.06)'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewSlideNumber(n => Math.max(1, n - 1))}
-                              disabled={previewSlideNumber <= 1}
-                              style={{ padding: '3px 9px', fontSize: '0.76rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', cursor: previewSlideNumber <= 1 ? 'not-allowed' : 'pointer', opacity: previewSlideNumber <= 1 ? 0.4 : 1 }}
-                            >
-                              ◀
-                            </button>
-                            <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700, minWidth: '70px', textAlign: 'center' }}>
-                              Slide {safeSlideNumber}/{total}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewSlideNumber(n => Math.min(total, n + 1))}
-                              disabled={previewSlideNumber >= total}
-                              style={{ padding: '3px 9px', fontSize: '0.76rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: '#fff', cursor: previewSlideNumber >= total ? 'not-allowed' : 'pointer', opacity: previewSlideNumber >= total ? 0.4 : 1 }}
-                            >
-                              ▶
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowVoicePreview(false)}
-                            title="Đóng nghe thử"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'rgba(255, 255, 255, 0.4)',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              transition: 'color 0.15s ease',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.color = '#ff4757'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.4)'}
-                          >
-                            ✕ Đóng
-                          </button>
-                        </div>
-                        <audio key={previewSrc} controls autoPlay src={previewSrc} style={{ width: '100%', height: '34px' }} />
-                      </div>
-                    );
-                  })()}
 
                   {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
                       dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
@@ -2329,9 +2640,90 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               );
             })()}
 
+            {/* Bước 2: Sinh & tải ảnh */}
             {(() => {
               const total = result.segments.length;
-              const isStep2Done = assetCounts.audioCount >= total;
+              const isStep1Done = assetCounts.audioCount >= total;
+              const completedFlow = flowStatus ? flowStatus.completed : 0;
+              const isFlowDone = flowStatus && flowStatus.phase === 'completed';
+              const hasAllImages = assetCounts.imageCount >= total;
+              const isStep2Done = isFlowDone || hasAllImages;
+              const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running';
+
+              return (
+                <div className={isStep2Running ? 'running-glow-card' : ''} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '12px 16px',
+                  background: 'rgba(255, 255, 255, 0.015)',
+                  border: isStep2Running ? '1.5px solid transparent' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  borderRadius: '10px',
+                  opacity: isStep1Done ? 1 : 0.5,
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '0.8rem',
+                        flexShrink: 0,
+                        animation: isStep2Running ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                      }}>
+                        {isStep2Done ? '✓' : '2'}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 2: Sinh & tải ảnh tự động
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{
+                        padding: '7px 14px',
+                        fontSize: '0.76rem',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                        color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                        border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                        boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                        cursor: !isStep1Done ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
+                      }}
+                      onClick={() => pushToFlow(flowStatus)}
+                      disabled={!isStep1Done}
+                    >
+                      {flowButtonLabel(flowStatus)}
+                    </button>
+                  </div>
+
+                  {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
+                  {isStep2Running && flowStatus && flowStatus.total > 0 && (
+                    <StepProgressBar
+                      percent={(flowStatus.completed / flowStatus.total) * 100}
+                      label={`${flowStatus.completed}/${flowStatus.total}`}
+                      color={flowStatus.color}
+                      showShimmer={true}
+                    />
+                  )}
+                </div>
+              );
+            })()}
+
+            {(() => {
+              const total = result.segments.length;
+              const isStep1Done = assetCounts.audioCount >= total;
               const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
 
               const currentTrackName = selectedBgMusicTrackId === 'track1' ? 'Soft Ambient'
@@ -2345,9 +2737,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   flexDirection: 'column',
                   padding: '12px 16px',
                   background: 'rgba(255, 255, 255, 0.015)',
-                  border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep2Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
                   borderRadius: '10px',
-                  opacity: (isStep2Done && renderBgMusicEnabled) ? 1 : 0.5,
+                  opacity: (isStep1Done && renderBgMusicEnabled) ? 1 : 0.5,
                   gap: '10px',
                   transition: 'all 0.2s ease'
                 }}>
@@ -2357,7 +2749,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        background: isStep3Done ? '#10b981' : isStep2Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                        background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2370,7 +2762,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                       <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 3: Nhạc nền hòa âm (Remotion)
+                          Bước 3: Nhạc nền hòa âm
                         </span>
                         <span style={{
                           fontSize: '0.72rem',
@@ -2398,11 +2790,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           borderRadius: '8px',
                           fontWeight: 700,
                           whiteSpace: 'nowrap',
-                          opacity: (!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
-                          cursor: (!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
+                          opacity: (!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
+                          cursor: (!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
                         }}
                         onClick={() => setShowBgMusicModal(true)}
-                        disabled={!isStep2Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice}
+                        disabled={!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice}
                       >
                         ⚙️
                       </button>
@@ -2412,7 +2804,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         <input
                           type="checkbox"
                           checked={renderBgMusicEnabled}
-                          disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                          disabled={!isStep1Done || isRenderingVideo || isGeneratingVoice}
                           onChange={(e) => setRenderBgMusicEnabled(e.target.checked)}
                         />
                         <span className="switch-slider" style={{
@@ -2428,7 +2820,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             {/* Bước Render video */}
             {(() => {
               const total = result.segments.length;
-              const isStep2Done = assetCounts.audioCount >= total;
+              const isStep1Done = assetCounts.audioCount >= total;
+              const isStep2Done = (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total);
+              const isReadyToRender = isStep1Done && isStep2Done;
               const isRenderDone = assetCounts.videoCreated;
               const stepNum = '4';
 
@@ -2438,9 +2832,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   flexDirection: 'column',
                   padding: '12px 16px',
                   background: 'rgba(255, 255, 255, 0.015)',
-                  border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isReadyToRender ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
                   borderRadius: '10px',
-                  opacity: isStep2Done ? 1 : 0.5,
+                  opacity: isReadyToRender ? 1 : 0.5,
                   gap: '10px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
@@ -2449,7 +2843,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        background: isRenderDone ? '#10b981' : isStep2Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                        background: isRenderDone ? '#10b981' : isReadyToRender ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2463,7 +2857,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước {stepNum}: Biên tập & Xuất Video (Remotion)
+                          Bước {stepNum}: Biên tập & Xuất Video
                         </span>
                       </div>
                     </div>
@@ -2474,7 +2868,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         title="Cấu hình kiểu render (phụ đề, chuyển cảnh, song ngữ)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => setShowRenderConfig(!showRenderConfig)}
-                        disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                        disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
                       >
                         ⚙️
                       </button>
@@ -2486,16 +2880,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           fontSize: '0.76rem',
                           borderRadius: '8px',
                           fontWeight: 700,
-                          background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isStep2Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                          color: isRenderDone ? '#2ed573' : isStep2Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                          border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isStep2Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                          boxShadow: isRenderDone || !isStep2Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                          cursor: (!isStep2Done || isRenderingVideo) ? 'not-allowed' : 'pointer',
+                          background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isReadyToRender ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                          color: isRenderDone ? '#2ed573' : isReadyToRender ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                          border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isReadyToRender ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: isRenderDone || !isReadyToRender ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                          cursor: (!isReadyToRender || isRenderingVideo) ? 'not-allowed' : 'pointer',
                           whiteSpace: 'nowrap',
                           flexShrink: 0
                         }}
                         onClick={handleRenderVideo}
-                        disabled={!isStep2Done || isRenderingVideo || isGeneratingVoice}
+                        disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
                       >
                         {isRenderingVideo ? '⏳ Đang render...' : isRenderDone ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
                       </button>
@@ -2551,7 +2945,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               )}
               <video
                 key={`${result.input?.folderPath || 'video'}-${videoVersion}`}
-                src={`/api/prompts/video-stream?folderPath=${result.input?.folderPath || 'example'}&v=${videoVersion}`}
+                src={`/api/prompts/video-stream?folderPath=${result.input?.folderPath || 'example'}&category=${result.category || ''}&v=${videoVersion}`}
                 controls
                 style={{
                   width: '100%',
@@ -2705,8 +3099,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const fullSpeech = result.segments
                 .filter(s => !s.isThumbnail && !s.dialogueOrNarration.includes('Thumbnail'))
                 .map(s => {
-                  // Loại bỏ tiền tố tên nhân vật (như Alex:, Mia:) nếu có để đọc liền mạch
-                  return s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim();
+                  // Loại bỏ tiền tố tên nhân vật (như Alex:, Mia:) nếu có để đọc liền mạch, và
+                  // [tag cảm xúc] (không có tác dụng gì với giọng đọc, xem stripEmotionTagsForDisplay)
+                  return stripEmotionTagsForDisplay(s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim());
                 })
                 .join(' ');
               onCopy(fullSpeech, 'full_speech_only');
@@ -2729,7 +3124,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           borderRadius: '8px',
           fontStyle: 'italic'
         }}>
-          {result.segments.filter(s => !s.isThumbnail && !s.dialogueOrNarration.includes('Thumbnail')).map(s => s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim()).join(' ')}
+          {result.segments.filter(s => !s.isThumbnail && !s.dialogueOrNarration.includes('Thumbnail')).map(s => stripEmotionTagsForDisplay(s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim())).join(' ')}
         </p>
       </div>
 
@@ -2739,18 +3134,44 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, flex: 1 }}>
               Dưới đây là kịch bản thoại đã được chia nhỏ thành các slide. Hãy sao chép lần lượt từng prompt ảnh phía dưới để sinh ảnh (bằng Midjourney/Flux) hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
             </p>
+            {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={isRegeneratingNarration}
+                title="Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide"
+                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: isRegeneratingNarration ? 0.6 : 1 }}
+                onClick={handleRegenerateNarration}
+              >
+                {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
+              </button>
+            )}
             <button
               type="button"
               className="btn btn-secondary"
               style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
               onClick={() => {
-                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${s.dialogueOrNarration}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
                 onCopy(allPrompts, 'all_segments');
               }}
             >
               {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
             </button>
           </div>
+          {regenerateNarrationMsg && (
+            <div style={{
+              fontSize: '0.8rem',
+              color: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
+              background: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              marginTop: '-4px',
+              marginBottom: '16px',
+              fontWeight: 500
+            }}>
+              {regenerateNarrationMsg}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {result.segments.map((seg, idx) => {
@@ -2793,7 +3214,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
                         </span>
                         <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                          {seg.dialogueOrNarration}
+                          {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
                         </p>
                       </div>
                     )}
@@ -2864,6 +3285,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               to { transform: translateY(0); opacity: 1; }
             }
             @keyframes quota-spin { to { transform: rotate(360deg); } }
+            @keyframes voice-pulse {
+              0% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.1); border-color: rgba(74, 222, 128, 0.4); }
+              50% { box-shadow: 0 0 16px rgba(74, 222, 128, 0.5); border-color: #4ade80; background-color: rgba(74, 222, 128, 0.16); }
+              100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.1); border-color: rgba(74, 222, 128, 0.4); }
+            }
+            @keyframes generating-pulse {
+              0% { box-shadow: 0 0 4px rgba(37, 244, 238, 0.1); border-color: rgba(37, 244, 238, 0.4); }
+              50% { box-shadow: 0 0 16px rgba(37, 244, 238, 0.5); border-color: var(--secondary); background-color: rgba(37, 244, 238, 0.16); }
+              100% { box-shadow: 0 0 4px rgba(37, 244, 238, 0.1); border-color: rgba(37, 244, 238, 0.4); }
+            }
           `}</style>
           <div style={{
             width: '92%',
@@ -2880,10 +3311,171 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
-              <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                🆓 Giọng đọc Miễn phí (Edge &amp; CapCut)
+              <span style={{ fontSize: '0.72rem', color: (settings.ttsProvider === 'edge' || settings.ttsProvider === 'vieneu') ? '#4ade80' : '#45f4ee', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {(settings.ttsProvider === 'edge') ? '🆓 Giọng đọc Miễn phí (Edge & CapCut)' : (settings.ttsProvider === 'vieneu') ? '🇻🇳 Giọng VieNeu-TTS (Local)' : (settings.ttsProvider === 'vbee') ? '🇻🇳 Giọng Vbee TTS (Cần Token)' : (settings.ttsProvider === 'fpt') ? '🇻🇳 Giọng Việt FPT.AI (Cần Key)' : '💎 Giọng ElevenLabs (Trả phí)'}
               </span>
             </div>
+
+            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Nhà cung cấp giọng đọc:</span>
+              <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {[
+                  { id: 'edge', label: '🆓 Edge & CapCut (Miễn phí)' },
+                  { id: 'vieneu', label: '🇻🇳 VieNeu-TTS (Cục bộ)' },
+                  { id: 'elevenlabs', label: '💎 ElevenLabs' }
+                ].map(p => {
+                  const isActive = (settings.ttsProvider || 'edge') === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSettings(prev => ({ ...prev, ttsProvider: p.id }))}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: isActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
+                        color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {(settings.ttsProvider === 'vieneu') && (
+              <div style={{
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                marginBottom: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>VieNeu-TTS Server URL:</span>
+                    <span style={{
+                      color: vieneuConnectionStatus === 'connected' ? '#4ade80' : vieneuConnectionStatus === 'error' ? 'var(--danger)' : 'rgba(255,255,255,0.4)',
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {vieneuConnectionStatus === 'connected' ? '● Đã kết nối' : vieneuConnectionStatus === 'error' ? '● Mất kết nối' : '○ Đang kiểm tra...'}
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Mặc định: http://127.0.0.1:8001"
+                      value={settings.vieneuServerUrl || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, vieneuServerUrl: e.target.value }))}
+                      style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        outline: 'none',
+                        flex: 1
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fetchVieneuVoices(settings.vieneuServerUrl)}
+                      disabled={loadingVieneuVoices}
+                      style={{
+                        padding: '8px 14px',
+                        background: 'rgba(37, 244, 238, 0.15)',
+                        border: '1px solid rgba(37, 244, 238, 0.3)',
+                        borderRadius: '6px',
+                        color: 'var(--secondary)',
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {loadingVieneuVoices ? '⏳ Checking...' : 'Thử kết nối'}
+                    </button>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.45)' }}>
+                  Đảm bảo đã khởi chạy server Python VieNeu-TTS bằng cách chạy file <code style={{ color: 'var(--secondary)', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>start-vieneu-server.bat</code> ở thư mục dự án.
+                </span>
+
+                {/* Nhân bản giọng đọc mới từ 1 file audio mẫu (voice cloning) — VieNeu-TTS hỗ trợ
+                    sẵn zero-shot, không cần huấn luyện lại model, chỉ cần 1 file audio ngắn. */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 700 }}>🧬 Nhân bản giọng mới từ file mẫu</span>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      placeholder="Đặt tên cho giọng mới..."
+                      value={newVieneuVoiceName}
+                      onChange={(e) => setNewVieneuVoiceName(e.target.value)}
+                      disabled={isAddingVieneuVoice}
+                      style={{
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#fff',
+                        fontSize: '0.8rem',
+                        outline: 'none',
+                        flex: '1 1 160px'
+                      }}
+                    />
+                    <label
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '0.76rem', borderRadius: '6px', fontWeight: 700, cursor: isAddingVieneuVoice ? 'wait' : 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      {newVieneuVoiceFile ? `📎 ${newVieneuVoiceFile.name.slice(0, 20)}` : '📁 Chọn file audio mẫu'}
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        style={{ display: 'none' }}
+                        disabled={isAddingVieneuVoice}
+                        onChange={(e) => setNewVieneuVoiceFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddVieneuVoice}
+                      disabled={isAddingVieneuVoice}
+                      style={{
+                        padding: '8px 14px',
+                        background: 'rgba(74, 222, 128, 0.15)',
+                        border: '1px solid rgba(74, 222, 128, 0.3)',
+                        borderRadius: '6px',
+                        color: '#4ade80',
+                        fontSize: '0.76rem',
+                        cursor: isAddingVieneuVoice ? 'wait' : 'pointer',
+                        fontWeight: 700
+                      }}
+                    >
+                      {isAddingVieneuVoice ? '⏳ Đang nhân bản...' : '➕ Thêm giọng'}
+                    </button>
+                  </div>
+                  {addVieneuVoiceMsg && (
+                    <span style={{ fontSize: '0.72rem', color: addVieneuVoiceMsg.startsWith('✓') ? '#4ade80' : 'var(--danger)' }}>
+                      {addVieneuVoiceMsg}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.45)' }}>
+                    Chọn 1 file audio ngắn (5-30 giây, giọng rõ, ít tạp âm) để nhân bản. Quá trình xử lý chạy trên CPU nên sẽ mất một lúc.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {previewError && (
               <p style={{ margin: '-8px 0 16px 0', fontSize: '0.74rem', color: 'var(--danger)', lineHeight: 1.5 }}>
@@ -2921,7 +3513,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '24px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
                     {activeCharacters.map(char => {
-                      const currentVal = settings.edgeVoiceMappings?.[char.key] || char.defaultVoice;
+                      const isEdge = (settings.ttsProvider || 'edge') === 'edge';
+                      const isVieneu = settings.ttsProvider === 'vieneu';
+                      const isEleven = settings.ttsProvider === 'elevenlabs';
+
+                      const currentVal = isEdge
+                        ? (settings.edgeVoiceMappings?.[char.key] || char.defaultVoice)
+                        : isVieneu
+                          ? (settings.vieneuVoiceMappings?.[char.key] || (char.gender.includes('Nam') ? 'Phạm Tuyên' : 'Trúc Ly'))
+                          : (settings.voiceMappings?.[char.key] || (char.gender.includes('Nam') ? 'wJSBXsvChUQrylZvDzav' : '4IQqf6fVNeEFbqnSbVxb'));
 
                       return (
                         <div
@@ -2969,121 +3569,246 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 Chọn giọng đọc cho {char.name}:
                               </span>
 
-                              {/* Tab ngôn ngữ cực kỳ xịn sò */}
-                              <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                {[
-                                  { code: 'vi', label: '🇻🇳 Tiếng Việt' },
-                                  { code: 'en', label: '🇺🇸 Tiếng Anh' }
-                                ].map(langTab => {
-                                  const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
-                                  const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
-                                  const isTabActive = activeTabVal === langTab.code;
-                                  return (
-                                    <button
-                                      key={langTab.code}
-                                      type="button"
-                                      onClick={() => setActiveLangTab(prev => ({ ...prev, [char.key]: langTab.code }))}
-                                      style={{
-                                        padding: '4px 10px',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        borderRadius: '6px',
-                                        border: 'none',
-                                        background: isTabActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
-                                        color: isTabActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                    >
-                                      {langTab.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            {/* Lưới chọn giọng đọc trực quan — BỎ HOÀN TOÀN DROPDOWN <select> */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
-                              {(() => {
-                                const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
-                                const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
-                                const filteredVoices = EDGE_TTS_VOICES.filter(v => {
-                                  if (activeTabVal === 'vi') {
-                                    return v.category === 'vi';
-                                  } else {
-                                    return v.category !== 'vi';
-                                  }
-                                });
-                                return filteredVoices.map(v => {
-                                  const isSelected = currentVal === v.id;
-                                  const isPreviewing = previewingKey === `${char.key}_${v.id}`;
-
-                                  return (
-                                    <div
-                                      key={v.id}
-                                      onClick={() => {
-                                        setSettings(prev => ({
-                                          ...prev,
-                                          edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: v.id }
-                                        }));
-                                      }}
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '8px',
-                                        padding: '9px 12px',
-                                        borderRadius: '10px',
-                                        border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                        background: isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)',
-                                        boxShadow: isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none',
-                                        cursor: 'pointer',
-                                        userSelect: 'none',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                    >
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                                        <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{v.icon}</span>
-                                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {v.name} {isSelected && '✓'}
-                                          </span>
-                                          <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {v.genderText} • {v.desc}
-                                          </span>
-                                        </div>
-                                      </div>
-
+                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS) */}
+                              {isEdge && (
+                                <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                  {[
+                                    { code: 'vi', label: '🇻🇳 Tiếng Việt' },
+                                    { code: 'en', label: '🇺🇸 Tiếng Anh' }
+                                  ].map(langTab => {
+                                    const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                    const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
+                                    const isTabActive = activeTabVal === langTab.code;
+                                    return (
                                       <button
+                                        key={langTab.code}
                                         type="button"
-                                        title={`Nghe thử giọng ${v.name}`}
-                                        disabled={isPreviewing}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handlePreviewVoice('edge', v.id, `${char.key}_${v.id}`);
-                                        }}
+                                        onClick={() => setActiveLangTab(prev => ({ ...prev, [char.key]: langTab.code }))}
                                         style={{
-                                          flexShrink: 0,
-                                          width: '28px',
-                                          height: '28px',
+                                          padding: '4px 10px',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
                                           borderRadius: '6px',
-                                          border: '1px solid rgba(255,255,255,0.15)',
-                                          background: isPreviewing ? 'rgba(255,255,255,0.2)' : 'rgba(37, 244, 238, 0.15)',
-                                          color: 'var(--secondary)',
-                                          cursor: isPreviewing ? 'wait' : 'pointer',
-                                          fontSize: '0.75rem',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center'
+                                          border: 'none',
+                                          background: isTabActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
+                                          color: isTabActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease'
                                         }}
                                       >
-                                        {isPreviewing ? '⏳' : '🔊'}
+                                        {langTab.label}
                                       </button>
-                                    </div>
-                                  );
-                                });
-                              })()}
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
+
+                            {/* Lưới chọn giọng đọc trực quan cho Edge hoặc VieNeu-TTS */}
+                            {(isEdge || isVieneu) && (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
+                                {(() => {
+                                  const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
+                                  const voiceList = isEdge
+                                    ? EDGE_TTS_VOICES.filter(v => activeTabVal === 'vi' ? v.category === 'vi' : v.category !== 'vi')
+                                    : vieneuVoices;
+
+                                  const isAnyActive = activePreviewState.status !== 'idle';
+
+                                  return voiceList.map(v => {
+                                    const isSelected = currentVal === v.id;
+                                    
+                                    const key = `${char.key}_${v.id}`;
+                                    const isCurrentActive = activePreviewState.key === key;
+                                    const isGenerating = isCurrentActive && activePreviewState.status === 'generating';
+                                    const isPlaying = isCurrentActive && activePreviewState.status === 'playing';
+                                    
+                                    // Disable all other buttons if any audio is active
+                                    const isDisabled = isAnyActive && !isCurrentActive;
+                                    
+                                    // Parse label và mô tả cho VieNeu
+                                    const rawName = v.name || '';
+                                    const cleanName = isVieneu ? (rawName.includes(' (') ? rawName.split(' (')[0] : rawName) : rawName;
+                                    const icon = v.icon || '🎙️';
+                                    const gender = v.genderText || (rawName.includes('👨') ? 'Nam' : rawName.includes('👩') ? 'Nữ' : 'Chọn');
+                                    const description = v.desc || (rawName.includes('(') ? rawName.substring(rawName.indexOf('(') + 1, rawName.length - 1) : 'VieNeu-TTS');
+
+                                    // Determing border, background, shadow, animation and opacity
+                                    let borderStyle = isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)';
+                                    let backgroundStyle = isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)';
+                                    let shadowStyle = isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none';
+                                    let animationStyle = 'none';
+                                    let opacityVal = 1;
+
+                                    if (isAnyActive) {
+                                      if (isCurrentActive) {
+                                        opacityVal = 1; // Full visual visibility for active card!
+                                        if (isPlaying) {
+                                          borderStyle = '1.5px solid #4ade80';
+                                          backgroundStyle = 'rgba(74, 222, 128, 0.15)';
+                                          shadowStyle = '0 0 16px rgba(74, 222, 128, 0.4)';
+                                          animationStyle = 'voice-pulse 1.5s infinite ease-in-out';
+                                        } else if (isGenerating) {
+                                          borderStyle = '1.5px solid var(--secondary)';
+                                          backgroundStyle = 'rgba(37, 244, 238, 0.15)';
+                                          shadowStyle = '0 0 16px rgba(37, 244, 238, 0.4)';
+                                          animationStyle = 'generating-pulse 1.5s infinite ease-in-out';
+                                        }
+                                      } else if (isSelected) {
+                                        opacityVal = 0.8; // Faint selected card
+                                      } else {
+                                        opacityVal = 0.35; // Faint inactive card
+                                      }
+                                    }
+
+                                    return (
+                                      <div
+                                        key={v.id}
+                                        onClick={() => {
+                                          if (isAnyActive) return; // Block selecting during preview
+                                          if (isEdge) {
+                                            setSettings(prev => ({
+                                              ...prev,
+                                              edgeVoiceMappings: { ...prev.edgeVoiceMappings, [char.key]: v.id }
+                                            }));
+                                          } else if (isVieneu) {
+                                            setSettings(prev => ({
+                                              ...prev,
+                                              vieneuVoiceMappings: { ...prev.vieneuVoiceMappings, [char.key]: v.id }
+                                            }));
+                                          }
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          gap: '8px',
+                                          padding: '9px 12px',
+                                          borderRadius: '10px',
+                                          border: borderStyle,
+                                          background: backgroundStyle,
+                                          boxShadow: shadowStyle,
+                                          cursor: isAnyActive ? 'not-allowed' : 'pointer',
+                                          userSelect: 'none',
+                                          transition: 'all 0.2s ease',
+                                          opacity: opacityVal,
+                                          animation: animationStyle
+                                        }}
+                                      >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                          <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{icon}</span>
+                                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                              {cleanName} {isSelected && '✓'}
+                                            </span>
+                                            <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                              {gender} • {description}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          title={isPlaying ? `Dừng nghe thử` : `Nghe thử giọng ${cleanName}`}
+                                          disabled={isDisabled}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isPlaying) {
+                                              // Stop if clicked while playing
+                                              if (characterPreviewAudioRef.current) {
+                                                characterPreviewAudioRef.current.pause();
+                                                characterPreviewAudioRef.current = null;
+                                              }
+                                              setActivePreviewState({ key: '', status: 'idle' });
+                                            } else {
+                                              handlePreviewVoice(isEdge ? 'edge' : isVieneu ? 'vieneu' : 'edge', v.id, key);
+                                            }
+                                          }}
+                                          style={{
+                                            flexShrink: 0,
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            background: isGenerating ? 'rgba(255,255,255,0.2)' : isPlaying ? 'rgba(74, 222, 128, 0.25)' : 'rgba(37, 244, 238, 0.15)',
+                                            color: isPlaying ? '#4ade80' : 'var(--secondary)',
+                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                            opacity: isDisabled ? 0.35 : 1,
+                                            fontSize: '0.75rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s ease'
+                                          }}
+                                        >
+                                          {isGenerating ? '⏳' : isPlaying ? '⏹️' : '🔊'}
+                                        </button>
+
+                                        {isVieneu && v.isCustom && (
+                                          <button
+                                            type="button"
+                                            title={`Xoá giọng tuỳ chỉnh "${v.id}"`}
+                                            disabled={isDisabled}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRemoveVieneuVoice(v.id);
+                                            }}
+                                            style={{
+                                              flexShrink: 0,
+                                              width: '28px',
+                                              height: '28px',
+                                              borderRadius: '6px',
+                                              border: '1px solid rgba(248, 113, 113, 0.3)',
+                                              background: 'rgba(248, 113, 113, 0.12)',
+                                              color: '#f87171',
+                                              cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                              opacity: isDisabled ? 0.35 : 1,
+                                              fontSize: '0.75rem',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              transition: 'all 0.2s ease'
+                                            }}
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            )}
+
+                            {/* ElevenLabs Voice ID Input */}
+                            {isEleven && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="Nhập ElevenLabs Voice ID..."
+                                  value={currentVal}
+                                  onChange={(e) => {
+                                    setSettings(prev => ({
+                                      ...prev,
+                                      voiceMappings: { ...prev.voiceMappings, [char.key]: e.target.value }
+                                    }));
+                                  }}
+                                  style={{
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    borderRadius: '6px',
+                                    padding: '8px 12px',
+                                    color: '#fff',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                    width: '100%'
+                                  }}
+                                />
+                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.45)' }}>
+                                  Nhập Voice ID từ tài khoản ElevenLabs của bạn để gán cho nhân vật này.
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -3110,7 +3835,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         mongodbUri: settings.mongodbUri,
                         voiceMappings: settings.voiceMappings,
                         ttsProvider: settings.ttsProvider || 'edge',
-                        edgeVoiceMappings: settings.edgeVoiceMappings || {}
+                        edgeVoiceMappings: settings.edgeVoiceMappings || {},
+                        vieneuServerUrl: settings.vieneuServerUrl || 'http://127.0.0.1:8001',
+                        vieneuVoiceMappings: settings.vieneuVoiceMappings || {}
                       })
                     });
                     if (res.ok) {
@@ -3868,9 +4595,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     style={{
                       fontSize: '0.72rem',
                       fontWeight: 700,
-                      color: selectedBgMusicTrackId === defaultBgMusicTrackId ? '#FFCB4D' : 'rgba(255,255,255,0.85)',
-                      background: selectedBgMusicTrackId === defaultBgMusicTrackId ? 'rgba(255, 203, 77, 0.18)' : 'rgba(255,255,255,0.06)',
-                      border: selectedBgMusicTrackId === defaultBgMusicTrackId ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
+                      color: isBgMusicDefaultPinned ? '#FFCB4D' : 'rgba(255,255,255,0.85)',
+                      background: isBgMusicDefaultPinned ? 'rgba(255, 203, 77, 0.18)' : 'rgba(255,255,255,0.06)',
+                      border: isBgMusicDefaultPinned ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
                       padding: '4px 10px',
                       borderRadius: '6px',
                       cursor: 'pointer',
@@ -3879,10 +4606,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       gap: '4px',
                       transition: 'all 0.15s'
                     }}
-                    title="Đặt bài nhạc đang chọn làm Mặc Định hệ thống cho các dự án mới về sau"
+                    title="Đặt bài nhạc và âm lượng đang chọn làm Mặc Định hệ thống cho các dự án mới về sau"
                   >
                     <span>📌</span>
-                    {selectedBgMusicTrackId === defaultBgMusicTrackId ? 'Đang Mặc Định' : 'Đặt làm Mặc Định'}
+                    {isBgMusicDefaultPinned ? 'Đang Mặc Định' : 'Đặt làm Mặc Định'}
                   </button>
                 </div>
 
@@ -4378,7 +5105,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         bgColor={renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined)}
                         font={renderCaptionFont || undefined}
                         fontSize={renderCaptionFontSize || undefined}
+                        secondaryFontSize={renderCaptionSecondaryFontSize || undefined}
+                        highlightColor={renderHighlightColor || undefined}
                         isFullLiveScreen={true}
+                        imageUrl={result.input?.folderPath ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input.folderPath)}&file=images/scene-01.${result.input.imageExt || 'jpg'}&v=${heroImageVersion}&category=${encodeURIComponent(result.category || '')}` : ''}
+                        imageScale={Number(renderImageScale) / 100}
+                        imageTranslateY={Number(renderImageTranslateY)}
+                        captionMarginY={Number(renderCaptionMarginY)}
+                        showBilingual={renderBilingual}
                       />
                     )}
                   </div>
@@ -4607,7 +5341,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           }}
                         >
                           <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>
-                            🌐 Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)
+                            🌐 {['reading_practice', 'moral_talk_slideshow'].includes(result?.category)
+                              ? 'Hiện phụ đề song ngữ (hiện bản dịch tiếng Anh bên dưới)'
+                              : 'Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)'}
                           </span>
                           <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)' }}>
                             <input
@@ -4709,7 +5445,66 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
                         </div>
                       ) : (
-                        <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)' }}>Bố cục % chỉ áp dụng cho dạng bài trang đọc Reading Practice.</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>📐 Bố cục ảnh minh hoạ & Phụ đề</span>
+
+                          {/* Kích thước ảnh minh hoạ (Image Scale) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🔍 Kích thước ảnh minh hoạ</span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--secondary)', fontWeight: 800, background: 'rgba(37,244,238,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                {renderImageScale}%
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={50}
+                              max={200}
+                              step={1}
+                              value={renderImageScale}
+                              onChange={(e) => setRenderImageScale(e.target.value)}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                            />
+                          </div>
+
+                          {/* Vị trí ảnh minh hoạ (Image Translate Y) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>↕️ Vị trí ảnh minh hoạ (Dịch dọc)</span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--secondary)', fontWeight: 800, background: 'rgba(37,244,238,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                {Number(renderImageTranslateY) > 0 ? `+${renderImageTranslateY}%` : `${renderImageTranslateY}%`}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={-50}
+                              max={50}
+                              step={1}
+                              value={renderImageTranslateY}
+                              onChange={(e) => setRenderImageTranslateY(e.target.value)}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                            />
+                          </div>
+
+                          {/* Vị trí phụ đề (Caption Margin Y) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>💬 Vị trí phụ đề (Độ cao)</span>
+                              <span style={{ fontSize: '0.74rem', color: 'var(--secondary)', fontWeight: 800, background: 'rgba(37,244,238,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                {Number(renderCaptionMarginY) > 0 ? `+${renderCaptionMarginY}px` : `${renderCaptionMarginY}px`}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={-150}
+                              max={350}
+                              step={5}
+                              value={renderCaptionMarginY}
+                              onChange={(e) => setRenderCaptionMarginY(e.target.value)}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                            />
+                          </div>
+                        </div>
                       )}
                     </>
                   )}
@@ -4719,24 +5514,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>🔤 Kiểu chữ &amp; Phông chữ (Typography)</span>
 
-                      {/* Font chữ Selector */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Phông chữ (Font Family)</label>
-                        <select
-                          className="form-control"
-                          value={renderCaptionFont}
-                          onChange={(e) => setRenderCaptionFont(e.target.value)}
-                          style={{ fontSize: '0.8rem', padding: '8px 12px', height: '40px', background: 'rgba(0,0,0,0.35)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}
-                        >
-                          <option value="" style={{ background: '#16151f' }}>✨ Mặc định tiêu chuẩn</option>
-                          <option value="be-vietnam-pro" style={{ background: '#16151f' }}>Be Vietnam Pro (Chuẩn Việt Nam)</option>
-                          <option value="nunito" style={{ background: '#16151f' }}>Nunito (Tròn ấm, thân thiện)</option>
-                          <option value="montserrat" style={{ background: '#16151f' }}>Montserrat (Sang trọng, nổi bật)</option>
-                          <option value="lexend" style={{ background: '#16151f' }}>Lexend (Dễ đọc cho giáo dục)</option>
-                          <option value="roboto" style={{ background: '#16151f' }}>Roboto</option>
-                          <option value="inter" style={{ background: '#16151f' }}>Inter</option>
-                        </select>
-                      </div>
+
 
                       {/* Cỡ chữ tiêu đề & Cỡ chữ nội dung */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -4795,6 +5573,58 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             </button>
                           </div>
                         </div>
+
+                        {/* Cỡ chữ dòng dịch song ngữ (Sub) — ĐỘC LẬP với cỡ chữ chính ở trên,
+                            trước đây luôn bị khoá cứng theo 1 tỉ lệ cố định của cỡ chữ chính,
+                            không tự chỉnh riêng được. Để trống = tự động theo tỉ lệ mặc định của
+                            style đang chọn. */}
+                        {!isReadingPractice && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Cỡ chữ dòng dịch / Sub (px)</label>
+                              {renderCaptionSecondaryFontSize && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRenderCaptionSecondaryFontSize('')}
+                                  style={{ fontSize: '0.66rem', color: 'var(--secondary)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700, padding: 0 }}
+                                  title="Bỏ tuỳ chỉnh, quay lại tự động theo tỉ lệ của Kiểu phụ đề"
+                                >
+                                  ↺ Tự động
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const base = Number(renderCaptionSecondaryFontSize) || Math.round((Number(renderCaptionFontSize) || 40) * 0.65);
+                                  setRenderCaptionSecondaryFontSize(String(Math.max(10, base - 2)));
+                                }}
+                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                className="form-control"
+                                value={renderCaptionSecondaryFontSize}
+                                placeholder="Tự động"
+                                onChange={(e) => setRenderCaptionSecondaryFontSize(e.target.value)}
+                                style={{ textAlign: 'center', fontSize: '0.8rem', padding: '6px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const base = Number(renderCaptionSecondaryFontSize) || Math.round((Number(renderCaptionFontSize) || 40) * 0.65);
+                                  setRenderCaptionSecondaryFontSize(String(Math.min(100, base + 2)));
+                                }}
+                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Màu tô sáng từ đang đọc — chỉ có tác dụng thấy được với Kiểu phụ đề

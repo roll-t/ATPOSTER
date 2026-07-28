@@ -201,31 +201,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }, () => {
       console.log('[Flow Helper Extension] Đã lưu kịch bản và kích hoạt tự động chạy (AutoRun).');
 
-      // Dự án này (theo folderPath) đã từng được đẩy qua Flow trước đây chưa? content-flow.js
-      // ghi nhớ URL dự án Flow tương ứng với MỖI folderPath (trackCurrentProjectUrl, keyed theo
-      // folderPath - không phải 1 giá trị "gần nhất" dùng chung cho mọi kịch bản). Nếu có, mở
-      // lại đúng URL dự án đó; nếu chưa từng có, mở trang dashboard Flow trống - dashboard sẽ tự
-      // động bấm "Dự án mới" (xem handleDashboardAutoCreate trong content-flow.js).
-      chrome.storage.local.get(['flowProjectUrlsByFolder'], (result) => {
-        const knownUrl = (result.flowProjectUrlsByFolder || {})[resolvedFolderPath];
-        const targetUrl = knownUrl || FLOW_DEFAULT_URL;
-        console.log('[Flow Helper Extension] Dự án', resolvedFolderPath, knownUrl ? `đã có sẵn -> mở lại: ${knownUrl}` : '-> chưa có, mở dashboard để tạo dự án mới.');
+      // Luôn mở thẳng trang dashboard gốc và để dashboard tự bấm "Dự án mới" (xem
+      // handleDashboardAutoCreate trong content-flow.js) — MỖI lần đẩy đều tạo 1 dự án Flow mới,
+      // không còn mở lại dự án cũ đã dùng cho cùng folderPath trước đó nữa (theo yêu cầu người
+      // dùng, để tránh mở nhầm 1 dự án cũ có thể đã lỗi/không còn dùng được).
+      const targetUrl = FLOW_DEFAULT_URL;
 
-        // Tìm tab Google Flow đang mở
-        chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
-          if (tabs && tabs.length > 0) {
-            const targetTab = tabs[0];
-            chrome.tabs.update(targetTab.id, { url: targetUrl, active: true }, () => {
-              chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
-            });
-            sendResponse({ success: true, status: 'tab_focused', reusedProject: !!knownUrl });
-          } else {
-            // Chưa mở tab Flow -> mở tab mới thẳng vào đúng URL đã xác định ở trên
-            openInNormalWindow(targetUrl);
-            console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
-            sendResponse({ success: true, status: 'new_tab_opened', reusedProject: !!knownUrl });
-          }
-        });
+      // Tìm tab Google Flow đang mở
+      chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
+        if (tabs && tabs.length > 0) {
+          const targetTab = tabs[0];
+          chrome.tabs.update(targetTab.id, { url: targetUrl, active: true }, () => {
+            chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
+          });
+          sendResponse({ success: true, status: 'tab_focused' });
+        } else {
+          // Chưa mở tab Flow -> mở tab mới thẳng vào dashboard gốc
+          openInNormalWindow(targetUrl);
+          console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
+          sendResponse({ success: true, status: 'new_tab_opened' });
+        }
       });
     });
     return true; // Keep message channel open for async response

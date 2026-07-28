@@ -38,6 +38,32 @@ function stripEmotionTags(text: string): string {
   return text.replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Gemini có thể đánh dấu 1-3 từ/cụm từ cần nhấn màu trong "subtitle" bằng cú pháp
+// "**từ**" (xem moralTalkSlideshow.js) — CHỈ captionStyle "hook" hiểu và tô màu cú pháp này
+// (xem renderWithHighlights bên dưới). Với mọi style khác (box/tiktok/karaoke/page), strip
+// sạch cặp ** đi (giữ lại chữ bên trong) để không bao giờ hiện dấu ** trần trụi trên màn hình
+// nếu người dùng đổi sang style khác sau khi kịch bản đã được sinh với đánh dấu này.
+function stripHighlightMarkers(text: string): string {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
+// Tách text theo cú pháp "**từ**" thành các <span>, phần được đánh dấu tô màu `highlightColor`,
+// phần còn lại giữ nguyên màu chữ mặc định — dùng riêng cho HookCaption (style "hook").
+function renderWithHighlights(text: string, highlightColor: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p.length > 0);
+  return parts.map((part, i) => {
+    const match = /^\*\*([^*]+)\*\*$/.exec(part);
+    if (match) {
+      return (
+        <span key={i} style={{ color: highlightColor }}>
+          {match[1]}
+        </span>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
 // captionStyle: "hook" — scenes after the first are often a numbered list
 // item ("1. ...", "2. ..."), since this style targets "top N" listicle-type
 // scripts. The reference design shows the text WITHOUT its number (the card
@@ -200,12 +226,14 @@ export const Caption: React.FC<{
   sceneIndex?: number;
   videoTitle?: string;
   position: "top" | "bottom" | "center";
+  captionMarginY?: number;
   fontFamily: string;
   mode: "chunked" | "full";
   wordsPerChunk: number;
   style: SlideshowVideoProps["captionStyle"];
   captionFont?: SlideshowVideoProps["captionFont"];
   captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionSecondaryFontSize?: SlideshowVideoProps["captionSecondaryFontSize"];
   captionTextColor?: SlideshowVideoProps["captionTextColor"];
   captionBgColor?: SlideshowVideoProps["captionBgColor"];
   highlightColor?: SlideshowVideoProps["highlightColor"];
@@ -218,12 +246,14 @@ export const Caption: React.FC<{
   sceneIndex = 0,
   videoTitle,
   position,
+  captionMarginY = 0,
   fontFamily,
   mode,
   wordsPerChunk,
   style,
   captionFont,
   captionFontSize,
+  captionSecondaryFontSize,
   captionTextColor,
   captionBgColor,
   highlightColor: highlightColorOverride,
@@ -245,11 +275,14 @@ export const Caption: React.FC<{
         text={text}
         sceneIndex={sceneIndex}
         videoTitle={videoTitle}
+        captionMarginY={captionMarginY}
         fontFamily={fontFamily}
         captionFont={captionFont}
         captionFontSize={captionFontSize}
+        captionSecondaryFontSize={captionSecondaryFontSize}
         captionTextColor={captionTextColor}
         captionBgColor={captionBgColor}
+        highlightColor={highlightColorOverride}
         showBilingual={showBilingual}
         durationInFrames={durationInFrames}
         opacity={opacity}
@@ -263,7 +296,7 @@ export const Caption: React.FC<{
   // (e.g. English) line, a literal "\n", then the secondary (e.g.
   // Vietnamese) translation line. A caption with no "\n" behaves exactly
   // as before — single line, no schema/config changes needed to opt in.
-  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => stripEmotionTags(s));
+  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => stripHighlightMarkers(stripEmotionTags(s)));
   const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
 
   const allWords = splitWords(primaryTextRaw);
@@ -308,8 +341,9 @@ export const Caption: React.FC<{
   const primaryFontSize = captionFontSize ?? basePrimaryFontSize;
   // Secondary/translation line keeps the same ratio to the primary line as the
   // original hardcoded sizes (26/40 = 0.65 for box-ish styles, 22/32 ≈ 0.69 for
-  // "page") whether or not captionFontSize is overridden.
-  const secondaryFontSize = Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
+  // "page") whether or not captionFontSize is overridden — unless the user set
+  // an explicit captionSecondaryFontSize, which always wins.
+  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
   const primaryColor = captionTextColor || (isPage ? "#2A2118" : "#FFFFFF");
   const isTransparentBg = captionBgColor === "transparent";
   const boxBgColor = captionBgColor || (isPage ? "#FBF3E3" : "rgba(10, 10, 14, 0.72)");
@@ -356,8 +390,9 @@ export const Caption: React.FC<{
       {isTiktok ? (
         <div
           style={{
-            marginTop: position === "top" ? 64 : 0,
-            marginBottom: position === "bottom" ? 64 : 0,
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
             maxWidth: "88%",
             textAlign: "center",
           }}
@@ -368,8 +403,9 @@ export const Caption: React.FC<{
       ) : isPage ? (
         <div
           style={{
-            marginTop: position === "top" ? 64 : 0,
-            marginBottom: position === "bottom" ? 64 : 0,
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
             maxWidth: "84%",
             background: boxBgColor,
             border: isTransparentBg ? "none" : "1px solid rgba(42, 33, 24, 0.08)",
@@ -385,8 +421,9 @@ export const Caption: React.FC<{
       ) : (
         <div
           style={{
-            marginTop: position === "top" ? 64 : 0,
-            marginBottom: position === "bottom" ? 64 : 0,
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
             maxWidth: "82%",
             background: boxBgColor,
             borderRadius: 18,
@@ -425,11 +462,14 @@ const HookCaption: React.FC<{
   text: string;
   sceneIndex: number;
   videoTitle?: string;
+  captionMarginY?: number;
   fontFamily: string;
   captionFont?: SlideshowVideoProps["captionFont"];
   captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionSecondaryFontSize?: SlideshowVideoProps["captionSecondaryFontSize"];
   captionTextColor?: SlideshowVideoProps["captionTextColor"];
   captionBgColor?: SlideshowVideoProps["captionBgColor"];
+  highlightColor?: SlideshowVideoProps["highlightColor"];
   showBilingual: boolean;
   durationInFrames: number;
   opacity: number;
@@ -437,11 +477,14 @@ const HookCaption: React.FC<{
   text,
   sceneIndex,
   videoTitle,
+  captionMarginY = 0,
   fontFamily,
   captionFont,
   captionFontSize,
+  captionSecondaryFontSize,
   captionTextColor,
   captionBgColor,
+  highlightColor,
   showBilingual,
   durationInFrames,
   opacity,
@@ -452,6 +495,9 @@ const HookCaption: React.FC<{
   const rawText = isFirstScene && videoTitle ? videoTitle : text;
   if (!rawText) return null;
 
+  // Emotion tags stripped here, but "**word**" highlight markers (see moralTalkSlideshow.js)
+  // are deliberately KEPT through this step — renderWithHighlights() below parses them into
+  // colored spans. (Every OTHER captionStyle strips them instead — see stripHighlightMarkers().)
   const [primaryTextRaw, secondaryTextRaw] = rawText.split("\n").map((s) => stripEmotionTags(s));
   // Uppercase the STRING itself in JS (not via CSS text-transform: uppercase below) — Chromium's
   // CSS uppercase transform doesn't reliably recompose Vietnamese combining diacritics (renders
@@ -459,16 +505,17 @@ const HookCaption: React.FC<{
   // proper precomposed Unicode codepoints that render correctly.
   const primaryText = isFirstScene ? primaryTextRaw.toUpperCase() : stripListNumber(primaryTextRaw);
   const hasSecondary = !isFirstScene && showBilingual && Boolean(secondaryTextRaw);
-  const secondaryText = hasSecondary ? stripListNumber(secondaryTextRaw) : "";
+  const secondaryText = hasSecondary ? stripHighlightMarkers(stripListNumber(secondaryTextRaw)) : "";
 
-  if (!primaryText) return null;
+  if (!stripHighlightMarkers(primaryText)) return null;
 
+  const resolvedHighlightColor = highlightColor || "#FE2C55";
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
-  const basePrimaryFontSize = isFirstScene ? 52 : 38;
+  const basePrimaryFontSize = isFirstScene ? 52 : 46;
   const primaryFontSize = captionFontSize
     ? Math.round(isFirstScene ? captionFontSize * 1.3 : captionFontSize)
     : basePrimaryFontSize;
-  const secondaryFontSize = Math.round(primaryFontSize * 0.6);
+  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * 0.6);
   const primaryColor = captionTextColor || "#FFFFFF";
   const isTransparentBg = captionBgColor === "transparent";
   const boxBgColor = captionBgColor && !isTransparentBg ? captionBgColor : "rgba(8, 8, 11, 0.88)";
@@ -494,7 +541,11 @@ const HookCaption: React.FC<{
     >
       <div
         style={{
-          marginTop: 48,
+          // Same "top"-position sign convention as the shared box/tiktok/karaoke/page styles
+          // above (64 - captionMarginY): increasing the slider moves the card UP the screen
+          // (closer to the top edge), decreasing/negative moves it DOWN, regardless of which
+          // edge a style anchors to.
+          marginTop: (isFirstScene ? 48 : 96) - captionMarginY,
           maxWidth: "90%",
           background: isTransparentBg ? "transparent" : boxBgColor,
           borderRadius: 24,
@@ -514,7 +565,7 @@ const HookCaption: React.FC<{
             letterSpacing: isFirstScene ? "0.5px" : "normal",
           }}
         >
-          {primaryText}
+          {renderWithHighlights(primaryText, resolvedHighlightColor)}
         </div>
         {hasSecondary && (
           <div

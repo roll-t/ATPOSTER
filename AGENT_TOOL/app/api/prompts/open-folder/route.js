@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { ALL_SKILL_FOLDERS, resolveSkillRemotionDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
 export async function POST(req) {
   try {
-    const { folderPath } = await req.json();
+    const { folderPath, category } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
     }
@@ -18,27 +18,12 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Tên thư mục không hợp lệ. Chỉ được dùng chữ, số, "_" và "-".' }, { status: 400 });
     }
 
-    let targetDir = null;
-
-    // Ưu tiên 1: Tìm thư mục final/ chứa video đã render ở TẤT CẢ các skill
-    for (const folder of ALL_SKILL_FOLDERS) {
-      const candidateFinal = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder, 'final');
-      if (fs.existsSync(candidateFinal)) {
-        targetDir = candidateFinal;
-        break;
-      }
-    }
-
-    // Ưu tiên 2: Nếu chưa có final/, mở thư mục dự án chính
-    if (!targetDir) {
-      for (const folder of ALL_SKILL_FOLDERS) {
-        const candidateProj = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder);
-        if (fs.existsSync(candidateProj)) {
-          targetDir = candidateProj;
-          break;
-        }
-      }
-    }
+    // resolveProjectDir tự tìm đúng vị trí thật của project (phẳng cũ hoặc lồng theo category
+    // mới, ở đúng skill của category — xem lib/remotionPaths.js) thay vì tự dò lại thủ công.
+    const projectDir = resolveProjectDir(cleanFolder, category);
+    const finalDir = path.join(projectDir, 'final');
+    // Ưu tiên mở thư mục final/ (chứa video đã render) nếu có, không thì mở thư mục dự án chính.
+    const targetDir = fs.existsSync(finalDir) ? finalDir : projectDir;
 
     if (!targetDir || !fs.existsSync(targetDir)) {
       return NextResponse.json({ error: `Không tìm thấy thư mục dự án: ${cleanFolder}` }, { status: 404 });

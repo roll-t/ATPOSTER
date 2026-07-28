@@ -17,7 +17,9 @@ export const SceneImage: React.FC<{
   // below, since transforms apply after the element already fills the
   // frame via objectFit: cover.
   topOffsetPercent?: number;
-}> = ({ src, fit, kenBurns, durationInFrames, topOffsetPercent = 0 }) => {
+  imageScale?: number;
+  imageTranslateY?: number;
+}> = ({ src, fit, kenBurns, durationInFrames, topOffsetPercent = 0, imageScale = 1, imageTranslateY = 0 }) => {
   const frame = useCurrentFrame();
   const progress = durationInFrames > 1 ? frame / (durationInFrames - 1) : 0;
 
@@ -59,7 +61,7 @@ export const SceneImage: React.FC<{
           width: "100%",
           height: "100%",
           objectFit: fit,
-          transform: `scale(${scale * offsetScale}) translateX(${translateX}%) translateY(${topOffsetPercent}%)`,
+          transform: `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`,
           transformOrigin: "center center",
         }}
       />

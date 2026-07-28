@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { ALL_SKILL_FOLDERS, resolveSkillRemotionDir, resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/lib/remotionPaths';
 
 export async function POST(req) {
   try {
@@ -25,14 +25,10 @@ export async function POST(req) {
       audioCount = fs.readdirSync(audioDir).filter(f => f.startsWith('scene-') && f.endsWith('.mp3')).length;
     }
 
-    let videoCreated = false;
-    for (const folder of ALL_SKILL_FOLDERS) {
-      const vFile = path.join(resolveSkillRemotionDir(folder), 'public', cleanFolder, 'final', 'video.mp4');
-      if (fs.existsSync(vFile)) {
-        videoCreated = true;
-        break;
-      }
-    }
+    // targetDir (đã resolve ở trên qua resolveProjectDir) đã tự tìm đúng vị trí thật của
+    // project — dù ở vị trí phẳng cũ hay lồng theo category mới — nên chỉ cần kiểm tra
+    // final/video.mp4 ngay trong đó, không cần tự dò lại từ đầu qua từng skill.
+    const videoCreated = fs.existsSync(path.join(targetDir, 'final', 'video.mp4'));
 
     // Nhạc nền (tuỳ chọn, người dùng tự tải lên qua Studio Thiết Kế Trang Đọc Video) — chỉ
     // reading-page-video có tính năng này, nhưng kiểm tra vô hại cho category khác.

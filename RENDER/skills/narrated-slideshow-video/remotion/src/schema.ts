@@ -134,6 +134,9 @@ export const slideshowVideoSchema = z.object({
   // does.
   captionPosition: z.enum(["top", "bottom", "center"]).default("bottom"),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
+  imageScale: z.number().min(0.2).max(2).default(1),
+  imageTranslateY: z.number().min(-100).max(100).default(0),
+  captionMarginY: z.number().min(-500).max(500).default(0),
   kenBurns: z.boolean().default(true),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
@@ -204,6 +207,12 @@ export const slideshowVideoSchema = z.object({
   // or 32px for captionStyle: "page"). The active/highlighted word in
   // "karaoke"/"page" styles still renders ~16% larger than this.
   captionFontSize: z.number().min(16).max(120).optional(),
+  // Overrides the SECONDARY (translation) line's font size independently of
+  // captionFontSize above — omit to keep the style's own built-in ratio to
+  // the primary line (65% for box/tiktok/karaoke, 69% for "page", 60% for
+  // "hook"). Lets the primary and secondary lines be sized completely
+  // independently instead of always scaling together.
+  captionSecondaryFontSize: z.number().min(10).max(100).optional(),
   // Overrides the caption text color (CSS color string, e.g. "#FFFFFF").
   captionTextColor: z.string().optional(),
   // Overrides the caption's background box/card color (CSS color string).

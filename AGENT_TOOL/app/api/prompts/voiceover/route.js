@@ -9,6 +9,11 @@ import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/ed
 import { synthesizeGeminiTts } from '@/lib/tts/geminiTts.js';
 import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
 import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
+import { transliterateEnglishForVietnameseTts } from '@/lib/tts/englishPhoneticVi.js';
+
+// Default voice fallbacks for VieNeu-TTS (local python server)
+const DEFAULT_VIENEU_MALE_VOICE = 'Phạm Tuyên';
+const DEFAULT_VIENEU_FEMALE_VOICE = 'Trúc Ly';
 
 // Default voice fallbacks for custom designed voices (free tier)
 const DEFAULT_MALE_VOICE = 'wJSBXsvChUQrylZvDzav';
@@ -120,6 +125,24 @@ function getGeminiVoiceForText(dialogueText, geminiVoiceMappings) {
     }
   }
   return mappings.narrator || DEFAULT_GEMINI_FEMALE_VOICE;
+}
+
+
+
+function getVieneuVoiceForText(dialogueText, vieneuVoiceMappings) {
+  const mappings = vieneuVoiceMappings || {};
+  const match = dialogueText.match(/^([A-Za-z0-9\s]+):/);
+  if (match) {
+    const name = match[1].trim().toLowerCase();
+    if (mappings[name]) return mappings[name];
+    if (['alex', 'leo', 'tom', 'man', 'male', 'boy', 'guy'].includes(name)) {
+      return mappings.alex || mappings.leo || mappings.tom || DEFAULT_VIENEU_MALE_VOICE;
+    }
+    if (['mia', 'zoe', 'woman', 'female', 'girl', 'lady'].includes(name)) {
+      return mappings.mia || mappings.zoe || DEFAULT_VIENEU_FEMALE_VOICE;
+    }
+  }
+  return mappings.narrator || DEFAULT_VIENEU_FEMALE_VOICE;
 }
 
 function getVoiceIdForAccount(dialogueText, account) {
@@ -296,6 +319,12 @@ export async function POST(request) {
     // trong request (đổi nhanh lúc lồng tiếng), fallback về lựa chọn đã lưu trong Cài đặt.
     const provider = requestedProvider || settingsRecord?.ttsProvider || 'edge';
     const isElevenLabs = provider === 'elevenlabs';
+    const isVieneu = provider === 'vieneu';
+    const vieneuServerUrl = settingsRecord?.vieneuServerUrl || 'http://127.0.0.1:8001';
+    // CapCut & VieNeu-TTS là giọng đọc CHỈ tiếng Việt — dùng để phiên âm lại các từ tiếng Anh lẫn
+    // trong lời kể sang cách viết gần đúng âm tiếng Việt trước khi đọc (xem englishPhoneticVi.js),
+    // tránh bị đọc lắp bắp sai khi gặp nguyên văn tiếng Anh. Bỏ qua nếu chưa cấu hình Gemini API Key.
+    const geminiApiKeys = parseApiKeys(settingsRecord?.geminiApiKey || '');
 
     let prioritizedAccounts = [];
     if (isElevenLabs) {
@@ -328,188 +357,275 @@ export async function POST(request) {
 
     console.log(`[API Voiceover] Thư mục lưu audio: ${targetDir} (Nhà cung cấp: ${isElevenLabs ? `ElevenLabs, ${prioritizedAccounts.length} tài khoản` : 'Edge TTS (miễn phí)'})`);
 
-    const results = [];
-    // Giãn cách nhẹ giữa các lần gọi Edge TTS liên tiếp — dịch vụ miễn phí này thỉnh thoảng bắt
-    // đầu treo/đóng kết nối sớm (xem synthesizeEdgeTts) sau một loạt request bắn liên tục không
-    // nghỉ (project nhiều slide, vd 6+ slide). Không phải cấu hình chính thức từ Microsoft, chỉ
-    // là giảm khả năng bị coi là spam theo kinh nghiệm thực tế.
-    let isFirstEdgeCall = true;
+    // Từ đây trở đi là phần xử lý từng slide, tốn thời gian nhất — trả về dạng STREAM (NDJSON:
+    // mỗi dòng 1 sự kiện JSON) thay vì đợi xử lý xong hết mới trả lời 1 lần, để thanh tiến độ
+    // "Bước 1: Tạo giọng lồng tiếng" ở frontend cập nhật đúng theo tiến độ THẬT sau mỗi slide,
+    // thay vì đếm giả lập theo thời gian ước tính như trước.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
 
-    for (const scene of scenes) {
-      const { segmentNumber, dialogueOrNarration } = scene;
-      const text = (dialogueOrNarration || '').trim();
-
-      if (!text) {
-        continue;
-      }
-
-      const textToSend = text
-        .replace(/^[A-Za-z0-9\s]+:\s*/, '')
-        .replace(/\[[^\]]*\]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      // Edge & CapCut TTS: Xoá hoàn toàn các [thẻ cảm xúc] trong ngoặc vuông
-      // để tránh việc các công cụ đọc to chúng lên hoặc gây lỗi định dạng âm thanh.
-      const textForEdge = text
-        .replace(/^[A-Za-z0-9\s]+:\s*/, '')
-        .replace(/\[[^\]]*\]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      const paddedNum = String(segmentNumber).padStart(2, '0');
-      const filename = `scene-${paddedNum}.${audioExt}`;
-      const audioDir = path.join(targetDir, 'audio');
-      if (!fs.existsSync(audioDir)) {
-        fs.mkdirSync(audioDir, { recursive: true });
-      }
-      const filePath = path.join(audioDir, filename);
-
-      const outputFormat = audioExt === 'wav' ? 'wav_44100_16' : 'mp3_44100_128';
-
-      let buffer;
-      let wordTimings = null;
-
-      if (!isElevenLabs) {
-        // Edge TTS: mỗi lần gọi trả về audio + mốc thời gian THẬT theo từng từ luôn kèm sẵn
-        if (!isFirstEdgeCall) {
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-        isFirstEdgeCall = false;
-        const edgeVoice = getEdgeVoiceForText(text, settingsRecord?.edgeVoiceMappings);
         try {
-          if (isCapcutVoice(edgeVoice)) {
-            try {
-              const capcutResult = await synthesizeCapcutTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
-              buffer = capcutResult.buffer;
-              wordTimings = null; // CapCut TTS doesn't return wordTimings
-              console.log(`[API Voiceover CapCut] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
-            } catch (capcutErr) {
-              console.warn(`[API Voiceover CapCut Fallback] Slide ${segmentNumber}: CapCut bị lỗi (${capcutErr.message}), chuyển tự động sang Edge TTS...`);
-              const fallbackVoice = (edgeVoice.includes('female') || edgeVoice.includes('huong') || edgeVoice.includes('peiqi') || edgeVoice.includes('yangguang') || edgeVoice.includes('richgirl')) ? 'vi-VN-HoaiMyNeural' : 'vi-VN-NamMinhNeural';
-              const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: fallbackVoice, readingSpeed });
-              buffer = edgeResult.buffer;
-              wordTimings = edgeResult.wordTimings;
-              console.log(`[API Voiceover CapCut Fallback] Slide ${segmentNumber} -> Edge Fallback Voice: ${fallbackVoice}`);
+          const results = [];
+          // Giãn cách nhẹ giữa các lần gọi Edge TTS liên tiếp — dịch vụ miễn phí này thỉnh thoảng bắt
+          // đầu treo/đóng kết nối sớm (xem synthesizeEdgeTts) sau một loạt request bắn liên tục không
+          // nghỉ (project nhiều slide, vd 6+ slide). Không phải cấu hình chính thức từ Microsoft, chỉ
+          // là giảm khả năng bị coi là spam theo kinh nghiệm thực tế.
+          let isFirstEdgeCall = true;
+          // Slide nào phải rơi xuống Edge TTS vì CapCut lỗi hẳn sau khi đã thử lại — báo cho người
+          // dùng biết đúng những slide này sẽ nghe khác giọng với các slide còn lại, thay vì im lặng.
+          const capcutFallbackSlides = [];
+
+          for (const scene of scenes) {
+            const { segmentNumber, dialogueOrNarration } = scene;
+            const text = (dialogueOrNarration || '').trim();
+
+            if (!text) {
+              continue;
             }
-          } else {
-            const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
-            buffer = edgeResult.buffer;
-            wordTimings = edgeResult.wordTimings;
-            console.log(`[API Voiceover Edge] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
-          }
-        } catch (err) {
-          console.error(`[API Voiceover TTS Error] Slide ${segmentNumber}:`, err.message);
-          return NextResponse.json({
-            error: `Lỗi gọi TTS cho Slide ${segmentNumber}: ${err.message}`
-          }, { status: 500 });
-        }
-      } else {
-        const requestBody = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: textToSend,
-            model_id: 'eleven_multilingual_v2',
-            voice_settings: {
-              stability: 0.5,
-              similarity_boost: 0.75,
-              ...(speedValue ? { speed: speedValue } : {}),
-            },
-          }),
-        };
 
-        const timestampsResult = await fetchElevenLabsWithFallback(
-          (acc) => {
-            const vId = getVoiceIdForAccount(text, acc);
-            return {
-              url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}/with-timestamps?output_format=${outputFormat}`,
-              voiceId: vId
-            };
-          },
-          requestBody,
-          prioritizedAccounts
-        );
+            const textToSend = text
+              .replace(/^[A-Za-z0-9\s]+:\s*/, '')
+              .replace(/\[[^\]]*\]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
 
-        if (timestampsResult.ok) {
-          try {
-            const data = await timestampsResult.response.json();
-            buffer = Buffer.from(data.audio_base64, 'base64');
-            wordTimings = deriveWordTimings(data.alignment);
-            console.log(`[API Voiceover] Slide ${segmentNumber} -> Key: ${timestampsResult.account.apiKey.slice(0, 8)}..., Voice ID: ${timestampsResult.voiceId}`);
-          } catch (err) {
-            console.warn(`[API Voiceover] Slide ${segmentNumber}: không đọc được JSON /with-timestamps (${err.message}), thử lại endpoint audio thường.`);
-          }
-        }
+            // Edge & CapCut TTS: Xoá hoàn toàn các [thẻ cảm xúc] trong ngoặc vuông
+            // để tránh việc các công cụ đọc to chúng lên hoặc gây lỗi định dạng âm thanh.
+            const textForEdge = text
+              .replace(/^[A-Za-z0-9\s]+:\s*/, '')
+              .replace(/\[[^\]]*\]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
 
-        if (!buffer) {
-          // Rớt về endpoint audio thường (không có mốc thời gian từng từ)
-          const plainResult = await fetchElevenLabsWithFallback(
-            (acc) => {
-              const vId = getVoiceIdForAccount(text, acc);
-              return {
-                url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}?output_format=${outputFormat}`,
-                voiceId: vId
+            const paddedNum = String(segmentNumber).padStart(2, '0');
+            const filename = `scene-${paddedNum}.${audioExt}`;
+            const audioDir = path.join(targetDir, 'audio');
+            if (!fs.existsSync(audioDir)) {
+              fs.mkdirSync(audioDir, { recursive: true });
+            }
+            const filePath = path.join(audioDir, filename);
+
+            const outputFormat = audioExt === 'wav' ? 'wav_44100_16' : 'mp3_44100_128';
+
+            let buffer;
+            let wordTimings = null;
+
+            if (isVieneu) {
+              const vieneuVoice = getVieneuVoiceForText(text, settingsRecord?.vieneuVoiceMappings);
+              try {
+                const vieneuText = await transliterateEnglishForVietnameseTts(textForEdge, geminiApiKeys);
+                const response = await fetch(`${vieneuServerUrl}/synthesize`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    text: vieneuText,
+                    voice: vieneuVoice,
+                    style: 'tu_nhien'
+                  })
+                });
+
+                if (!response.ok) {
+                  const errText = await response.text();
+                  throw new Error(errText || 'Lỗi phản hồi từ máy chủ VieNeu-TTS');
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                buffer = Buffer.from(arrayBuffer);
+                wordTimings = null;
+                console.log(`[API Voiceover VieNeu-TTS] Slide ${segmentNumber} -> Voice: ${vieneuVoice}`);
+              } catch (err) {
+                console.error(`[API Voiceover VieNeu-TTS Error] Slide ${segmentNumber}:`, err.message);
+                // Không thể đổi HTTP status giữa chừng stream đã bắt đầu (đã trả 200) — báo lỗi
+                // qua 1 sự kiện "error" trong stream thay vì NextResponse.json({status:500}) như
+                // bản blocking cũ, rồi throw để nhảy thẳng xuống catch ngoài cùng đóng stream lại.
+                throw new Error(`Lỗi gọi VieNeu-TTS cho Slide ${segmentNumber}: ${err.message}. Đảm bảo máy chủ VieNeu-TTS đã được chạy tại ${vieneuServerUrl}`);
+              }
+            } else if (!isElevenLabs) {
+              // Edge TTS: mỗi lần gọi trả về audio + mốc thời gian THẬT theo từng từ luôn kèm sẵn
+              if (!isFirstEdgeCall) {
+                await new Promise((resolve) => setTimeout(resolve, 400));
+              }
+              isFirstEdgeCall = false;
+              const edgeVoice = getEdgeVoiceForText(text, settingsRecord?.edgeVoiceMappings);
+              try {
+                if (isCapcutVoice(edgeVoice)) {
+                  // CapCut TTS là API reverse-engineered không chính thức, thỉnh thoảng lỗi tạm thời
+                  // (task timeout/failed trên server CapCut) — thử lại vài lần TRƯỚC KHI rơi xuống
+                  // Edge TTS. Trước đây rơi thẳng xuống Edge ngay lần lỗi đầu tiên khiến những slide
+                  // xui gặp lỗi thoáng qua bị đổi sang hẳn 1 giọng Edge Neural khác hoàn toàn với các
+                  // slide còn lại (vẫn dùng đúng giọng CapCut người dùng chọn) — nghe như "mỗi câu 1
+                  // giọng khác nhau" dù cấu hình chỉ chọn đúng 1 giọng duy nhất.
+                  // CapCut là giọng CHỈ tiếng Việt — phiên âm lại từ tiếng Anh lẫn trong câu trước
+                  // khi gửi đọc, tránh bị đọc lắp bắp sai (xem transliterateEnglishForVietnameseTts).
+                  const capcutText = await transliterateEnglishForVietnameseTts(textForEdge, geminiApiKeys);
+                  const CAPCUT_MAX_ATTEMPTS = 3;
+                  let capcutResult = null;
+                  let lastCapcutErr = null;
+                  for (let attempt = 1; attempt <= CAPCUT_MAX_ATTEMPTS; attempt++) {
+                    try {
+                      capcutResult = await synthesizeCapcutTts({ text: capcutText, voice: edgeVoice, readingSpeed });
+                      break;
+                    } catch (capcutErr) {
+                      lastCapcutErr = capcutErr;
+                      if (attempt < CAPCUT_MAX_ATTEMPTS) {
+                        console.warn(`[API Voiceover CapCut] Slide ${segmentNumber}: lần thử ${attempt}/${CAPCUT_MAX_ATTEMPTS} lỗi (${capcutErr.message}), thử lại...`);
+                        await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
+                      }
+                    }
+                  }
+
+                  if (capcutResult) {
+                    buffer = capcutResult.buffer;
+                    wordTimings = null; // CapCut TTS doesn't return wordTimings
+                    console.log(`[API Voiceover CapCut] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+                  } else {
+                    console.warn(`[API Voiceover CapCut Fallback] Slide ${segmentNumber}: CapCut bị lỗi sau ${CAPCUT_MAX_ATTEMPTS} lần thử (${lastCapcutErr?.message}), chuyển tự động sang Edge TTS...`);
+                    const fallbackVoice = (edgeVoice.includes('female') || edgeVoice.includes('huong') || edgeVoice.includes('peiqi') || edgeVoice.includes('yangguang') || edgeVoice.includes('richgirl')) ? 'vi-VN-HoaiMyNeural' : 'vi-VN-NamMinhNeural';
+                    const edgeResult = await synthesizeEdgeTts({ text: capcutText, voice: fallbackVoice, readingSpeed });
+                    buffer = edgeResult.buffer;
+                    wordTimings = edgeResult.wordTimings;
+                    capcutFallbackSlides.push(segmentNumber);
+                    console.log(`[API Voiceover CapCut Fallback] Slide ${segmentNumber} -> Edge Fallback Voice: ${fallbackVoice}`);
+                  }
+                } else {
+                  const edgeResult = await synthesizeEdgeTts({ text: textForEdge, voice: edgeVoice, readingSpeed });
+                  buffer = edgeResult.buffer;
+                  wordTimings = edgeResult.wordTimings;
+                  console.log(`[API Voiceover Edge] Slide ${segmentNumber} -> Voice: ${edgeVoice}`);
+                }
+              } catch (err) {
+                console.error(`[API Voiceover TTS Error] Slide ${segmentNumber}:`, err.message);
+                throw new Error(`Lỗi gọi TTS cho Slide ${segmentNumber}: ${err.message}`);
+              }
+            } else {
+              const requestBody = {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  text: textToSend,
+                  model_id: 'eleven_multilingual_v2',
+                  voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.75,
+                    ...(speedValue ? { speed: speedValue } : {}),
+                  },
+                }),
               };
-            },
-            requestBody,
-            prioritizedAccounts
-          );
 
-          if (!plainResult.ok) {
-            console.error(`[API Voiceover Error] Slide ${segmentNumber}:`, plainResult.errorText);
-            return NextResponse.json({
-              error: `Lỗi gọi ElevenLabs cho Slide ${segmentNumber}: Tất cả ${prioritizedAccounts.length} Tài khoản ElevenLabs đều bị lỗi hoặc hết quota. Chi tiết: ${plainResult.errorText}`
-            }, { status: 500 });
+              const timestampsResult = await fetchElevenLabsWithFallback(
+                (acc) => {
+                  const vId = getVoiceIdForAccount(text, acc);
+                  return {
+                    url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}/with-timestamps?output_format=${outputFormat}`,
+                    voiceId: vId
+                  };
+                },
+                requestBody,
+                prioritizedAccounts
+              );
+
+              if (timestampsResult.ok) {
+                try {
+                  const data = await timestampsResult.response.json();
+                  buffer = Buffer.from(data.audio_base64, 'base64');
+                  wordTimings = deriveWordTimings(data.alignment);
+                  console.log(`[API Voiceover] Slide ${segmentNumber} -> Key: ${timestampsResult.account.apiKey.slice(0, 8)}..., Voice ID: ${timestampsResult.voiceId}`);
+                } catch (err) {
+                  console.warn(`[API Voiceover] Slide ${segmentNumber}: không đọc được JSON /with-timestamps (${err.message}), thử lại endpoint audio thường.`);
+                }
+              }
+
+              if (!buffer) {
+                // Rớt về endpoint audio thường (không có mốc thời gian từng từ)
+                const plainResult = await fetchElevenLabsWithFallback(
+                  (acc) => {
+                    const vId = getVoiceIdForAccount(text, acc);
+                    return {
+                      url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}?output_format=${outputFormat}`,
+                      voiceId: vId
+                    };
+                  },
+                  requestBody,
+                  prioritizedAccounts
+                );
+
+                if (!plainResult.ok) {
+                  console.error(`[API Voiceover Error] Slide ${segmentNumber}:`, plainResult.errorText);
+                  throw new Error(`Lỗi gọi ElevenLabs cho Slide ${segmentNumber}: Tất cả ${prioritizedAccounts.length} Tài khoản ElevenLabs đều bị lỗi hoặc hết quota. Chi tiết: ${plainResult.errorText}`);
+                }
+
+                const arrayBuffer = await plainResult.response.arrayBuffer();
+                buffer = Buffer.from(arrayBuffer);
+                console.log(`[API Voiceover Plain] Slide ${segmentNumber} -> Key: ${plainResult.account.apiKey.slice(0, 8)}..., Voice ID: ${plainResult.voiceId}`);
+              }
+            }
+
+            fs.writeFileSync(filePath, buffer);
+
+            results.push({
+              segmentNumber,
+              filename,
+              size: buffer.length,
+              filePath,
+              wordTimings
+            });
+
+            send({ type: 'progress', segmentNumber, completed: results.length, total: scenes.length });
           }
 
-          const arrayBuffer = await plainResult.response.arrayBuffer();
-          buffer = Buffer.from(arrayBuffer);
-          console.log(`[API Voiceover Plain] Slide ${segmentNumber} -> Key: ${plainResult.account.apiKey.slice(0, 8)}..., Voice ID: ${plainResult.voiceId}`);
+          // Ghi mốc thời gian từng từ (nếu lấy được) vào manifest.json của project — để
+          // render-project.mjs của skill đọc và đưa vào config cho kiểu phụ đề "karaoke"
+          // nhấn đúng từ đang đọc, thay vì chỉ ước lượng theo độ dài chữ.
+          const manifestPath = path.join(targetDir, 'manifest.json');
+          if (fs.existsSync(manifestPath)) {
+            try {
+              const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+              const timingsByNumber = new Map(results.filter(r => r.wordTimings).map(r => [r.segmentNumber, r.wordTimings]));
+              manifest.segments = (manifest.segments || []).map((seg) => (
+                timingsByNumber.has(seg.segmentNumber)
+                  ? { ...seg, wordTimings: timingsByNumber.get(seg.segmentNumber) }
+                  : seg
+              ));
+              manifest.updatedAt = Date.now();
+              fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+            } catch (err) {
+              console.warn('[API Voiceover] Không ghi được wordTimings vào manifest.json:', err.message);
+            }
+          }
+
+          quotaCache = null;
+          quotaCacheTime = 0;
+
+          const fallbackWarning = capcutFallbackSlides.length > 0
+            ? ` (Lưu ý: Slide ${capcutFallbackSlides.join(', ')} bị lỗi giọng CapCut đã chọn, tự động chuyển tạm sang giọng Edge dự phòng nên có thể nghe khác giọng — bạn có thể tạo lại giọng đọc để thử CapCut lại cho các slide này.)`
+            : '';
+
+          send({
+            type: 'done',
+            success: true,
+            message: `Đã lồng tiếng thành công cho ${results.length} slide!${fallbackWarning}`,
+            targetDirectory: targetDir,
+            files: results.map(({ wordTimings, ...rest }) => rest),
+            capcutFallbackSlides
+          });
+        } catch (err) {
+          console.error('[API Voiceover Exception]:', err);
+          send({ type: 'error', error: err.message || 'Lỗi không xác định khi tạo âm thanh.' });
+        } finally {
+          controller.close();
         }
       }
+    });
 
-      fs.writeFileSync(filePath, buffer);
-
-      results.push({
-        segmentNumber,
-        filename,
-        size: buffer.length,
-        filePath,
-        wordTimings
-      });
-    }
-
-    // Ghi mốc thời gian từng từ (nếu lấy được) vào manifest.json của project — để
-    // render-project.mjs của skill đọc và đưa vào config cho kiểu phụ đề "karaoke"
-    // nhấn đúng từ đang đọc, thay vì chỉ ước lượng theo độ dài chữ.
-    const manifestPath = path.join(targetDir, 'manifest.json');
-    if (fs.existsSync(manifestPath)) {
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const timingsByNumber = new Map(results.filter(r => r.wordTimings).map(r => [r.segmentNumber, r.wordTimings]));
-        manifest.segments = (manifest.segments || []).map((seg) => (
-          timingsByNumber.has(seg.segmentNumber)
-            ? { ...seg, wordTimings: timingsByNumber.get(seg.segmentNumber) }
-            : seg
-        ));
-        manifest.updatedAt = Date.now();
-        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-      } catch (err) {
-        console.warn('[API Voiceover] Không ghi được wordTimings vào manifest.json:', err.message);
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache'
       }
-    }
-
-    quotaCache = null;
-    quotaCacheTime = 0;
-
-    return NextResponse.json({
-      success: true,
-      message: `Đã lồng tiếng thành công cho ${results.length} slide!`,
-      targetDirectory: targetDir,
-      files: results.map(({ wordTimings, ...rest }) => rest)
     });
 
   } catch (error) {

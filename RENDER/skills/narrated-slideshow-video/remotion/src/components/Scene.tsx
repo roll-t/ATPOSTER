@@ -54,7 +54,7 @@ function transitionFrame(
 // "hook", to leave headroom under the top-anchored title card instead of
 // the card sitting on top of the image content. Paired with a compensating
 // scale bump in SceneImage.tsx so no gap shows at the top edge.
-const HOOK_IMAGE_OFFSET_PERCENT = 12;
+const HOOK_IMAGE_OFFSET_PERCENT = 5;
 
 export const Scene: React.FC<{
   scene: SceneConfig;
@@ -66,12 +66,16 @@ export const Scene: React.FC<{
   transitionStyle: TransitionStyle;
   globalKenBurns: boolean;
   globalImageFit: "cover" | "contain";
+  imageScale: number;
+  imageTranslateY: number;
+  captionMarginY: number;
   captionPosition: "top" | "bottom" | "center";
   captionMode: "chunked" | "full";
   captionWordsPerChunk: number;
   captionStyle: SlideshowVideoProps["captionStyle"];
   captionFont: SlideshowVideoProps["captionFont"];
   captionFontSize: SlideshowVideoProps["captionFontSize"];
+  captionSecondaryFontSize: SlideshowVideoProps["captionSecondaryFontSize"];
   captionTextColor: SlideshowVideoProps["captionTextColor"];
   captionBgColor: SlideshowVideoProps["captionBgColor"];
   highlightColor: SlideshowVideoProps["highlightColor"];
@@ -87,12 +91,16 @@ export const Scene: React.FC<{
   transitionStyle,
   globalKenBurns,
   globalImageFit,
+  imageScale,
+  imageTranslateY,
+  captionMarginY,
   captionPosition,
   captionMode,
   captionWordsPerChunk,
   captionStyle,
   captionFont,
   captionFontSize,
+  captionSecondaryFontSize,
   captionTextColor,
   captionBgColor,
   highlightColor,
@@ -135,6 +143,8 @@ export const Scene: React.FC<{
         kenBurns={kenBurns}
         durationInFrames={visualDurationInFrames}
         topOffsetPercent={captionStyle === "hook" ? HOOK_IMAGE_OFFSET_PERCENT : 0}
+        imageScale={imageScale}
+        imageTranslateY={imageTranslateY}
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
       <Sfx cues={scene.sfx} />
@@ -144,12 +154,14 @@ export const Scene: React.FC<{
         sceneIndex={sceneIndex}
         videoTitle={videoTitle}
         position={captionPosition}
+        captionMarginY={captionMarginY}
         fontFamily={fontFamily}
         mode={captionMode}
         wordsPerChunk={captionWordsPerChunk}
         style={captionStyle}
         captionFont={captionFont}
         captionFontSize={captionFontSize}
+        captionSecondaryFontSize={captionSecondaryFontSize}
         captionTextColor={captionTextColor}
         captionBgColor={captionBgColor}
         highlightColor={highlightColor}

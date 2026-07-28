@@ -4,6 +4,7 @@ import { PROMPT_CATEGORIES, buildPrompt, buildImagePrompt, buildSegmentedPrompts
 import { generateSegmentedScript, translateAndExpandInputs } from '@/lib/prompts/gemini/index.js';
 import { getStickFigureCastOverrides } from '@/lib/prompts/castOverrides.js';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
+import { getEffectiveFolderPath } from '@/lib/remotionPaths';
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình,
 // dù tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem voiceover/route.js — nơi tag
@@ -262,7 +263,11 @@ export async function POST(request) {
     }
 
     if ((category === 'stick_figure_slideshow' || category === 'moral_talk_slideshow') && record.segments) {
-      const folder = processedInput.folderPath || 'example';
+      // getEffectiveFolderPath lồng thêm "category/" vào path tương đối này (vd
+      // "moral_talk_slideshow/5_nguyen_tac_..."), để project MỚI của category này lưu vào
+      // đúng thư mục con riêng thay vì nằm phẳng lẫn với category khác dùng chung skill —
+      // xem lib/remotionPaths.js. Chỉ ảnh hưởng project MỚI tạo từ giờ trở đi.
+      const folder = getEffectiveFolderPath(processedInput.folderPath || 'example', category);
       const imgExt = processedInput.imageExt || 'jpg';
       const audExt = processedInput.audioExt || 'mp3';
       // aspectRatio '9:16' (mặc định) -> video dọc, '16:9' -> video ngang.

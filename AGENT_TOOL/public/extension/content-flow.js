@@ -251,32 +251,6 @@ function selectFlowMode(isImage, targetRatioInput) {
   return true;
 }
 
-// Ghi nhớ URL dự án Flow đang xem, gắn với ĐÚNG kịch bản (folderPath) đang active trong queue -
-// không phải 1 giá trị "gần nhất" dùng chung cho mọi kịch bản (nếu vậy, mở kịch bản B sau khi
-// vừa làm kịch bản A sẽ nhảy nhầm sang dự án Flow của A). Nhờ vậy, lần sau bấm "Đẩy sang Google
-// Flow" cho ĐÚNG kịch bản này, background.js (xem handler START_QUEUE) có thể mở thẳng lại đúng
-// dự án Flow đã tạo trước đó cho nó, thay vì luôn phải qua dashboard trống (tự bấm "Dự án mới",
-// tạo ra 1 dự án khác không liên quan) - dashboard chỉ còn được dùng cho kịch bản THẬT SỰ mới.
-function trackCurrentProjectUrl() {
-  const href = window.location.href;
-  if (!href.includes('/project/')) return;
-  if (!queue || !queue.folderPath) return; // Không có queue active thì không biết gắn cho kịch bản nào, bỏ qua
-
-  const folderPath = queue.folderPath;
-  try {
-    chrome.storage.local.get(['flowProjectUrlsByFolder'], (result) => {
-      if (chrome.runtime.lastError) return; // context đã bị hủy giữa chừng, bỏ qua lặng lẽ
-      const map = result.flowProjectUrlsByFolder || {};
-      if (map[folderPath] !== href) {
-        map[folderPath] = href;
-        chrome.storage.local.set({ flowProjectUrlsByFolder: map });
-      }
-    });
-  } catch (e) {
-    // "Extension context invalidated" - bỏ qua, vòng lặp gọi hàm này sẽ tự dừng ở lần tiếp theo
-  }
-}
-
 // Tải hàng đợi từ storage khi load trang
 function init() {
   if (!window.location.href.includes('/flow')) {
@@ -297,18 +271,6 @@ function init() {
       clearInterval(checkDashboardInterval);
     }
   }, 1500);
-
-  // Theo dõi liên tục URL dự án (độc lập với interval ở trên, vì Google Flow là SPA nên
-  // người dùng có thể chuyển sang dự án khác bất cứ lúc nào mà không tải lại trang). Tự dừng
-  // hẳn nếu phát hiện extension đã được reload (context cũ đã chết) để không spam lỗi vô hạn.
-  trackCurrentProjectUrl();
-  const projectUrlInterval = setInterval(() => {
-    if (!isExtensionAlive()) {
-      clearInterval(projectUrlInterval);
-      return;
-    }
-    trackCurrentProjectUrl();
-  }, 3000);
 
   chrome.storage.local.get(['flowQueue', 'autoRunActive'], (result) => {
     if (result.flowQueue) {

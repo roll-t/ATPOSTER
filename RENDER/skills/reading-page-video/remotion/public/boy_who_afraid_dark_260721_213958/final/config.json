@@ -1,6 +1,6 @@
 {
   "projectTitle": "Shadow Shapes at Night",
-  "level": "",
+  "level": "a2",
   "orientation": "portrait",
   "image": "boy_who_afraid_dark_260721_213958/images/scene-01.jpg",
   "imageFit": "cover",
@@ -8,13 +8,13 @@
   "audioPaddingSeconds": 0.5,
   "title": "Shadow Shapes at Night",
   "body": "Leo was seven years old. He lay quietly in his bed. His bedroom was dark, but a small nightlight glowed faintly in the corner. It created long, dancing shadows on the wall. Leo watched these shadows very carefully. To him, they looked like big, strange monsters moving slowly. He pulled his warm blanket up to his chin. He held his favorite blue teddy bear tightly in his arms. His eyes were wide open, looking into the darkness. He felt a little scared of the unknown shapes. But deep down, he knew they were only shadows from his small lamp. He waited for the morning light.\nLeo bảy tuổi. Cậu bé nằm yên lặng trên giường. Phòng ngủ của cậu tối, nhưng một chiếc đèn ngủ nhỏ chiếu sáng mờ ảo ở góc phòng. Nó tạo ra những bóng đổ dài, nhảy múa trên tường. Leo quan sát những bóng này rất cẩn thận. Với cậu, chúng trông như những con quái vật lớn, kỳ lạ đang di chuyển chậm chạp. Cậu kéo chiếc chăn ấm lên đến cằm. Cậu ôm chặt chú gấu bông màu xanh yêu thích của mình. Đôi mắt cậu mở to, nhìn vào bóng tối. Cậu cảm thấy hơi sợ những hình thù không rõ ràng. Nhưng sâu thẳm, cậu biết chúng chỉ là bóng của chiếc đèn nhỏ của mình. Cậu chờ đợi ánh sáng ban mai.",
-  "showBilingual": true,
+  "showBilingual": false,
   "bgColor": "#0E0F13",
   "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
   "captionFontSize": 43,
   "captionTextColor": "#241C10",
   "captionBgColor": "#F3EAD9",
-  "captionBgOpacity": 80,
+  "captionBgOpacity": 100,
   "heroHeightPercent": 20,
   "titleHeightPercent": 8,
   "bodyHeightPercent": 56,
@@ -22,7 +22,6 @@
   "titleBodyGap": 1,
   "contentPaddingPercent": 5,
   "bodyAlign": "justify",
-  "imageMode": "hero",
   "wordTimings": [
     {
       "word": "Leo",
@@ -549,5 +548,7 @@
       "start": 47.3125,
       "end": 47.7
     }
-  ]
+  ],
+  "bgMusic": "boy_who_afraid_dark_260721_213958/audio/bg-music.mp3",
+  "bgMusicVolume": 0.1
 }
