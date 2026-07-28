@@ -15,5 +15,5 @@ export async function regenerateNarrationScript({ category, input, segments, api
   }
 
   const promptText = buildRegenerateNarrationPrompt(category, input || {}, segments);
-  return callGeminiApi(promptText, keys);
+  return callGeminiApi(promptText, keys, { tier: 'quality', timeoutMs: 90_000, deadlineMs: 180_000, label: 'Viết lại lời kể' });
 }

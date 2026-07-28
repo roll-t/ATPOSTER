@@ -9,7 +9,7 @@ import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/ed
 import { synthesizeGeminiTts } from '@/lib/tts/geminiTts.js';
 import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
 import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
-import { transliterateEnglishForVietnameseTts } from '@/lib/tts/englishPhoneticVi.js';
+import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } from '@/lib/tts/englishPhoneticVi.js';
 
 // Default voice fallbacks for VieNeu-TTS (local python server)
 const DEFAULT_VIENEU_MALE_VOICE = 'Phạm Tuyên';
@@ -299,6 +299,16 @@ function deriveWordTimings(alignment) {
 // Không set nếu là 'medium' để giữ hành vi mặc định y hệt trước khi có tính năng này.
 const READING_SPEED_TO_ELEVENLABS = { slow: 0.85, medium: 1.0, fast: 1.15 };
 
+// Chuẩn hoá lời thoại trước khi gửi cho công cụ đọc: bỏ tên nhân vật ở đầu câu ("Nam: ...") và
+// xoá hẳn các [thẻ cảm xúc] trong ngoặc vuông, tránh việc chúng bị đọc to lên thành lời.
+function normalizeTtsText(rawText) {
+  return (rawText || '')
+    .replace(/^[A-Za-z0-9\s]+:\s*/, '')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export async function POST(request) {
   try {
     const { folderPath, imageExt = 'jpg', audioExt = 'mp3', scenes, category, readingSpeed, ttsProvider: requestedProvider } = await request.json();
@@ -377,6 +387,27 @@ export async function POST(request) {
           // dùng biết đúng những slide này sẽ nghe khác giọng với các slide còn lại, thay vì im lặng.
           const capcutFallbackSlides = [];
 
+          // Phiên âm tiếng Anh sang cách viết đọc được bằng giọng Việt là việc CHUNG cho mọi slide,
+          // nên gom hết vào 1 lệnh gọi Gemini duy nhất TRƯỚC vòng lặp. Trước đây nó được gọi lẻ bên
+          // trong vòng lặp, nên một project 25 slide bắn ra 25 request liên tiếp trong vài giây —
+          // vượt thẳng hạn mức free tier (20 request/phút) ngay giữa chừng, khiến cả mẻ lồng tiếng
+          // phải ngồi chờ retry. Các lệnh gọi lẻ bên dưới giữ nguyên: sau bước này chúng chỉ còn là
+          // tra cache, và nếu bước gộp thất bại thì chúng vẫn tự xoay xở đúng như cũ.
+          if (geminiApiKeys.length > 0 && !isElevenLabs) {
+            const textsNeedingPhonetics = scenes
+              .filter((scene) => {
+                const raw = (scene?.dialogueOrNarration || '').trim();
+                if (!raw) return false;
+                // Chỉ giọng CHỈ-tiếng-Việt mới cần phiên âm; Edge Neural thường tự đọc được tiếng Anh.
+                return isVieneu || isCapcutVoice(getEdgeVoiceForText(raw, settingsRecord?.edgeVoiceMappings));
+              })
+              .map((scene) => normalizeTtsText((scene.dialogueOrNarration || '').trim()));
+
+            if (textsNeedingPhonetics.length > 0) {
+              await prewarmTransliterationCache(textsNeedingPhonetics, geminiApiKeys);
+            }
+          }
+
           for (const scene of scenes) {
             const { segmentNumber, dialogueOrNarration } = scene;
             const text = (dialogueOrNarration || '').trim();
@@ -385,19 +416,11 @@ export async function POST(request) {
               continue;
             }
 
-            const textToSend = text
-              .replace(/^[A-Za-z0-9\s]+:\s*/, '')
-              .replace(/\[[^\]]*\]/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
+            const textToSend = normalizeTtsText(text);
 
             // Edge & CapCut TTS: Xoá hoàn toàn các [thẻ cảm xúc] trong ngoặc vuông
             // để tránh việc các công cụ đọc to chúng lên hoặc gây lỗi định dạng âm thanh.
-            const textForEdge = text
-              .replace(/^[A-Za-z0-9\s]+:\s*/, '')
-              .replace(/\[[^\]]*\]/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
+            const textForEdge = normalizeTtsText(text);
 
             const paddedNum = String(segmentNumber).padStart(2, '0');
             const filename = `scene-${paddedNum}.${audioExt}`;

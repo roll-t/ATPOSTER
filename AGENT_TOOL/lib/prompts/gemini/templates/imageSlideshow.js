@@ -3,6 +3,7 @@
  * "Video Slide Ảnh Học Tiếng Anh".
  */
 import { buildPunctuationRhythmGuidance } from './narrationPacing.js';
+import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
 export function buildImageSlideshowScriptPrompt(input, durationInfo) {
   const isBilingual = true;
@@ -30,6 +31,11 @@ NARRATION STYLE REQUIREMENTS (IMPORTANT):
 - This is NOT a conversation/dialogue between characters. Do NOT write back-and-forth lines like "Alex: ... / Mia: ...".
 - Write it as ONE narrator's voiceover (third-person, documentary/storytelling tone) describing the problem: what it looks like, why it happens, its effects, and — if it fits naturally — a closing thought.
 - The stick figure character(s) shown in each slide simply ACT OUT / illustrate whatever the narration is describing at that moment. They are silent — no speech, no dialogue, no speech bubbles.
+
+${buildHumanVoiceGuidance({ isVietnamese: false })}
+- Note: the vocabulary constraint below (simple A2/B1 English) still applies on top of everything above — write like a real person talking, using only simple words.
+
+${buildHookGuidance({ isVietnamese: false })}
 
 VISUAL STYLE & IMAGE PROMPT REQUIREMENTS:
 - The style is: Minimalist hand-drawn whiteboard-animation style, simple black ink line illustrations and stick figures (circle head, simple line body/limbs) on a plain white background, plain sketch look.

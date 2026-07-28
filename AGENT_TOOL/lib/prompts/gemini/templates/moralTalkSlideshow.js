@@ -16,6 +16,7 @@
  */
 import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
 import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
+import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
 export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isLandscape = input.aspectRatio === '16:9';
@@ -75,6 +76,10 @@ NARRATION STYLE REQUIREMENTS (IMPORTANT):
 ${narrationModeLine}
 - Each slide's pictogram simply depicts / symbolizes whatever the narration is evoking right then — this can be a literal everyday scene OR a symbolic/metaphorical image (e.g. an adult pictogram figure standing face to face with a small child pictogram figure, a figure looking into a mirror-shaped outline, a figure holding a glowing folded paper). Figures are silent symbolic pictograms — no speech, no dialogue, no speech bubbles.
 ${narrationLanguageBlock}
+
+${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
+
+${buildHookGuidance({ isVietnamese: isVietnamesePrimary })}
 
 ${styleReferenceBlock}
 

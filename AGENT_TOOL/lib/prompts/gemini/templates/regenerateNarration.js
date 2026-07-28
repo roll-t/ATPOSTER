@@ -1,5 +1,6 @@
 import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
 import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
+import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
 /**
  * Xây dựng prompt gửi cho Gemini để VIẾT LẠI riêng phần lời kể/thoại (dialogueOrNarration +
@@ -72,6 +73,11 @@ ${narrationModeLine}
 ${languageAndToneBlock}
 - Do NOT include bracketed tags like "[pause]", "[softly]", "[warmly]", "[gently]" anywhere in the new narration — the voice engine does not read them and does not act on them, they have zero effect on the spoken audio and only show up as clutter in the text (drop any such tags you see in the "Current narration" below too — do not carry them over). Express emotion/pacing through word choice and punctuation instead.
 - ${buildPunctuationRhythmGuidance()}
+
+${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
+
+${buildHookGuidance({ isVietnamese: isVietnamesePrimary })}
+- Applied to this rewrite: slide 1's new narration must open with that hook sentence. If the current slide-1 narration warms up before getting to the point, that warm-up is exactly what you must delete.
 ${styleReferenceBlock}${listCountNote}
 EXISTING SLIDES (in order — write new narration for each, keep the same segmentNumber, same count, same order):
 ${segmentsList}

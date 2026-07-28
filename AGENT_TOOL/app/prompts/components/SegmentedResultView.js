@@ -18,6 +18,26 @@ function stripEmotionTagsForDisplay(text) {
     .join('\n');
 }
 
+// Ước lượng thời lượng đọc để người dùng biết NGAY lúc gõ là slide này đang dài/ngắn bao nhiêu,
+// thay vì phải tạo giọng đọc xong mới phát hiện lệch so với thời lượng mục tiêu. Mốc ~2.5 từ/giây
+// lấy đúng theo công thức đang dùng ở buildSegmentedPrompts.js để 2 nơi không đưa ra 2 con số khác
+// nhau cho cùng một đoạn text.
+const WORDS_PER_SECOND = 2.5;
+
+function countWords(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function estimateSpeechSeconds(text) {
+  return Math.round(countWords(stripEmotionTagsForDisplay(text)) / WORDS_PER_SECOND);
+}
+
+function formatDuration(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
+}
+
 // Component Trình Phát Nhạc Đồ Thị Sóng Âm (Waveform Display - Đồng bộ phát từ các thẻ ở trên)
 function AudioWaveformPlayer({
   src,
@@ -911,6 +931,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [subtitleMsg, setSubtitleMsg] = useState('');
   const [isRegeneratingNarration, setIsRegeneratingNarration] = useState(false);
   const [regenerateNarrationMsg, setRegenerateNarrationMsg] = useState('');
+  // Sửa kịch bản THỦ CÔNG: `scriptEdits` chỉ chứa các slide người dùng thực sự đụng vào (khoá theo
+  // segmentNumber), không phải bản sao của cả kịch bản — nhờ vậy biết chính xác cái gì đã đổi,
+  // và bấm "Huỷ" chỉ cần xoá rỗng object này là quay về nguyên trạng.
+  const [isEditingScript, setIsEditingScript] = useState(false);
+  const [scriptEdits, setScriptEdits] = useState({});
+  const [isSavingScript, setIsSavingScript] = useState(false);
+  const [saveScriptMsg, setSaveScriptMsg] = useState('');
+  const [showFullNarration, setShowFullNarration] = useState(false);
   const [extQueueState, setExtQueueState] = useState(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [renderMsg, setRenderMsg] = useState('');
@@ -2378,6 +2406,89 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // --- Sửa kịch bản thủ công ---------------------------------------------------------------
+
+  // Giá trị đang hiển thị của 1 ô: ưu tiên bản người dùng vừa gõ, chưa gõ thì lấy bản gốc.
+  const editedValue = (seg, field) => scriptEdits[seg.segmentNumber]?.[field] ?? seg[field] ?? '';
+
+  const handleEditField = (segmentNumber, field, value) => {
+    setSaveScriptMsg('');
+    setScriptEdits((prev) => ({
+      ...prev,
+      [segmentNumber]: { ...prev[segmentNumber], [field]: value }
+    }));
+  };
+
+  // Chỉ đếm slide có nội dung THỰC SỰ khác bản gốc — gõ vào rồi xoá về như cũ thì không tính là
+  // thay đổi, tránh báo "chưa lưu" trong khi thật ra chẳng có gì để lưu.
+  const dirtySegments = result.segments.filter((seg) => {
+    const edit = scriptEdits[seg.segmentNumber];
+    if (!edit) return false;
+    return Object.entries(edit).some(([field, value]) => value !== (seg[field] ?? ''));
+  });
+  const hasUnsavedEdits = dirtySegments.length > 0;
+
+  const handleCancelEdits = () => {
+    if (hasUnsavedEdits && !window.confirm(`Bỏ toàn bộ chỉnh sửa chưa lưu ở ${dirtySegments.length} slide?`)) return;
+    setScriptEdits({});
+    setIsEditingScript(false);
+    setSaveScriptMsg('');
+  };
+
+  const handleSaveScript = async () => {
+    if (!hasUnsavedEdits) {
+      setIsEditingScript(false);
+      return;
+    }
+    if (!result.id) {
+      setSaveScriptMsg('Lỗi: Kịch bản này chưa được lưu vào Lịch sử nên không sửa được. Hãy tạo lại kịch bản để có bản ghi trong Lịch sử.');
+      return;
+    }
+    setIsSavingScript(true);
+    setSaveScriptMsg('');
+    try {
+      const res = await fetch('/api/prompts/update-segments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: result.id,
+          folderPath: result.input?.folderPath || '',
+          category: result.category,
+          segments: dirtySegments.map((seg) => ({
+            segmentNumber: seg.segmentNumber,
+            ...scriptEdits[seg.segmentNumber]
+          }))
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onResult?.({ ...result, segments: data.segments, remotionConfig: data.remotionConfig ?? result.remotionConfig });
+        onHistoryRefresh?.();
+        setScriptEdits({});
+        setIsEditingScript(false);
+        setSaveScriptMsg(
+          `✓ Đã lưu ${data.changedCount} slide${data.manifestUpdated ? ' (đã cập nhật cả manifest.json của project)' : ''}. `
+          + 'Nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại theo lời mới, rồi "Tạo Lại Video" ở Bước 4.'
+        );
+      } else {
+        setSaveScriptMsg(`Lỗi: ${data.error || 'Không lưu được kịch bản.'}`);
+      }
+    } catch (err) {
+      setSaveScriptMsg('Lỗi: Không thể kết nối tới server.');
+    } finally {
+      setIsSavingScript(false);
+    }
+  };
+
+  // Cảnh báo khi đóng/tải lại tab mà còn chỉnh sửa chưa lưu — kịch bản gõ tay xong mất trắng vì
+  // lỡ tay F5 là mất công gõ lại từ đầu.
+  useEffect(() => {
+    if (!hasUnsavedEdits) return;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsavedEdits]);
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
@@ -3078,7 +3189,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         </div>
       )}
 
-      {/* Toàn bộ lời thuyết minh gộp lại - bản dự phòng để dán tay, bổ trợ cho nút tự động lồng tiếng bên dưới */}
+      {/* Toàn bộ lời thuyết minh gộp lại - bản dự phòng để dán tay, bổ trợ cho nút tự động lồng tiếng bên dưới.
+          MẶC ĐỊNH THU GỌN: mở sẵn thì riêng khối này đã chiếm ~676px, đẩy Slide 1 xuống tận 1153px —
+          người dùng vào tab "Kịch bản chi tiết" là để xem/sửa từng slide, phải cuộn qua 1.5 màn hình
+          chữ mới tới được slide đầu tiên. Thu lại còn 1 dòng tóm tắt, ai cần bản dán tay thì mở ra. */}
       <div style={{
         background: 'rgba(255, 255, 255, 0.02)',
         border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -3086,11 +3200,30 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         padding: '16px',
         marginBottom: '24px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
           <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
             <span>🎙️</span>
             <span>Toàn bộ lời thuyết minh</span>
           </strong>
+          {(() => {
+            const speechText = result.segments
+              .filter(s => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail'))
+              .map(s => stripEmotionTagsForDisplay((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim()))
+              .join(' ');
+            return (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto', whiteSpace: 'nowrap' }}>
+                {countWords(speechText)} chữ · đọc khoảng {formatDuration(estimateSpeechSeconds(speechText))}
+              </span>
+            );
+          })()}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+            onClick={() => setShowFullNarration(v => !v)}
+          >
+            {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
@@ -3110,37 +3243,83 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
           </button>
         </div>
-        <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Bản dự phòng để dán tay vào công cụ TTS khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
-        </p>
-        <p style={{
-          margin: 0,
-          fontSize: '0.85rem',
-          lineHeight: 1.6,
-          color: 'rgba(255, 255, 255, 0.85)',
-          whiteSpace: 'pre-wrap',
-          background: 'rgba(0, 0, 0, 0.2)',
-          padding: '12px',
-          borderRadius: '8px',
-          fontStyle: 'italic'
-        }}>
-          {result.segments.filter(s => !s.isThumbnail && !s.dialogueOrNarration.includes('Thumbnail')).map(s => stripEmotionTagsForDisplay(s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim())).join(' ')}
-        </p>
+        {showFullNarration && (
+          <>
+            <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              Bản dự phòng để dán tay vào công cụ TTS khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
+            </p>
+            <p style={{
+              margin: 0,
+              fontSize: '0.85rem',
+              lineHeight: 1.6,
+              color: 'rgba(255, 255, 255, 0.85)',
+              whiteSpace: 'pre-wrap',
+              background: 'rgba(0, 0, 0, 0.2)',
+              padding: '12px',
+              borderRadius: '8px',
+              fontStyle: 'italic'
+            }}>
+              {result.segments.filter(s => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail')).map(s => stripEmotionTagsForDisplay((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim())).join(' ')}
+            </p>
+          </>
+        )}
       </div>
 
       {activeTab === 'script' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, flex: 1 }}>
-              Dưới đây là kịch bản thoại đã được chia nhỏ thành các slide. Hãy sao chép lần lượt từng prompt ảnh phía dưới để sinh ảnh (bằng Midjourney/Flux) hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
+          {/* Đoạn hướng dẫn xuống DÒNG RIÊNG, không nằm cùng hàng với các nút: khi để chung một
+              hàng flex, mỗi nút thêm vào lại bóp đoạn văn hẹp lại (đo được 146px rộng × 245px cao —
+              một cột chữ dựng đứng), vừa xấu vừa ngốn chiều cao hơn cả khi cho nó nguyên một hàng. */}
+          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', gap: '10px' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
             </p>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
+                Để riêng 2 nút Lưu/Huỷ thay vì tự lưu khi rời ô, vì mỗi lần lưu ghi vào 3 nơi (DB,
+                remotionConfig, manifest.json) — người dùng cần chủ động quyết định thời điểm ghi. */}
+            {!isEditingScript ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                title="Tự sửa tay lời kể, phụ đề và mô tả hoạt cảnh của từng slide"
+                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                onClick={() => { setIsEditingScript(true); setSaveScriptMsg(''); }}
+              >
+                ✏️ Sửa kịch bản
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={isSavingScript || !hasUnsavedEdits}
+                  title={hasUnsavedEdits ? `Lưu ${dirtySegments.length} slide đã sửa` : 'Chưa có thay đổi nào để lưu'}
+                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
+                  onClick={handleSaveScript}
+                >
+                  {isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isSavingScript}
+                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                  onClick={handleCancelEdits}
+                >
+                  ✕ Xong / Huỷ
+                </button>
+              </>
+            )}
             {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
               <button
                 type="button"
                 className="btn btn-secondary"
-                disabled={isRegeneratingNarration}
-                title="Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide"
-                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: isRegeneratingNarration ? 0.6 : 1 }}
+                disabled={isRegeneratingNarration || hasUnsavedEdits}
+                title={hasUnsavedEdits
+                  ? 'Bạn đang có chỉnh sửa chưa lưu — lưu hoặc huỷ trước khi để Gemini viết lại (viết lại sẽ ghi đè toàn bộ lời kể)'
+                  : 'Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide'}
+                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isRegeneratingNarration || hasUnsavedEdits) ? 0.5 : 1 }}
                 onClick={handleRegenerateNarration}
               >
                 {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
@@ -3157,6 +3336,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             >
               {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
             </button>
+            </div>
           </div>
           {regenerateNarrationMsg && (
             <div style={{
@@ -3172,16 +3352,79 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               {regenerateNarrationMsg}
             </div>
           )}
+          {saveScriptMsg && (
+            <div style={{
+              fontSize: '0.8rem',
+              color: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
+              background: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              marginTop: '-4px',
+              marginBottom: '16px',
+              fontWeight: 500
+            }}>
+              {saveScriptMsg}
+            </div>
+          )}
+          {isEditingScript && (
+            <div style={{
+              fontSize: '0.78rem',
+              color: hasUnsavedEdits ? 'var(--warning)' : 'var(--text-muted)',
+              background: hasUnsavedEdits ? 'rgba(255, 193, 7, 0.08)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${hasUnsavedEdits ? 'rgba(255, 193, 7, 0.25)' : 'rgba(255,255,255,0.06)'}`,
+              padding: '8px 12px',
+              borderRadius: '6px',
+              marginBottom: '16px',
+              fontWeight: 500,
+              lineHeight: 1.5
+            }}>
+              {hasUnsavedEdits
+                ? `⚠️ Đang có ${dirtySegments.length} slide sửa chưa lưu (slide ${dirtySegments.map(s => s.segmentNumber).join(', ')}). Nhấn "💾 Lưu" để ghi lại — ảnh đã tạo vẫn giữ nguyên, chỉ cần tạo lại giọng đọc.`
+                : '✏️ Chế độ sửa đang bật. Gõ trực tiếp vào các ô bên dưới. Sửa mô tả hoạt cảnh chỉ đổi prompt ảnh cho lần sinh ảnh SAU, không tự vẽ lại ảnh đã có.'}
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {result.segments.map((seg, idx) => {
               const isThumb = seg.isThumbnail || (seg.dialogueOrNarration && seg.dialogueOrNarration.includes('Thumbnail'));
+              const isSegDirty = dirtySegments.some(d => d.segmentNumber === seg.segmentNumber);
+              const editStyle = {
+                width: '100%',
+                boxSizing: 'border-box',
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '8px',
+                padding: '10px',
+                color: '#fff',
+                fontSize: '0.85rem',
+                lineHeight: 1.6,
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                marginTop: '4px'
+              };
               return (
-                <div key={idx} className="timeline-card" style={isThumb ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' } : undefined}>
+                <div
+                  key={idx}
+                  className="timeline-card"
+                  style={
+                    // Slide đang có sửa chưa lưu được viền vàng để tìm lại được ngay trong một
+                    // kịch bản dài 20-30 slide, khỏi phải cuộn dò từng cái.
+                    isSegDirty
+                      ? { border: '1.5px solid var(--warning)', background: 'rgba(255, 193, 7, 0.05)', boxShadow: '0 4px 20px rgba(255, 193, 7, 0.12)' }
+                      : isThumb
+                        ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' }
+                        : undefined
+                  }
+                >
                   <div className="timeline-meta">
                     <strong style={{ color: isThumb ? 'var(--secondary)' : 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>{isThumb ? '🖼️' : '🎬'}</span>
                       <span>{isThumb ? 'Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)' : `Slide ${seg.segmentNumber}`}</span>
+                      {isSegDirty && (
+                        <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(255,193,7,0.18)', color: 'var(--warning)', fontWeight: 700 }}>
+                          chưa lưu
+                        </span>
+                      )}
                     </strong>
                     {isThumb && (
                       <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(37, 244, 238, 0.15)', color: 'var(--secondary)', border: '1px solid rgba(37, 244, 238, 0.3)', fontWeight: 700 }}>
@@ -3203,30 +3446,71 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
                       </span>
-                      <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                        {seg.visualDescription}
-                      </p>
+                      {isEditingScript ? (
+                        <textarea
+                          value={editedValue(seg, 'visualDescription')}
+                          onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
+                          rows={4}
+                          spellCheck={false}
+                          style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
+                        />
+                      ) : (
+                        <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                          {seg.visualDescription}
+                        </p>
+                      )}
                     </div>
 
-                    {seg.dialogueOrNarration && (
+                    {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
                       <div>
-                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                           <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                          {/* Đếm chữ + thời lượng đọc ngay lúc gõ: prompt sinh kịch bản ràng buộc mỗi
+                              slide khoảng 6-15 giây, không có con số này thì sửa tay xong phải tạo
+                              giọng đọc mới biết mình vừa viết dài/ngắn quá. */}
+                          <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                            {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                          </span>
                         </span>
-                        <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                          {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
-                        </p>
+                        {isEditingScript ? (
+                          <textarea
+                            value={editedValue(seg, 'dialogueOrNarration')}
+                            onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
+                            rows={3}
+                            placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
+                            style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
+                          />
+                        ) : (
+                          <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                            {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
+                          </p>
+                        )}
                       </div>
                     )}
 
-                    {seg.subtitle && (
+                    {(seg.subtitle || isEditingScript) && !isThumb && (
                       <div>
                         <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <span>📝</span> <span>Phụ đề hiển thị</span>
+                          {isEditingScript && (
+                            <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                              Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
+                            </span>
+                          )}
                         </span>
-                        <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                          {seg.subtitle}
-                        </p>
+                        {isEditingScript ? (
+                          <textarea
+                            value={editedValue(seg, 'subtitle')}
+                            onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
+                            rows={2}
+                            placeholder="Dòng chính&#10;Dòng dịch"
+                            style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                          />
+                        ) : (
+                          <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                            {seg.subtitle}
+                          </p>
+                        )}
                       </div>
                     )}
 

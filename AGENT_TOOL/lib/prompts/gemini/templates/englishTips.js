@@ -3,6 +3,8 @@
  * "Video Mẹo Học Tiếng Anh" (whiteboard-animation explainer kiểu kênh "Effortless English").
  * Nội dung prompt viết bằng tiếng Anh để đồng nhất với toàn bộ format prompt Veo3.
  */
+import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
+
 export function buildEnglishTipsScriptPrompt(input, durationInfo) {
   return `
 You are a professional screenwriter and an expert Veo3 AI video prompt engineer.
@@ -20,8 +22,12 @@ DURATION & PACING REQUIREMENTS (IMPORTANT — READ CAREFULLY):
 - For the target total duration, the script must consist of about ${durationInfo.segmentsCount} segments.
 - Segments must flow as ONE continuous narration (the narrator keeps talking across segment boundaries) so that when the Veo3 clips are stitched together, they look like one seamless video — do not restart or re-introduce the topic mid-video.
 
+${buildHumanVoiceGuidance({ isVietnamese: false })}
+
+${buildHookGuidance({ isVietnamese: false })}
+
 MANDATORY STRUCTURE (in this order):
-1. HOOK segment(s): open with the attention-grabbing question/problem statement, spoken directly to the viewer.
+1. HOOK segment(s): open with the attention-grabbing question/problem statement, spoken directly to the viewer, obeying the 3-second hook rules above. The user's supplied hook line below is raw material, not a finished line — if it warms up, hedges, or runs past ~14 words, tighten it until it lands in 3 seconds while keeping its meaning.
 2. KEY POINT segments: cover each key point the user listed below, one at a time, each with its own illustrating diagram/icon on the whiteboard. If there are more segments available than key points, expand each point with a bit more natural explanation rather than inventing unrelated points.
 3. EXAMPLE segment(s): show the concrete example the user provided, illustrated with a simple on-screen diagram (e.g. crossed-out word vs. a full phrase written out).
 4. CLOSING/CTA segment: end with the call-to-action line (like/subscribe/notification bell), paired with a friendly closing whiteboard illustration.

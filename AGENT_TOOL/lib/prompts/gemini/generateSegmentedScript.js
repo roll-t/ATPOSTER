@@ -36,5 +36,7 @@ export async function generateSegmentedScript({ category, durationRange, input, 
     promptText = buildEnglishQuizScriptPrompt(input, durationInfo);
   }
 
-  return callGeminiApi(promptText, keys);
+  // Viết kịch bản là khâu sáng tạo quan trọng nhất -> tier "quality" (model thông minh nhất), và
+  // nới hạn chót vì prompt dài, model hay cần nhiều thời gian suy nghĩ hơn các tác vụ khác.
+  return callGeminiApi(promptText, keys, { tier: 'quality', timeoutMs: 90_000, deadlineMs: 180_000, label: 'Viết kịch bản' });
 }

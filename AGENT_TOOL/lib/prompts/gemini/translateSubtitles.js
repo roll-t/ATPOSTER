@@ -28,7 +28,9 @@ Return the result as a JSON object matching exactly this schema:
 }
 `;
 
-  const result = await callGeminiWithKeyRotation(promptText, keys);
+  // Dịch phụ đề là việc "cơ khí" — flash-lite làm thừa sức, lại không ăn vào hạn mức của model
+  // thông minh vốn để dành cho khâu viết kịch bản.
+  const result = await callGeminiWithKeyRotation(promptText, keys, { tier: 'fast', label: 'Dịch phụ đề' });
   if (!result.translations || !Array.isArray(result.translations) || result.translations.length !== englishLines.length) {
     throw new Error('Gemini không trả về danh sách bản dịch hợp lệ (thiếu hoặc sai số dòng).');
   }
