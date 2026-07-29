@@ -32,9 +32,12 @@ export async function POST(req) {
 
     // Nhạc nền (tuỳ chọn, người dùng tự tải lên qua Studio Thiết Kế Trang Đọc Video) — chỉ
     // reading-page-video có tính năng này, nhưng kiểm tra vô hại cho category khác.
-    let hasBgMusic = false;
+    // Trả về cả TÊN FILE thật (bg-music.mp3 / .m4a / .wav...) chứ không chỉ true/false: trình
+    // nghe thử trong modal cần đúng đuôi file để phát, trước đây nó gắn cứng ".mp3" nên nhạc nền
+    // người dùng tải lên ở định dạng khác thì không nghe thử được dù đã áp dụng thành công.
+    let bgMusicFile = null;
     if (fs.existsSync(audioDir)) {
-      hasBgMusic = fs.readdirSync(audioDir).some(f => f.startsWith('bg-music.'));
+      bgMusicFile = fs.readdirSync(audioDir).find(f => f.startsWith('bg-music.')) || null;
     }
 
     return NextResponse.json({
@@ -42,7 +45,8 @@ export async function POST(req) {
       imageCount,
       audioCount,
       videoCreated,
-      hasBgMusic
+      hasBgMusic: Boolean(bgMusicFile),
+      bgMusicFile
     });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

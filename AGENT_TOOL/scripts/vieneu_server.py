@@ -112,23 +112,72 @@ async def add_voice(name: str = Form(...), audio: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Tên giọng không được để trống")
     if clean_name in BUILTIN_VOICE_NAMES:
         raise HTTPException(status_code=400, detail=f"'{clean_name}' trùng tên giọng có sẵn của hệ thống, vui lòng đặt tên khác")
+    
+    # Paths for original temp file and final WAV file
+    CUSTOM_VOICE_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    original_ext = Path(audio.filename or "reference.wav").suffix or ".wav"
+    temp_input_path = CUSTOM_VOICE_AUDIO_DIR / f"{clean_name}_temp{original_ext}"
+    final_wav_path = CUSTOM_VOICE_AUDIO_DIR / f"{clean_name}.wav"
+
     try:
-        CUSTOM_VOICE_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-        ext = Path(audio.filename or "reference.wav").suffix or ".wav"
-        saved_path = CUSTOM_VOICE_AUDIO_DIR / f"{clean_name}{ext}"
-        with open(saved_path, "wb") as f:
+        # Save uploaded file to temp path
+        with open(temp_input_path, "wb") as f:
             shutil.copyfileobj(audio.file, f)
+
+        # Convert to WAV using ffmpeg
+        import subprocess
+        print(f"🎬 Đang chuyển đổi file '{audio.filename}' sang định dạng WAV bằng ffmpeg...")
+        
+        try:
+            # -y overwrites existing file, -acodec pcm_s16le converts to 16-bit PCM WAV
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", str(temp_input_path), "-acodec", "pcm_s16le", str(final_wav_path)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True
+            )
+            print("✅ Chuyển đổi định dạng WAV thành công.")
+        except FileNotFoundError:
+            print("⚠️ Không tìm thấy lệnh 'ffmpeg' trong PATH hệ thống. Thử copy trực tiếp...")
+            # Fallback for standard formats if ffmpeg is missing
+            if original_ext.lower() in [".wav", ".mp3", ".flac", ".ogg"]:
+                shutil.copy2(temp_input_path, final_wav_path)
+            else:
+                raise Exception(
+                    "Công cụ 'ffmpeg' chưa được cài đặt hoặc không nằm trong PATH của hệ thống. "
+                    "Không thể xử lý định dạng file này. Vui lòng cài đặt ffmpeg hoặc tải lên file .wav trực tiếp."
+                )
+        except subprocess.CalledProcessError as e:
+            err_msg = e.stderr.decode("utf-8", errors="ignore")
+            print(f"❌ Lỗi khi chạy ffmpeg: {err_msg}")
+            if original_ext.lower() in [".wav"]:
+                shutil.copy2(temp_input_path, final_wav_path)
+            else:
+                raise Exception(f"Chuyển đổi định dạng thất bại: {err_msg[:150]}")
 
         print(f"➕ Đang nhân bản giọng '{clean_name}' từ file mẫu ({audio.filename})...")
         # save=True: ghi luôn embedding + reference codes vừa trích xuất xuống file voices JSON
         # nội bộ của gói vieneu — nhờ vậy giọng này còn được nhớ ở các lần khởi động server sau,
         # không chỉ tồn tại trong phiên chạy hiện tại.
-        tts.add_voice(clean_name, ref_audio=str(saved_path), denoise=True, save=True)
+        tts.add_voice(clean_name, ref_audio=str(final_wav_path), denoise=True, save=True)
         print(f"✅ Đã thêm giọng tuỳ chỉnh: {clean_name}")
         return {"success": True, "id": clean_name}
     except Exception as e:
         print(f"❌ Add voice error: {e}")
+        # Clean up final WAV if clone failed
+        if final_wav_path.exists():
+            try:
+                final_wav_path.unlink()
+            except Exception:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Clean up temp file
+        if temp_input_path.exists():
+            try:
+                temp_input_path.unlink()
+            except Exception:
+                pass
 
 
 @app.post("/remove_voice")

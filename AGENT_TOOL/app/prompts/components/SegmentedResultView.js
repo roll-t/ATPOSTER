@@ -38,6 +38,28 @@ function formatDuration(totalSeconds) {
   return m > 0 ? `${m} phút ${s} giây` : `${s} giây`;
 }
 
+// Kho nhạc nền dựng sẵn của hệ thống. Khai báo 1 chỗ duy nhất vì trước đây danh sách này bị chép
+// tay ở 3 nơi (lưới chọn nhạc trong modal, nhãn tên bài ở Bước 3, thông báo sau khi ghim mặc
+// định) — thêm/đổi 1 bản nhạc phải sửa cả 3, sót chỗ nào là chỗ đó hiển thị sai tên.
+const BG_MUSIC_TRACKS = [
+  { id: 'track1', name: 'Andriig Soft Ambient', shortName: 'Soft Ambient', desc: 'Êm ái, thư thái', file: '/default-bg-music/track1.mp3' },
+  { id: 'track2', name: 'Andriig Gentle Acoustic', shortName: 'Gentle Acoustic', desc: 'Sâu lắng, ấm áp', file: '/default-bg-music/track2.mp3' },
+  { id: 'track3', name: 'Moment of Peace', shortName: 'Moment of Peace', desc: 'Du dương, chữa lành', file: '/default-bg-music/track3.mp3' }
+];
+
+// Giá trị bgMusicTrackId khi nhạc nền đang dùng là file người dùng tự tải lên (không thuộc kho).
+const CUSTOM_BG_MUSIC_ID = 'custom';
+
+function bgMusicTrackLabel(trackId, { short = false } = {}) {
+  const track = BG_MUSIC_TRACKS.find((t) => t.id === trackId);
+  if (track) return short ? track.shortName : track.name;
+  return 'Tệp tải lên';
+}
+
+// Âm lượng nhạc nền mặc định (%) — hiển thị dưới dạng % ở giao diện, gửi xuống render dưới dạng
+// 0..1. Đặt tên hằng để nhãn "Tiêu chuẩn" trên thanh trượt và giá trị khởi tạo không lệch nhau.
+const DEFAULT_BG_MUSIC_VOLUME_PERCENT = '10';
+
 // Component Trình Phát Nhạc Đồ Thị Sóng Âm (Waveform Display - Đồng bộ phát từ các thẻ ở trên)
 function AudioWaveformPlayer({
   src,
@@ -266,6 +288,29 @@ const CAPTION_STYLE_DEFAULTS = {
     highlightColor: '#D8B07A'
   }
 };
+
+// Danh sách Kiểu phụ đề / Kiểu chuyển cảnh. Khai báo 1 chỗ vì nhãn của chúng được dùng ở CẢ lưới
+// chọn LẪN dòng "📌 Đang ghim: ..." — trước đây dòng đang-ghim tự dịch value sang nhãn bằng một
+// chuỗi ternary riêng, và chuỗi đó thiếu hẳn nhánh 'hook' (kiểu thêm vào sau), nên ghim "Tiêu đề
+// mở đầu" lại hiện là "Karaoke tô màu từ" — người dùng tưởng thao tác ghim bị lỗi.
+const CAPTION_STYLE_OPTIONS = [
+  { value: 'box', label: 'Hộp bo tròn' },
+  { value: 'tiktok', label: 'Viền chữ TikTok' },
+  { value: 'karaoke', label: 'Karaoke tô màu từ' },
+  { value: 'hook', label: 'Tiêu đề mở đầu' }
+];
+
+const TRANSITION_STYLE_OPTIONS = [
+  { value: 'crossfade', label: 'Hòa tan' },
+  { value: 'slide-left', label: 'Trượt trái' },
+  { value: 'slide-right', label: 'Trượt phải' },
+  { value: 'slide-up', label: 'Trượt lên' },
+  { value: 'zoom', label: 'Phóng to' }
+];
+
+function optionLabel(options, value) {
+  return options.find((o) => o.value === value)?.label || value;
+}
 
 // "hook" là Kiểu phụ đề DÙNG CHUNG cho nhiều category (không riêng gì moral_talk_slideshow), nên
 // không thể sửa thẳng CAPTION_STYLE_DEFAULTS.hook.fontSize — sẽ đổi luôn mặc định của MỌI category
@@ -515,6 +560,12 @@ function CaptionStylePreview({
 }) {
   const strokeShadow = '-1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, -1.5px 1.5px 0 #000, 0 1.5px 0 #000, 1.5px 1.5px 0 #000';
 
+  // Ảnh minh hoạ của slide 1 có thể chưa tồn tại (kịch bản vừa tạo, chưa chạy Bước 2 sinh ảnh) —
+  // theo dõi lỗi tải để ẩn ảnh vỡ đi. Nhớ ĐÚNG URL đã hỏng thay vì một cờ boolean, để khi ảnh được
+  // sinh xong (URL đổi vì có tham số phá cache) là tự thử lại ngay, không cần effect reset.
+  const [failedImageUrl, setFailedImageUrl] = useState(null);
+  const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
+
   // Tính cỡ chữ xem trước trực quan. Trần trên (max) phải phủ hết khoảng giá trị người dùng có
   // thể nhập ở ô "Cỡ chữ nội dung" (16-120px, xem input type="number" bên dưới) — trước đây trần
   // chỉ 26px/17px (tính vừa đủ cho khoảng 40-58px thực), nên mọi giá trị lớn hơn ~58px đều bị ép
@@ -556,10 +607,16 @@ function CaptionStylePreview({
       fontFamily,
       overflow: 'hidden'
     }}>
-      {imageUrl && (
+      {imageUrl && !imageFailed && (
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
           <img
             src={imageUrl}
+            alt=""
+            // Kịch bản chưa sinh ảnh (hoặc ảnh chưa tải về xong) thì URL này trả 404 và trình duyệt
+            // vẽ ra biểu tượng "ảnh vỡ" giữa khung xem trước — trông như giao diện bị lỗi. Ẩn hẳn
+            // ảnh đi và để phần chú thích bên dưới giải thích, vì nền đen trống mới đúng là thứ
+            // người dùng sẽ thấy ở những slide chưa có ảnh.
+            onError={() => setFailedImageUrl(imageUrl)}
             style={{
               width: '100%',
               height: '100%',
@@ -568,6 +625,21 @@ function CaptionStylePreview({
               transformOrigin: 'center center'
             }}
           />
+        </div>
+      )}
+      {imageUrl && imageFailed && isFullLiveScreen && (
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: '12%',
+          textAlign: 'center',
+          fontSize: '0.62rem',
+          color: 'rgba(255,255,255,0.28)',
+          padding: '0 12px',
+          zIndex: 0
+        }}>
+          Chưa có ảnh minh hoạ — xem trước phần chữ trên nền đen
         </div>
       )}
       <div style={{
@@ -937,6 +1009,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [scriptEdits, setScriptEdits] = useState({});
   const [isSavingScript, setIsSavingScript] = useState(false);
+  // Đang tự động đọc lại giọng cho các slide vừa sửa lời (bước chạy nối ngay sau khi lưu kịch bản).
+  const [isResyncingVoice, setIsResyncingVoice] = useState(false);
   const [saveScriptMsg, setSaveScriptMsg] = useState('');
   const [showFullNarration, setShowFullNarration] = useState(false);
   const [extQueueState, setExtQueueState] = useState(null);
@@ -1031,10 +1105,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
-  // Nhạc nền nhẹ (tuỳ chọn) — không đóng gói sẵn nhạc theo skill (tránh vấn đề bản quyền),
-  // người dùng tự tải file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã
-  // tải hay không lúc render — tắt đi không xoá file, bật lại dùng ngay không cần tải lại.
-  const [renderBgMusicEnabled, setRenderBgMusicEnabled] = useState(true);
+  // Nhạc nền nhẹ (tuỳ chọn) — ngoài kho 3 bản nhạc nhẹ của hệ thống, người dùng có thể tự tải
+  // file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã tải hay không lúc
+  // render — tắt đi không xoá file, bật lại dùng ngay không cần tải lại.
+  // Đọc từ remotionConfig đã lưu chứ KHÔNG mặc định cứng true: trước đây tắt nhạc rồi lưu, mở lại
+  // kịch bản là nhạc tự bật lại (và useEffect bên dưới còn tự chép file nhạc vào project), nên
+  // thao tác tắt nhạc gần như không bao giờ "dính".
+  const [renderBgMusicEnabled, setRenderBgMusicEnabled] = useState(
+    () => (result.remotionConfig?.bgMusicEnabled !== undefined ? Boolean(result.remotionConfig.bgMusicEnabled) : true)
+  );
   const [renderBgMusicVolume, setRenderBgMusicVolume] = useState(() => {
     if (result.remotionConfig?.bgMusicVolume !== undefined && result.remotionConfig?.bgMusicVolume !== null) {
       const v = Number(result.remotionConfig.bgMusicVolume);
@@ -1070,8 +1149,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // vẫn cần bấm ghim lại để lưu mức âm lượng mới.
   const isBgMusicDefaultPinned = selectedBgMusicTrackId === defaultBgMusicTrackId
     && String(renderBgMusicVolume) === String(defaultBgMusicVolume);
+
+  // Bản nhạc dùng cho các bước TỰ ĐỘNG chép nhạc vào project (mở kịch bản mới, trước lúc render,
+  // lúc "Lưu & Áp dụng"). Phải loại trừ CUSTOM_BG_MUSIC_ID: đó không phải bản nhạc trong kho, nếu
+  // truyền thẳng xuống API thì nó đi tìm file "custom.mp3" không tồn tại và báo lỗi đỏ cho người
+  // dùng — trong khi ý định thật chỉ là "chép đại bản mặc định vào nếu project chưa có nhạc nào".
+  const resolveAutoBgTrackId = () => {
+    const candidates = [selectedBgMusicTrackId, defaultBgMusicTrackId, 'track1'];
+    return candidates.find((id) => id && id !== CUSTOM_BG_MUSIC_ID) || 'track1';
+  };
   const [pinTrackMsg, setPinTrackMsg] = useState('');
-  const [showCustomBgMusicVolume, setShowCustomBgMusicVolume] = useState(false);
   const [showBgMusicModal, setShowBgMusicModal] = useState(false);
   const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
   const [bgMusicUploadError, setBgMusicUploadError] = useState('');
@@ -1091,7 +1178,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     imageCount: 0,
     audioCount: 0,
     videoCreated: false,
-    hasBgMusic: false
+    hasBgMusic: false,
+    bgMusicFile: null // tên file nhạc nền thật trên đĩa, vd "bg-music.mp3" hoặc "bg-music.m4a"
   });
 
   // Tự động phát hiện tỉ lệ ảnh (Ảnh nằm ngang -> mode 'hero', Ảnh nằm dọc -> mode 'full_bg')
@@ -1182,6 +1270,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const savedVolume = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null) || settings?.defaultBgMusicVolume || '10';
       setDefaultBgMusicVolume(savedVolume);
 
+      // Công tắc bật/tắt cũng phải theo kịch bản đang mở, cùng lý do với giá trị khởi tạo ở trên —
+      // không đặt lại ở đây thì chuyển từ kịch bản A (đang bật) sang B (đã tắt) vẫn thấy đang bật.
+      setRenderBgMusicEnabled(
+        result?.remotionConfig?.bgMusicEnabled !== undefined
+          ? Boolean(result.remotionConfig.bgMusicEnabled)
+          : (typeof settings?.defaultBgMusicEnabled === 'boolean' ? settings.defaultBgMusicEnabled : true)
+      );
+
       if (result?.remotionConfig?.bgMusicVolume !== undefined && result?.remotionConfig?.bgMusicVolume !== null) {
         const v = Number(result.remotionConfig.bgMusicVolume);
         const percent = v <= 1 ? Math.round(v * 100) : v;
@@ -1194,6 +1290,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   }, [showCustomCapCut, isReadingPractice, result?.id]);
 
   const handlePinDefaultTrack = async (trackId) => {
+    // Nhạc tự tải lên nằm trong thư mục của riêng project này, không có bản sao dùng chung nào để
+    // các kịch bản sau lấy ra — ghim nó làm "mặc định hệ thống" chỉ tạo ra một mặc định hỏng.
+    if (!trackId || trackId === CUSTOM_BG_MUSIC_ID) {
+      setPinTrackMsg('⚠️ Chỉ ghim được các bản nhạc trong kho hệ thống. Nhạc bạn tự tải lên chỉ áp dụng cho video này.');
+      setTimeout(() => setPinTrackMsg(''), 5000);
+      return;
+    }
     try {
       setDefaultBgMusicTrackId(trackId);
       setDefaultBgMusicVolume(renderBgMusicVolume);
@@ -1210,13 +1313,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           defaultBgMusicVolume: renderBgMusicVolume
         })
       });
-      const trackObj = [
-        { id: 'track1', name: 'Andriig Soft Ambient' },
-        { id: 'track2', name: 'Andriig Gentle Acoustic' },
-        { id: 'track3', name: 'Moment of Peace' }
-      ].find(t => t.id === trackId);
-      const trackName = trackObj ? trackObj.name : trackId;
-      setPinTrackMsg(`✓ Đã đặt "${trackName}" (${renderBgMusicVolume}% âm lượng) làm nhạc nền mặc định cho các dự án mới!`);
+      setPinTrackMsg(`✓ Đã đặt "${bgMusicTrackLabel(trackId)}" (${renderBgMusicVolume}% âm lượng) làm nhạc nền mặc định cho các dự án mới!`);
       setTimeout(() => setPinTrackMsg(''), 4000);
       await fetchSettings();
     } catch (err) {
@@ -1227,8 +1324,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Tự động sao chép file nhạc nền mặc định (bg-music.mp3) vào dự án mới nếu nhạc BẬT nhưng chưa có file trên đĩa
   useEffect(() => {
     if (renderBgMusicEnabled && !assetCounts.hasBgMusic && result.input?.folderPath) {
-      const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
-      handleSelectDefaultMusic(activeTrack);
+      handleSelectDefaultMusic(resolveAutoBgTrackId());
     }
   }, [result.input?.folderPath, assetCounts.hasBgMusic, renderBgMusicEnabled]);
 
@@ -1239,6 +1335,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     const category = isReadingPractice ? 'reading_practice' : 'caption_style';
     const config = {
+      // Kiểu phụ đề & kiểu chuyển cảnh là 2 thứ ĐỊNH HÌNH video rõ nhất, nhưng trước đây preset
+      // không lưu chúng — lưu preset từ một video kiểu "Tiêu đề mở đầu" rồi chọn lại preset đó cho
+      // kịch bản sau chỉ khôi phục font/màu/nhạc, còn kiểu phụ đề vẫn là mặc định của app, nên ra
+      // một video trông hoàn toàn khác. Đúng thứ khiến "chọn preset" không thay được việc chỉnh tay.
+      captionStyle: renderCaptionStyle,
+      transitionStyle: renderTransitionStyle,
       font: renderCaptionFont,
       fontSize: renderCaptionFontSize,
       secondaryFontSize: renderCaptionSecondaryFontSize,
@@ -1363,6 +1465,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const applyPreset = (preset) => {
     if (preset?.id) setActivePresetId(preset.id);
     const c = preset.config || {};
+    // reading_practice chỉ có duy nhất kiểu trang giấy 'page', không cho preset đổi sang kiểu khác.
+    if (c.captionStyle !== undefined && !isReadingPractice) setRenderCaptionStyle(c.captionStyle);
+    if (c.transitionStyle !== undefined) setRenderTransitionStyle(c.transitionStyle);
     if (c.font !== undefined) setRenderCaptionFont(c.font);
     if (c.fontSize !== undefined) setRenderCaptionFontSize(c.fontSize);
     if (c.secondaryFontSize !== undefined) setRenderCaptionSecondaryFontSize(c.secondaryFontSize);
@@ -1400,6 +1505,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (!preset) return false;
     const c = preset.config || {};
     const pairs = [
+      [isReadingPractice ? undefined : c.captionStyle, renderCaptionStyle],
+      [c.transitionStyle, renderTransitionStyle],
       [c.font, renderCaptionFont],
       [c.fontSize, renderCaptionFontSize],
       [c.textColor, renderCaptionTextColor],
@@ -1563,7 +1670,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           imageCount: data.imageCount,
           audioCount: data.audioCount,
           videoCreated: data.videoCreated,
-          hasBgMusic: data.hasBgMusic || false
+          hasBgMusic: data.hasBgMusic || false,
+          bgMusicFile: data.bgMusicFile || null
         });
       }
     } catch (err) {
@@ -1581,8 +1689,35 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (data.success && data.settings) {
         setSettings(data.settings);
         const s = data.settings;
-        if (s.defaultCaptionStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
+        // Bỏ qua giá trị không nằm trong danh sách kiểu của skill slideshow (vd 'page' bị ghim
+        // nhầm từ màn reading_practice trước khi có bản sửa ở handlePinDefaultRenderConfig) —
+        // nếu không, kịch bản mới bị đặt sang một kiểu phụ đề không có trong lưới chọn.
+        const isValidDefaultStyle = CAPTION_STYLE_OPTIONS.some((o) => o.value === s.defaultCaptionStyle);
+        if (s.defaultCaptionStyle && isValidDefaultStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
           setRenderCaptionStyle(s.defaultCaptionStyle);
+          // ...VÀ áp luôn bộ mặc định (font/cỡ chữ/màu chữ/nền) CỦA CHÍNH kiểu vừa ghim.
+          //
+          // Trước đây chỉ đặt mỗi tên kiểu: initialDefaults ở đầu component được tính lúc render
+          // đầu tiên, khi settings còn CHƯA tải xong, nên nó luôn rơi về mặc định của kiểu 'box'.
+          // Kết quả là ghim "Tiêu đề mở đầu" (hook) xong thì kịch bản mới chạy đúng kiểu hook
+          // nhưng mang màu/cỡ chữ của box — rõ nhất là bgTransparent của box là false, nên chữ
+          // hook bị bọc trong một khung nền tối đặc, trong khi bản thân kiểu hook mặc định là chữ
+          // nổi trực tiếp trên nền đen (đúng như video mẫu). Người dùng ghim xong vẫn không ra
+          // đúng format và không có cách nào biết vì sao.
+          //
+          // Chỉ áp cho những trường kịch bản này CHƯA tự lưu riêng — tuỳ chỉnh tay của người dùng
+          // luôn thắng mặc định hệ thống.
+          const styleDefaults = CAPTION_STYLE_DEFAULTS[s.defaultCaptionStyle];
+          if (styleDefaults) {
+            const rc = result.remotionConfig || {};
+            const sizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[s.defaultCaptionStyle];
+            if (!rc.font) setRenderCaptionFont(styleDefaults.font);
+            if (!rc.fontSize) setRenderCaptionFontSize(sizeOverride || styleDefaults.fontSize);
+            if (!rc.textColor) setRenderCaptionTextColor(styleDefaults.textColor);
+            if (!rc.bgColor) setRenderCaptionBgColor(styleDefaults.bgColor);
+            if (rc.isBgTransparent === undefined) setRenderCaptionBgTransparent(styleDefaults.bgTransparent);
+            if (!rc.highlightColor) setRenderHighlightColor(styleDefaults.highlightColor || '#FE2C55');
+          }
         }
         if (s.defaultTransitionStyle && !result.remotionConfig?.transitionEffect) {
           setRenderTransitionStyle(s.defaultTransitionStyle);
@@ -1612,7 +1747,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
-          defaultCaptionStyle: renderCaptionStyle,
+          // reading_practice không có lựa chọn Kiểu phụ đề — renderCaptionStyle ở đó LUÔN là
+          // 'page' (kiểu trang giấy riêng của skill reading-page-video). Ghim từ màn đó sẽ đặt
+          // defaultCaptionStyle = 'page', rồi giá trị này lại được áp cho các kịch bản slideshow
+          // (moral_talk/stick_figure) — nơi 'page' không phải một lựa chọn hợp lệ, dẫn tới ô
+          // "📌 Đang ghim" hiện chữ "page" và kịch bản mới bị đặt sai kiểu. Giữ nguyên giá trị cũ.
+          ...(isReadingPractice ? {} : { defaultCaptionStyle: renderCaptionStyle }),
           defaultTransitionStyle: renderTransitionStyle,
           defaultBilingual: renderBilingual
         })
@@ -1885,6 +2025,43 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }, '*');
   };
 
+  // Đọc stream NDJSON của /api/prompts/voiceover: mỗi dòng là 1 sự kiện JSON ("progress" sau mỗi
+  // slide xong, "done" khi hoàn tất, "error" nếu có slide lỗi) — nhờ vậy thanh tiến độ tăng đúng
+  // theo tiến độ THẬT của server thay vì đếm giả lập theo thời gian ước tính như trước.
+  const readVoiceoverStream = async (res, onProgress) => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let doneEvent = null;
+    let errorEvent = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let evt;
+        try {
+          evt = JSON.parse(line);
+        } catch (_) {
+          continue;
+        }
+        if (evt.type === 'progress') {
+          onProgress?.(evt);
+        } else if (evt.type === 'done') {
+          doneEvent = evt;
+        } else if (evt.type === 'error') {
+          errorEvent = evt;
+        }
+      }
+    }
+
+    return { doneEvent, errorEvent };
+  };
+
   const handleGenerateVoice = async () => {
     setIsGeneratingVoice(true);
     setVoiceMsg('');
@@ -1915,38 +2092,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         return;
       }
 
-      // Đọc stream NDJSON: mỗi dòng là 1 sự kiện JSON ("progress" sau mỗi slide xong, "done" khi
-      // hoàn tất, "error" nếu có slide lỗi) — nhờ vậy thanh tiến độ tăng đúng theo tiến độ THẬT
-      // của server thay vì đếm giả lập theo thời gian ước tính như trước.
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let doneEvent = null;
-      let errorEvent = null;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let evt;
-          try {
-            evt = JSON.parse(line);
-          } catch (_) {
-            continue;
-          }
-          if (evt.type === 'progress') {
-            setVoiceProgress(evt.completed);
-          } else if (evt.type === 'done') {
-            doneEvent = evt;
-          } else if (evt.type === 'error') {
-            errorEvent = evt;
-          }
-        }
-      }
+      const { doneEvent, errorEvent } = await readVoiceoverStream(res, (evt) => setVoiceProgress(evt.completed));
 
       if (errorEvent) {
         setVoiceMsg(`Lỗi: ${errorEvent.error || 'Không thể tạo âm thanh.'}`);
@@ -1959,8 +2105,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         fetchQuota();
         checkAssets();
         if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
-          const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
-          handleSelectDefaultMusic(activeTrack);
+          handleSelectDefaultMusic(resolveAutoBgTrackId());
         }
       } else {
         setVoiceMsg('Lỗi: Không nhận được phản hồi hoàn chỉnh từ server.');
@@ -1997,9 +2142,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderMsg('');
     try {
       if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
-        const activeTrack = selectedBgMusicTrackId || defaultBgMusicTrackId || 'track1';
         try {
-          await handleSelectDefaultMusic(activeTrack);
+          await handleSelectDefaultMusic(resolveAutoBgTrackId());
         } catch (e) {
           console.warn('Auto copy default bg music error:', e);
         }
@@ -2096,10 +2240,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
-  // Tải lên nhạc nền — ghi đè audio/bg-music.<ext> của project (dùng lại đúng route save-image,
-  // route đó chỉ ghi byte theo filename, không quan tâm nội dung là ảnh hay audio). Không đóng
-  // gói sẵn nhạc theo skill để tránh vấn đề bản quyền — người dùng tự chọn file của mình (nên
-  // dùng nhạc không lời, royalty-free, vd từ YouTube Audio Library/Pixabay Music).
+  // Tải lên nhạc nền của riêng người dùng. Đi qua ĐÚNG route select-default-music như khi chọn
+  // nhạc trong kho — route đó xoá sạch bg-music.* cũ rồi mới ghi bản mới. Trước đây nhánh này đi
+  // nhờ route save-image (chỉ ghi byte theo tên file), nên tải lên bg-music.m4a đè lên một
+  // bg-music.mp3 sẵn có sẽ để lại CẢ HAI file, và render-project.mjs lấy file đầu tiên nó thấy —
+  // video xuất ra có thể vẫn là bài cũ.
   const handleUploadBgMusic = async (file) => {
     if (!file) return;
     setIsUploadingBgMusic(true);
@@ -2112,19 +2257,22 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         reader.readAsDataURL(file);
       });
       const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
-      const res = await fetch('/api/prompts/save-image', {
+      const res = await fetch('/api/prompts/select-default-music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
-          filename: `audio/bg-music.${ext}`,
+          category: result.category,
           dataUrl,
-          category: result.category
+          ext
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setBgMusicVersion(v => v + 1);
+        // Đánh dấu "đang dùng tệp tải lên" để không card nào trong kho nhạc còn sáng lên như đang
+        // được chọn, và nhãn ở Bước 3 hiện đúng "Tệp tải lên" thay vì tên bản nhạc đã chọn trước đó.
+        setSelectedBgMusicTrackId(CUSTOM_BG_MUSIC_ID);
+        setBgMusicVersion(Date.now());
         setRenderBgMusicEnabled(true);
         checkAssets();
       } else {
@@ -2157,11 +2305,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setBgMusicVersion(Date.now());
         setRenderBgMusicEnabled(true);
         checkAssets();
-      } else {
-        setBgMusicUploadError(data.error || 'Không thể chọn nhạc mặc định.');
+        return true;
       }
+      setBgMusicUploadError(data.error || 'Không thể chọn nhạc mặc định.');
+      return false;
     } catch (err) {
       setBgMusicUploadError('Lỗi kết nối khi chọn nhạc mặc định.');
+      return false;
     } finally {
       setIsSelectingDefaultMusic(false);
     }
@@ -2207,6 +2357,47 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     audio.play().catch(() => setPlayingPreviewTrackId(null));
   };
 
+  /**
+   * Lưu BỀN cấu hình nhạc nền (bật/tắt, âm lượng, bản nhạc) vào bản ghi lịch sử của kịch bản.
+   *
+   * Trước đây modal nhạc nền không có đường lưu nào: bản nhạc thì được ghi thẳng ra đĩa nên còn
+   * đúng, nhưng ÂM LƯỢNG và công tắc bật/tắt chỉ nằm trong state React — bấm "Xong" rồi rời trang
+   * và mở lại kịch bản từ "Lịch sử đã tạo" là mất sạch, quay về 10%/đang bật. Chúng chỉ tình cờ
+   * được lưu nếu người dùng mở tiếp modal "Studio Thiết Kế" rồi bấm "Lưu & Áp dụng" — một thao
+   * tác không liên quan gì và không ai đoán ra.
+   *
+   * Nhận `overrides` để gọi được ngay trong cùng một sự kiện với setState (vd lúc gạt công tắc,
+   * state chưa kịp cập nhật ở lần render này).
+   */
+  const persistBgMusicConfig = async (overrides = {}) => {
+    if (!result?.id) return;
+    const merged = {
+      ...(result.remotionConfig || {}),
+      bgMusicEnabled: renderBgMusicEnabled,
+      bgMusicVolume: renderBgMusicVolume,
+      bgMusicTrackId: selectedBgMusicTrackId,
+      ...overrides
+    };
+    onResult?.({ ...result, remotionConfig: merged });
+    try {
+      await fetch('/api/prompts/history', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: result.id, remotionConfig: merged })
+      });
+      onHistoryRefresh?.();
+    } catch (err) {
+      console.warn('Lỗi lưu cấu hình nhạc nền:', err);
+    }
+  };
+
+  // Mọi đường thoát khỏi modal nhạc nền (nút Xong, nút ✕, bấm ra nền tối) đều đi qua đây để
+  // không có lối nào làm mất cấu hình vừa chỉnh.
+  const closeBgMusicModal = () => {
+    setShowBgMusicModal(false);
+    persistBgMusicConfig();
+  };
+
   // Tự động dừng nhạc nghe thử khi đóng/thoát Modal Cài Đặt Nhạc Nền
   useEffect(() => {
     if (!showBgMusicModal) {
@@ -2223,9 +2414,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const handleSaveAndApply = async () => {
     if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
       try {
-        await handleSelectDefaultMusic('track1');
+        // Trước đây gắn cứng 'track1' ở đây, nên bấm "Lưu & Áp dụng" trong lúc project chưa có
+        // file nhạc sẽ âm thầm đổi nhạc nền về Soft Ambient, kể cả khi người dùng đã chọn bản khác.
+        await handleSelectDefaultMusic(resolveAutoBgTrackId());
       } catch (e) {
-        console.warn('Auto select track1 error:', e);
+        console.warn('Auto select default bg music error:', e);
       }
     }
 
@@ -2305,6 +2498,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           readingPracticeConfig: configObj
         })
       });
+      // Mức âm lượng mặc định được đọc lại ưu tiên từ localStorage (xem effect theo result.id), nên
+      // chỉ ghi vào settings là hai nguồn lệch nhau: nút 📌 sẽ hiện "Đặt làm Mặc Định" dù giá trị
+      // đang dùng đúng là giá trị vừa được lưu làm mặc định.
+      setDefaultBgMusicVolume(renderBgMusicVolume);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
+      }
     } catch (err) {
       console.warn('Lỗi tự động lưu ghim mặc định:', err);
     }
@@ -2435,6 +2635,54 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setSaveScriptMsg('');
   };
 
+  /**
+   * Đọc lại giọng cho ĐÚNG những slide vừa sửa lời kể, ngay sau khi lưu kịch bản.
+   *
+   * Trước đây lưu xong phải tự nhớ sang Bước 1 bấm "Tạo Giọng Đọc" — nhưng nút đó đọc lại TOÀN BỘ
+   * slide (tốn quota ElevenLabs, và với CapCut là hàng chục request thừa), nên rất dễ bị bỏ quên
+   * khiến video render ra vẫn còn giọng đọc lời cũ trong khi phụ đề đã là lời mới.
+   *
+   * Hai cờ gửi kèm giữ cho việc đọc lại đúng phạm vi và đúng giọng:
+   *   - onlyExistingAudio: slide chưa từng lồng tiếng thì bỏ qua (chờ người dùng chạy Bước 1).
+   *   - reuseExistingVoice: đọc lại bằng đúng giọng đã ghi trong manifest.json của slide đó, nên
+   *     dù Cấu hình Giọng đọc hiện tại đã đổi, slide sửa lẻ vẫn không bị lạc giọng với phần còn lại.
+   */
+  const resyncVoiceForSegments = async (segmentNumbers, savedSegments) => {
+    const byNumber = new Map((savedSegments || []).map((s) => [s.segmentNumber, s]));
+    const scenes = segmentNumbers
+      .map((n) => byNumber.get(n))
+      .filter((seg) => seg && (seg.dialogueOrNarration || '').trim())
+      .map((seg) => ({ segmentNumber: seg.segmentNumber, dialogueOrNarration: seg.dialogueOrNarration }));
+
+    if (scenes.length === 0) return null;
+
+    const res = await fetch('/api/prompts/voiceover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderPath: result.input?.folderPath || 'example',
+        imageExt: result.input?.imageExt || 'jpg',
+        audioExt: result.input?.audioExt || 'mp3',
+        category: result.category,
+        readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
+        ttsProvider: settings.ttsProvider || 'elevenlabs',
+        onlyExistingAudio: true,
+        reuseExistingVoice: true,
+        scenes
+      })
+    });
+
+    if (!res.ok || !res.body) {
+      const data = await res.json().catch(() => ({}));
+      return { error: data.error || 'Không thể tạo lại giọng đọc.' };
+    }
+
+    const { doneEvent, errorEvent } = await readVoiceoverStream(res, (evt) => setVoiceProgress(evt.completed));
+    if (errorEvent) return { error: errorEvent.error || 'Không thể tạo lại giọng đọc.' };
+    if (!doneEvent) return { error: 'Không nhận được phản hồi hoàn chỉnh từ server.' };
+    return { done: doneEvent };
+  };
+
   const handleSaveScript = async () => {
     if (!hasUnsavedEdits) {
       setIsEditingScript(false);
@@ -2444,6 +2692,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setSaveScriptMsg('Lỗi: Kịch bản này chưa được lưu vào Lịch sử nên không sửa được. Hãy tạo lại kịch bản để có bản ghi trong Lịch sử.');
       return;
     }
+    // Chỉ slide có LỜI KỂ đổi mới cần đọc lại — sửa mỗi phụ đề hay mô tả hoạt cảnh thì giọng đọc
+    // vẫn đúng, không việc gì phải tốn thêm một lượt TTS.
+    const narrationChangedNumbers = dirtySegments
+      .filter((seg) => {
+        const edited = scriptEdits[seg.segmentNumber]?.dialogueOrNarration;
+        return typeof edited === 'string' && edited !== (seg.dialogueOrNarration ?? '');
+      })
+      .map((seg) => seg.segmentNumber);
+
     setIsSavingScript(true);
     setSaveScriptMsg('');
     try {
@@ -2465,11 +2722,43 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         onResult?.({ ...result, segments: data.segments, remotionConfig: data.remotionConfig ?? result.remotionConfig });
         onHistoryRefresh?.();
         setScriptEdits({});
+
+        const savedMsg = `✓ Đã lưu ${data.changedCount} slide${data.manifestUpdated ? ' (đã cập nhật cả manifest.json của project)' : ''}.`;
+
+        // Slide nào đã có giọng đọc thì đọc lại NGAY tại chỗ bằng đúng giọng cũ, thay vì bắt người
+        // dùng nhớ chạy lại toàn bộ Bước 1. Chế độ sửa chỉ tắt sau khi việc đó xong, để người dùng
+        // thấy nút Lưu đổi thành "🎙️ Đang đọc lại..." chứ không phải một khoảng lặng khó hiểu.
+        if (narrationChangedNumbers.length === 0 || assetCounts.audioCount === 0) {
+          setSaveScriptMsg(`${savedMsg} Nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại theo lời mới, rồi "Tạo Lại Video" ở Bước 4.`);
+          setIsEditingScript(false);
+          return;
+        }
+
+        setIsResyncingVoice(true);
+        setVoiceProgress(0);
+        setSaveScriptMsg(`${savedMsg} 🎙️ Đang tạo lại giọng đọc cho slide ${narrationChangedNumbers.join(', ')} (giữ nguyên giọng cũ)...`);
+
+        const resync = await resyncVoiceForSegments(narrationChangedNumbers, data.segments);
+
+        if (!resync) {
+          setSaveScriptMsg(`${savedMsg} Nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại theo lời mới, rồi "Tạo Lại Video" ở Bước 4.`);
+        } else if (resync.error) {
+          setSaveScriptMsg(`Lỗi: Đã lưu kịch bản nhưng KHÔNG tạo lại được giọng đọc: ${resync.error} — hãy nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại thủ công.`);
+        } else {
+          const generated = resync.done.generatedSlides || [];
+          const skipped = resync.done.skippedNoAudio || [];
+          setVoicePreviewVersion((v) => v + 1);
+          checkAssets();
+          const skipNote = skipped.length > 0
+            ? ` (Slide ${skipped.join(', ')} chưa từng có giọng đọc nên bỏ qua — chạy Bước 1 khi cần.)`
+            : '';
+          setSaveScriptMsg(
+            generated.length > 0
+              ? `${savedMsg} ✓ Đã tạo lại giọng đọc cho slide ${generated.join(', ')} bằng đúng giọng cũ.${skipNote} Nhấn "Tạo Lại Video" ở Bước 4 để cập nhật video.`
+              : `${savedMsg}${skipNote} Nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại theo lời mới, rồi "Tạo Lại Video" ở Bước 4.`
+          );
+        }
         setIsEditingScript(false);
-        setSaveScriptMsg(
-          `✓ Đã lưu ${data.changedCount} slide${data.manifestUpdated ? ' (đã cập nhật cả manifest.json của project)' : ''}. `
-          + 'Nhấn "Tạo Giọng Đọc" ở Bước 1 để đọc lại theo lời mới, rồi "Tạo Lại Video" ở Bước 4.'
-        );
       } else {
         setSaveScriptMsg(`Lỗi: ${data.error || 'Không lưu được kịch bản.'}`);
       }
@@ -2477,6 +2766,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setSaveScriptMsg('Lỗi: Không thể kết nối tới server.');
     } finally {
       setIsSavingScript(false);
+      setIsResyncingVoice(false);
     }
   };
 
@@ -2837,10 +3127,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const isStep1Done = assetCounts.audioCount >= total;
               const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
 
-              const currentTrackName = selectedBgMusicTrackId === 'track1' ? 'Soft Ambient'
-                : selectedBgMusicTrackId === 'track2' ? 'Gentle Acoustic'
-                  : selectedBgMusicTrackId === 'track3' ? 'Moment of Peace'
-                    : 'Tệp tải lên';
+              const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true });
 
               return (
                 <div style={{
@@ -2890,33 +3177,40 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      {/* Nút Cài đặt dạng Icon (bị vô hiệu hoá khi Tắt nhạc nền) */}
+                      {/* Nút Cài đặt dạng Icon. Chỉ khoá khi đang chạy render/lồng tiếng — trước
+                          đây còn khoá theo !isStep1Done và !renderBgMusicEnabled, nghĩa là muốn
+                          xem/đổi bản nhạc thì buộc phải bật nhạc lên và phải lồng tiếng xong đã,
+                          dù chọn nhạc nền chẳng phụ thuộc gì vào hai việc đó. */}
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title={!renderBgMusicEnabled ? 'Nhạc nền đang tắt. Hãy bật nhạc nền trước khi cài đặt.' : 'Cấu hình kho nhạc & âm lượng nhạc nền'}
+                        title="Chọn bản nhạc nền & chỉnh âm lượng"
                         style={{
                           padding: '7px 10px',
                           fontSize: '0.76rem',
                           borderRadius: '8px',
                           fontWeight: 700,
                           whiteSpace: 'nowrap',
-                          opacity: (!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
-                          cursor: (!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
+                          opacity: (isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
+                          cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
                         }}
                         onClick={() => setShowBgMusicModal(true)}
-                        disabled={!isStep1Done || !renderBgMusicEnabled || isRenderingVideo || isGeneratingVoice}
+                        disabled={isRenderingVideo || isGeneratingVoice}
                       >
                         ⚙️
                       </button>
 
-                      {/* Công tắc Bật/Tắt Nhạc Nền */}
+                      {/* Công tắc Bật/Tắt Nhạc Nền — lưu ngay xuống kịch bản, nếu không thì tắt
+                          nhạc xong rời trang là lần mở sau nhạc lại tự bật. */}
                       <label className="custom-switch" title={renderBgMusicEnabled ? 'Đang bật nhạc nền' : 'Đang tắt nhạc nền'} style={{ margin: 0, transform: 'scale(0.85)' }}>
                         <input
                           type="checkbox"
                           checked={renderBgMusicEnabled}
-                          disabled={!isStep1Done || isRenderingVideo || isGeneratingVoice}
-                          onChange={(e) => setRenderBgMusicEnabled(e.target.checked)}
+                          disabled={isRenderingVideo || isGeneratingVoice}
+                          onChange={(e) => {
+                            setRenderBgMusicEnabled(e.target.checked);
+                            persistBgMusicConfig({ bgMusicEnabled: e.target.checked });
+                          }}
                         />
                         <span className="switch-slider" style={{
                           backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
@@ -3294,11 +3588,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   type="button"
                   className="btn btn-primary"
                   disabled={isSavingScript || !hasUnsavedEdits}
-                  title={hasUnsavedEdits ? `Lưu ${dirtySegments.length} slide đã sửa` : 'Chưa có thay đổi nào để lưu'}
+                  title={hasUnsavedEdits
+                    ? `Lưu ${dirtySegments.length} slide đã sửa — slide nào đổi lời kể mà đã có giọng đọc sẽ được đọc lại ngay bằng đúng giọng cũ`
+                    : 'Chưa có thay đổi nào để lưu'}
                   style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
                   onClick={handleSaveScript}
                 >
-                  {isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
+                  {isResyncingVoice ? '🎙️ Đang đọc lại...' : isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
                 </button>
                 <button
                   type="button"
@@ -4607,22 +4903,135 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </div>
               ) : (
                 <>
+                  {/* Format đã lưu — trước đây CHỈ nhánh reading_practice mới render danh sách
+                      preset, nên với video slideshow người dùng lưu được format nhưng không có
+                      chỗ nào nhìn thấy hay chọn lại nó (preset vẫn nằm trong DB và vẫn tự áp dụng
+                      ngầm nếu được đặt mặc định — càng khó hiểu vì không thấy gì trên giao diện). */}
+                  {userPresets.filter((p) => !p.isSystemClone).length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🎞️ Format đã lưu</span>
+                        <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
+                          Bấm để áp dụng toàn bộ cấu hình · 📌 đặt làm mặc định cho kịch bản mới
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {userPresets.filter((p) => !p.isSystemClone).map((p) => {
+                          const c = p.config || {};
+                          const active = isPresetActive(p);
+                          const summary = [
+                            c.captionStyle ? optionLabel(CAPTION_STYLE_OPTIONS, c.captionStyle) : null,
+                            c.transitionStyle ? optionLabel(TRANSITION_STYLE_OPTIONS, c.transitionStyle) : null,
+                            c.bilingual === false ? 'Một ngữ' : c.bilingual === true ? 'Song ngữ' : null
+                          ].filter(Boolean).join(' · ');
+                          return (
+                            <div key={p.id} style={{ width: isLandscape ? 130 : 92, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div
+                                onClick={() => applyPreset(p)}
+                                title={summary ? `Áp dụng "${p.name}" — ${summary}` : `Áp dụng "${p.name}"`}
+                                style={{
+                                  width: '100%',
+                                  aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
+                                  borderRadius: '10px',
+                                  overflow: 'hidden',
+                                  background: '#141419',
+                                  border: active ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.12)',
+                                  boxShadow: active ? '0 0 14px rgba(254, 44, 85, 0.4)' : 'none',
+                                  position: 'relative',
+                                  boxSizing: 'border-box',
+                                  cursor: 'pointer',
+                                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                                }}
+                              >
+                                <CaptionStylePreview
+                                  style={c.captionStyle || 'box'}
+                                  isLandscape={isLandscape}
+                                  textColor={c.textColor || undefined}
+                                  bgColor={c.isBgTransparent ? 'transparent' : (c.bgColor || undefined)}
+                                  font={c.font || undefined}
+                                  fontSize={c.fontSize || undefined}
+                                  highlightColor={c.highlightColor || undefined}
+                                />
+                                {p.isDefault && (
+                                  <div style={{
+                                    position: 'absolute', top: '4px', left: '4px', padding: '1px 5px', borderRadius: '4px',
+                                    background: 'rgba(255, 203, 77, 0.95)', color: '#000', fontSize: '0.55rem', fontWeight: 900,
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.5)', zIndex: 2
+                                  }}>
+                                    📌 Mặc định
+                                  </div>
+                                )}
+                                {active && (
+                                  <div style={{
+                                    position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', borderRadius: '50%',
+                                    background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
+                                    justifyContent: 'center', fontSize: '0.65rem', fontWeight: 900, zIndex: 2
+                                  }}>
+                                    ✓
+                                  </div>
+                                )}
+                              </div>
+
+                              <span style={{
+                                fontSize: '0.7rem', fontWeight: 700, color: active ? 'var(--primary)' : '#fff',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center'
+                              }}>
+                                {p.name}
+                              </span>
+                              {summary && (
+                                <span style={{
+                                  fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center',
+                                  lineHeight: 1.3, overflow: 'hidden'
+                                }}>
+                                  {summary}
+                                </span>
+                              )}
+
+                              <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleToggleDefaultPreset(p); }}
+                                  title={p.isDefault ? 'Bỏ đặt làm mặc định' : 'Đặt làm mặc định cho kịch bản mới'}
+                                  style={{
+                                    background: p.isDefault ? 'rgba(255,203,77,0.18)' : 'rgba(255,255,255,0.06)',
+                                    border: `1px solid ${p.isDefault ? 'rgba(255,203,77,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                    borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
+                                    color: p.isDefault ? '#FFCB4D' : 'rgba(255,255,255,0.6)', fontWeight: 700
+                                  }}
+                                >
+                                  📌
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
+                                  title={`Xoá format "${p.name}"`}
+                                  style={{
+                                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                    borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
+                                    color: 'rgba(255,255,255,0.45)'
+                                  }}
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu phụ đề</span>
-                      {settings?.defaultCaptionStyle && (
+                      {CAPTION_STYLE_OPTIONS.some((o) => o.value === settings?.defaultCaptionStyle) && (
                         <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
-                          📌 Đang ghim: {settings.defaultCaptionStyle === 'box' ? 'Hộp bo tròn' : settings.defaultCaptionStyle === 'tiktok' ? 'Viền chữ TikTok' : 'Karaoke tô màu từ'}
+                          📌 Đang ghim: {optionLabel(CAPTION_STYLE_OPTIONS, settings.defaultCaptionStyle)}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {[
-                        { value: 'box', label: 'Hộp bo tròn' },
-                        { value: 'tiktok', label: 'Viền chữ TikTok' },
-                        { value: 'karaoke', label: 'Karaoke tô màu từ' },
-                        { value: 'hook', label: 'Tiêu đề mở đầu' }
-                      ].map(opt => {
+                      {CAPTION_STYLE_OPTIONS.map(opt => {
                         const isPinned = settings?.defaultCaptionStyle === opt.value;
                         return (
                           <PickerCard
@@ -4652,18 +5061,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu chuyển cảnh</span>
                       {settings?.defaultTransitionStyle && (
                         <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
-                          📌 Đang ghim: {settings.defaultTransitionStyle === 'crossfade' ? 'Hòa tan' : settings.defaultTransitionStyle === 'slide-left' ? 'Trượt trái' : settings.defaultTransitionStyle === 'slide-right' ? 'Trượt phải' : settings.defaultTransitionStyle === 'slide-up' ? 'Trượt lên' : 'Phóng to'}
+                          📌 Đang ghim: {optionLabel(TRANSITION_STYLE_OPTIONS, settings.defaultTransitionStyle)}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      {[
-                        { value: 'crossfade', label: 'Hòa tan' },
-                        { value: 'slide-left', label: 'Trượt trái' },
-                        { value: 'slide-right', label: 'Trượt phải' },
-                        { value: 'slide-up', label: 'Trượt lên' },
-                        { value: 'zoom', label: 'Phóng to' }
-                      ].map(opt => {
+                      {TRANSITION_STYLE_OPTIONS.map(opt => {
                         const isPinned = settings?.defaultTransitionStyle === opt.value;
                         return (
                           <PickerCard
@@ -4795,22 +5198,24 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
       {/* Dialog Modal Cài Đặt Nhạc Nền */}
       {showBgMusicModal && mounted && createPortal(
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999999,
-          padding: '20px',
-          backdropFilter: 'blur(8px)',
-          animation: 'fadeIn 0.2s ease-out'
-        }}>
-          <div style={{
+        <div
+          onClick={closeBgMusicModal}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '20px',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
             width: '100%',
             maxWidth: '680px',
             maxHeight: '90vh',
@@ -4845,7 +5250,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </div>
               <button
                 type="button"
-                onClick={() => setShowBgMusicModal(false)}
+                onClick={closeBgMusicModal}
                 style={{
                   background: 'rgba(255,255,255,0.08)',
                   border: 'none',
@@ -4904,11 +5309,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                  {[
-                    { id: 'track1', name: 'Andriig Soft Ambient', desc: 'Êm ái, thư thái', file: '/default-bg-music/track1.mp3' },
-                    { id: 'track2', name: 'Andriig Gentle Acoustic', desc: 'Sâu lắng, ấm áp', file: '/default-bg-music/track2.mp3' },
-                    { id: 'track3', name: 'Moment of Peace', desc: 'Du dương, chữa lành', file: '/default-bg-music/track3.mp3' }
-                  ].map(track => {
+                  {BG_MUSIC_TRACKS.map(track => {
                     const isSelected = selectedBgMusicTrackId === track.id && assetCounts.hasBgMusic;
                     const isPlaying = playingPreviewTrackId === track.id;
                     const isDefaultTrack = track.id === defaultBgMusicTrackId;
@@ -4916,10 +5317,26 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     return (
                       <div
                         key={track.id}
+                        title={isSelected ? `Đang dùng "${track.name}" cho video này` : `Dùng "${track.name}" làm nhạc nền cho video này`}
                         onClick={() => {
+                          if (isSelectingDefaultMusic) return;
+                          // Đang dùng nhạc tự tải lên mà bấm chọn một bản trong kho là GHI ĐÈ mất
+                          // file đó (mỗi project chỉ giữ đúng 1 file bg-music.*, và bản cũ bị xoá
+                          // trước khi ghi bản mới) — file gốc nằm trên máy người dùng chứ ứng dụng
+                          // không giữ bản sao nào để hoàn tác, nên hỏi trước.
+                          if (selectedBgMusicTrackId === CUSTOM_BG_MUSIC_ID && assetCounts.hasBgMusic) {
+                            const ok = window.confirm(
+                              `Video này đang dùng nhạc nền bạn tự tải lên (${assetCounts.bgMusicFile || 'bg-music'}).\n\n`
+                              + `Chọn "${track.name}" sẽ thay thế và xoá tệp đó khỏi dự án. Tiếp tục?`
+                            );
+                            if (!ok) return;
+                          }
                           setRenderBgMusicEnabled(true);
                           handleSelectDefaultMusic(track.id);
-                          togglePreviewTrack(track.id, track.file);
+                          // Chỉ tự phát khi bản nhạc này CHƯA phát — trước đây dùng toggle nên bấm
+                          // vào chính bản đang nghe thử lại tắt tiếng đi, trông như thao tác chọn
+                          // vừa rồi bị lỗi.
+                          if (playingPreviewTrackId !== track.id) togglePreviewTrack(track.id, track.file);
                         }}
                         style={{
                           padding: '8px 12px',
@@ -5018,13 +5435,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               {/* Trình nghe thử & Âm lượng nhạc nền hiện tại */}
               {assetCounts.hasBgMusic && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>✓ Đã áp dụng nhạc nền (bg-music.mp3)</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>
+                      {playingPreviewTrackId
+                        ? `🎧 Đang nghe thử: ${bgMusicTrackLabel(playingPreviewTrackId)}`
+                        : `✓ Nhạc nền của video: ${bgMusicTrackLabel(selectedBgMusicTrackId)} (${assetCounts.bgMusicFile || 'bg-music.mp3'})`}
+                    </span>
                     <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>Trạng thái: {renderBgMusicEnabled ? 'Đang bật' : 'Tắt'}</span>
                   </div>
                   <AudioWaveformPlayer
                     key={`${bgMusicVersion}_${playingPreviewTrackId || 'default'}`}
-                    src={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=audio/bg-music.mp3&v=${bgMusicVersion}&category=${encodeURIComponent(result.category || '')}`}
+                    src={`/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || 'example')}&file=audio/${assetCounts.bgMusicFile || 'bg-music.mp3'}&v=${bgMusicVersion}&category=${encodeURIComponent(result.category || '')}`}
                     externalAudioRef={playingPreviewTrackId ? previewAudioRef : null}
                     externalCurrentTime={playingPreviewTrackId ? previewCurrentTime : undefined}
                     externalDuration={playingPreviewTrackId ? previewDuration : undefined}
@@ -5035,8 +5456,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       }
                     } : undefined}
                   />
+                  {/* Âm lượng: thanh trượt hiện luôn, không giấu sau nút "Tùy chỉnh âm lượng" nữa —
+                      đây là thứ duy nhất người dùng thực sự cần chỉnh ở đây, bắt bấm thêm 1 lần để
+                      mở ra không đem lại lợi ích gì. */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', opacity: renderBgMusicEnabled ? 1 : 0.5, paddingTop: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🔊 Âm lượng nhạc nền:</span>
                         <span style={{
@@ -5048,46 +5472,48 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           padding: '2px 8px',
                           borderRadius: '6px'
                         }}>
-                          {renderBgMusicVolume}% {String(renderBgMusicVolume) === '10' ? '(Mặc định chuẩn 10%)' : ''}
+                          {renderBgMusicVolume}%{String(renderBgMusicVolume) === DEFAULT_BG_MUSIC_VOLUME_PERCENT ? ' (Tiêu chuẩn)' : ''}
                         </span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomBgMusicVolume(!showCustomBgMusicVolume)}
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          color: showCustomBgMusicVolume ? 'var(--secondary)' : 'rgba(255,255,255,0.7)',
-                          background: showCustomBgMusicVolume ? 'rgba(37,244,238,0.1)' : 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {showCustomBgMusicVolume ? '▲ Ẩn thanh chỉnh' : '⚙️ Tùy chỉnh âm lượng'}
-                      </button>
+                      {String(renderBgMusicVolume) !== DEFAULT_BG_MUSIC_VOLUME_PERCENT && (
+                        <button
+                          type="button"
+                          onClick={() => setRenderBgMusicVolume(DEFAULT_BG_MUSIC_VOLUME_PERCENT)}
+                          disabled={!renderBgMusicEnabled}
+                          title={`Đưa âm lượng về mức tiêu chuẩn ${DEFAULT_BG_MUSIC_VOLUME_PERCENT}%`}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: 'rgba(255,255,255,0.7)',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed'
+                          }}
+                        >
+                          ↺ Về {DEFAULT_BG_MUSIC_VOLUME_PERCENT}%
+                        </button>
+                      )}
                     </div>
 
-                    {showCustomBgMusicVolume && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', animation: 'fadeIn 0.2s ease-out' }}>
-                        <input
-                          type="range"
-                          min={0}
-                          max={40}
-                          value={renderBgMusicVolume}
-                          disabled={!renderBgMusicEnabled}
-                          onChange={(e) => setRenderBgMusicVolume(e.target.value)}
-                          style={{ width: '100%', cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
-                          <span>0% (Tắt)</span>
-                          <span>10% (Tiêu chuẩn)</span>
-                          <span>40% (Tối đa)</span>
-                        </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <input
+                        type="range"
+                        min={0}
+                        max={40}
+                        value={renderBgMusicVolume}
+                        disabled={!renderBgMusicEnabled}
+                        onChange={(e) => setRenderBgMusicVolume(e.target.value)}
+                        style={{ width: '100%', cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed' }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
+                        <span>0% (Tắt)</span>
+                        <span>{DEFAULT_BG_MUSIC_VOLUME_PERCENT}% (Tiêu chuẩn)</span>
+                        <span>40% (Tối đa)</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -5137,17 +5563,21 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               padding: '14px 20px',
               borderTop: '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
-              justify: 'flex-end',
+              justifyContent: 'space-between',
+              gap: '12px',
               alignItems: 'center',
               width: '100%',
               flexShrink: 0,
               background: 'rgba(0, 0, 0, 0.3)'
             }}>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)' }}>
+                Cấu hình được lưu vào kịch bản này khi đóng bảng.
+              </span>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ padding: '8px 24px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700, marginLeft: 'auto' }}
-                onClick={() => setShowBgMusicModal(false)}
+                style={{ padding: '8px 24px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700 }}
+                onClick={closeBgMusicModal}
               >
                 Xong
               </button>
