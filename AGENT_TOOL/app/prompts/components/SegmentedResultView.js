@@ -1011,6 +1011,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [isSavingScript, setIsSavingScript] = useState(false);
   // Đang tự động đọc lại giọng cho các slide vừa sửa lời (bước chạy nối ngay sau khi lưu kịch bản).
   const [isResyncingVoice, setIsResyncingVoice] = useState(false);
+  // Đọc lại giọng cho ĐÚNG 1 slide (nút trên từng thẻ slide): số slide đang chạy, thông báo kết
+  // quả theo từng slide, và slide đang được nghe thử.
+  const [regeneratingSegment, setRegeneratingSegment] = useState(null);
+  const [segmentVoiceMsg, setSegmentVoiceMsg] = useState({});
+  const [playingSegment, setPlayingSegment] = useState(null);
+  const segmentAudioRef = useRef(null);
   const [saveScriptMsg, setSaveScriptMsg] = useState('');
   const [showFullNarration, setShowFullNarration] = useState(false);
   const [extQueueState, setExtQueueState] = useState(null);
@@ -1577,6 +1583,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {} });
   const [vieneuVoices, setVieneuVoices] = useState([]);
   const [loadingVieneuVoices, setLoadingVieneuVoices] = useState(false);
+  // Danh sách giọng thật của các API Key ElevenLabs — đổ vào ô chọn giọng theo nhân vật, thay cho
+  // việc bắt người dùng tự đi copy Voice ID từ trang web ElevenLabs.
+  const [elevenVoices, setElevenVoices] = useState([]);
+  const [loadingElevenVoices, setLoadingElevenVoices] = useState(false);
   const [vieneuConnectionStatus, setVieneuConnectionStatus] = useState(null); // 'connected' | 'error' | null
   // Nhân bản giọng đọc tuỳ chỉnh cho VieNeu-TTS (voice cloning từ 1 file audio mẫu) — xem
   // handleAddVieneuVoice/handleRemoveVieneuVoice bên dưới.
@@ -1797,6 +1807,41 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     fetchSettings();
   }, []);
 
+  /**
+   * Tải danh sách giọng THẬT của các API Key ElevenLabs đang cấu hình, để ô chọn giọng theo nhân
+   * vật đổ ra tên giọng thay vì bắt gõ tay Voice ID.
+   *
+   * Gộp giọng của mọi key về một danh sách và bỏ trùng: một nhân vật chỉ chọn được 1 Voice ID,
+   * trong khi lúc lồng tiếng hệ thống có thể xoay sang key khác — nên hiển thị theo từng key sẽ
+   * gây hiểu nhầm là giọng chỉ chạy với đúng key đó.
+   */
+  const fetchElevenlabsVoices = async () => {
+    setLoadingElevenVoices(true);
+    try {
+      const res = await fetch('/api/prompts/voiceover?all=true');
+      const data = await res.json();
+      if (!res.ok) {
+        setElevenVoices([]);
+        return;
+      }
+      const seen = new Set();
+      const merged = [];
+      for (const acc of data.accounts || []) {
+        for (const v of acc.voices || []) {
+          if (seen.has(v.voiceId)) continue;
+          seen.add(v.voiceId);
+          merged.push(v);
+        }
+      }
+      setElevenVoices(merged);
+    } catch (err) {
+      console.warn('Không tải được danh sách giọng ElevenLabs:', err.message);
+      setElevenVoices([]);
+    } finally {
+      setLoadingElevenVoices(false);
+    }
+  };
+
   const fetchVieneuVoices = async (url) => {
     const targetUrl = url || settings.vieneuServerUrl || 'http://127.0.0.1:8001';
     setLoadingVieneuVoices(true);
@@ -1901,6 +1946,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   }, [showVoiceConfig, settings.ttsProvider]);
 
+
   useEffect(() => {
     return () => {
       // Cleanup character preview audio when component unmounts
@@ -1921,6 +1967,29 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setActivePreviewState({ key: '', status: 'idle' });
     }
   }, [showVoiceConfig]);
+
+  // Tự động xoá Voice ID ElevenLabs không hợp lệ (đã bị xoá khỏi tài khoản) để tránh báo lỗi đỏ
+  useEffect(() => {
+    if (!mounted || elevenVoices.length === 0 || !settings.voiceMappings) return;
+    
+    let hasChanges = false;
+    const updatedMappings = { ...settings.voiceMappings };
+    
+    Object.keys(updatedMappings).forEach(charKey => {
+      const savedVoiceId = updatedMappings[charKey];
+      if (savedVoiceId && !elevenVoices.some(v => v.voiceId === savedVoiceId)) {
+        delete updatedMappings[charKey];
+        hasChanges = true;
+      }
+    });
+    
+    if (hasChanges) {
+      setSettings(prev => ({
+        ...prev,
+        voiceMappings: updatedMappings
+      }));
+    }
+  }, [elevenVoices, mounted]);
 
   // "Nghe thử" — tạo 1 đoạn mẫu ngắn bằng chính giọng đang cấu hình cho nhân vật `key` và phát
   // ngay trên trình duyệt, không ghi ra đĩa/không đụng project nào.
@@ -2647,7 +2716,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
    *   - reuseExistingVoice: đọc lại bằng đúng giọng đã ghi trong manifest.json của slide đó, nên
    *     dù Cấu hình Giọng đọc hiện tại đã đổi, slide sửa lẻ vẫn không bị lạc giọng với phần còn lại.
    */
-  const resyncVoiceForSegments = async (segmentNumbers, savedSegments) => {
+  const resyncVoiceForSegments = async (segmentNumbers, savedSegments, options = {}) => {
+    // onlyExistingAudio mặc định true (dùng cho luồng tự động sau khi lưu kịch bản). Nút "Đọc lại"
+    // của từng slide truyền false: ở đó người dùng CHỦ ĐỘNG chỉ đích danh slide cần đọc, kể cả
+    // slide chưa từng có giọng cũng phải tạo ra chứ không được bỏ qua.
+    const { onlyExistingAudio = true } = options;
     const byNumber = new Map((savedSegments || []).map((s) => [s.segmentNumber, s]));
     const scenes = segmentNumbers
       .map((n) => byNumber.get(n))
@@ -2666,7 +2739,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         category: result.category,
         readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
         ttsProvider: settings.ttsProvider || 'elevenlabs',
-        onlyExistingAudio: true,
+        onlyExistingAudio,
         reuseExistingVoice: true,
         scenes
       })
@@ -2681,6 +2754,68 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (errorEvent) return { error: errorEvent.error || 'Không thể tạo lại giọng đọc.' };
     if (!doneEvent) return { error: 'Không nhận được phản hồi hoàn chỉnh từ server.' };
     return { done: doneEvent };
+  };
+
+  /**
+   * Đọc lại giọng cho ĐÚNG MỘT slide, theo yêu cầu trực tiếp của người dùng.
+   *
+   * Trước đây chỉ có nút "Tạo Giọng Đọc" ở Bước 1, và nó đọc lại TOÀN BỘ slide — một slide bị lỗi
+   * (nuốt chữ, đọc sai tên riêng, CapCut trả về bản hỏng) là phải chạy lại cả kịch bản 20-30 slide,
+   * tốn quota ElevenLabs và mất vài phút chỉ để sửa 5 giây audio.
+   *
+   * Dùng lại đúng giọng đã ghi trong manifest của slide đó nên bản đọc mới không bị lạc giọng so
+   * với các slide xung quanh — kể cả khi Cấu hình Giọng đọc hiện tại đã đổi sang giọng khác.
+   */
+  const handleRegenerateSegmentVoice = async (seg) => {
+    if (!(seg.dialogueOrNarration || '').trim()) return;
+    setRegeneratingSegment(seg.segmentNumber);
+    setSegmentVoiceMsg((prev) => ({ ...prev, [seg.segmentNumber]: '' }));
+    try {
+      const r = await resyncVoiceForSegments([seg.segmentNumber], result.segments, { onlyExistingAudio: false });
+      if (!r) {
+        setSegmentVoiceMsg((prev) => ({ ...prev, [seg.segmentNumber]: 'Lỗi: Slide này chưa có lời kể để đọc.' }));
+      } else if (r.error) {
+        setSegmentVoiceMsg((prev) => ({ ...prev, [seg.segmentNumber]: `Lỗi: ${r.error}` }));
+      } else {
+        const fellBack = (r.done.capcutFallbackSlides || []).includes(seg.segmentNumber);
+        setVoicePreviewVersion((v) => v + 1);
+        checkAssets();
+        setSegmentVoiceMsg((prev) => ({
+          ...prev,
+          [seg.segmentNumber]: fellBack
+            ? '⚠️ Giọng CapCut lỗi, đã tạm dùng giọng Edge dự phòng — bấm đọc lại để thử lại CapCut.'
+            : '✓ Đã đọc lại slide này bằng đúng giọng cũ. Nhớ "Tạo Lại Video" ở Bước 4.'
+        }));
+      }
+    } catch (err) {
+      setSegmentVoiceMsg((prev) => ({ ...prev, [seg.segmentNumber]: 'Lỗi: Không thể kết nối tới server.' }));
+    } finally {
+      setRegeneratingSegment(null);
+    }
+  };
+
+  /** Nghe thử audio của riêng 1 slide — để biết slide nào hỏng trước khi bấm đọc lại. */
+  const toggleSegmentAudio = (seg) => {
+    if (segmentAudioRef.current) {
+      segmentAudioRef.current.pause();
+      segmentAudioRef.current = null;
+    }
+    if (playingSegment === seg.segmentNumber) {
+      setPlayingSegment(null);
+      return;
+    }
+    const folder = result.input?.folderPath || 'example';
+    const audExt = result.input?.audioExt || 'mp3';
+    const paddedNum = String(seg.segmentNumber).padStart(2, '0');
+    const src = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
+    const audio = new Audio(src);
+    segmentAudioRef.current = audio;
+    setPlayingSegment(seg.segmentNumber);
+    audio.onended = () => setPlayingSegment(null);
+    audio.play().catch(() => {
+      setPlayingSegment(null);
+      setSegmentVoiceMsg((prev) => ({ ...prev, [seg.segmentNumber]: 'Slide này chưa có file giọng đọc.' }));
+    });
   };
 
   const handleSaveScript = async () => {
@@ -2807,6 +2942,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   useEffect(() => {
     checkAssets();
   }, [result.input?.folderPath, result.category]);
+
+  // Dừng audio nghe thử của từng slide khi chuyển sang kịch bản khác (và lúc component bị gỡ) —
+  // nếu không thì tiếng của kịch bản cũ vẫn phát tiếp trong lúc đang xem kịch bản mới.
+  useEffect(() => {
+    return () => {
+      if (segmentAudioRef.current) {
+        segmentAudioRef.current.pause();
+        segmentAudioRef.current = null;
+      }
+    };
+  }, [result?.id]);
 
   useEffect(() => {
     stopVoicePreview();
@@ -2943,7 +3089,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         className="btn btn-secondary"
                         title="Cấu hình giọng đọc (Edge / CapCut)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                        onClick={() => setShowVoiceConfig(!showVoiceConfig)}
+                        onClick={() => {
+                          const opening = !showVoiceConfig;
+                          setShowVoiceConfig(opening);
+                          // Mở bảng khi ĐANG chọn sẵn ElevenLabs thì nạp luôn danh sách giọng,
+                          // để ô chọn có dữ liệu ngay mà không phải bấm qua lại giữa các tab.
+                          if (opening && settings.ttsProvider === 'elevenlabs'
+                            && elevenVoices.length === 0 && !loadingElevenVoices) {
+                            fetchElevenlabsVoices();
+                          }
+                        }}
                         disabled={isGeneratingVoice || isRenderingVideo}
                       >
                         ⚙️
@@ -3727,6 +3882,38 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         📌 Tóm tắt nội dung video &amp; Tăng tỷ lệ nhấp xem (CTR)
                       </span>
                     )}
+                    {/* Nghe thử + đọc lại giọng của RIÊNG slide này. Một slide đọc hỏng trước đây
+                        phải chạy lại "Tạo Giọng Đọc" cho cả kịch bản mới sửa được. */}
+                    {!isThumb && (seg.dialogueOrNarration || '').trim() && !isEditingScript && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          title={playingSegment === seg.segmentNumber ? 'Dừng nghe' : 'Nghe thử giọng đọc của riêng slide này'}
+                          style={{ padding: '6px 12px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
+                          onClick={() => toggleSegmentAudio(seg)}
+                        >
+                          {playingSegment === seg.segmentNumber ? '⏸️ Dừng' : '▶️ Nghe'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo}
+                          title="Chỉ đọc lại đúng slide này, giữ nguyên giọng cũ — không đụng tới các slide khác"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '0.78rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            opacity: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 0.5 : 1,
+                            cursor: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer'
+                          }}
+                          onClick={() => handleRegenerateSegmentVoice(seg)}
+                        >
+                          {regeneratingSegment === seg.segmentNumber ? '⏳ Đang đọc...' : '🎙️ Đọc lại'}
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -3736,6 +3923,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
                     </button>
                   </div>
+
+                  {segmentVoiceMsg[seg.segmentNumber] && (
+                    <div style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'var(--warning)' : 'var(--success)',
+                      background: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger-bg)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'rgba(255,193,7,0.1)' : 'var(--success-bg)',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      {segmentVoiceMsg[seg.segmentNumber]}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
                     <div>
@@ -3878,7 +4079,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           `}</style>
           <div style={{
             width: '92%',
-            maxWidth: '740px',
+            maxWidth: '1000px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
             background: '#1a1924',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '16px',
@@ -3909,7 +4112,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => setSettings(prev => ({ ...prev, ttsProvider: p.id }))}
+                      onClick={() => {
+                        setSettings(prev => ({ ...prev, ttsProvider: p.id }));
+                        // Tải danh sách giọng ngay khi bấm sang tab ElevenLabs (thay vì đặt trong
+                        // useEffect — gọi setState đồng bộ trong effect gây render dây chuyền).
+                        if (p.id === 'elevenlabs' && elevenVoices.length === 0 && !loadingElevenVoices) {
+                          fetchElevenlabsVoices();
+                        }
+                      }}
                       style={{
                         padding: '6px 12px',
                         fontSize: '0.74rem',
@@ -4149,8 +4359,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 Chọn giọng đọc cho {char.name}:
                               </span>
 
-                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS) */}
-                              {isEdge && (
+                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS & ElevenLabs) */}
+                              {(isEdge || isEleven) && (
                                 <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                   {[
                                     { code: 'vi', label: '🇻🇳 Tiếng Việt' },
@@ -4186,7 +4396,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                             {/* Lưới chọn giọng đọc trực quan cho Edge hoặc VieNeu-TTS */}
                             {(isEdge || isVieneu) && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '8px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
                                   const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
                                   const voiceList = isEdge
@@ -4360,35 +4570,180 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               </div>
                             )}
 
-                            {/* ElevenLabs Voice ID Input */}
-                            {isEleven && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <input
-                                  type="text"
-                                  placeholder="Nhập ElevenLabs Voice ID..."
-                                  value={currentVal}
-                                  onChange={(e) => {
-                                    setSettings(prev => ({
-                                      ...prev,
-                                      voiceMappings: { ...prev.voiceMappings, [char.key]: e.target.value }
-                                    }));
-                                  }}
-                                  style={{
-                                    background: 'rgba(0,0,0,0.3)',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    borderRadius: '6px',
-                                    padding: '8px 12px',
-                                    color: '#fff',
-                                    fontSize: '0.8rem',
-                                    outline: 'none',
-                                    width: '100%'
-                                  }}
-                                />
-                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.45)' }}>
-                                  Nhập Voice ID từ tài khoản ElevenLabs của bạn để gán cho nhân vật này.
-                                </span>
-                              </div>
-                            )}
+                            {/* Chọn giọng ElevenLabs từ danh sách thật của tài khoản — thiết kế dạng lưới
+                                chọn trực quan giống Edge & VieNeu-TTS. */}
+                            {isEleven && (() => {
+                              const own = elevenVoices.filter(v => v.category !== 'premade');
+                              const premade = elevenVoices.filter(v => v.category === 'premade');
+                              const explicitVal = settings.voiceMappings?.[char.key];
+                              const isMissing = explicitVal && elevenVoices.length > 0
+                                && !elevenVoices.some(v => v.voiceId === explicitVal);
+
+                              const isVietnameseVoice = (v) => {
+                                const name = (v.name || '').toLowerCase();
+                                const accent = (v.accent || '').toLowerCase();
+                                const hasViChars = /[đáàảãạíìỉĩịúùủũụéèẻẽẹóòỏõọýỳỷỹỵâăêôơư]/i.test(v.name || '');
+                                return accent.includes('vietnamese') || hasViChars || v.category !== 'premade';
+                              };
+
+                              const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
+                              
+                              const filteredOwn = own.filter(v => activeTabVal === 'vi' ? isVietnameseVoice(v) : !isVietnameseVoice(v));
+                              const filteredPremade = premade.filter(v => activeTabVal === 'vi' ? isVietnameseVoice(v) : !isVietnameseVoice(v));
+
+                              const renderVoiceGrid = (voiceList, title) => {
+                                if (voiceList.length === 0) return null;
+                                const isAnyActive = activePreviewState.status !== 'idle';
+
+                                return (
+                                  <div style={{ marginBottom: '16px' }}>
+                                    <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
+                                      {title}
+                                    </span>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+                                      {voiceList.map(v => {
+                                        const isSelected = currentVal === v.voiceId;
+                                        const key = `${char.key}_${v.voiceId}`;
+                                        const isCurrentActive = activePreviewState.key === key;
+                                        const isGenerating = isCurrentActive && activePreviewState.status === 'generating';
+                                        const isPlaying = isCurrentActive && activePreviewState.status === 'playing';
+                                        const isDisabled = isAnyActive && !isCurrentActive;
+
+                                        const icon = '🎙️';
+                                        const cleanName = v.name || 'Unnamed';
+                                        const gender = v.gender || 'Chọn';
+                                        const description = `${v.category || 'ElevenLabs'}${v.accent ? ` • ${v.accent}` : ''}`;
+
+                                        let borderStyle = isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)';
+                                        let backgroundStyle = isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)';
+                                        let shadowStyle = isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none';
+                                        let animationStyle = 'none';
+                                        let opacityVal = 1;
+
+                                        if (isAnyActive) {
+                                          if (isCurrentActive) {
+                                            opacityVal = 1;
+                                            if (isPlaying) {
+                                              borderStyle = '1.5px solid #4ade80';
+                                              backgroundStyle = 'rgba(74, 222, 128, 0.15)';
+                                              shadowStyle = '0 0 16px rgba(74, 222, 128, 0.4)';
+                                              animationStyle = 'voice-pulse 1.5s infinite ease-in-out';
+                                            } else if (isGenerating) {
+                                              borderStyle = '1.5px solid var(--secondary)';
+                                              backgroundStyle = 'rgba(37, 244, 238, 0.15)';
+                                              shadowStyle = '0 0 16px rgba(37, 244, 238, 0.4)';
+                                              animationStyle = 'generating-pulse 1.5s infinite ease-in-out';
+                                            }
+                                          } else if (isSelected) {
+                                            opacityVal = 0.8;
+                                          } else {
+                                            opacityVal = 0.35;
+                                          }
+                                        }
+
+                                        return (
+                                          <div
+                                            key={v.voiceId}
+                                            onClick={() => {
+                                              if (isAnyActive) return;
+                                              setSettings(prev => ({
+                                                ...prev,
+                                                voiceMappings: { ...prev.voiceMappings, [char.key]: v.voiceId }
+                                              }));
+                                            }}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              gap: '8px',
+                                              padding: '9px 12px',
+                                              borderRadius: '10px',
+                                              border: borderStyle,
+                                              background: backgroundStyle,
+                                              boxShadow: shadowStyle,
+                                              cursor: isAnyActive ? 'not-allowed' : 'pointer',
+                                              userSelect: 'none',
+                                              transition: 'all 0.2s ease',
+                                              opacity: opacityVal,
+                                              animation: animationStyle
+                                            }}
+                                          >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                                              <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{icon}</span>
+                                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                  {cleanName} {isSelected && '✓'}
+                                                </span>
+                                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                  {gender} • {description}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              title={isPlaying ? `Dừng nghe thử` : `Nghe thử giọng ${cleanName}`}
+                                              disabled={isDisabled}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isPlaying) {
+                                                  if (characterPreviewAudioRef.current) {
+                                                    characterPreviewAudioRef.current.pause();
+                                                    characterPreviewAudioRef.current = null;
+                                                  }
+                                                  setActivePreviewState({ key: '', status: 'idle' });
+                                                } else {
+                                                  handlePreviewVoice('elevenlabs', v.voiceId, key);
+                                                }
+                                              }}
+                                              style={{
+                                                flexShrink: 0,
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '6px',
+                                                border: '1px solid rgba(255,255,255,0.15)',
+                                                background: isGenerating ? 'rgba(255,255,255,0.2)' : isPlaying ? 'rgba(74, 222, 128, 0.25)' : 'rgba(37, 244, 238, 0.15)',
+                                                color: isPlaying ? '#4ade80' : 'var(--secondary)',
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                opacity: isDisabled ? 0.35 : 1,
+                                                fontSize: '0.75rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease'
+                                              }}
+                                            >
+                                              {isGenerating ? '⏳' : isPlaying ? '⏹️' : '🔊'}
+                                            </button>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                  {isMissing && (
+                                    <div style={{ padding: '10px 12px', background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '0.74rem' }}>
+                                      ⚠️ ID cũ không còn tồn tại: {explicitVal} (hãy chọn lại giọng khác bên dưới để tránh lỗi lồng tiếng).
+                                    </div>
+                                  )}
+                                  
+                                  {loadingElevenVoices ? (
+                                    <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.5)' }}>⏳ Đang tải danh sách giọng ElevenLabs...</span>
+                                  ) : elevenVoices.length === 0 ? (
+                                    <span style={{ fontSize: '0.76rem', color: '#ff6b6b' }}>— Chưa tải được giọng, hãy kiểm tra API Key ở Cài đặt hệ thống —</span>
+                                  ) : (
+                                    <>
+                                      {renderVoiceGrid(filteredOwn, 'Giọng của bạn')}
+                                      {renderVoiceGrid(filteredPremade, 'Giọng dựng sẵn ElevenLabs')}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

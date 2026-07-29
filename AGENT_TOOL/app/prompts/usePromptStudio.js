@@ -154,6 +154,9 @@ export function usePromptStudio() {
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState('');
+  // Tình trạng quota của TỪNG ElevenLabs API Key, cho bảng quản lý key trong Cài đặt.
+  const [elevenlabsStatus, setElevenlabsStatus] = useState(null);
+  const [isCheckingElevenlabs, setIsCheckingElevenlabs] = useState(false);
   const [elApiKeyVisible, setElApiKeyVisible] = useState(false);
 
   const currentCategory = PROMPT_CATEGORIES[activeCategory];
@@ -248,6 +251,49 @@ export function usePromptStudio() {
       setSettingsMsg('Lỗi kết nối máy chủ.');
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  /**
+   * Hỏi ElevenLabs tình trạng quota của TẤT CẢ key đang cấu hình.
+   *
+   * Phải LƯU trước rồi mới kiểm tra được: endpoint đọc key từ bản ghi settings dưới server, nên
+   * key vừa gõ mà chưa bấm Lưu thì server chưa hề biết tới.
+   */
+  const checkElevenlabsAccounts = async () => {
+    setIsCheckingElevenlabs(true);
+    setElevenlabsStatus(null);
+    try {
+      const keysString = (settings.elevenlabsAccounts || []).map(a => {
+        if (a.maleVoiceId || a.femaleVoiceId) {
+          return `${a.apiKey || ''}|${a.maleVoiceId || ''}|${a.femaleVoiceId || ''}`;
+        }
+        return a.apiKey || '';
+      }).filter(Boolean).join('\n');
+
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          geminiApiKey: settings.geminiApiKey,
+          elevenlabsApiKey: keysString,
+          elevenlabsAccounts: settings.elevenlabsAccounts || [],
+          mongodbUri: settings.mongodbUri,
+          voiceMappings: settings.voiceMappings
+        })
+      });
+
+      const res = await fetch('/api/prompts/voiceover?all=true');
+      const data = await res.json();
+      if (res.ok) {
+        setElevenlabsStatus(data);
+      } else {
+        setElevenlabsStatus({ error: data.error || 'Không kiểm tra được quota.', aliveAccounts: 0, totalAccounts: 0 });
+      }
+    } catch (err) {
+      setElevenlabsStatus({ error: 'Lỗi kết nối khi kiểm tra quota.', aliveAccounts: 0, totalAccounts: 0 });
+    } finally {
+      setIsCheckingElevenlabs(false);
     }
   };
 
@@ -609,6 +655,7 @@ export function usePromptStudio() {
     history, historyLoading, selectedHistoryIds, fetchHistory,
     characters, charactersLoading,
     geminiApiKey, setGeminiApiKey, apiKeyVisible, setApiKeyVisible,
+    elevenlabsStatus, isCheckingElevenlabs, checkElevenlabsAccounts,
     showSettings, setShowSettings, settings, setSettings, isSavingSettings, settingsMsg,
     elApiKeyVisible, setElApiKeyVisible, fetchSettings, handleSaveSettings,
     useGemini, setUseGemini, durationRange, setDurationRange,

@@ -15,28 +15,16 @@ import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } fro
 const DEFAULT_VIENEU_MALE_VOICE = 'Phạm Tuyên';
 const DEFAULT_VIENEU_FEMALE_VOICE = 'Trúc Ly';
 
-// Default voice fallbacks for custom designed voices (free tier)
-const DEFAULT_MALE_VOICE = 'wJSBXsvChUQrylZvDzav';
-const DEFAULT_FEMALE_VOICE = '4IQqf6fVNeEFbqnSbVxb';
-
-const DEPRECATED_IDS = {
-  // Auto-translate old voice IDs to the user's new working custom voice IDs
-  'uREKoCeM2xnPeGaH8ZFM': '4IQqf6fVNeEFbqnSbVxb', // Old Woman -> New Woman
-  '60qpDkuGX2KEChynwVZJ': 'wJSBXsvChUQrylZvDzav', // Old Man -> New Man
-
-  'pNInz6obpgdq5TgpW1G0': 'wJSBXsvChUQrylZvDzav', // Alex/Tom -> Man
-  'jBpfuIE2acssx9937DdU': 'wJSBXsvChUQrylZvDzav', // Alex/Tom -> Man
-  'pNInz6obpgDQGcFmaJgB': 'wJSBXsvChUQrylZvDzav', // Alex/Tom -> Man
-  'ErXwobaYiN019PkySvjV': 'wJSBXsvChUQrylZvDzav', // Alex/Tom -> Man
-
-  'EXAVITQu4vr4xnSDxMaL': '4IQqf6fVNeEFbqnSbVxb', // Mia/Zoe -> Woman
-  'MF3m74ZOqHOe5425uF21': '4IQqf6fVNeEFbqnSbVxb', // Mia/Zoe -> Woman
-  '21m00Tcm4TlvDq8ikWAM': '4IQqf6fVNeEFbqnSbVxb', // Zoe/Narrator -> Woman
-  'AZnzlk1XvdvUeBnXmlld': '4IQqf6fVNeEFbqnSbVxb', // Narrator -> Woman
-
-  'N2lVS1w75z5N15T21Crc': 'wJSBXsvChUQrylZvDzav', // Leo -> Old man
-  'TxGEqnHWrfWFTfGW9XjX': 'wJSBXsvChUQrylZvDzav'  // Leo -> Old man
-};
+// ĐÃ BỎ: hằng số DEFAULT_MALE_VOICE/DEFAULT_FEMALE_VOICE và bảng DEPRECATED_IDS.
+//
+// DEPRECATED_IDS từng âm thầm đổi 10 Voice ID (Sarah, Rachel, Josh, Antoni...) sang 2 giọng
+// custom cố định. Hậu quả: chọn giọng dựng sẵn của ElevenLabs thì bị thay bằng giọng khác mà
+// không báo gì — mà những ID đó vẫn đang là giọng hợp lệ, sống trong tài khoản.
+//
+// Hai ID đích của phép thay đó cũng được dùng làm giọng "mặc định" khi người dùng bỏ trống ô
+// Voice ID, nhưng chúng thuộc về MỘT tài khoản ElevenLabs cụ thể — key nào không có sẵn 2 giọng
+// ấy sẽ nhận 404 và bị coi là key hỏng. Thay bằng resolveDefaultVoicesForAccount() bên dưới: hỏi
+// thẳng chính tài khoản đó xem nó có giọng gì rồi chọn, nên luôn tồn tại thật.
 
 export function parseElevenlabsAccounts(settingsRecord) {
   let rawAccounts = [];
@@ -58,11 +46,9 @@ export function parseElevenlabsAccounts(settingsRecord) {
         if (!female && parts[2]) female = parts[2];
       }
 
-      result.push({
-        apiKey: cleanKey,
-        maleVoiceId: male || DEFAULT_MALE_VOICE,
-        femaleVoiceId: female || DEFAULT_FEMALE_VOICE
-      });
+      // Để TRỐNG khi người dùng chưa chọn giọng — không nhét ID mặc định cứng vào nữa.
+      // Giọng thật sự dùng sẽ được resolveDefaultVoicesForAccount() hỏi thẳng tài khoản đó.
+      result.push({ apiKey: cleanKey, maleVoiceId: male, femaleVoiceId: female });
     }
   }
 
@@ -71,8 +57,8 @@ export function parseElevenlabsAccounts(settingsRecord) {
   // Fallback parsing from legacy string elevenlabsApiKey
   const legacyKeys = parseApiKeys(settingsRecord?.elevenlabsApiKey);
   const legacyMappings = settingsRecord?.voiceMappings || {};
-  const defaultMale = legacyMappings.alex || legacyMappings.leo || DEFAULT_MALE_VOICE;
-  const defaultFemale = legacyMappings.mia || legacyMappings.narrator || DEFAULT_FEMALE_VOICE;
+  const defaultMale = legacyMappings.alex || legacyMappings.leo || '';
+  const defaultFemale = legacyMappings.mia || legacyMappings.narrator || '';
 
   return legacyKeys.map(raw => {
     if (raw.includes('|')) {
@@ -145,13 +131,49 @@ function getVieneuVoiceForText(dialogueText, vieneuVoiceMappings) {
   return mappings.narrator || DEFAULT_VIENEU_FEMALE_VOICE;
 }
 
-function getVoiceIdForAccount(dialogueText, account) {
-  const match = dialogueText.match(/^([A-Za-z0-9\s]+):/);
-  let rawMale = account.maleVoiceId || DEFAULT_MALE_VOICE;
-  let rawFemale = account.femaleVoiceId || DEFAULT_FEMALE_VOICE;
+/**
+ * Hỏi chính tài khoản đó xem nó có giọng gì, rồi chọn sẵn 1 giọng nam + 1 giọng nữ.
+ *
+ * Dùng khi người dùng chưa chọn giọng cho key: trước đây rơi về 2 ID cố định thuộc một tài khoản
+ * khác nên key mới nào cũng nhận 404. Ưu tiên giọng người dùng tự tạo/nhân bản (cloned,
+ * professional, generated) vì đó thường là thứ họ thật sự muốn dùng, thiếu thì lấy giọng dựng sẵn.
+ * Kết quả được nhớ theo key trong suốt lượt chạy, không hỏi lại ở từng slide.
+ */
+const accountVoiceCache = new Map();
 
-  if (DEPRECATED_IDS[rawMale]) rawMale = DEPRECATED_IDS[rawMale];
-  if (DEPRECATED_IDS[rawFemale]) rawFemale = DEPRECATED_IDS[rawFemale];
+async function resolveDefaultVoicesForAccount(account) {
+  const cached = accountVoiceCache.get(account.apiKey);
+  if (cached) return cached;
+
+  let male = '';
+  let female = '';
+  try {
+    const res = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: { 'xi-api-key': account.apiKey }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const voices = data.voices || [];
+      const own = voices.filter((v) => v.category !== 'premade');
+      const pool = own.length > 0 ? own : voices;
+      const byGender = (g) => pool.find((v) => (v.labels?.gender || '').toLowerCase() === g);
+      male = (byGender('male') || pool[0])?.voice_id || '';
+      female = (byGender('female') || pool[1] || pool[0])?.voice_id || '';
+      console.log(`[ElevenLabs] Key ${account.apiKey.slice(0, 8)}… chưa chọn giọng — tự dùng nam=${male}, nữ=${female} (trong ${voices.length} giọng của tài khoản).`);
+    }
+  } catch (err) {
+    console.warn('[ElevenLabs] Không lấy được danh sách giọng để chọn mặc định:', err.message);
+  }
+
+  const resolved = { male, female };
+  accountVoiceCache.set(account.apiKey, resolved);
+  return resolved;
+}
+
+function getVoiceIdForAccount(dialogueText, account, fallback = {}) {
+  const match = dialogueText.match(/^([A-Za-z0-9\s]+):/);
+  const rawMale = account.maleVoiceId || fallback.male || '';
+  const rawFemale = account.femaleVoiceId || fallback.female || '';
 
   if (match) {
     const name = match[1].trim().toLowerCase();
@@ -219,39 +241,106 @@ async function getActiveSubscription(accounts) {
 }
 
 /**
- * Hàm gọi API ElevenLabs có tự động xoay vòng switch API Key + Cặp Voice ID khi hết quota hoặc bị lỗi
+ * "Bể" API Key ElevenLabs dùng chung cho CẢ một lượt lồng tiếng (nhiều slide).
+ *
+ * Trước đây mỗi slide đều gọi lại hàm fallback và luôn bắt đầu dò TỪ TÀI KHOẢN #1. Với người dùng
+ * gắn nhiều key, ngay khi key #1 hết quota thì mọi slide còn lại đều tốn một request thất bại vào
+ * key #1 trước rồi mới nhảy sang #2 — kịch bản 30 slide là 30 lượt gọi vứt đi, chậm thấy rõ và
+ * làm log đầy cảnh báo giả. Ngoài ra key hỏng hẳn (sai key, hết hạn) cũng bị thử đi thử lại y hệt
+ * key chỉ lỗi mạng thoáng qua.
+ *
+ * Bể key giữ 2 thứ xuyên suốt lượt chạy:
+ *   - cursor: tài khoản vừa dùng thành công, lần sau bắt đầu luôn từ đó (không quay về #1)
+ *   - dead  : tài khoản đã xác định hỏng/hết quota, loại hẳn khỏi vòng dò của lượt này
  */
-async function fetchElevenLabsWithFallback(getParams, options, accounts) {
+function createElevenLabsPool(accounts) {
+  return { accounts, cursor: 0, dead: new Map() };
+}
+
+// Phân loại lỗi để quyết định: loại hẳn tài khoản, hay chỉ thử lại?
+//   401/403        -> key sai/bị thu hồi/thiếu quyền: loại hẳn, thử lại cũng vô ích
+//   402 + quota    -> hết ký tự: loại hẳn cho lượt này
+//   429            -> bị chặn tốc độ: KHÔNG loại, chờ một nhịp rồi thử lại chính key đó
+//   5xx / mất mạng -> lỗi thoáng qua phía server: KHÔNG loại, thử lại một lần
+function classifyElevenLabsError(status, errorText) {
+  const text = (errorText || '').toLowerCase();
+  if (status === 401 || status === 403) return { dead: true, reason: 'API Key không hợp lệ hoặc đã bị thu hồi' };
+  if (status === 402) {
+    if (text.includes('paid_plan_required') || text.includes('library voices') || text.includes('payment_required')) {
+      return { dead: false, retrySameKey: false, reason: 'Không thể dùng giọng thư viện trên tài khoản Free' };
+    }
+    return { dead: true, reason: 'Đã hết quota ký tự' };
+  }
+  if (text.includes('quota_exceeded') || text.includes('quota exceeded')) {
+    return { dead: true, reason: 'Đã hết quota ký tự' };
+  }
+  if (status === 429) return { dead: false, retrySameKey: true, reason: 'Bị giới hạn tốc độ (rate limit)' };
+  if (status >= 500 || status === 0) return { dead: false, retrySameKey: true, reason: `Lỗi tạm thời phía ElevenLabs (HTTP ${status})` };
+  return { dead: false, retrySameKey: false, reason: `HTTP ${status}` };
+}
+
+/**
+ * Gọi ElevenLabs qua bể key: bắt đầu từ tài khoản đang dùng, bỏ qua tài khoản đã chết, chỉ nhảy
+ * sang key khác khi thật sự cần.
+ */
+async function fetchElevenLabsWithPool(pool, getParams, options) {
+  const { accounts } = pool;
+  const total = accounts.length;
   let lastErrorText = '';
   let lastStatus = 500;
 
-  for (let i = 0; i < accounts.length; i++) {
+  for (let step = 0; step < total; step++) {
+    const i = (pool.cursor + step) % total;
+    if (pool.dead.has(i)) continue;
+
     const acc = accounts[i];
     const { url, voiceId } = getParams(acc);
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          'xi-api-key': acc.apiKey
-        }
-      });
 
-      if (response.ok) {
-        return { ok: true, response, account: acc, accountIndex: i, voiceId };
+    // Mỗi tài khoản được tối đa 2 lượt: lượt đầu, và 1 lượt thử lại nếu lỗi thuộc loại thoáng qua.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      let status = 0;
+      let errorText = '';
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: { ...options.headers, 'xi-api-key': acc.apiKey }
+        });
+        if (response.ok) {
+          // Ghim lại tài khoản vừa chạy được để slide sau bắt đầu thẳng từ đây.
+          pool.cursor = i;
+          return { ok: true, response, account: acc, accountIndex: i, voiceId };
+        }
+        status = response.status;
+        errorText = await response.text();
+      } catch (err) {
+        status = 0;
+        errorText = err.message;
       }
 
-      const errorText = await response.text();
+      lastStatus = status;
       lastErrorText = errorText;
-      lastStatus = response.status;
-      console.warn(`[ElevenLabs Key Auto-Switch] Tài khoản #${i + 1}/${accounts.length} bị lỗi (HTTP ${response.status}): ${errorText}. Đang chuyển sang Tài khoản tiếp theo...`);
-    } catch (err) {
-      lastErrorText = err.message;
-      console.warn(`[ElevenLabs Key Auto-Switch] Tài khoản #${i + 1}/${accounts.length} bị lỗi kết nối: ${err.message}. Đang chuyển sang Tài khoản tiếp theo...`);
+      const verdict = classifyElevenLabsError(status, errorText);
+
+      if (verdict.dead) {
+        pool.dead.set(i, verdict.reason);
+        console.warn(`[ElevenLabs] Tài khoản #${i + 1}/${total} LOẠI khỏi lượt này: ${verdict.reason}`);
+        break;
+      }
+      if (verdict.retrySameKey && attempt === 1) {
+        const waitMs = status === 429 ? 2000 : 800;
+        console.warn(`[ElevenLabs] Tài khoản #${i + 1}/${total}: ${verdict.reason} — thử lại sau ${waitMs}ms...`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      console.warn(`[ElevenLabs] Tài khoản #${i + 1}/${total}: ${verdict.reason} — chuyển sang tài khoản tiếp theo...`);
+      break;
     }
   }
 
-  return { ok: false, errorText: lastErrorText, status: lastStatus };
+  const summary = accounts
+    .map((_, i) => `#${i + 1}: ${pool.dead.get(i) || 'không gọi được'}`)
+    .join(' | ');
+  return { ok: false, errorText: lastErrorText, status: lastStatus, summary };
 }
 
 /**
@@ -436,6 +525,7 @@ export async function POST(request) {
     const needsElevenLabs = [...voiceByNumber.values()].some((v) => v.provider === 'elevenlabs');
 
     let prioritizedAccounts = [];
+    let elevenLabsPool = null;
     if (needsElevenLabs) {
       const accounts = parseElevenlabsAccounts(settingsRecord);
       if (accounts.length === 0) {
@@ -448,6 +538,19 @@ export async function POST(request) {
       if (subCheck.ok && subCheck.accountIndex > 0) {
         const activeAcc = prioritizedAccounts.splice(subCheck.accountIndex, 1)[0];
         prioritizedAccounts.unshift(activeAcc);
+      }
+
+      // Bể key dùng CHUNG cho mọi slide của lượt này: nhớ tài khoản đang chạy được và loại hẳn
+      // tài khoản đã chết, thay vì mỗi slide lại dò lại từ đầu (xem createElevenLabsPool).
+      elevenLabsPool = createElevenLabsPool(prioritizedAccounts);
+
+      // Ước lượng tổng ký tự cần dùng so với quota còn lại — báo TRƯỚC khi chạy, thay vì để người
+      // dùng phát hiện thiếu quota lúc đã đọc dở nửa kịch bản.
+      const totalChars = scenesToProcess.reduce(
+        (sum, s) => sum + normalizeTtsText((s.dialogueOrNarration || '').trim()).length, 0
+      );
+      if (subCheck.ok && typeof subCheck.remaining === 'number' && subCheck.remaining < totalChars) {
+        console.warn(`[ElevenLabs] Cần ~${totalChars} ký tự nhưng tài khoản đang chọn chỉ còn ${subCheck.remaining}. Sẽ tự chuyển sang tài khoản khác khi hết.`);
       }
     }
 
@@ -641,9 +744,32 @@ export async function POST(request) {
 
               // Đọc lại theo giọng cũ: ép đúng Voice ID đã dùng lần trước thay vì suy lại từ cặp
               // nam/nữ của tài khoản (cặp này có thể đã bị đổi trong Cài đặt từ lần lồng tiếng đầu).
-              const pickVoiceId = (acc) => sceneVoice?.voiceId || getVoiceIdForAccount(text, acc);
+              // Key nào chưa chọn giọng thì hỏi chính tài khoản đó lấy một giọng có thật (kết quả
+              // được cache theo key nên chỉ tốn 1 request cho cả lượt, không phải mỗi slide).
+              const fallbackByKey = new Map();
+              for (const acc of elevenLabsPool.accounts) {
+                fallbackByKey.set(acc.apiKey, await resolveDefaultVoicesForAccount(acc));
+              }
 
-              const timestampsResult = await fetchElevenLabsWithFallback(
+              const getAbsoluteFallbackVoiceId = (dialogueText, fallbackVal = {}) => {
+                const match = dialogueText.match(/^([A-Za-z0-9\s]+):/);
+                const fallbackMale = fallbackVal.male || '';
+                const fallbackFemale = fallbackVal.female || '';
+
+                if (match) {
+                  const name = match[1].trim().toLowerCase();
+                  if (['alex', 'leo', 'tom', 'man', 'male', 'boy', 'guy'].includes(name)) {
+                    return fallbackMale;
+                  }
+                }
+                return fallbackFemale;
+              };
+
+              const pickVoiceId = (acc) =>
+                sceneVoice?.voiceId || getVoiceIdForAccount(text, acc, fallbackByKey.get(acc.apiKey) || {});
+
+              let timestampsResult = await fetchElevenLabsWithPool(
+                elevenLabsPool,
                 (acc) => {
                   const vId = pickVoiceId(acc);
                   return {
@@ -651,9 +777,25 @@ export async function POST(request) {
                     voiceId: vId
                   };
                 },
-                requestBody,
-                prioritizedAccounts
+                requestBody
               );
+
+              // Tự động rơi xuống giọng mặc định của tài khoản nếu giọng cũ đã lưu (từ manifest.json) không còn tồn tại
+              if (!timestampsResult.ok && (timestampsResult.status === 404 || (timestampsResult.errorText && timestampsResult.errorText.includes('voice_not_found')))) {
+                console.warn(`[API Voiceover] Giọng cũ ID không tìm thấy trên ElevenLabs, chuyển sang giọng cứu hộ thực tế...`);
+                timestampsResult = await fetchElevenLabsWithPool(
+                  elevenLabsPool,
+                  (acc) => {
+                    const fallbackVal = fallbackByKey.get(acc.apiKey) || {};
+                    const vId = getAbsoluteFallbackVoiceId(text, fallbackVal);
+                    return {
+                      url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}/with-timestamps?output_format=${outputFormat}`,
+                      voiceId: vId
+                    };
+                  },
+                  requestBody
+                );
+              }
 
               if (timestampsResult.ok) {
                 try {
@@ -669,7 +811,8 @@ export async function POST(request) {
 
               if (!buffer) {
                 // Rớt về endpoint audio thường (không có mốc thời gian từng từ)
-                const plainResult = await fetchElevenLabsWithFallback(
+                let plainResult = await fetchElevenLabsWithPool(
+                  elevenLabsPool,
                   (acc) => {
                     const vId = pickVoiceId(acc);
                     return {
@@ -677,13 +820,31 @@ export async function POST(request) {
                       voiceId: vId
                     };
                   },
-                  requestBody,
-                  prioritizedAccounts
+                  requestBody
                 );
+
+                if (!plainResult.ok && (plainResult.status === 404 || (plainResult.errorText && plainResult.errorText.includes('voice_not_found')))) {
+                  console.warn(`[API Voiceover Plain] Giọng cũ ID không tìm thấy trên ElevenLabs, chuyển sang giọng cứu hộ thực tế...`);
+                  plainResult = await fetchElevenLabsWithPool(
+                    elevenLabsPool,
+                    (acc) => {
+                      const fallbackVal = fallbackByKey.get(acc.apiKey) || {};
+                      const vId = getAbsoluteFallbackVoiceId(text, fallbackVal);
+                      return {
+                        url: `https://api.elevenlabs.io/v1/text-to-speech/${vId}?output_format=${outputFormat}`,
+                        voiceId: vId
+                      };
+                    },
+                    requestBody
+                  );
+                }
 
                 if (!plainResult.ok) {
                   console.error(`[API Voiceover Error] Slide ${segmentNumber}:`, plainResult.errorText);
-                  throw new Error(`Lỗi gọi ElevenLabs cho Slide ${segmentNumber}: Tất cả ${prioritizedAccounts.length} Tài khoản ElevenLabs đều bị lỗi hoặc hết quota. Chi tiết: ${plainResult.errorText}`);
+                  throw new Error(
+                    `Lỗi gọi ElevenLabs cho Slide ${segmentNumber}: cả ${prioritizedAccounts.length} tài khoản đều không dùng được. `
+                    + `Tình trạng từng tài khoản — ${plainResult.summary}`
+                  );
                 }
 
                 const arrayBuffer = await plainResult.response.arrayBuffer();
@@ -781,12 +942,77 @@ export function clearQuotaCache() {
   quotaCacheTime = 0;
 }
 
+/**
+ * Kiểm tra quota của TỪNG tài khoản (song song) — dùng cho bảng quản lý API Key trong Cài đặt.
+ *
+ * Khác với getActiveSubscription (chỉ cần tìm ra 1 tài khoản dùng được rồi dừng), ở đây phải biết
+ * tình trạng của tất cả để người dùng thấy được key nào còn sống, key nào hết, key nào sai — đó
+ * mới là thứ cần khi gắn cả chục key vào.
+ */
+// Danh sách giọng của 1 tài khoản, rút gọn còn đúng những trường màn Cài đặt cần để đổ vào ô chọn.
+async function listVoicesForAccount(apiKey) {
+  try {
+    const res = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': apiKey } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.voices || []).map((v) => ({
+      voiceId: v.voice_id,
+      name: v.name,
+      category: v.category,              // premade | professional | cloned | generated
+      gender: v.labels?.gender || '',
+      accent: v.labels?.accent || ''
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+
+async function checkAllAccounts(accounts) {
+  return Promise.all(accounts.map(async (acc, index) => {
+    const masked = acc.apiKey.length > 12
+      ? `${acc.apiKey.slice(0, 6)}…${acc.apiKey.slice(-4)}`
+      : `${acc.apiKey.slice(0, 4)}…`;
+    try {
+      const [res, voices] = await Promise.all([
+        fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': acc.apiKey } }),
+        listVoicesForAccount(acc.apiKey)
+      ]);
+      if (!res.ok) {
+        const errorText = await res.text();
+        const verdict = classifyElevenLabsError(res.status, errorText);
+        return {
+          index, masked, status: verdict.dead ? 'dead' : 'error',
+          reason: verdict.reason, httpStatus: res.status,
+          maleVoiceId: acc.maleVoiceId, femaleVoiceId: acc.femaleVoiceId
+        };
+      }
+      const data = await res.json();
+      const remaining = data.character_limit - data.character_count;
+      return {
+        index, masked,
+        status: remaining >= 500 ? 'ok' : 'exhausted',
+        used: data.character_count, limit: data.character_limit, remaining,
+        tier: data.tier || '',
+        resetAt: data.next_character_count_reset_unix || null,
+        maleVoiceId: acc.maleVoiceId, femaleVoiceId: acc.femaleVoiceId,
+        voices
+      };
+    } catch (err) {
+      return {
+        index, masked, status: 'error', reason: `Không kết nối được: ${err.message}`,
+        maleVoiceId: acc.maleVoiceId, femaleVoiceId: acc.femaleVoiceId
+      };
+    }
+  }));
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url || 'http://localhost');
     const force = searchParams.get('force') === 'true';
+    const wantAll = searchParams.get('all') === 'true';
 
-    if (!force && quotaCache && (Date.now() - quotaCacheTime) < QUOTA_CACHE_TTL_MS) {
+    if (!wantAll && !force && quotaCache && (Date.now() - quotaCacheTime) < QUOTA_CACHE_TTL_MS) {
       return NextResponse.json(quotaCache);
     }
 
@@ -796,6 +1022,19 @@ export async function GET(request) {
 
     if (accounts.length === 0) {
       return NextResponse.json({ error: 'Chưa cấu hình API Key' }, { status: 400 });
+    }
+
+    // ?all=true — bảng tình trạng từng key cho màn Cài đặt. Không dùng cache vì người dùng bấm
+    // "Kiểm tra" là đang muốn biết tình trạng NGAY lúc đó.
+    if (wantAll) {
+      const perAccount = await checkAllAccounts(accounts);
+      const alive = perAccount.filter((a) => a.status === 'ok');
+      return NextResponse.json({
+        accounts: perAccount,
+        totalAccounts: perAccount.length,
+        aliveAccounts: alive.length,
+        totalRemaining: alive.reduce((sum, a) => sum + (a.remaining || 0), 0)
+      });
     }
 
     const result = await getActiveSubscription(accounts);

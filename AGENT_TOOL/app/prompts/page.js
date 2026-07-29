@@ -564,6 +564,152 @@ function PromptsStudioContent() {
 
 
 
+              {/* Section 2: ElevenLabs API Keys.
+                  Backend vốn đã hỗ trợ nhiều tài khoản + tự xoay vòng khi hết quota (xem
+                  parseElevenlabsAccounts/createElevenLabsPool trong api/prompts/voiceover), và
+                  usePromptStudio cũng đã tải/lưu sẵn settings.elevenlabsAccounts — nhưng màn Cài
+                  đặt lại chưa từng có ô nhập, nên nhìn từ giao diện thì tính năng như không tồn tại. */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>🎙️</span>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>ElevenLabs API Key</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Gắn nhiều tài khoản — hết ký tự ở key này tự nhảy sang key kế tiếp, không dừng giữa chừng
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.74rem', color: '#00f2fe', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid rgba(0, 242, 254, 0.25)', padding: '3px 10px', borderRadius: '20px', fontWeight: 700 }}>
+                      {(s.settings.elevenlabsAccounts || []).filter(a => (a.apiKey || '').trim()).length} Key
+                    </span>
+                    <button
+                      type="button"
+                      onClick={s.checkElevenlabsAccounts}
+                      disabled={s.isCheckingElevenlabs}
+                      style={{ background: 'rgba(0, 242, 254, 0.12)', border: '1px solid rgba(0, 242, 254, 0.3)', borderRadius: '6px', color: '#00f2fe', fontSize: '0.75rem', padding: '4px 10px', cursor: s.isCheckingElevenlabs ? 'wait' : 'pointer', fontWeight: 700, opacity: s.isCheckingElevenlabs ? 0.6 : 1 }}
+                    >
+                      {s.isCheckingElevenlabs ? '⏳ Đang kiểm tra...' : '🔄 Kiểm tra quota'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = s.settings.elevenlabsAccounts || [];
+                        s.setSettings(prev => ({ ...prev, elevenlabsAccounts: [...current, { apiKey: '', maleVoiceId: '', femaleVoiceId: '' }] }));
+                      }}
+                      style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      + Thêm Key
+                    </button>
+                  </div>
+                </div>
+
+                {s.elevenlabsStatus && (
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: s.elevenlabsStatus.aliveAccounts > 0 ? '#2ed573' : '#ff4757',
+                    background: s.elevenlabsStatus.aliveAccounts > 0 ? 'rgba(46,213,115,0.08)' : 'rgba(255,71,87,0.08)',
+                    border: `1px solid ${s.elevenlabsStatus.aliveAccounts > 0 ? 'rgba(46,213,115,0.25)' : 'rgba(255,71,87,0.25)'}`,
+                    padding: '7px 11px', borderRadius: '8px', marginBottom: '12px', fontWeight: 600
+                  }}>
+                    {s.elevenlabsStatus.error
+                      ? `⚠️ ${s.elevenlabsStatus.error}`
+                      : `${s.elevenlabsStatus.aliveAccounts}/${s.elevenlabsStatus.totalAccounts} key còn dùng được · tổng còn lại ~${(s.elevenlabsStatus.totalRemaining || 0).toLocaleString()} ký tự`}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {(s.settings.elevenlabsAccounts || []).map((acc, idx, arr) => {
+                    const info = (s.elevenlabsStatus?.accounts || []).find(a => a.index === idx);
+                    const badge = !info ? null
+                      : info.status === 'ok' ? { text: `Còn ${(info.remaining || 0).toLocaleString()} ký tự`, color: '#2ed573', bg: 'rgba(46,213,115,0.12)' }
+                        : info.status === 'exhausted' ? { text: `Hết quota (còn ${info.remaining})`, color: '#FFCB4D', bg: 'rgba(255,203,77,0.12)' }
+                          : { text: info.reason || 'Lỗi', color: '#ff4757', bg: 'rgba(255,71,87,0.12)' };
+                    return (
+                      <div key={idx} style={{
+                        display: 'flex', flexDirection: 'column', gap: '7px',
+                        background: 'rgba(0,0,0,0.22)', border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: '10px', padding: '10px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '30px' }}>#{idx + 1}</span>
+                          <input
+                            type={s.apiKeyVisible ? 'text' : 'password'}
+                            className="form-control"
+                            placeholder={`ElevenLabs API Key #${idx + 1}...`}
+                            value={acc.apiKey || ''}
+                            onChange={(e) => {
+                              const updated = arr.map((a, i) => i === idx ? { ...a, apiKey: e.target.value } : a);
+                              s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                            }}
+                            onPaste={(e) => {
+                              // Dán cả danh sách key (mỗi dòng 1 key) tạo luôn từng ấy tài khoản —
+                              // gắn cả chục key mà phải bấm "+ Thêm Key" từng cái thì quá cực.
+                              const pasted = e.clipboardData.getData('text');
+                              if (pasted.includes('\n') || pasted.includes(',')) {
+                                e.preventDefault();
+                                const keys = pasted.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+                                const updated = [...arr];
+                                updated.splice(idx, 1, ...keys.map(k => ({ apiKey: k, maleVoiceId: '', femaleVoiceId: '' })));
+                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                              }
+                            }}
+                            style={{
+                              flex: 1, fontSize: '0.82rem', padding: '9px 12px',
+                              background: 'rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '8px', color: '#fff',
+                              fontFamily: s.apiKeyVisible ? 'monospace' : 'inherit'
+                            }}
+                          />
+                          {badge && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: badge.color, background: badge.bg, border: `1px solid ${badge.color}44`, padding: '4px 8px', borderRadius: '6px', whiteSpace: 'nowrap', maxWidth: '190px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {badge.text}
+                            </span>
+                          )}
+                          {arr.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = arr.filter((_, i) => i !== idx);
+                                s.setSettings(prev => ({ ...prev, elevenlabsAccounts: updated }));
+                              }}
+                              style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                              title="Xóa Key này"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Chọn giọng KHÔNG nằm ở đây nữa — đã dời sang "Cấu hình Giọng đọc theo
+                            Nhân vật" (nút 🎙️ ở Bước 1), nơi gán giọng cho từng nhân vật trong kịch
+                            bản. Để cả hai nơi cùng đặt giọng thì không rõ nơi nào thắng. Màn này
+                            giờ chỉ lo đúng một việc: quản lý API Key. */}
+                        {(acc.maleVoiceId || acc.femaleVoiceId) && (
+                          <div style={{ paddingLeft: '38px', fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+                            Giọng cũ đã gán cho key này vẫn được giữ nguyên. Muốn đổi giọng, vào{' '}
+                            <strong style={{ color: 'rgba(255,255,255,0.75)' }}>Cấu hình Giọng đọc theo Nhân vật</strong> ở Bước 1.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '12px 0 0 0', lineHeight: 1.5 }}>
+                  Thứ tự key = thứ tự ưu tiên. Lúc lồng tiếng, hệ thống chọn key còn quota rồi <strong>giữ nguyên key đó</strong> cho các slide sau;
+                  key sai hoặc hết ký tự bị loại khỏi lượt chạy, key chỉ lỗi mạng thoáng qua thì được thử lại. Dán nhiều key cùng lúc (mỗi dòng một key) để thêm hàng loạt.
+                  <br />
+                  Chọn giọng đọc ở <strong>Cấu hình Giọng đọc theo Nhân vật</strong> (nút 🎙️ tại Bước 1) — nơi đó liệt kê sẵn cả giọng dựng sẵn lẫn giọng bạn tự tạo.
+                </p>
+              </div>
+
               {/* Section 3: MongoDB Connection */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.02)',
