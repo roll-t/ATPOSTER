@@ -8,11 +8,10 @@ export default function SidebarNav() {
   const pathname = usePathname();
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState({ geminiApiKey: '', elevenlabsApiKey: '', mongodbUri: '', customUploadsDir: '' });
+  const [settings, setSettings] = useState({ geminiApiKey: '', mongodbUri: '', customUploadsDir: '' });
   const [isSaving, setIsSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
-  const [elApiKeyVisible, setElApiKeyVisible] = useState(false);
 
   const fetchSettings = async () => {
     try {
@@ -21,7 +20,6 @@ export default function SidebarNav() {
       if (data.success && data.settings) {
         setSettings({
           geminiApiKey: data.settings.geminiApiKey || '',
-          elevenlabsApiKey: data.settings.elevenlabsApiKey || '',
           mongodbUri: data.settings.mongodbUri || '',
           customUploadsDir: data.settings.customUploadsDir || ''
         });

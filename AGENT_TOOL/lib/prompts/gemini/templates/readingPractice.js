@@ -12,7 +12,7 @@ const WORDS_PER_SECOND = 2.3;
 
 // Scales the words/second used to size the paragraph, so a "slow" or "fast"
 // readingSpeed choice (see categories.js's reading_practice.readingSpeed —
-// forwarded to ElevenLabs as voice_settings.speed in voiceover/route.js)
+// forwarded to the TTS provider in voiceover/route.js)
 // still produces a paragraph that roughly fills the target duration at that
 // ACTUAL narration pace, instead of always sizing for medium speed and
 // letting slow/fast reads over/undershoot the target length.

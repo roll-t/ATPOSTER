@@ -1,13 +1,10 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 // Offset/Duration mà Microsoft Edge TTS trả về trong metadata WordBoundary dùng đơn vị "tick"
-// kiểu Windows/.NET (100 nano-giây/tick) — quy đổi sang giây bằng cách chia 10 triệu, giống hệt
-// cách deriveWordTimings() ở voiceover/route.js quy đổi mốc thời gian ký tự của ElevenLabs.
+// kiểu Windows/.NET (100 nano-giây/tick) — quy đổi sang giây bằng cách chia 10 triệu.
 const TICKS_PER_SECOND = 1e7;
 
-// Tốc độ đọc -> tham số "rate" dạng phần trăm mà Edge TTS hiểu (vd "-20%", "+20%"). Cùng 3 mức
-// slow/medium/fast đang dùng cho ElevenLabs (xem READING_SPEED_TO_ELEVENLABS ở voiceover/route.js)
-// để 2 nhà cung cấp cho trải nghiệm tương đương khi đổi qua lại.
+// Tốc độ đọc -> tham số "rate" dạng phần trăm mà Edge TTS hiểu (vd "-20%", "+20%").
 const READING_SPEED_TO_EDGE_RATE = { slow: '-20%', medium: '+0%', fast: '+20%' };
 
 // Kết nối WebSocket tới dịch vụ Edge TTS của Microsoft (miễn phí, không chính thức) thỉnh thoảng
@@ -37,7 +34,7 @@ function escapeSsmlText(str) {
 }
 
 // [tag] mở đầu narration (do Gemini tự chèn, xem imageSlideshow.js/moralTalkSlideshow.js) trước
-// đây bị XOÁ HOÀN TOÀN trước khi gửi tới Edge TTS (chỉ dùng để tránh ElevenLabs đọc ra thành lời)
+// đây bị XOÁ HOÀN TOÀN trước khi gửi tới Edge TTS (chỉ dùng để tránh bị đọc ra thành lời)
 // — nghĩa là mọi gợi ý cảm xúc Gemini đã cẩn thận viết ra đều bị bỏ phí, giọng đọc miễn phí luôn
 // đọc đều đều 1 tông từ đầu tới cuối. Giờ chuyển tag sắc thái thành điều chỉnh cao độ/âm lượng
 // <prosody> cho cả câu đó.
@@ -152,8 +149,7 @@ async function synthesizeEdgeTtsOnce({ text, voice, rate }) {
  * Tổng hợp giọng nói bằng Microsoft Edge TTS (miễn phí, không cần API key, không giới hạn ký tự
  * — dùng lại đúng dịch vụ đằng sau tính năng "Đọc to" (Read Aloud) của trình duyệt Edge). Trả về
  * buffer audio (mp3) CÙNG mốc thời gian thật theo từng từ (wordTimings) lấy trực tiếp từ metadata
- * WordBoundary của dịch vụ — không cần ước lượng như hướng fallback của ElevenLabs khi thiếu
- * /with-timestamps, nên karaoke của reading-page-video luôn đồng bộ chính xác với giọng Edge.
+ * WordBoundary của dịch vụ, nên karaoke của reading-page-video luôn đồng bộ chính xác với giọng Edge.
  *
  * Tự động thử lại (không sleep dài, không cần key khác — dịch vụ miễn phí) khi gặp lỗi kết nối
  * WebSocket thoáng qua (xem TRANSIENT_ERROR_RE) trước khi bung lỗi thật ra ngoài.

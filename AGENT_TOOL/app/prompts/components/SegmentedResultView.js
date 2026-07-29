@@ -176,30 +176,6 @@ function AudioWaveformPlayer({
   );
 }
 
-// Vòng tròn hiển thị % ký tự ElevenLabs ĐÃ DÙNG (phần tô màu đầy dần lên theo mức đã dùng,
-// phần xám còn lại là số ký tự chưa dùng tới). Màu đổi xanh -> vàng -> đỏ khi sắp hết quota.
-function QuotaRing({ percent, size = 15 }) {
-  const clamped = Math.max(0, Math.min(100, percent));
-  const strokeWidth = 2.5;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - clamped / 100);
-  const color = clamped < 50 ? '#2ed573' : clamped < 80 ? '#f59e0b' : '#ff4757';
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={strokeWidth} />
-      <circle
-        cx={size / 2} cy={size / 2} r={radius} fill="none"
-        stroke={color} strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 // Thanh tiến độ dùng chung cho cả 3 bước của pipeline, có hiệu ứng vệt sáng lướt khi đang chạy
 // (percent: 0-100, label: chữ hiển thị bên phải thanh, vd "3/12" hoặc "42%")
 function StepProgressBar({ percent, label, color, showShimmer }) {
@@ -1028,10 +1004,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // bytes video CŨ đã tải trước đó thay vì tải lại bản vừa render xong.
   const [videoVersion, setVideoVersion] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
-  // Tốc độ đọc gửi qua ElevenLabs (voice_settings.speed) khi tạo lồng tiếng — đây là NƠI DUY
-  // NHẤT chọn tốc độ đọc (cố tình không lặp lại ở form tạo kịch bản ban đầu nữa, vì 2 chỗ độc
-  // lập dễ lệch trạng thái nhau và gây rối cho người dùng), đổi thoải mái trước khi lồng tiếng
-  // lại mà không cần viết lại kịch bản.
+  // Tốc độ đọc gửi cho nhà cung cấp TTS khi tạo lồng tiếng — đây là NƠI DUY NHẤT chọn tốc độ
+  // đọc (cố tình không lặp lại ở form tạo kịch bản ban đầu nữa, vì 2 chỗ độc lập dễ lệch trạng
+  // thái nhau và gây rối cho người dùng), đổi thoải mái trước khi lồng tiếng lại mà không cần
+  // viết lại kịch bản.
   const [renderReadingSpeed, setRenderReadingSpeed] = useState('medium');
   // reading_practice không có khái niệm "Kiểu phụ đề" để chọn — luôn là kiểu trang giấy
   // karaoke duy nhất (khớp preview 'page' đã có sẵn), chỉ có phần tuỳ chỉnh font/màu/cỡ chữ.
@@ -1580,13 +1556,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [openFolderError, setOpenFolderError] = useState('');
 
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
-  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {} });
+  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'edge', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, favoriteEdgeVoiceIds: [], favoriteVieneuVoiceIds: [] });
   const [vieneuVoices, setVieneuVoices] = useState([]);
   const [loadingVieneuVoices, setLoadingVieneuVoices] = useState(false);
-  // Danh sách giọng thật của các API Key ElevenLabs — đổ vào ô chọn giọng theo nhân vật, thay cho
-  // việc bắt người dùng tự đi copy Voice ID từ trang web ElevenLabs.
-  const [elevenVoices, setElevenVoices] = useState([]);
-  const [loadingElevenVoices, setLoadingElevenVoices] = useState(false);
   const [vieneuConnectionStatus, setVieneuConnectionStatus] = useState(null); // 'connected' | 'error' | null
   // Nhân bản giọng đọc tuỳ chỉnh cho VieNeu-TTS (voice cloning từ 1 file audio mẫu) — xem
   // handleAddVieneuVoice/handleRemoveVieneuVoice bên dưới.
@@ -1594,10 +1566,34 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [newVieneuVoiceFile, setNewVieneuVoiceFile] = useState(null);
   const [isAddingVieneuVoice, setIsAddingVieneuVoice] = useState(false);
   const [addVieneuVoiceMsg, setAddVieneuVoiceMsg] = useState('');
+  const [isStartingVieneuServer, setIsStartingVieneuServer] = useState(false);
+  const [startVieneuServerMsg, setStartVieneuServerMsg] = useState('');
+
+  const handleStartVieneuServer = async () => {
+    setIsStartingVieneuServer(true);
+    setStartVieneuServerMsg('');
+    try {
+      const res = await fetch('/api/prompts/start-vieneu-server', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serverUrl: settings.vieneuServerUrl || 'http://127.0.0.1:8001' })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStartVieneuServerMsg(data.message || '🚀 Đã gửi lệnh khởi chạy VieNeu-TTS Server!');
+        setTimeout(() => {
+          fetchVieneuVoices(settings.vieneuServerUrl);
+        }, 3500);
+      } else {
+        setStartVieneuServerMsg('Lỗi: ' + (data.error || 'Không thể chạy server.'));
+      }
+    } catch (err) {
+      setStartVieneuServerMsg('Lỗi kết nối máy chủ.');
+    } finally {
+      setIsStartingVieneuServer(false);
+    }
+  };
   const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [quota, setQuota] = useState(null);
-  const [loadingQuota, setLoadingQuota] = useState(false);
-  const [quotaError, setQuotaError] = useState('');
   const [activePreviewState, setActivePreviewState] = useState({ key: '', status: 'idle' }); // 'idle' | 'generating' | 'playing'
   const characterPreviewAudioRef = useRef(null);
   const [previewError, setPreviewError] = useState('');
@@ -1606,6 +1602,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Dùng useRef (không phải state) vì đây chỉ là cache nội bộ, không cần re-render khi cập nhật.
   const voicePreviewCacheRef = useRef({});
   const [activeLangTab, setActiveLangTab] = useState({});
+  // Tab lọc giọng đọc theo từng nhân vật: 'favorite' (chỉ hiện giọng đã đánh dấu ⭐ Hay dùng) hoặc
+  // 'other' (toàn bộ giọng còn lại — nơi "quản lý" các giọng chưa đánh dấu, có thể bấm ⭐ để thêm
+  // vào Hay dùng). Không lưu vào DB vì chỉ là trạng thái xem tạm thời của phiên làm việc hiện tại.
+  const [activeVoiceFilterTab, setActiveVoiceFilterTab] = useState({});
 
   const stopVoicePreview = () => {
     if (voicePreviewAudioRef.current) {
@@ -1660,7 +1660,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
-  // Cả 2 chủ đề đều dùng chung quy trình các bước (ElevenLabs giọng -> Google Flow ảnh ->
+  // Cả 2 chủ đề đều dùng chung quy trình các bước (TTS giọng -> Google Flow ảnh ->
   // Remotion render) thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
   const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice;
 
@@ -1778,67 +1778,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       alert('Lỗi kết nối khi ghim mặc định.');
     } finally {
       setIsPinningRenderConfig(false);
-    }
-  };
-
-  const fetchQuota = async () => {
-    if (settings.ttsProvider !== 'elevenlabs') return;
-    setLoadingQuota(true);
-    setQuotaError('');
-    try {
-      const res = await fetch('/api/prompts/voiceover');
-      const data = await res.json();
-      if (res.ok) {
-        setQuota(data);
-      } else {
-        setQuota(null);
-        setQuotaError(data.error || `Không thể tải quota (HTTP ${res.status}).`);
-      }
-    } catch (err) {
-      console.error('Error fetching quota:', err);
-      setQuota(null);
-      setQuotaError('Lỗi kết nối khi tải quota.');
-    } finally {
-      setLoadingQuota(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  /**
-   * Tải danh sách giọng THẬT của các API Key ElevenLabs đang cấu hình, để ô chọn giọng theo nhân
-   * vật đổ ra tên giọng thay vì bắt gõ tay Voice ID.
-   *
-   * Gộp giọng của mọi key về một danh sách và bỏ trùng: một nhân vật chỉ chọn được 1 Voice ID,
-   * trong khi lúc lồng tiếng hệ thống có thể xoay sang key khác — nên hiển thị theo từng key sẽ
-   * gây hiểu nhầm là giọng chỉ chạy với đúng key đó.
-   */
-  const fetchElevenlabsVoices = async () => {
-    setLoadingElevenVoices(true);
-    try {
-      const res = await fetch('/api/prompts/voiceover?all=true');
-      const data = await res.json();
-      if (!res.ok) {
-        setElevenVoices([]);
-        return;
-      }
-      const seen = new Set();
-      const merged = [];
-      for (const acc of data.accounts || []) {
-        for (const v of acc.voices || []) {
-          if (seen.has(v.voiceId)) continue;
-          seen.add(v.voiceId);
-          merged.push(v);
-        }
-      }
-      setElevenVoices(merged);
-    } catch (err) {
-      console.warn('Không tải được danh sách giọng ElevenLabs:', err.message);
-      setElevenVoices([]);
-    } finally {
-      setLoadingElevenVoices(false);
     }
   };
 
@@ -1968,28 +1907,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   }, [showVoiceConfig]);
 
-  // Tự động xoá Voice ID ElevenLabs không hợp lệ (đã bị xoá khỏi tài khoản) để tránh báo lỗi đỏ
-  useEffect(() => {
-    if (!mounted || elevenVoices.length === 0 || !settings.voiceMappings) return;
-    
-    let hasChanges = false;
-    const updatedMappings = { ...settings.voiceMappings };
-    
-    Object.keys(updatedMappings).forEach(charKey => {
-      const savedVoiceId = updatedMappings[charKey];
-      if (savedVoiceId && !elevenVoices.some(v => v.voiceId === savedVoiceId)) {
-        delete updatedMappings[charKey];
-        hasChanges = true;
-      }
-    });
-    
-    if (hasChanges) {
-      setSettings(prev => ({
-        ...prev,
-        voiceMappings: updatedMappings
-      }));
-    }
-  }, [elevenVoices, mounted]);
+
 
   // "Nghe thử" — tạo 1 đoạn mẫu ngắn bằng chính giọng đang cấu hình cho nhân vật `key` và phát
   // ngay trên trình duyệt, không ghi ra đĩa/không đụng project nào.
@@ -2145,7 +2063,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           audioExt: result.input?.audioExt || 'mp3',
           category: result.category,
           readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
-          ttsProvider: settings.ttsProvider || 'elevenlabs',
+          ttsProvider: settings.ttsProvider || 'edge',
           scenes: result.segments.map(seg => ({
             segmentNumber: seg.segmentNumber,
             dialogueOrNarration: seg.dialogueOrNarration
@@ -2153,8 +2071,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         })
       });
 
-      // Lỗi validate trước khi bắt đầu stream (thiếu scenes/folderPath, chưa cấu hình
-      // ElevenLabs...) vẫn trả về JSON thường (status 400), không có res.body dạng NDJSON.
+      // Lỗi validate trước khi bắt đầu stream (thiếu scenes/folderPath...) vẫn trả về JSON
+      // thường (status 400), không có res.body dạng NDJSON.
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
         setVoiceMsg(`Lỗi: ${data.error || 'Không thể tạo âm thanh.'}`);
@@ -2171,7 +2089,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           : '';
         setVoiceMsg(`✓ Đã tạo thành công! Lưu tại: ${doneEvent.targetDirectory}${fallbackNote}`);
         setVoicePreviewVersion(v => v + 1);
-        fetchQuota();
         checkAssets();
         if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
           handleSelectDefaultMusic(resolveAutoBgTrackId());
@@ -2708,7 +2625,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
    * Đọc lại giọng cho ĐÚNG những slide vừa sửa lời kể, ngay sau khi lưu kịch bản.
    *
    * Trước đây lưu xong phải tự nhớ sang Bước 1 bấm "Tạo Giọng Đọc" — nhưng nút đó đọc lại TOÀN BỘ
-   * slide (tốn quota ElevenLabs, và với CapCut là hàng chục request thừa), nên rất dễ bị bỏ quên
+   * slide (với CapCut là hàng chục request thừa), nên rất dễ bị bỏ quên
    * khiến video render ra vẫn còn giọng đọc lời cũ trong khi phụ đề đã là lời mới.
    *
    * Hai cờ gửi kèm giữ cho việc đọc lại đúng phạm vi và đúng giọng:
@@ -2738,7 +2655,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         audioExt: result.input?.audioExt || 'mp3',
         category: result.category,
         readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
-        ttsProvider: settings.ttsProvider || 'elevenlabs',
+        ttsProvider: settings.ttsProvider || 'edge',
         onlyExistingAudio,
         reuseExistingVoice: true,
         scenes
@@ -2761,7 +2678,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
    *
    * Trước đây chỉ có nút "Tạo Giọng Đọc" ở Bước 1, và nó đọc lại TOÀN BỘ slide — một slide bị lỗi
    * (nuốt chữ, đọc sai tên riêng, CapCut trả về bản hỏng) là phải chạy lại cả kịch bản 20-30 slide,
-   * tốn quota ElevenLabs và mất vài phút chỉ để sửa 5 giây audio.
+   * mất vài phút chỉ để sửa 5 giây audio.
    *
    * Dùng lại đúng giọng đã ghi trong manifest của slide đó nên bản đọc mới không bị lạc giọng so
    * với các slide xung quanh — kể cả khi Cấu hình Giọng đọc hiện tại đã đổi sang giọng khác.
@@ -3090,14 +3007,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         title="Cấu hình giọng đọc (Edge / CapCut)"
                         style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
                         onClick={() => {
-                          const opening = !showVoiceConfig;
-                          setShowVoiceConfig(opening);
-                          // Mở bảng khi ĐANG chọn sẵn ElevenLabs thì nạp luôn danh sách giọng,
-                          // để ô chọn có dữ liệu ngay mà không phải bấm qua lại giữa các tab.
-                          if (opening && settings.ttsProvider === 'elevenlabs'
-                            && elevenVoices.length === 0 && !loadingElevenVoices) {
-                            fetchElevenlabsVoices();
-                          }
+                          setShowVoiceConfig(!showVoiceConfig);
                         }}
                         disabled={isGeneratingVoice || isRenderingVideo}
                       >
@@ -3149,7 +3059,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                   {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
                       dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
-                      đọc/nghe. Gửi sang ElevenLabs (voice_settings.speed) khi bấm Tạo Lồng Tiếng. */}
+                      đọc/nghe. Gửi cho nhà cung cấp TTS khi bấm Tạo Lồng Tiếng. */}
                   {isReadingPractice && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🗣️ Tốc độ đọc:</span>
@@ -4065,7 +3975,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               from { transform: translateY(20px); opacity: 0; }
               to { transform: translateY(0); opacity: 1; }
             }
-            @keyframes quota-spin { to { transform: rotate(360deg); } }
             @keyframes voice-pulse {
               0% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.1); border-color: rgba(74, 222, 128, 0.4); }
               50% { box-shadow: 0 0 16px rgba(74, 222, 128, 0.5); border-color: #4ade80; background-color: rgba(74, 222, 128, 0.16); }
@@ -4094,8 +4003,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
-              <span style={{ fontSize: '0.72rem', color: (settings.ttsProvider === 'edge' || settings.ttsProvider === 'vieneu') ? '#4ade80' : '#45f4ee', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {(settings.ttsProvider === 'edge') ? '🆓 Giọng đọc Miễn phí (Edge & CapCut)' : (settings.ttsProvider === 'vieneu') ? '🇻🇳 Giọng VieNeu-TTS (Local)' : (settings.ttsProvider === 'vbee') ? '🇻🇳 Giọng Vbee TTS (Cần Token)' : (settings.ttsProvider === 'fpt') ? '🇻🇳 Giọng Việt FPT.AI (Cần Key)' : '💎 Giọng ElevenLabs (Trả phí)'}
+              <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {(settings.ttsProvider === 'vieneu') ? '🇻🇳 Giọng VieNeu-TTS (Local)' : '🆓 Giọng đọc Miễn phí (Edge & CapCut)'}
               </span>
             </div>
 
@@ -4104,8 +4013,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 {[
                   { id: 'edge', label: '🆓 Edge & CapCut (Miễn phí)' },
-                  { id: 'vieneu', label: '🇻🇳 VieNeu-TTS (Cục bộ)' },
-                  { id: 'elevenlabs', label: '💎 ElevenLabs' }
+                  { id: 'vieneu', label: '🇻🇳 VieNeu-TTS (Cục bộ)' }
                 ].map(p => {
                   const isActive = (settings.ttsProvider || 'edge') === p.id;
                   return (
@@ -4114,11 +4022,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       type="button"
                       onClick={() => {
                         setSettings(prev => ({ ...prev, ttsProvider: p.id }));
-                        // Tải danh sách giọng ngay khi bấm sang tab ElevenLabs (thay vì đặt trong
-                        // useEffect — gọi setState đồng bộ trong effect gây render dây chuyền).
-                        if (p.id === 'elevenlabs' && elevenVoices.length === 0 && !loadingElevenVoices) {
-                          fetchElevenlabsVoices();
-                        }
                       }}
                       style={{
                         padding: '6px 12px',
@@ -4196,10 +4099,36 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     >
                       {loadingVieneuVoices ? '⏳ Checking...' : 'Thử kết nối'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleStartVieneuServer}
+                      disabled={isStartingVieneuServer}
+                      style={{
+                        padding: '8px 14px',
+                        background: 'rgba(46, 213, 115, 0.16)',
+                        border: '1px solid rgba(46, 213, 115, 0.35)',
+                        borderRadius: '6px',
+                        color: '#2ed573',
+                        fontSize: '0.74rem',
+                        cursor: isStartingVieneuServer ? 'wait' : 'pointer',
+                        fontWeight: 700,
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {isStartingVieneuServer ? '⏳ Đang bật...' : '🚀 Khởi chạy Server (start-vieneu-server.bat)'}
+                    </button>
                   </div>
                 </div>
+                {startVieneuServerMsg && (
+                  <div style={{ fontSize: '0.72rem', color: startVieneuServerMsg.startsWith('Lỗi') ? 'var(--danger)' : '#4ade80', fontWeight: 600 }}>
+                    {startVieneuServerMsg}
+                  </div>
+                )}
                 <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.45)' }}>
-                  Đảm bảo đã khởi chạy server Python VieNeu-TTS bằng cách chạy file <code style={{ color: 'var(--secondary)', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>start-vieneu-server.bat</code> ở thư mục dự án.
+                  Bấm nút trên hoặc mở thủ công file <code style={{ color: 'var(--secondary)', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>start-vieneu-server.bat</code> tại thư mục dự án để khởi chạy VieNeu-TTS.
                 </span>
 
                 {/* Nhân bản giọng đọc mới từ 1 file audio mẫu (voice cloning) — VieNeu-TTS hỗ trợ
@@ -4305,13 +4234,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     {activeCharacters.map(char => {
                       const isEdge = (settings.ttsProvider || 'edge') === 'edge';
                       const isVieneu = settings.ttsProvider === 'vieneu';
-                      const isEleven = settings.ttsProvider === 'elevenlabs';
 
                       const currentVal = isEdge
                         ? (settings.edgeVoiceMappings?.[char.key] || char.defaultVoice)
-                        : isVieneu
-                          ? (settings.vieneuVoiceMappings?.[char.key] || (char.gender.includes('Nam') ? 'Phạm Tuyên' : 'Trúc Ly'))
-                          : (settings.voiceMappings?.[char.key] || (char.gender.includes('Nam') ? 'wJSBXsvChUQrylZvDzav' : '4IQqf6fVNeEFbqnSbVxb'));
+                        : (settings.vieneuVoiceMappings?.[char.key] || (char.gender.includes('Nam') ? 'Phạm Tuyên' : 'Trúc Ly'));
 
                       return (
                         <div
@@ -4359,8 +4285,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 Chọn giọng đọc cho {char.name}:
                               </span>
 
-                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS & ElevenLabs) */}
-                              {(isEdge || isEleven) && (
+                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS) */}
+                              {isEdge && (
                                 <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                   {[
                                     { code: 'vi', label: '🇻🇳 Tiếng Việt' },
@@ -4394,14 +4320,74 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               )}
                             </div>
 
+                            {/* Tab lọc ⭐ Hay dùng / 🗂️ Khác — thu gọn danh sách giọng để dễ chọn hơn
+                                khi catalog có nhiều giọng. "Khác" là nơi "quản lý" các giọng chưa
+                                đánh dấu: bấm ⭐ trên 1 giọng ở đây để đưa nó vào Hay dùng. */}
+                            {(isEdge || isVieneu) && (() => {
+                              const favField = isEdge ? 'favoriteEdgeVoiceIds' : 'favoriteVieneuVoiceIds';
+                              const favIds = settings[favField] || [];
+                              const defaultFilterTab = favIds.length > 0 ? 'favorite' : 'other';
+                              const activeFilterTab = activeVoiceFilterTab[char.key] || defaultFilterTab;
+                              return (
+                                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
+                                  {[
+                                    { code: 'favorite', label: `⭐ Hay dùng${favIds.length ? ` (${favIds.length})` : ''}` },
+                                    { code: 'other', label: '🗂️ Khác' }
+                                  ].map(filterTab => {
+                                    const isTabActive = activeFilterTab === filterTab.code;
+                                    return (
+                                      <button
+                                        key={filterTab.code}
+                                        type="button"
+                                        onClick={() => setActiveVoiceFilterTab(prev => ({ ...prev, [char.key]: filterTab.code }))}
+                                        style={{
+                                          padding: '4px 10px',
+                                          fontSize: '0.72rem',
+                                          fontWeight: 700,
+                                          borderRadius: '6px',
+                                          border: 'none',
+                                          background: isTabActive ? 'rgba(250, 204, 21, 0.16)' : 'transparent',
+                                          color: isTabActive ? '#facc15' : 'rgba(255,255,255,0.5)',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        {filterTab.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+
                             {/* Lưới chọn giọng đọc trực quan cho Edge hoặc VieNeu-TTS */}
                             {(isEdge || isVieneu) && (
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
                                   const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
-                                  const voiceList = isEdge
+                                  const favField = isEdge ? 'favoriteEdgeVoiceIds' : 'favoriteVieneuVoiceIds';
+                                  const favIds = settings[favField] || [];
+                                  const defaultFilterTab = favIds.length > 0 ? 'favorite' : 'other';
+                                  const activeFilterTab = activeVoiceFilterTab[char.key] || defaultFilterTab;
+
+                                  const toggleFavoriteVoice = (voiceId) => {
+                                    setSettings(prev => {
+                                      const cur = prev[favField] || [];
+                                      const next = cur.includes(voiceId) ? cur.filter(id => id !== voiceId) : [...cur, voiceId];
+                                      return { ...prev, [favField]: next };
+                                    });
+                                  };
+
+                                  const fullVoiceList = isEdge
                                     ? EDGE_TTS_VOICES.filter(v => activeTabVal === 'vi' ? v.category === 'vi' : v.category !== 'vi')
                                     : vieneuVoices;
+                                  // Giọng đang được chọn (currentVal) luôn hiện trong danh sách dù không khớp tab lọc,
+                                  // để không "biến mất" chính giọng đang dùng chỉ vì nó chưa được đánh dấu Hay dùng.
+                                  const voiceList = fullVoiceList.filter(v => {
+                                    if (v.id === currentVal) return true;
+                                    const isFav = favIds.includes(v.id);
+                                    return activeFilterTab === 'favorite' ? isFav : !isFav;
+                                  });
 
                                   const isAnyActive = activePreviewState.status !== 'idle';
 
@@ -4499,6 +4485,34 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                                         <button
                                           type="button"
+                                          title={favIds.includes(v.id) ? `Bỏ "${cleanName}" khỏi Hay dùng` : `Thêm "${cleanName}" vào Hay dùng`}
+                                          disabled={isDisabled}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFavoriteVoice(v.id);
+                                          }}
+                                          style={{
+                                            flexShrink: 0,
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '6px',
+                                            border: favIds.includes(v.id) ? '1px solid rgba(250, 204, 21, 0.4)' : '1px solid rgba(255,255,255,0.15)',
+                                            background: favIds.includes(v.id) ? 'rgba(250, 204, 21, 0.16)' : 'rgba(255,255,255,0.04)',
+                                            color: favIds.includes(v.id) ? '#facc15' : 'rgba(255,255,255,0.35)',
+                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                            opacity: isDisabled ? 0.35 : 1,
+                                            fontSize: '0.85rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s ease'
+                                          }}
+                                        >
+                                          {favIds.includes(v.id) ? '⭐' : '☆'}
+                                        </button>
+
+                                        <button
+                                          type="button"
                                           title={isPlaying ? `Dừng nghe thử` : `Nghe thử giọng ${cleanName}`}
                                           disabled={isDisabled}
                                           onClick={(e) => {
@@ -4570,180 +4584,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               </div>
                             )}
 
-                            {/* Chọn giọng ElevenLabs từ danh sách thật của tài khoản — thiết kế dạng lưới
-                                chọn trực quan giống Edge & VieNeu-TTS. */}
-                            {isEleven && (() => {
-                              const own = elevenVoices.filter(v => v.category !== 'premade');
-                              const premade = elevenVoices.filter(v => v.category === 'premade');
-                              const explicitVal = settings.voiceMappings?.[char.key];
-                              const isMissing = explicitVal && elevenVoices.length > 0
-                                && !elevenVoices.some(v => v.voiceId === explicitVal);
 
-                              const isVietnameseVoice = (v) => {
-                                const name = (v.name || '').toLowerCase();
-                                const accent = (v.accent || '').toLowerCase();
-                                const hasViChars = /[đáàảãạíìỉĩịúùủũụéèẻẽẹóòỏõọýỳỷỹỵâăêôơư]/i.test(v.name || '');
-                                return accent.includes('vietnamese') || hasViChars || v.category !== 'premade';
-                              };
-
-                              const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
-                              
-                              const filteredOwn = own.filter(v => activeTabVal === 'vi' ? isVietnameseVoice(v) : !isVietnameseVoice(v));
-                              const filteredPremade = premade.filter(v => activeTabVal === 'vi' ? isVietnameseVoice(v) : !isVietnameseVoice(v));
-
-                              const renderVoiceGrid = (voiceList, title) => {
-                                if (voiceList.length === 0) return null;
-                                const isAnyActive = activePreviewState.status !== 'idle';
-
-                                return (
-                                  <div style={{ marginBottom: '16px' }}>
-                                    <span style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
-                                      {title}
-                                    </span>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
-                                      {voiceList.map(v => {
-                                        const isSelected = currentVal === v.voiceId;
-                                        const key = `${char.key}_${v.voiceId}`;
-                                        const isCurrentActive = activePreviewState.key === key;
-                                        const isGenerating = isCurrentActive && activePreviewState.status === 'generating';
-                                        const isPlaying = isCurrentActive && activePreviewState.status === 'playing';
-                                        const isDisabled = isAnyActive && !isCurrentActive;
-
-                                        const icon = '🎙️';
-                                        const cleanName = v.name || 'Unnamed';
-                                        const gender = v.gender || 'Chọn';
-                                        const description = `${v.category || 'ElevenLabs'}${v.accent ? ` • ${v.accent}` : ''}`;
-
-                                        let borderStyle = isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)';
-                                        let backgroundStyle = isSelected ? 'rgba(37, 244, 238, 0.14)' : 'rgba(255, 255, 255, 0.02)';
-                                        let shadowStyle = isSelected ? '0 2px 12px rgba(37, 244, 238, 0.2)' : 'none';
-                                        let animationStyle = 'none';
-                                        let opacityVal = 1;
-
-                                        if (isAnyActive) {
-                                          if (isCurrentActive) {
-                                            opacityVal = 1;
-                                            if (isPlaying) {
-                                              borderStyle = '1.5px solid #4ade80';
-                                              backgroundStyle = 'rgba(74, 222, 128, 0.15)';
-                                              shadowStyle = '0 0 16px rgba(74, 222, 128, 0.4)';
-                                              animationStyle = 'voice-pulse 1.5s infinite ease-in-out';
-                                            } else if (isGenerating) {
-                                              borderStyle = '1.5px solid var(--secondary)';
-                                              backgroundStyle = 'rgba(37, 244, 238, 0.15)';
-                                              shadowStyle = '0 0 16px rgba(37, 244, 238, 0.4)';
-                                              animationStyle = 'generating-pulse 1.5s infinite ease-in-out';
-                                            }
-                                          } else if (isSelected) {
-                                            opacityVal = 0.8;
-                                          } else {
-                                            opacityVal = 0.35;
-                                          }
-                                        }
-
-                                        return (
-                                          <div
-                                            key={v.voiceId}
-                                            onClick={() => {
-                                              if (isAnyActive) return;
-                                              setSettings(prev => ({
-                                                ...prev,
-                                                voiceMappings: { ...prev.voiceMappings, [char.key]: v.voiceId }
-                                              }));
-                                            }}
-                                            style={{
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'space-between',
-                                              gap: '8px',
-                                              padding: '9px 12px',
-                                              borderRadius: '10px',
-                                              border: borderStyle,
-                                              background: backgroundStyle,
-                                              boxShadow: shadowStyle,
-                                              cursor: isAnyActive ? 'not-allowed' : 'pointer',
-                                              userSelect: 'none',
-                                              transition: 'all 0.2s ease',
-                                              opacity: opacityVal,
-                                              animation: animationStyle
-                                            }}
-                                          >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                                              <span style={{ fontSize: '1.15rem', flexShrink: 0 }}>{icon}</span>
-                                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                  {cleanName} {isSelected && '✓'}
-                                                </span>
-                                                <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                  {gender} • {description}
-                                                </span>
-                                              </div>
-                                            </div>
-
-                                            <button
-                                              type="button"
-                                              title={isPlaying ? `Dừng nghe thử` : `Nghe thử giọng ${cleanName}`}
-                                              disabled={isDisabled}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (isPlaying) {
-                                                  if (characterPreviewAudioRef.current) {
-                                                    characterPreviewAudioRef.current.pause();
-                                                    characterPreviewAudioRef.current = null;
-                                                  }
-                                                  setActivePreviewState({ key: '', status: 'idle' });
-                                                } else {
-                                                  handlePreviewVoice('elevenlabs', v.voiceId, key);
-                                                }
-                                              }}
-                                              style={{
-                                                flexShrink: 0,
-                                                width: '28px',
-                                                height: '28px',
-                                                borderRadius: '6px',
-                                                border: '1px solid rgba(255,255,255,0.15)',
-                                                background: isGenerating ? 'rgba(255,255,255,0.2)' : isPlaying ? 'rgba(74, 222, 128, 0.25)' : 'rgba(37, 244, 238, 0.15)',
-                                                color: isPlaying ? '#4ade80' : 'var(--secondary)',
-                                                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                                opacity: isDisabled ? 0.35 : 1,
-                                                fontSize: '0.75rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                transition: 'all 0.2s ease'
-                                              }}
-                                            >
-                                              {isGenerating ? '⏳' : isPlaying ? '⏹️' : '🔊'}
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              };
-
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                  {isMissing && (
-                                    <div style={{ padding: '10px 12px', background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '0.74rem' }}>
-                                      ⚠️ ID cũ không còn tồn tại: {explicitVal} (hãy chọn lại giọng khác bên dưới để tránh lỗi lồng tiếng).
-                                    </div>
-                                  )}
-                                  
-                                  {loadingElevenVoices ? (
-                                    <span style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.5)' }}>⏳ Đang tải danh sách giọng ElevenLabs...</span>
-                                  ) : elevenVoices.length === 0 ? (
-                                    <span style={{ fontSize: '0.76rem', color: '#ff6b6b' }}>— Chưa tải được giọng, hãy kiểm tra API Key ở Cài đặt hệ thống —</span>
-                                  ) : (
-                                    <>
-                                      {renderVoiceGrid(filteredOwn, 'Giọng của bạn')}
-                                      {renderVoiceGrid(filteredPremade, 'Giọng dựng sẵn ElevenLabs')}
-                                    </>
-                                  )}
-                                </div>
-                              );
-                            })()}
                           </div>
                         </div>
                       );
@@ -4766,13 +4607,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         geminiApiKey: settings.geminiApiKey,
-                        elevenlabsApiKey: settings.elevenlabsApiKey,
                         mongodbUri: settings.mongodbUri,
                         voiceMappings: settings.voiceMappings,
                         ttsProvider: settings.ttsProvider || 'edge',
                         edgeVoiceMappings: settings.edgeVoiceMappings || {},
                         vieneuServerUrl: settings.vieneuServerUrl || 'http://127.0.0.1:8001',
-                        vieneuVoiceMappings: settings.vieneuVoiceMappings || {}
+                        vieneuVoiceMappings: settings.vieneuVoiceMappings || {},
+                        favoriteEdgeVoiceIds: settings.favoriteEdgeVoiceIds || [],
+                        favoriteVieneuVoiceIds: settings.favoriteVieneuVoiceIds || []
                       })
                     });
                     if (res.ok) {

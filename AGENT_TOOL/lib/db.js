@@ -284,16 +284,19 @@ export function readDb() {
       if (settings) {
         global.customUploadsDir = settings.customUploadsDir || '';
         global.geminiApiKey = settings.geminiApiKey || '';
-        global.elevenlabsApiKey = settings.elevenlabsApiKey || '';
-        global.elevenlabsAccounts = settings.elevenlabsAccounts || [];
         global.voiceMappings = settings.voiceMappings || {};
-        // Nhà cung cấp lồng tiếng đang chọn ('elevenlabs' | 'edge') và bảng ánh xạ nhân vật ->
+        // Nhà cung cấp lồng tiếng đang chọn ('edge' | 'vieneu') và bảng ánh xạ nhân vật ->
         // giọng Edge TTS (miễn phí) — cùng khuôn với voiceMappings ở trên nhưng dùng ShortName
-        // của Microsoft Edge TTS (vd "en-US-AriaNeural") thay vì Voice ID của ElevenLabs.
-        global.ttsProvider = settings.ttsProvider || 'elevenlabs';
+        // của Microsoft Edge TTS (vd "en-US-AriaNeural").
+        global.ttsProvider = (settings.ttsProvider === 'elevenlabs' || !settings.ttsProvider) ? 'edge' : settings.ttsProvider;
         global.edgeVoiceMappings = settings.edgeVoiceMappings || {};
         global.vieneuServerUrl = settings.vieneuServerUrl || 'http://127.0.0.1:8001';
         global.vieneuVoiceMappings = settings.vieneuVoiceMappings || {};
+        // Danh sách ID giọng đọc người dùng đánh dấu ⭐ "Hay dùng" (xem tab lọc Hay dùng/Khác ở
+        // modal Cấu hình Giọng đọc trong SegmentedResultView.js) — riêng cho từng nhà cung cấp vì
+        // Edge và VieNeu-TTS dùng 2 bộ ID giọng hoàn toàn khác nhau.
+        global.favoriteEdgeVoiceIds = Array.isArray(settings.favoriteEdgeVoiceIds) ? settings.favoriteEdgeVoiceIds : [];
+        global.favoriteVieneuVoiceIds = Array.isArray(settings.favoriteVieneuVoiceIds) ? settings.favoriteVieneuVoiceIds : [];
         // "Ghim mặc định" ở modal Cấu hình kiểu render (SegmentedResultView.js) — kiểu phụ đề /
         // kiểu chuyển cảnh / song ngữ được ghim làm mặc định cho MỌI kịch bản slideshow tiếp
         // theo (áp dụng lúc mở modal, xem fetchSettings() trong SegmentedResultView.js), khác
@@ -316,13 +319,13 @@ export function readDb() {
       } else {
         global.customUploadsDir = '';
         global.geminiApiKey = '';
-        global.elevenlabsApiKey = '';
-        global.elevenlabsAccounts = [];
         global.voiceMappings = {};
-        global.ttsProvider = 'elevenlabs';
+        global.ttsProvider = 'edge';
         global.edgeVoiceMappings = {};
         global.vieneuServerUrl = 'http://127.0.0.1:8001';
         global.vieneuVoiceMappings = {};
+        global.favoriteEdgeVoiceIds = [];
+        global.favoriteVieneuVoiceIds = [];
         global.defaultCaptionStyle = '';
         global.defaultTransitionStyle = '';
         global.defaultBilingual = undefined;
@@ -341,13 +344,13 @@ export function readDb() {
         settings: {
           customUploadsDir: global.customUploadsDir || '',
           geminiApiKey: global.geminiApiKey || '',
-          elevenlabsApiKey: global.elevenlabsApiKey || '',
-          elevenlabsAccounts: global.elevenlabsAccounts || [],
           voiceMappings: global.voiceMappings || {},
-          ttsProvider: global.ttsProvider || 'elevenlabs',
+          ttsProvider: global.ttsProvider || 'edge',
           edgeVoiceMappings: global.edgeVoiceMappings || {},
           vieneuServerUrl: global.vieneuServerUrl || 'http://127.0.0.1:8001',
           vieneuVoiceMappings: global.vieneuVoiceMappings || {},
+          favoriteEdgeVoiceIds: global.favoriteEdgeVoiceIds || [],
+          favoriteVieneuVoiceIds: global.favoriteVieneuVoiceIds || [],
           defaultCaptionStyle: global.defaultCaptionStyle || '',
           defaultTransitionStyle: global.defaultTransitionStyle || '',
           defaultBilingual: global.defaultBilingual,
@@ -362,7 +365,7 @@ export function readDb() {
       return currentData;
     } catch (error) {
       console.error('Lỗi đọc database:', error);
-      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', elevenlabsApiKey: '', elevenlabsAccounts: [], voiceMappings: {}, ttsProvider: 'elevenlabs', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined, defaultBgMusicEnabled: undefined, defaultBgMusicVolume: '', defaultBgMusicTrackId: '', readingPracticeConfig: null } };
+      return global.cachedDb || { ...DEFAULT_DB, settings: { customUploadsDir: '', geminiApiKey: '', voiceMappings: {}, ttsProvider: 'edge', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, favoriteEdgeVoiceIds: [], favoriteVieneuVoiceIds: [], defaultCaptionStyle: '', defaultTransitionStyle: '', defaultBilingual: undefined, defaultBgMusicEnabled: undefined, defaultBgMusicVolume: '', defaultBgMusicTrackId: '', readingPracticeConfig: null } };
     }
   });
 }
@@ -393,13 +396,13 @@ export function writeDb(data) {
             $set: { 
               customUploadsDir: data.settings.customUploadsDir || '',
               geminiApiKey: data.settings.geminiApiKey || '',
-              elevenlabsApiKey: data.settings.elevenlabsApiKey || '',
-              elevenlabsAccounts: data.settings.elevenlabsAccounts || [],
               voiceMappings: data.settings.voiceMappings || {},
-              ttsProvider: data.settings.ttsProvider || 'elevenlabs',
+              ttsProvider: (data.settings.ttsProvider === 'elevenlabs' || !data.settings.ttsProvider) ? 'edge' : data.settings.ttsProvider,
               edgeVoiceMappings: data.settings.edgeVoiceMappings || {},
               vieneuServerUrl: data.settings.vieneuServerUrl || 'http://127.0.0.1:8001',
               vieneuVoiceMappings: data.settings.vieneuVoiceMappings || {},
+              favoriteEdgeVoiceIds: Array.isArray(data.settings.favoriteEdgeVoiceIds) ? data.settings.favoriteEdgeVoiceIds : [],
+              favoriteVieneuVoiceIds: Array.isArray(data.settings.favoriteVieneuVoiceIds) ? data.settings.favoriteVieneuVoiceIds : [],
               defaultCaptionStyle: data.settings.defaultCaptionStyle || '',
               defaultTransitionStyle: data.settings.defaultTransitionStyle || '',
               defaultBilingual: typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : null,
@@ -413,13 +416,13 @@ export function writeDb(data) {
         );
         global.customUploadsDir = data.settings.customUploadsDir || '';
         global.geminiApiKey = data.settings.geminiApiKey || '';
-        global.elevenlabsApiKey = data.settings.elevenlabsApiKey || '';
-        global.elevenlabsAccounts = data.settings.elevenlabsAccounts || [];
         global.voiceMappings = data.settings.voiceMappings || {};
-        global.ttsProvider = data.settings.ttsProvider || 'elevenlabs';
+        global.ttsProvider = (data.settings.ttsProvider === 'elevenlabs' || !data.settings.ttsProvider) ? 'edge' : data.settings.ttsProvider;
         global.edgeVoiceMappings = data.settings.edgeVoiceMappings || {};
         global.vieneuServerUrl = data.settings.vieneuServerUrl || 'http://127.0.0.1:8001';
         global.vieneuVoiceMappings = data.settings.vieneuVoiceMappings || {};
+        global.favoriteEdgeVoiceIds = Array.isArray(data.settings.favoriteEdgeVoiceIds) ? data.settings.favoriteEdgeVoiceIds : [];
+        global.favoriteVieneuVoiceIds = Array.isArray(data.settings.favoriteVieneuVoiceIds) ? data.settings.favoriteVieneuVoiceIds : [];
         global.defaultBgMusicEnabled = typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : undefined;
         global.defaultBgMusicVolume = data.settings.defaultBgMusicVolume || '';
         global.defaultBgMusicTrackId = data.settings.defaultBgMusicTrackId || '';
