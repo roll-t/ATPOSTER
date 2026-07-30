@@ -7,6 +7,7 @@ import LayoutPicker from './LayoutPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
+import { MORAL_THEMES, DEFAULT_MORAL_THEME, getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
 
@@ -79,16 +80,15 @@ function LevelPicker({ field, value, onChange }) {
 }
 
 function MoralThemePicker({ value, onChange }) {
-  const options = [
-    { value: 'self_help', label: 'Self-Help', sublabel: 'Động lực & Kỷ luật', icon: '💪' },
-    { value: 'top_lists', label: 'Top Những Thứ', sublabel: 'Cảnh báo & Mẹo', icon: '📌' },
-    { value: 'rules_of_life', label: 'Quy Tắc Ứng Xử', sublabel: 'Giao tiếp & Kỹ năng', icon: '🤝' }
-  ];
+  // Đọc từ registry (moralThemes.js) thay vì chép tay — xem chú thích ở file đó.
+  const options = MORAL_THEMES.map(t => ({ value: t.key, label: t.label, sublabel: t.sub, icon: t.icon }));
 
-  const currentVal = value || 'self_help';
+  const currentVal = value || DEFAULT_MORAL_THEME;
 
+  // auto-fill thay cho repeat(3, 1fr) cố định: số nhóm chủ đề giờ do registry quyết định (9 nhóm),
+  // khoá cứng 3 cột sẽ bóp mỗi thẻ xuống quá hẹp để đọc được nhãn.
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
       {options.map(opt => {
         const isSelected = currentVal === opt.value;
         return (
@@ -149,6 +149,22 @@ export default function ContentForm({
       .map(item => (item.input?.scenario || item.title || '').trim().toLowerCase())
       .filter(Boolean)
   );
+
+  // Mốc "video dài" (4-6/6-8/8-10 phút) chỉ hợp lệ cho moral_talk_slideshow + Dạng ngang 16:9 (xem
+  // <optgroup> "🎬 Video dài" bên dưới). durationRange là state DÙNG CHUNG cho mọi category video
+  // (không tự reset khi đổi category/tỉ lệ khung hình) — nên nếu người dùng chọn "8-10 phút" rồi
+  // đổi sang category khác hoặc đổi về Dạng dọc 9:16 mà không có gì clear lại, ô chọn sẽ giữ một
+  // giá trị KHÔNG còn <option> nào khớp (mất khỏi danh sách hiển thị) trong khi state ngầm vẫn là
+  // '8_10m' — Gemini vẫn âm thầm nhận đúng durationRange đó và viết kịch bản 8-10 phút dù người
+  // dùng tưởng đang ở chế độ mặc định. Reset về 'under_1m' ngay khi rời khỏi phạm vi hợp lệ.
+  const currentAspectRatio = currentInput['aspectRatio'];
+  useEffect(() => {
+    const isLongTier = ['4_6m', '6_8m', '8_10m'].includes(durationRange);
+    const isValidForLongTier = activeCategory === 'moral_talk_slideshow' && currentAspectRatio === '16:9';
+    if (isLongTier && !isValidForLongTier) {
+      setDurationRange('under_1m');
+    }
+  }, [activeCategory, currentAspectRatio]);
 
   // Reset suggestions for moral_talk_slideshow when theme changes
   useEffect(() => {
@@ -367,7 +383,25 @@ export default function ContentForm({
                 <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
                 <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
                 <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                {/* Mốc "video dài" — chỉ dành cho skill Nói Chuyện Đạo Lý ở Dạng ngang 16:9 (video
+                    YouTube dài hơi thật sự, không phải short dọc). Giới hạn phạm vi vì: (1) thang
+                    bố cục pictogram của khung dọc 9:16 được thiết kế để đơn giản/đọc nhanh trên
+                    điện thoại — 8-10 phút phụ đề dồn dập trên khung dọc không hợp; (2) các category
+                    khác dùng chung state durationRange này chưa được rà lại pacing/prompt cho thời
+                    lượng này. Mở rộng cho category/tỉ lệ khác cần rà riêng, không nên bật đại trà. */}
+                {activeCategory === 'moral_talk_slideshow' && currentInput['aspectRatio'] === '16:9' && (
+                  <optgroup label="🎬 Video dài (YouTube ngang)">
+                    <option value="4_6m">Từ 4 - 6 phút (28 - 40 slide pictogram)</option>
+                    <option value="6_8m">Từ 6 - 8 phút (38 - 54 slide pictogram)</option>
+                    <option value="8_10m">Từ 8 - 10 phút (48 - 68 slide pictogram)</option>
+                  </optgroup>
+                )}
               </select>
+              {['4_6m', '6_8m', '8_10m'].includes(durationRange) && (
+                <span style={{ display: 'block', marginTop: '6px', fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  Video càng dài càng cần nhiều ảnh minh hoạ + giọng đọc hơn — kịch bản có thể mất nhiều thời gian hơn để Gemini viết xong, và khâu sinh ảnh/lồng tiếng sau đó cũng lâu hơn tương ứng.
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -417,7 +451,7 @@ export default function ContentForm({
                   >
                     {activeCategory === 'reading_practice'
                       ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                      : `📚 Lộ trình 50 chủ đề (${(currentInput.moralTheme === 'self_help' ? 'Self-help' : currentInput.moralTheme === 'top_lists' ? 'Top những thứ' : 'Quy tắc ứng xử')})`
+                      : `📚 Lộ trình 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
                     }
                   </button>
                 )}
@@ -591,7 +625,7 @@ export default function ContentForm({
                     >
                       {activeCategory === 'reading_practice'
                         ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                        : `📚 Xem danh sách 50 chủ đề (${(currentInput.moralTheme === 'self_help' ? 'Self-help' : currentInput.moralTheme === 'top_lists' ? 'Top những thứ' : 'Quy tắc ứng xử')})`
+                        : `📚 Xem danh sách 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
                       }
                     </button>
                   )}

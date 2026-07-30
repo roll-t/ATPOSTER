@@ -93,11 +93,22 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
   // khắc đang kể (đúng tinh thần bộ icon "Human Pictogram" tham chiếu).
   if (categoryKey === 'moral_talk_slideshow') {
     const selectedAspectRatio = input.aspectRatio || '9:16';
+    const isLandscape = selectedAspectRatio === '16:9';
     const visualStyle = 'Minimalist glowing white pictogram icon style on a solid pure black background. Simple flat white human-silhouette figures (no facial detail, no outline stroke, solid white fill) with a soft white outer glow/bloom, exactly like professional pictogram icon sets used in presentations. Include simple symbolic prop icons in the same white-glow style when needed (question marks, exclamation marks, speech bubbles, hearts, arrows, luggage, flags) to reinforce the moment being narrated. No text, no color, no shading detail, no background scenery — pure black background with only the glowing white silhouette figures and props, centered composition, generous negative space.';
     const background = 'Solid pure black background, no scenery, no props other than simple white-glow symbolic icons that directly support the moment.';
     const colorPalette = ['#000000 (background)', '#FFFFFF (glowing pictogram figures/icons)'];
     const paletteList = colorPalette.join(', ');
     const sceneRenderNote = 'This is a single static symbolic pictogram frame (NOT a character reference sheet, NOT a hand-drawn illustration) — depict only simple glowing white silhouette figures/icons on solid black, exactly like a professional pictogram icon set, with no labeled callouts, no arrows-as-annotations, no text of any kind anywhere in the image.';
+
+    // Chỉ dẫn bố cục cho khung 16:9 (video dài) được ghim THẲNG vào prompt ảnh cuối cùng, không chỉ
+    // nằm trong prompt sinh kịch bản gửi Gemini (xem moralTalkSlideshow.js) — vì visualDescription
+    // của các slide ĐÃ TỪNG được tạo trước khi có bản cập nhật này vẫn còn mỏng/đơn giản, và người
+    // dùng có thể bấm "Copy Prompt Ảnh" hoặc "Đẩy sang Google Flow" lại cho các slide cũ đó bất cứ
+    // lúc nào. Ghim ở đây đảm bảo MỌI lần lấy prompt ảnh (mới lẫn cũ) đều đủ giàu bố cục, không phụ
+    // thuộc việc visualDescription cụ thể của slide có được viết chi tiết hay không.
+    const landscapeCompositionNote = isLandscape
+      ? 'IMPORTANT composition note for this WIDE 16:9 frame: do not render a single small figure floating alone in mostly-empty space — that looks thin and unfinished on a wide frame. Anchor the main pictogram figure/grouping to one side of the frame, and add a second symbolic element on the opposite side (a supporting figure, or a simple glowing-outline environmental prop in the exact same white monoline style, e.g. a doorway, bench, staircase, signpost, or horizon line) that relates directly to the scene, to fill the width with a balanced, narrative composition — while keeping the total look sparse (2-3 symbolic elements max) with generous negative space, never cluttered.'
+      : '';
 
     return segments.map(seg => {
       const jsonPrompt = {
@@ -109,7 +120,8 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
           visual_style: visualStyle,
           background,
           color_palette: colorPalette,
-          render_note: sceneRenderNote
+          render_note: sceneRenderNote,
+          ...(landscapeCompositionNote ? { composition_note: landscapeCompositionNote } : {})
         },
         scene: {
           setting: seg.visualDescription
@@ -125,6 +137,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       const textPrompt = [
         `${visualStyle}`,
         `Scene description: ${seg.visualDescription}.`,
+        landscapeCompositionNote,
         `Background setting: ${background}`,
         `Color palette: ${paletteList}.`,
         `${sceneRenderNote}`,

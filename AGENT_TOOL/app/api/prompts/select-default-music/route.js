@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { resolveProjectDir } from '@/lib/remotionPaths';
+import { getMongoClientDb } from '@/lib/db.js';
 
 // Đuôi file nhạc nền được chấp nhận khi người dùng tự tải lên — chặn việc đặt tên file kiểu
 // "bg-music.exe" rồi ghi bừa vào thư mục project.
@@ -103,7 +104,37 @@ export async function POST(req) {
       });
     }
 
-    // --- Nhánh 2: chọn 1 bản trong kho nhạc mặc định của hệ thống -------------------------------
+    // --- Nhánh 2: chọn lại 1 bản trong Thư viện nhạc đã từng tải lên (bg-music-library/route.js) -
+    // trackId của các bản này luôn có tiền tố "lib_" (xem BgMusicLibrary POST) — chặn ở đây TRƯỚC
+    // khi rơi xuống nhánh 3 (kho hệ thống), vì "lib_xxx" cũng khớp regex path-traversal của nhánh 3
+    // nhưng sẽ không tìm thấy file tương ứng trong public/default-bg-music và báo nhầm lỗi 404.
+    if (trackId && trackId.startsWith('lib_')) {
+      const libDb = await getMongoClientDb();
+      const libItem = await libDb.collection('bgMusicLibrary').findOne({ id: trackId });
+      if (!libItem) {
+        return NextResponse.json({ success: false, error: 'Không tìm thấy bản nhạc này trong thư viện (có thể đã bị xoá).' }, { status: 404 });
+      }
+
+      const librarySource = path.join(process.cwd(), 'public', 'custom-bg-music', libItem.filename);
+      if (!fs.existsSync(librarySource)) {
+        return NextResponse.json({ success: false, error: 'Tệp nhạc trong thư viện bị thiếu trên đĩa.' }, { status: 404 });
+      }
+
+      clearExistingBgMusic(audioDir);
+      const destFilename = `bg-music.${libItem.ext}`;
+      fs.copyFileSync(librarySource, path.join(audioDir, destFilename));
+      updateManifestBgMusic(targetDir, `audio/${destFilename}`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã áp dụng "${libItem.name}" từ thư viện nhạc đã tải lên`,
+        trackId,
+        file: `audio/${destFilename}`,
+        filename: destFilename
+      });
+    }
+
+    // --- Nhánh 3: chọn 1 bản trong kho nhạc mặc định của hệ thống -------------------------------
     // Chặn path traversal: trackId đi thẳng vào tên file nguồn.
     if (!/^[a-zA-Z0-9_-]+$/.test(trackId)) {
       return NextResponse.json({ success: false, error: 'trackId không hợp lệ' }, { status: 400 });

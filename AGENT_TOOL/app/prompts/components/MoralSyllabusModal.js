@@ -3,12 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
+import { MORAL_THEMES } from '@/lib/prompts/moralThemes.js';
 
-const THEME_TABS = [
-  { key: 'self_help', label: 'Self-Help', sub: 'Động lực & Kỷ luật', icon: '💪' },
-  { key: 'top_lists', label: 'Top Những Thứ', sub: 'Cảnh báo & Mẹo', icon: '📌' },
-  { key: 'rules_of_life', label: 'Quy Tắc Ứng Xử', sub: 'Giao tiếp & Kỹ năng', icon: '🤝' }
-];
+// Nguồn duy nhất: moralThemes.js — thêm 1 nhóm chủ đề ở đó là tab ở đây tự có, không phải nhớ
+// sửa thêm chỗ nào.
+const THEME_TABS = MORAL_THEMES;
 
 export default function MoralSyllabusModal({
   isOpen,

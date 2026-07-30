@@ -80,6 +80,10 @@ export async function POST(request) {
   try {
     const {
       folderPath,
+      // Tiêu đề THẬT của kịch bản (result.title phía client) — chỉ dùng để đặt tên cho manifest.json
+      // TỰ TẠO khi file này chưa tồn tại (xem bên dưới). Không bắt buộc: các lần gọi cũ hơn không
+      // gửi field này vẫn chạy bình thường, chỉ là bootstrap manifest sẽ phải rơi về tên thư mục.
+      title,
       imageExt = 'jpg',
       audioExt = 'mp3',
       scenes,
@@ -132,6 +136,37 @@ export async function POST(request) {
 
     const manifestPath = path.join(targetDir, 'manifest.json');
     const audioDir = path.join(targetDir, 'audio');
+
+    // manifest.json thường KHÔNG tồn tại lúc Bước 1 (Tạo Giọng Đọc) chạy — file này chỉ được
+    // Chrome Extension tạo ra ở Bước 2 (Đẩy sang Google Flow), là bước đứng SAU Bước 1 trong đúng
+    // thứ tự UI gợi ý. Nếu không tự tạo ở đây, đoạn ghi "voice" cuối hàm (bên dưới) sẽ không có
+    // file nào để ghi vào — người dùng chạy đúng thứ tự Bước 1 rồi Bước 2 như app hướng dẫn thì
+    // KHÔNG BAO GIỜ có giọng cũ để tra cứu, và "Đọc lại" 1 slide sau khi sửa lời sẽ luôn phải suy
+    // giọng lại từ Cấu hình hiện tại — dễ ra giọng khác hẳn giọng gốc dù không hề đổi cấu hình gì.
+    // Manifest tạo tạm ở đây chỉ cần đủ segmentNumber/dialogueOrNarration để đoạn ghi voice bên
+    // dưới khớp đúng slide; content-flow.js (extension) sẽ ghi đè lại đầy đủ hơn ở Bước 2 — miễn
+    // là nó PRESERVE lại field "voice" đã có (xem save-image/route.js).
+    if (!fs.existsSync(manifestPath)) {
+      try {
+        // title: ƯU TIÊN tiêu đề thật (result.title) do client gửi kèm. TUYỆT ĐỐI không được để mặc
+        // định là cleanFolder (tên thư mục, dạng "thuc_day_voi_muc_260730_162727") — nếu vì lý do
+        // gì đó Bước 2 (extension) không chạy/không ghi đè lại manifest trước lúc render, giá trị
+        // này sẽ lộ thẳng ra làm tiêu đề hiển thị TRÊN VIDEO (kiểu phụ đề "hook" ở slide đầu) y hệt
+        // tên thư mục viết hoa — đã xảy ra thật với 1 project trước khi có dòng ưu tiên title này.
+        fs.writeFileSync(manifestPath, JSON.stringify({
+          title: title || cleanFolder,
+          category: category || '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          segments: scenes.map((s) => ({
+            segmentNumber: s.segmentNumber,
+            dialogueOrNarration: s.dialogueOrNarration || ''
+          }))
+        }, null, 2));
+      } catch (err) {
+        console.warn('[API Voiceover] Không tự tạo được manifest.json:', err.message);
+      }
+    }
 
     // Giọng đã dùng ở lần lồng tiếng TRƯỚC của từng slide, ghi trong manifest.json ngay sau khi
     // tạo xong (xem cuối hàm). Nhờ nó, đọc lại 1 slide vừa sửa lời vẫn ra ĐÚNG giọng cũ dù Cấu

@@ -15,6 +15,7 @@
  * buildRegenerateNarrationPrompt để nút "Viết lại lời kể" không lệch văn phong).
  */
 import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
+import { getMoralTheme } from '../../moralThemes.js';
 import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
 import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
@@ -37,8 +38,14 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
     if (durationRange === '1_2m') targetSlides = '10 đến 14';
     else if (durationRange === '2_3m') targetSlides = '16 đến 20';
     else if (durationRange === '3_4m') targetSlides = '20 đến 26';
+    // "Video dài" (16:9, đăng YouTube dài hơi) — tiếp tục đúng nhịp tăng của thang trên (mỗi mốc
+    // +60-120s cộng thêm ~10-12 slide), không nhảy vọt hay chững lại đột ngột ở đúng chỗ ranh giới
+    // "short" (dưới 4 phút) chuyển sang "long" (trên 4 phút).
+    else if (durationRange === '4_6m') targetSlides = '28 đến 34';
+    else if (durationRange === '6_8m') targetSlides = '38 đến 46';
+    else if (durationRange === '8_10m') targetSlides = '48 đến 58';
 
-    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${theme === 'self_help' ? 'Self-Help / Motivation / Discipline' : 'Rules of Life / Communication / Etiquette'}" topic. This theme requires deep explanation and rich narration context per slide.
+    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic. This theme requires deep explanation and rich narration context per slide.
 - REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. Treat this as a firm floor, not a suggestion — a shorter script that undershoots this count reads as thin and rushed, never as "concise".
 - NARRATION LENGTH PER SLIDE: Each slide's narration (dialogueOrNarration) should be around 8 to 15 seconds of speech (roughly 25 to 45 words). Write descriptive, meaningful, and warm narration that fully explains the concept or context for the slide's image, rather than having short 3-second segments.`;
   } else {
@@ -47,15 +54,27 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
     if (durationRange === '1_2m') targetSlides = '10 đến 15';
     else if (durationRange === '2_3m') targetSlides = '15 đến 22';
     else if (durationRange === '3_4m') targetSlides = '22 đến 30';
+    else if (durationRange === '4_6m') targetSlides = '32 đến 40';
+    else if (durationRange === '6_8m') targetSlides = '44 đến 54';
+    else if (durationRange === '8_10m') targetSlides = '56 đến 68';
 
-    pacingGuidance = `- THEME CHARACTERISTIC: This is a "Top Lists / Warnings / Tips / Taboos" topic, listing specific items/points.
+    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic, listing specific items/points.
 - REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. One slide for introduction, one slide for each list point, and one slide for the conclusion.
 - NARRATION LENGTH PER SLIDE: Each slide should have about 6 to 10 seconds of speech (equivalent to 18 to 30 words), allowing enough explanation for each point.
 - The INTRODUCTION slide's narration must state the exact NUMBER of points the list has, leading with the number itself — e.g. "5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." or "Top 5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." — NEVER opening with "Có" (e.g. NOT "Có 5 nguyên tắc..."). That number must equal exactly how many list-point slides you actually write, so the viewer knows upfront how long the list is and can follow along.`;
   }
 
+  // Khung 16:9 (video dài YouTube) trước đây chỉ được gợi ý "you may..." (tuỳ chọn) để tận dụng
+  // chiều ngang — Gemini gần như luôn bỏ qua và vẽ y hệt bố cục của khung 9:16 (1 pictogram đơn lẻ
+  // giữa khung), khiến ảnh trông trống trải/đơn giản trên khung rộng dù đúng phong cách tối giản.
+  // Đổi thành yêu cầu BẮT BUỘC với kỹ thuật bố cục cụ thể (2 điểm neo trái/phải + tuỳ chọn 1 chi
+  // tiết môi trường tối giản cùng tông trắng-phát-sáng) — vẫn giữ đúng phong cách icon tối giản
+  // trên nền đen, chỉ là dùng hết chiều rộng khung hình thay vì bỏ trống 2 bên.
   const compositionGuidance = isLandscape
-    ? `- FRAME ORIENTATION: This slide is a WIDE 16:9 landscape frame. Use the extra horizontal space — you may place the main pictogram figure to one side with a smaller supporting icon/element on the other side (e.g. a clock, a signpost, a second figure), as long as it stays clean, symbolic, and readable at a glance.
+    ? `- FRAME ORIENTATION (MANDATORY — this is a WIDE 16:9 frame for a long-form video): Never render a single small pictogram figure floating alone in a mostly-empty wide frame — that composition reads fine on a phone screen but looks thin, unfinished, and low-effort on a wide 16:9 frame. Every slide must use a full-width, two-anchor composition:
+  1. Anchor the MAIN pictogram figure/grouping to one side of the frame (alternate between left-anchored and right-anchored across consecutive slides for visual rhythm — do not center every slide the same way).
+  2. On the OPPOSITE side, place a second symbolic element that adds real context to this exact narration moment — either a supporting pictogram figure (e.g. the other person in the situation), OR a simple glowing-outline environmental prop in the EXACT SAME white monoline icon style (e.g. a doorway, a bench, a staircase, a window frame, a signpost, a road/horizon line, a clock, a desk) — it must relate directly to what's being narrated, never generic decorative filler.
+  3. Optionally add ONE small supporting icon (arrow, question mark, heart, exclamation mark) scaled smaller and placed to create depth across the width — but keep the total look sparse: 2 to 3 symbolic elements per slide at most, still with generous empty black negative space, never a cluttered scene.
 - TOP SAFE ZONE: the video's caption text is overlaid across the TOP portion of the frame. Keep the pictogram figure(s)/prop(s) confined to roughly the BOTTOM two-thirds of the frame — leave the top third pure black, with no part of the figure/props reaching up into it, so the caption text has clean empty space to sit on.`
     : `- FRAME ORIENTATION: This slide is a TALL 9:16 portrait frame. Keep the composition simple and centered — one clear symbolic pictogram grouping per slide, generous empty black space around it, reads instantly on a phone screen.
 - TOP SAFE ZONE: the video's caption text is overlaid across the TOP portion of the frame. Keep the pictogram figure(s)/prop(s) confined to roughly the BOTTOM two-thirds of the frame — leave the top third pure black, with no part of the figure/props reaching up into it, so the caption text has clean empty space to sit on.`;

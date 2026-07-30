@@ -61,96 +61,12 @@ const PHONETIC_RULES = `Rewrite ONLY those words as a Vietnamese phonetic respel
 /**
  * Phiên âm sẵn CẢ MỘT MẺ câu bằng 1 lệnh gọi Gemini duy nhất, rồi nạp vào cache.
  *
- * Lý do phải có: luồng lồng tiếng duyệt từng slide và gọi phiên âm bên trong vòng lặp, nên một
- * project 25 slide bắn ra 25 request Gemini liên tiếp trong vài giây — vượt thẳng hạn mức free
- * tier (20 request/phút) và làm cả mẻ lồng tiếng phải ngồi chờ retry. Gom hết vào 1 request thì
- * 25 slide chỉ còn tốn đúng 1 lượt gọi.
- *
- * Cố tình KHÔNG ném lỗi: đây chỉ là bước tối ưu. Nếu mẻ gộp hỏng, vòng lặp phía sau vẫn tự gọi
- * lẻ từng câu như trước — chậm hơn nhưng không làm hỏng việc lồng tiếng.
+ * ĐÃ VÔ HIỆU HÓA: Hệ thống hiện tại đã tự đọc được tiếng Anh.
  */
 export async function prewarmTransliterationCache(texts, geminiApiKeys) {
-  const keys = (Array.isArray(geminiApiKeys) ? geminiApiKeys : [geminiApiKeys]).filter(Boolean);
-  if (keys.length === 0) return;
-
-  // Chỉ gửi những câu THẬT SỰ cần xử lý: bỏ câu rỗng, câu không có từ nước ngoài, câu đã có trong
-  // cache, và các câu trùng nhau trong cùng một mẻ.
-  const pending = [...new Set(
-    (texts || [])
-      .map((t) => (t || '').trim())
-      .filter((t) => t && hasLikelyForeignWord(t) && !transliterationCache.has(t))
-  )];
-
-  if (pending.length === 0) return;
-
-  // Chia mẻ để một project rất dài không tạo ra 1 prompt/response khổng lồ dễ bị cắt ngang.
-  const CHUNK_SIZE = 40;
-  for (let start = 0; start < pending.length; start += CHUNK_SIZE) {
-    const chunk = pending.slice(start, start + CHUNK_SIZE);
-    const prompt = `${PHONETIC_INTRO}
-
-You are given a JSON array of Vietnamese sentences, index-ordered. For each sentence, find any English words or phrases that this Vietnamese-only voice would mispronounce. ${PHONETIC_RULES}
-
-Process every sentence independently and return an array of the EXACT same length and in the EXACT same order.
-
-Input sentences:
-${JSON.stringify(chunk, null, 2)}
-
-Return JSON: { "results": ["sentence 1 with only foreign words respelled", "sentence 2 ..."] }`;
-
-    try {
-      const result = await callGeminiWithKeyRotation(prompt, keys, { tier: 'fast', label: 'Phiên âm TTS' });
-      const results = result?.results;
-      if (!Array.isArray(results) || results.length !== chunk.length) {
-        console.warn(`[TTS Phonetic Batch] Gemini trả về ${Array.isArray(results) ? `${results.length} dòng` : 'không phải mảng'} (cần ${chunk.length}) — bỏ qua mẻ này, sẽ phiên âm lẻ từng câu.`);
-        continue;
-      }
-      chunk.forEach((original, i) => {
-        const converted = typeof results[i] === 'string' ? results[i].trim() : '';
-        cacheSet(original, converted || original);
-      });
-      console.log(`[TTS Phonetic Batch] Đã phiên âm sẵn ${chunk.length} câu bằng 1 lệnh gọi Gemini.`);
-    } catch (err) {
-      console.warn('[TTS Phonetic Batch] Bỏ qua bước gộp do lỗi Gemini:', err.message);
-      tripCircuit(err);
-      return;
-    }
-  }
+  return;
 }
 
 export async function transliterateEnglishForVietnameseTts(text, geminiApiKeys) {
-  const trimmed = (text || '').trim();
-  if (!trimmed) return text;
-  if (!hasLikelyForeignWord(trimmed)) return text;
-
-  if (transliterationCache.has(trimmed)) return transliterationCache.get(trimmed);
-  if (isSuppressed()) return text;
-
-  const keys = (Array.isArray(geminiApiKeys) ? geminiApiKeys : [geminiApiKeys]).filter(Boolean);
-  if (keys.length === 0) return text;
-
-  const prompt = `${PHONETIC_INTRO}
-
-Given the Vietnamese sentence below, find any English words or phrases that this Vietnamese-only voice would mispronounce. ${PHONETIC_RULES}
-
-Sentence:
-"""
-${trimmed}
-"""
-
-Return JSON: { "text": "the same sentence with only foreign words respelled" }`;
-
-  try {
-    // Đây là việc "cơ khí" (chỉ đổi cách viết vài từ) — dùng tier 'fast' để khỏi ăn vào hạn mức
-    // của model thông minh vốn dành riêng cho việc viết kịch bản.
-    const result = await callGeminiWithKeyRotation(prompt, keys, { tier: 'fast', label: 'Phiên âm TTS' });
-    const converted = typeof result?.text === 'string' ? result.text.trim() : '';
-    const finalText = converted || text;
-    cacheSet(trimmed, finalText);
-    return finalText;
-  } catch (err) {
-    console.warn('[TTS Phonetic Transliteration] Bỏ qua bước phiên âm do lỗi Gemini:', err.message);
-    tripCircuit(err);
-    return text;
-  }
+  return text;
 }

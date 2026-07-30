@@ -13,8 +13,14 @@
  * ngắn, thẳng, mỗi điểm là 1 câu tương phản "A, không phải B" dẫn bằng số thứ tự trần trụi
  * ("Một, Hai, Ba..." — KHÔNG kèm "là", KHÔNG lặp lại 1 cụm danh từ như "Nguyên tắc của...").
  */
+import { isReflectiveMoralTheme } from '../../moralThemes.js';
+
 export function getMoralTalkStyleReference(theme) {
-  const isReflectiveTheme = theme === 'self_help' || theme === 'rules_of_life';
+  // Văn phong đọc từ registry (moralThemes.js) chứ KHÔNG so sánh chuỗi tại đây nữa: trước đây là
+  // `theme === 'self_help' || theme === 'rules_of_life'`, nên mọi nhóm chủ đề thêm về sau đều âm
+  // thầm rơi xuống nhánh liệt kê, kể cả các nhóm tâm tình (love_boundaries, healing_pressure) —
+  // không báo lỗi, chỉ là video xuất ra sai giọng.
+  const isReflectiveTheme = isReflectiveMoralTheme(theme);
 
   if (isReflectiveTheme) {
     const reflectiveSample = `Nếu một ngày bạn gặp lại chính mình của lúc nhỏ, bạn nghĩ đứa trẻ ấy có thích con người hiện tại của bạn không? Nó sẽ nhìn bạn với ánh mắt đầy tự hào, hay sẽ lặng im vì nhận ra người lớn trước mặt đã đánh mất quá nhiều điều?

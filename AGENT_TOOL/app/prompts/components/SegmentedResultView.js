@@ -50,9 +50,11 @@ const BG_MUSIC_TRACKS = [
 // Giá trị bgMusicTrackId khi nhạc nền đang dùng là file người dùng tự tải lên (không thuộc kho).
 const CUSTOM_BG_MUSIC_ID = 'custom';
 
-function bgMusicTrackLabel(trackId, { short = false } = {}) {
+function bgMusicTrackLabel(trackId, { short = false, library = [] } = {}) {
   const track = BG_MUSIC_TRACKS.find((t) => t.id === trackId);
   if (track) return short ? track.shortName : track.name;
+  const libTrack = library.find((t) => t.id === trackId);
+  if (libTrack) return libTrack.name;
   return 'Tệp tải lên';
 }
 
@@ -1110,9 +1112,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return 'track1';
   });
-  // Âm lượng đã ghim làm mặc định hệ thống CÙNG với bản nhạc (xem handlePinDefaultTrack) — dùng
-  // để so sánh hiển thị nút "Đang Mặc Định"/"Đặt làm Mặc Định" và làm giá trị mặc định cho các
-  // kịch bản mới, tách biệt khỏi cơ chế Preset đầy đủ (xem chú thích ở fetchSettings bên dưới).
+  // Âm lượng đã ghim làm mặc định hệ thống CÙNG với bản nhạc (xem handlePinDefaultTrack, tự chạy
+  // khi đóng modal nhạc nền) — dùng làm giá trị mặc định cho các kịch bản mới, tách biệt khỏi cơ
+  // chế Preset đầy đủ (xem chú thích ở fetchSettings bên dưới).
   const [defaultBgMusicVolume, setDefaultBgMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('default_bg_music_volume') || '10';
@@ -1126,12 +1128,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return 'track1';
   });
-  // Nút "Đang Mặc Định"/"Đặt làm Mặc Định" chỉ hiện đã ghim khi CẢ bản nhạc lẫn âm lượng đang
-  // chọn đều khớp với giá trị đã lưu làm mặc định — vd đổi âm lượng sau khi đã ghim bản nhạc thì
-  // vẫn cần bấm ghim lại để lưu mức âm lượng mới.
-  const isBgMusicDefaultPinned = selectedBgMusicTrackId === defaultBgMusicTrackId
-    && String(renderBgMusicVolume) === String(defaultBgMusicVolume);
-
   // Bản nhạc dùng cho các bước TỰ ĐỘNG chép nhạc vào project (mở kịch bản mới, trước lúc render,
   // lúc "Lưu & Áp dụng"). Phải loại trừ CUSTOM_BG_MUSIC_ID: đó không phải bản nhạc trong kho, nếu
   // truyền thẳng xuống API thì nó đi tìm file "custom.mp3" không tồn tại và báo lỗi đỏ cho người
@@ -1140,11 +1136,31 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const candidates = [selectedBgMusicTrackId, defaultBgMusicTrackId, 'track1'];
     return candidates.find((id) => id && id !== CUSTOM_BG_MUSIC_ID) || 'track1';
   };
-  const [pinTrackMsg, setPinTrackMsg] = useState('');
   const [showBgMusicModal, setShowBgMusicModal] = useState(false);
   const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
   const [bgMusicUploadError, setBgMusicUploadError] = useState('');
   const [bgMusicVersion, setBgMusicVersion] = useState(0); // bump để phá cache khi nghe thử sau khi đổi nhạc
+  // Thư viện "Nhạc đã từng tải lên" — dùng CHUNG cho mọi project (khác audio/bg-music.* riêng của
+  // từng project, bị ghi đè mỗi lần đổi nhạc). Mỗi lần tải nhạc mới lên (handleUploadBgMusic), bản
+  // gốc được lưu thêm 1 bản vào đây (bg-music-library/route.js) để lần sau chọn lại không cần tìm
+  // lại file trên máy — xem khối "Nhạc đã tải lên trước đây" trong modal bên dưới.
+  const [bgMusicLibrary, setBgMusicLibrary] = useState([]);
+  const [deletingLibraryTrackId, setDeletingLibraryTrackId] = useState(null);
+
+  const fetchBgMusicLibrary = async () => {
+    try {
+      const res = await fetch('/api/prompts/bg-music-library');
+      const data = await res.json();
+      if (res.ok && data.success) setBgMusicLibrary(Array.isArray(data.library) ? data.library : []);
+    } catch (err) {
+      console.warn('Lỗi tải thư viện nhạc nền:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (showBgMusicModal) fetchBgMusicLibrary();
+  }, [showBgMusicModal]);
+
   // Tên file ảnh hero khớp với bố cục đang chọn: "Hero Top" (dải ngang) dùng bản landscape,
   // "Full Nền Sau" (nền dọc toàn khung) dùng bản portrait - xem buildSegmentedPrompts.js/
   // content-flow.js's generateSecondaryVariant (sinh cả 2 bản, cùng gam màu, từ 1 ảnh hero).
@@ -1271,14 +1287,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     fetchPresets();
   }, [showCustomCapCut, isReadingPractice, result?.id]);
 
+  // Ghim 1 bản nhạc + âm lượng làm mặc định hệ thống cho các dự án mới. Trước đây đây là hành
+  // động THỦ CÔNG (nút "📌 Đặt làm Mặc Định" riêng) — giờ gọi TỰ ĐỘNG mỗi khi đóng modal
+  // (closeBgMusicModal) với đúng bản đang chọn, nên bản thân việc "chọn nhạc rồi thoát ra" đã
+  // là ghim mặc định, không cần thao tác riêng nữa. Vì vậy không còn cần báo toast thành công ở
+  // đây — modal đã đóng ngay khi hàm này chạy, không ai kịp thấy.
   const handlePinDefaultTrack = async (trackId) => {
     // Nhạc tự tải lên nằm trong thư mục của riêng project này, không có bản sao dùng chung nào để
-    // các kịch bản sau lấy ra — ghim nó làm "mặc định hệ thống" chỉ tạo ra một mặc định hỏng.
-    if (!trackId || trackId === CUSTOM_BG_MUSIC_ID) {
-      setPinTrackMsg('⚠️ Chỉ ghim được các bản nhạc trong kho hệ thống. Nhạc bạn tự tải lên chỉ áp dụng cho video này.');
-      setTimeout(() => setPinTrackMsg(''), 5000);
-      return;
-    }
+    // các kịch bản sau lấy ra — bỏ qua, không ghim (khác bản trong Thư viện, luôn ghim được vì đã
+    // có bản sao bền ở public/custom-bg-music).
+    if (!trackId || trackId === CUSTOM_BG_MUSIC_ID) return;
     try {
       setDefaultBgMusicTrackId(trackId);
       setDefaultBgMusicVolume(renderBgMusicVolume);
@@ -1295,8 +1313,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           defaultBgMusicVolume: renderBgMusicVolume
         })
       });
-      setPinTrackMsg(`✓ Đã đặt "${bgMusicTrackLabel(trackId)}" (${renderBgMusicVolume}% âm lượng) làm nhạc nền mặc định cho các dự án mới!`);
-      setTimeout(() => setPinTrackMsg(''), 4000);
       await fetchSettings();
     } catch (err) {
       console.warn('Lỗi lưu nhạc mặc định hệ thống:', err);
@@ -1339,9 +1355,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bodyAlign: renderBodyAlign,
       imageMode: renderImageMode,
       bilingual: renderBilingual,
-      bgMusicEnabled: renderBgMusicEnabled,
-      bgMusicVolume: renderBgMusicVolume,
-      bgMusicTrackId: selectedBgMusicTrackId,
+      // KHÔNG lưu bgMusicEnabled/bgMusicVolume/bgMusicTrackId vào đây — xem chú thích ở applyPreset()
+      // bên dưới, nhạc nền là một trục cấu hình HOÀN TOÀN riêng với "Format" (kiểu phụ đề/chuyển
+      // cảnh/bố cục), không nên bị gộp chung và ghi đè lẫn nhau khi đổi qua lại giữa 2 preset.
       imageScale: Number(renderImageScale) / 100,
       imageTranslateY: Number(renderImageTranslateY),
       captionMarginY: Number(renderCaptionMarginY)
@@ -1469,18 +1485,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.imageTranslateY !== undefined) setRenderImageTranslateY(String(c.imageTranslateY));
     if (c.captionMarginY !== undefined) setRenderCaptionMarginY(String(c.captionMarginY));
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
-    if (c.bgMusicEnabled !== undefined) setRenderBgMusicEnabled(c.bgMusicEnabled);
-    if (c.bgMusicVolume !== undefined) {
-      const vol = Number(c.bgMusicVolume);
-      const percent = vol <= 1 ? Math.round(vol * 100) : vol;
-      setRenderBgMusicVolume(percent === 6 ? '10' : String(percent));
-    }
-    if (c.bgMusicTrackId !== undefined) {
-      setSelectedBgMusicTrackId(c.bgMusicTrackId);
-      if (c.bgMusicEnabled && c.bgMusicTrackId) {
-        handleSelectDefaultMusic(c.bgMusicTrackId);
-      }
-    }
+    // CỐ Ý không áp bgMusicEnabled/bgMusicVolume/bgMusicTrackId ở đây, dù bản preset cũ (lưu từ
+    // trước bản sửa này) hay Mẫu hệ thống của reading_practice vẫn có thể còn mang các trường này.
+    // "Format"/preset chỉ nên đại diện cho GIAO DIỆN (kiểu phụ đề, chuyển cảnh, font, màu, bố cục)
+    // — nhạc nền là một lựa chọn của RIÊNG project đang mở, độc lập hoàn toàn. Trước đây áp dụng 1
+    // Format khác (chỉ để đổi kiểu phụ đề) sẽ ÂM THẦM gọi handleSelectDefaultMusic() và XOÁ file
+    // bg-music.* đang dùng để thay bằng bài của preset đó — người dùng chọn nhạc xong, đổi thử
+    // kiểu phụ đề là mất luôn lựa chọn nhạc, dù không hề đụng vào phần cấu hình nhạc nền.
   };
 
   const isConfigMatch = (preset) => {
@@ -1506,9 +1517,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       [c.imageScale !== undefined ? String(Math.round(c.imageScale * 100)) : undefined, renderImageScale],
       [c.imageTranslateY !== undefined ? String(c.imageTranslateY) : undefined, renderImageTranslateY],
       [c.captionMarginY !== undefined ? String(c.captionMarginY) : undefined, renderCaptionMarginY],
-      [c.bilingual, renderBilingual],
-      [c.bgMusicEnabled, renderBgMusicEnabled],
-      [c.bgMusicVolume, renderBgMusicVolume]
+      [c.bilingual, renderBilingual]
+      // Nhạc nền KHÔNG còn được so khớp ở đây — preset không còn kiểm soát nó (xem applyPreset()).
+      // So cả bgMusicEnabled/bgMusicVolume sẽ khiến 1 preset đúng lẽ ra đang khớp (mọi thứ về kiểu
+      // phụ đề/chuyển cảnh/màu/bố cục đều giống hệt) lại bị coi là "chưa áp dụng" chỉ vì nhạc nền
+      // hiện tại khác — 1 trục không liên quan bị lẫn vào phép so sánh của trục kia.
     ];
     const definedPairs = pairs.filter(([saved]) => saved !== undefined);
     if (definedPairs.length === 0) return false;
@@ -1926,9 +1939,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const playAudio = (dataUri) => {
       const audio = new Audio(dataUri);
       characterPreviewAudioRef.current = audio;
-      
+
       setActivePreviewState({ key, status: 'playing' });
-      
+
       audio.play().catch(playErr => {
         console.warn('Playback error:', playErr);
         setPreviewError('Không thể phát âm thanh mẫu.');
@@ -2059,6 +2072,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
+          // Tiêu đề THẬT của kịch bản — chỉ dùng khi server phải tự tạo manifest.json (file này
+          // thường chưa tồn tại ở đúng Bước 1, xem chú thích trong voiceover/route.js). Thiếu field
+          // này thì manifest tự tạo phải rơi về tên thư mục, có thể lộ thẳng ra làm tiêu đề video.
+          title: result.title,
           imageExt: result.input?.imageExt || 'jpg',
           audioExt: result.input?.audioExt || 'mp3',
           category: result.category,
@@ -2261,6 +2278,25 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setBgMusicVersion(Date.now());
         setRenderBgMusicEnabled(true);
         checkAssets();
+
+        // Lưu thêm 1 bản vào Thư viện nhạc đã tải lên (dùng chung mọi project) để lần sau chọn lại
+        // được ngay, không cần tìm lại file gốc trên máy. Cố ý KHÔNG chặn/báo lỗi luồng chính nếu
+        // bước này thất bại — nhạc nền của video hiện tại đã áp dụng thành công ở trên rồi, việc
+        // lưu vào thư viện chỉ là tiện ích thêm cho các dự án sau.
+        try {
+          const trackName = file.name.replace(/\.[^./\\]+$/, '') || 'Nhạc đã tải lên';
+          const libRes = await fetch('/api/prompts/bg-music-library', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: trackName, dataUrl, ext })
+          });
+          const libData = await libRes.json();
+          if (libRes.ok && libData.success) {
+            fetchBgMusicLibrary();
+          }
+        } catch (libErr) {
+          console.warn('Lỗi lưu nhạc vào thư viện:', libErr);
+        }
       } else {
         setBgMusicUploadError(data.error || 'Không thể lưu nhạc nền.');
       }
@@ -2343,6 +2379,46 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     audio.play().catch(() => setPlayingPreviewTrackId(null));
   };
 
+  // Dùng lại 1 bản nhạc đã có sẵn trong Thư viện (đã tải lên từ trước, ở project này hoặc project
+  // khác) — chép thẳng từ public/custom-bg-music sang project đang mở, không cần tải lại file gốc.
+  // Tái dùng handleSelectDefaultMusic vì backend (select-default-music/route.js) đã tự nhận diện
+  // trackId có tiền tố "lib_" để đi đúng nhánh Thư viện thay vì kho hệ thống.
+  const handleSelectLibraryTrack = (item) => {
+    if (isSelectingDefaultMusic) return;
+    if (selectedBgMusicTrackId === CUSTOM_BG_MUSIC_ID && assetCounts.hasBgMusic) {
+      const ok = window.confirm(
+        `Video này đang dùng nhạc nền bạn tự tải lên (${assetCounts.bgMusicFile || 'bg-music'}).\n\n`
+        + `Chọn "${item.name}" sẽ thay thế và xoá tệp đó khỏi dự án. Tiếp tục?`
+      );
+      if (!ok) return;
+    }
+    setRenderBgMusicEnabled(true);
+    handleSelectDefaultMusic(item.id);
+    if (playingPreviewTrackId !== item.id) togglePreviewTrack(item.id, `/custom-bg-music/${item.filename}`);
+  };
+
+  // Xoá 1 bản khỏi Thư viện dùng chung — KHÔNG ảnh hưởng tới video nào đang dùng bản nhạc này
+  // (file trong audio/bg-music.* của mỗi project là bản sao riêng, độc lập), chỉ khiến bản nhạc
+  // không còn hiện ra để chọn lại ở các dự án sau.
+  const handleDeleteLibraryTrack = async (item, e) => {
+    e.stopPropagation();
+    const ok = window.confirm(`Xoá "${item.name}" khỏi thư viện? Video đang dùng bản nhạc này sẽ không bị ảnh hưởng.`);
+    if (!ok) return;
+    setDeletingLibraryTrackId(item.id);
+    try {
+      const res = await fetch(`/api/prompts/bg-music-library?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBgMusicLibrary((prev) => prev.filter((t) => t.id !== item.id));
+        if (playingPreviewTrackId === item.id) togglePreviewTrack(item.id, null);
+      }
+    } catch (err) {
+      console.warn('Lỗi xoá nhạc khỏi thư viện:', err);
+    } finally {
+      setDeletingLibraryTrackId(null);
+    }
+  };
+
   /**
    * Lưu BỀN cấu hình nhạc nền (bật/tắt, âm lượng, bản nhạc) vào bản ghi lịch sử của kịch bản.
    *
@@ -2377,11 +2453,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
-  // Mọi đường thoát khỏi modal nhạc nền (nút Xong, nút ✕, bấm ra nền tối) đều đi qua đây để
-  // không có lối nào làm mất cấu hình vừa chỉnh.
+  // Mọi đường thoát khỏi modal nhạc nền (nút Chọn, nút ✕, bấm ra nền tối) đều đi qua đây để
+  // không có lối nào làm mất cấu hình vừa chỉnh. Từ chỗ này cũng TỰ ĐỘNG ghim bản nhạc + âm
+  // lượng đang chọn làm mặc định hệ thống cho các dự án mới (xem handlePinDefaultTrack) — không
+  // còn nút "📌 Đặt làm Mặc Định" riêng nữa, chỉ cần chọn 1 bản rồi thoát ra là lần sau tự dùng
+  // lại đúng bản đó. Bỏ qua nếu đang dùng CUSTOM_BG_MUSIC_ID (nhạc tự tải lên áp thẳng cho
+  // project này) — handlePinDefaultTrack tự bỏ qua trường hợp đó, không có gì để ghim.
   const closeBgMusicModal = () => {
     setShowBgMusicModal(false);
     persistBgMusicConfig();
+    handlePinDefaultTrack(selectedBgMusicTrackId);
   };
 
   // Tự động dừng nhạc nghe thử khi đóng/thoát Modal Cài Đặt Nhạc Nền
@@ -2485,8 +2566,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         })
       });
       // Mức âm lượng mặc định được đọc lại ưu tiên từ localStorage (xem effect theo result.id), nên
-      // chỉ ghi vào settings là hai nguồn lệch nhau: nút 📌 sẽ hiện "Đặt làm Mặc Định" dù giá trị
-      // đang dùng đúng là giá trị vừa được lưu làm mặc định.
+      // chỉ ghi vào settings là hai nguồn lệch nhau — đồng bộ cả hai ngay tại đây.
       setDefaultBgMusicVolume(renderBgMusicVolume);
       if (typeof window !== 'undefined') {
         localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
@@ -2651,6 +2731,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         folderPath: result.input?.folderPath || 'example',
+        title: result.title,
         imageExt: result.input?.imageExt || 'jpg',
         audioExt: result.input?.audioExt || 'mp3',
         category: result.category,
@@ -3192,7 +3273,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const isStep1Done = assetCounts.audioCount >= total;
               const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
 
-              const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true });
+              const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true, library: bgMusicLibrary });
 
               return (
                 <div style={{
@@ -3634,69 +3715,69 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
             </p>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
+              {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
                 Để riêng 2 nút Lưu/Huỷ thay vì tự lưu khi rời ô, vì mỗi lần lưu ghi vào 3 nơi (DB,
                 remotionConfig, manifest.json) — người dùng cần chủ động quyết định thời điểm ghi. */}
-            {!isEditingScript ? (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                title="Tự sửa tay lời kể, phụ đề và mô tả hoạt cảnh của từng slide"
-                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                onClick={() => { setIsEditingScript(true); setSaveScriptMsg(''); }}
-              >
-                ✏️ Sửa kịch bản
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={isSavingScript || !hasUnsavedEdits}
-                  title={hasUnsavedEdits
-                    ? `Lưu ${dirtySegments.length} slide đã sửa — slide nào đổi lời kể mà đã có giọng đọc sẽ được đọc lại ngay bằng đúng giọng cũ`
-                    : 'Chưa có thay đổi nào để lưu'}
-                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
-                  onClick={handleSaveScript}
-                >
-                  {isResyncingVoice ? '🎙️ Đang đọc lại...' : isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
-                </button>
+              {!isEditingScript ? (
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  disabled={isSavingScript}
+                  title="Tự sửa tay lời kể, phụ đề và mô tả hoạt cảnh của từng slide"
                   style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                  onClick={handleCancelEdits}
+                  onClick={() => { setIsEditingScript(true); setSaveScriptMsg(''); }}
                 >
-                  ✕ Xong / Huỷ
+                  ✏️ Sửa kịch bản
                 </button>
-              </>
-            )}
-            {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={isSavingScript || !hasUnsavedEdits}
+                    title={hasUnsavedEdits
+                      ? `Lưu ${dirtySegments.length} slide đã sửa — slide nào đổi lời kể mà đã có giọng đọc sẽ được đọc lại ngay bằng đúng giọng cũ`
+                      : 'Chưa có thay đổi nào để lưu'}
+                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
+                    onClick={handleSaveScript}
+                  >
+                    {isResyncingVoice ? '🎙️ Đang đọc lại...' : isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={isSavingScript}
+                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                    onClick={handleCancelEdits}
+                  >
+                    ✕ Xong / Huỷ
+                  </button>
+                </>
+              )}
+              {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={isRegeneratingNarration || hasUnsavedEdits}
+                  title={hasUnsavedEdits
+                    ? 'Bạn đang có chỉnh sửa chưa lưu — lưu hoặc huỷ trước khi để Gemini viết lại (viết lại sẽ ghi đè toàn bộ lời kể)'
+                    : 'Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide'}
+                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isRegeneratingNarration || hasUnsavedEdits) ? 0.5 : 1 }}
+                  onClick={handleRegenerateNarration}
+                >
+                  {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-secondary"
-                disabled={isRegeneratingNarration || hasUnsavedEdits}
-                title={hasUnsavedEdits
-                  ? 'Bạn đang có chỉnh sửa chưa lưu — lưu hoặc huỷ trước khi để Gemini viết lại (viết lại sẽ ghi đè toàn bộ lời kể)'
-                  : 'Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide'}
-                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isRegeneratingNarration || hasUnsavedEdits) ? 0.5 : 1 }}
-                onClick={handleRegenerateNarration}
+                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                onClick={() => {
+                  const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                  onCopy(allPrompts, 'all_segments');
+                }}
               >
-                {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
+                {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
               </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-              onClick={() => {
-                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
-                onCopy(allPrompts, 'all_segments');
-              }}
-            >
-              {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
-            </button>
             </div>
           </div>
           {regenerateNarrationMsg && (
@@ -4393,15 +4474,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                                   return voiceList.map(v => {
                                     const isSelected = currentVal === v.id;
-                                    
+
                                     const key = `${char.key}_${v.id}`;
                                     const isCurrentActive = activePreviewState.key === key;
                                     const isGenerating = isCurrentActive && activePreviewState.status === 'generating';
                                     const isPlaying = isCurrentActive && activePreviewState.status === 'playing';
-                                    
+
                                     // Disable all other buttons if any audio is active
                                     const isDisabled = isAnyActive && !isCurrentActive;
-                                    
+
                                     // Parse label và mô tả cho VieNeu
                                     const rawName = v.name || '';
                                     const cleanName = isVieneu ? (rawName.includes(' (') ? rawName.split(' (')[0] : rawName) : rawName;
@@ -5474,36 +5555,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     ⚡ Kho nhạc nền mặc định hệ thống (3 bản nhạc nhẹ)
                   </span>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePinDefaultTrack(selectedBgMusicTrackId)}
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      color: isBgMusicDefaultPinned ? '#FFCB4D' : 'rgba(255,255,255,0.85)',
-                      background: isBgMusicDefaultPinned ? 'rgba(255, 203, 77, 0.18)' : 'rgba(255,255,255,0.06)',
-                      border: isBgMusicDefaultPinned ? '1px solid #FFCB4D' : '1px solid rgba(255,255,255,0.15)',
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.15s'
-                    }}
-                    title="Đặt bài nhạc và âm lượng đang chọn làm Mặc Định hệ thống cho các dự án mới về sau"
-                  >
-                    <span>📌</span>
-                    {isBgMusicDefaultPinned ? 'Đang Mặc Định' : 'Đặt làm Mặc Định'}
-                  </button>
                 </div>
-
-                {pinTrackMsg && (
-                  <span style={{ fontSize: '0.74rem', color: '#4ade80', fontWeight: 700, background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', padding: '4px 10px', borderRadius: '6px' }}>
-                    {pinTrackMsg}
-                  </span>
-                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                   {BG_MUSIC_TRACKS.map(track => {
@@ -5629,14 +5681,159 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </div>
               </div>
 
+              {/* Thư viện Nhạc đã từng tải lên — dùng CHUNG mọi project, tự tích luỹ mỗi lần tải
+                  nhạc mới lên ở dưới (xem handleUploadBgMusic), để lần sau vào dự án khác vẫn chọn
+                  lại được ngay, không cần tìm lại file gốc trên máy. */}
+              {bgMusicLibrary.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🗂️ Nhạc đã từng tải lên ({bgMusicLibrary.length})
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)' }}>
+                    Bấm vào một bản để dùng lại cho video này — không cần tải lại từ máy.
+                  </span>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                    {bgMusicLibrary.map(item => {
+                      const isSelected = selectedBgMusicTrackId === item.id && assetCounts.hasBgMusic;
+                      const isPlaying = playingPreviewTrackId === item.id;
+                      const isDefaultTrack = item.id === defaultBgMusicTrackId;
+                      const isDeleting = deletingLibraryTrackId === item.id;
+
+                      return (
+                        <div
+                          key={item.id}
+                          title={isSelected ? `Đang dùng "${item.name}" cho video này` : `Dùng "${item.name}" làm nhạc nền cho video này`}
+                          onClick={() => handleSelectLibraryTrack(item)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(255,255,255,0.03)',
+                            border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
+                            boxShadow: isSelected ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
+                            opacity: isDeleting ? 0.5 : 1,
+                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            userSelect: 'none'
+                          }}
+                        >
+                          {/* Nút Play / Pause nghe thử */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePreviewTrack(item.id, `/custom-bg-music/${item.filename}`);
+                            }}
+                            title={isPlaying ? 'Tạm dừng nghe thử' : 'Nghe thử bản nhạc'}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              border: isPlaying ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
+                              cursor: 'pointer',
+                              background: isPlaying ? 'rgba(37, 244, 238, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                              color: isPlaying ? 'var(--secondary)' : '#fff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              lineHeight: 0,
+                              flexShrink: 0,
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {isPlaying ? (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                              </svg>
+                            ) : (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', marginLeft: '1px' }}>
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+
+                          {/* Tên & ngày tải lên */}
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                color: isSelected ? 'var(--secondary)' : '#fff',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {item.name}
+                              </span>
+                              {isDefaultTrack && (
+                                <span style={{
+                                  fontSize: '0.58rem',
+                                  fontWeight: 800,
+                                  color: '#FFCB4D',
+                                  background: 'rgba(255, 203, 77, 0.2)',
+                                  border: '1px solid rgba(255, 203, 77, 0.4)',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  flexShrink: 0
+                                }}>
+                                  📌 Mặc định
+                                </span>
+                              )}
+                            </div>
+                            <span style={{
+                              fontSize: '0.68rem',
+                              color: isSelected ? 'rgba(37, 244, 238, 0.7)' : 'rgba(255, 255, 255, 0.45)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                            </span>
+                          </div>
+
+                          {/* Nút xoá khỏi thư viện */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteLibraryTrack(item, e)}
+                            disabled={isDeleting}
+                            title="Xoá khỏi thư viện"
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(255,107,107,0.3)',
+                              cursor: isDeleting ? 'wait' : 'pointer',
+                              background: 'rgba(255,107,107,0.08)',
+                              color: '#ff6b6b',
+                              fontSize: '0.72rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              flexShrink: 0
+                            }}
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Trình nghe thử & Âm lượng nhạc nền hiện tại */}
               {assetCounts.hasBgMusic && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80' }}>
                       {playingPreviewTrackId
-                        ? `🎧 Đang nghe thử: ${bgMusicTrackLabel(playingPreviewTrackId)}`
-                        : `✓ Nhạc nền của video: ${bgMusicTrackLabel(selectedBgMusicTrackId)} (${assetCounts.bgMusicFile || 'bg-music.mp3'})`}
+                        ? `🎧 Đang nghe thử: ${bgMusicTrackLabel(playingPreviewTrackId, { library: bgMusicLibrary })}`
+                        : `✓ Nhạc nền của video: ${bgMusicTrackLabel(selectedBgMusicTrackId, { library: bgMusicLibrary })} (${assetCounts.bgMusicFile || 'bg-music.mp3'})`}
                     </span>
                     <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>Trạng thái: {renderBgMusicEnabled ? 'Đang bật' : 'Tắt'}</span>
                   </div>
@@ -5753,6 +5950,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   />
                 </label>
               </div>
+              <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
+                Nhạc tải lên sẽ tự động lưu vào mục &quot;🗂️ Nhạc đã từng tải lên&quot; ở trên để dùng lại cho các dự án sau.
+              </span>
             </div>
 
             {/* Modal Footer */}
@@ -5768,7 +5968,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               background: 'rgba(0, 0, 0, 0.3)'
             }}>
               <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)' }}>
-                Cấu hình được lưu vào kịch bản này khi đóng bảng.
+                Bản đang chọn sẽ tự thành nhạc nền mặc định cho các dự án mới sau này.
               </span>
               <button
                 type="button"
@@ -5776,7 +5976,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 style={{ padding: '8px 24px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 700 }}
                 onClick={closeBgMusicModal}
               >
-                Xong
+                Chọn
               </button>
             </div>
           </div>
