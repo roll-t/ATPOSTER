@@ -2,6 +2,7 @@ import React from "react";
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "./SceneImage";
 import { Caption } from "./Caption";
+import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "./SceneLayouts";
 import { Sfx } from "./Sfx";
 import { Arrows } from "./Arrows";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
@@ -80,6 +81,10 @@ export const Scene: React.FC<{
   captionBgColor: SlideshowVideoProps["captionBgColor"];
   highlightColor: SlideshowVideoProps["highlightColor"];
   showBilingual: boolean;
+  // Màu nền cho slide không có ảnh phủ kín (layout "bullets"/"split") — xem schema.ts.
+  slideBgColor: string;
+  // Màu chữ cho 3 bố cục mới — xem schema.ts (tách riêng khỏi captionTextColor).
+  slideTextColor: string;
   fontFamily: string;
 }> = ({
   scene,
@@ -105,6 +110,8 @@ export const Scene: React.FC<{
   captionBgColor,
   highlightColor,
   showBilingual,
+  slideBgColor,
+  slideTextColor,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -135,6 +142,62 @@ export const Scene: React.FC<{
     ? "none"
     : scene.kenBurns ?? (sceneIndex % 2 === 0 ? "in" : "out");
 
+  // Bố cục riêng của slide này. Mặc định "default" = giữ nguyên hành vi cũ (hình phủ kín +
+  // Caption theo cấu hình toàn cục), nên mọi video/config cũ render ra y hệt như trước.
+  const layout = scene.layout ?? "default";
+
+  // Cỡ chữ dùng cho các bố cục mới. Bám theo captionFontSize người dùng đã chọn để không lệch
+  // hẳn với phần còn lại của video; nếu chưa đặt thì lấy mốc riêng hợp với từng bố cục.
+  const layoutFontSize = captionFontSize ?? 40;
+  const layoutSecondaryFontSize = captionSecondaryFontSize ?? Math.round(layoutFontSize * 0.62);
+  const layoutTextColor = slideTextColor;
+  const layoutHighlightColor = highlightColor || "#FE2C55";
+
+  // Slide chữ thuần: KHÔNG dựng SceneImage, nhưng vẫn giữ nguyên Audio/Sfx/Arrows để lời kể và
+  // hiệu ứng của scene chạy bình thường — nếu bỏ luôn thì slide này mất tiếng.
+  if (layout === "bullets") {
+    return (
+      <AbsoluteFill style={{ opacity, transform }}>
+        <BulletsLayout
+          bullets={scene.bullets ?? []}
+          durationInFrames={visualDurationInFrames}
+          fontFamily={fontFamily}
+          captionFont={captionFont}
+          fontSize={layoutFontSize}
+          textColor={layoutTextColor}
+          bgColor={slideBgColor}
+          highlightColor={layoutHighlightColor}
+        />
+        <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
+        <Sfx cues={scene.sfx} />
+        <Arrows cues={scene.arrows} />
+      </AbsoluteFill>
+    );
+  }
+
+  if (layout === "split") {
+    return (
+      <AbsoluteFill style={{ opacity, transform, background: slideBgColor }}>
+        <SplitLayout
+          image={scene.image}
+          caption={scene.caption}
+          side={scene.splitSide ?? "right"}
+          fontFamily={fontFamily}
+          captionFont={captionFont}
+          fontSize={layoutFontSize}
+          secondaryFontSize={layoutSecondaryFontSize}
+          textColor={layoutTextColor}
+          highlightColor={layoutHighlightColor}
+          showBilingual={showBilingual}
+          durationInFrames={visualDurationInFrames}
+        />
+        <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
+        <Sfx cues={scene.sfx} />
+        <Arrows cues={scene.arrows} />
+      </AbsoluteFill>
+    );
+  }
+
   return (
     <AbsoluteFill style={{ opacity, transform }}>
       <SceneImage
@@ -149,6 +212,22 @@ export const Scene: React.FC<{
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
       <Sfx cues={scene.sfx} />
       <Arrows cues={scene.arrows} />
+      {/* "image-only": bỏ hẳn phụ đề dù scene CÓ caption — dùng làm nhịp nghỉ, để hình tự nói.
+          Khác với việc để caption rỗng ở khâu viết kịch bản: caption vẫn cần giữ nguyên vì lời kể
+          (dialogueOrNarration) và phụ đề là 2 trường tách biệt, xoá caption đi thì mất luôn dữ
+          liệu, còn ở đây chỉ là không VẼ nó ra. */}
+      {layout === "caption-left" ? (
+        <CaptionLeftOverlay
+          caption={scene.caption}
+          fontFamily={fontFamily}
+          captionFont={captionFont}
+          fontSize={layoutFontSize}
+          secondaryFontSize={layoutSecondaryFontSize}
+          textColor={layoutTextColor}
+          highlightColor={layoutHighlightColor}
+          showBilingual={showBilingual}
+        />
+      ) : layout === "image-only" ? null : (
       <Caption
         text={scene.caption}
         sceneIndex={sceneIndex}
@@ -170,6 +249,7 @@ export const Scene: React.FC<{
         wordTimings={scene.wordTimings}
         opacity={1}
       />
+      )}
     </AbsoluteFill>
   );
 };

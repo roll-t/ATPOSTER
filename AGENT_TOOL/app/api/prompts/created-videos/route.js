@@ -81,6 +81,8 @@ export async function GET() {
       const manifestPath = path.join(projectDir, 'manifest.json');
 
       let itemLevel = folderToLevel.get(folderName) || null;
+      let driveFileId = null;
+      let driveUrl = null;
 
       let categoryFromConfig = null;
       if (fs.existsSync(configPath)) {
@@ -95,6 +97,8 @@ export async function GET() {
           if (Array.isArray(configJson.scenes)) {
             scenesCount = configJson.scenes.length;
           }
+          if (configJson.driveFileId) driveFileId = configJson.driveFileId;
+          if (configJson.driveUrl) driveUrl = configJson.driveUrl;
         } catch (e) {
           // Bỏ qua lỗi đọc JSON
         }
@@ -118,6 +122,8 @@ export async function GET() {
           if (Array.isArray(manifestJson.segments) && scenesCount === 0) {
             scenesCount = manifestJson.segments.length;
           }
+          if (manifestJson.driveFileId && !driveFileId) driveFileId = manifestJson.driveFileId;
+          if (manifestJson.driveUrl && !driveUrl) driveUrl = manifestJson.driveUrl;
         } catch (e) {
           // Bỏ qua lỗi đọc manifest
         }
@@ -176,7 +182,9 @@ export async function GET() {
         videoUrl: `/api/prompts/video-stream?folderPath=${encodeURIComponent(folderName)}${categoryQuery}`,
         thumbnailUrl: thumbnailFile
           ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderName)}&file=images/${encodeURIComponent(thumbnailFile)}${categoryQuery}`
-          : null
+          : null,
+        driveFileId,
+        driveUrl
       });
     }
 

@@ -6,6 +6,8 @@ import StylePicker from './StylePicker.js';
 import LayoutPicker from './LayoutPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
+import StickFigureLongFormModal from './StickFigureLongFormModal.js';
+import { STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
 import { MORAL_THEMES, DEFAULT_MORAL_THEME, getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
 
@@ -150,7 +152,12 @@ export default function ContentForm({
       .filter(Boolean)
   );
 
-  // Mốc "video dài" (4-6/6-8/8-10 phút) chỉ hợp lệ cho moral_talk_slideshow + Dạng ngang 16:9 (xem
+  // Các category có mốc "video dài" (4-6/6-8/8-10 phút). Đều là skill slideshow dựng bằng Remotion
+  // và chỉ mở ở Dạng ngang 16:9 — khung dọc 9:16 vốn để lướt nhanh trên điện thoại, 8-10 phút ở
+  // khung đó là sai mục đích sử dụng.
+  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow'];
+
+  // Mốc "video dài" (4-6/6-8/8-10 phút) chỉ hợp lệ cho các category trên + Dạng ngang 16:9 (xem
   // <optgroup> "🎬 Video dài" bên dưới). durationRange là state DÙNG CHUNG cho mọi category video
   // (không tự reset khi đổi category/tỉ lệ khung hình) — nên nếu người dùng chọn "8-10 phút" rồi
   // đổi sang category khác hoặc đổi về Dạng dọc 9:16 mà không có gì clear lại, ô chọn sẽ giữ một
@@ -160,7 +167,7 @@ export default function ContentForm({
   const currentAspectRatio = currentInput['aspectRatio'];
   useEffect(() => {
     const isLongTier = ['4_6m', '6_8m', '8_10m'].includes(durationRange);
-    const isValidForLongTier = activeCategory === 'moral_talk_slideshow' && currentAspectRatio === '16:9';
+    const isValidForLongTier = LONG_FORM_CATEGORIES.includes(activeCategory) && currentAspectRatio === '16:9';
     if (isLongTier && !isValidForLongTier) {
       setDurationRange('under_1m');
     }
@@ -261,6 +268,7 @@ export default function ContentForm({
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [isCharModalOpen, setIsCharModalOpen] = useState(false);
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
+  const [isLongFormTopicsOpen, setIsLongFormTopicsOpen] = useState(false);
 
   return (
     <div className="glass-card" style={{ padding: '24px' }}>
@@ -389,11 +397,11 @@ export default function ContentForm({
                     điện thoại — 8-10 phút phụ đề dồn dập trên khung dọc không hợp; (2) các category
                     khác dùng chung state durationRange này chưa được rà lại pacing/prompt cho thời
                     lượng này. Mở rộng cho category/tỉ lệ khác cần rà riêng, không nên bật đại trà. */}
-                {activeCategory === 'moral_talk_slideshow' && currentInput['aspectRatio'] === '16:9' && (
+                {LONG_FORM_CATEGORIES.includes(activeCategory) && currentInput['aspectRatio'] === '16:9' && (
                   <optgroup label="🎬 Video dài (YouTube ngang)">
-                    <option value="4_6m">Từ 4 - 6 phút (28 - 40 slide pictogram)</option>
-                    <option value="6_8m">Từ 6 - 8 phút (38 - 54 slide pictogram)</option>
-                    <option value="8_10m">Từ 8 - 10 phút (48 - 68 slide pictogram)</option>
+                    <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'stick_figure_slideshow' ? '35 - 48 slide ảnh' : '28 - 40 slide pictogram'})</option>
+                    <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'stick_figure_slideshow' ? '48 - 65 slide ảnh' : '38 - 54 slide pictogram'})</option>
+                    <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'stick_figure_slideshow' ? '60 - 82 slide ảnh' : '48 - 68 slide pictogram'})</option>
                   </optgroup>
                 )}
               </select>
@@ -453,6 +461,34 @@ export default function ContentForm({
                       ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
                       : `📚 Lộ trình 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
                     }
+                  </button>
+                )}
+                {/* Kho chủ đề Video Dài — LUÔN hiện cho skill Người Que, giống nút "Lộ trình 50
+                    chủ đề" của skill Đạo Lý. Bản đầu từng khoá nút này lại, chỉ cho hiện khi đã
+                    chọn sẵn một mốc thời lượng dài; hoá ra đó là cách chắc chắn khiến không ai tìm
+                    thấy nó — người dùng mở form ra ở mốc mặc định "Dưới 1 phút" và nút vô hình,
+                    không có gì gợi ý rằng phải đổi thời lượng trước thì nó mới xuất hiện. */}
+                {field.key === 'scenario' && activeCategory === 'stick_figure_slideshow' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLongFormTopicsOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
+                      border: '1px solid rgba(37, 244, 238, 0.35)',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      color: '#fff',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 10px rgba(37, 244, 238, 0.2)',
+                      flexShrink: 0
+                    }}
+                  >
+                    🎬 Kho chủ đề Video Dài ({STICK_FIGURE_LONGFORM_TOPIC_COUNT})
                   </button>
                 )}
                 {field.type === 'style-select' && (
@@ -610,10 +646,16 @@ export default function ContentForm({
                   >
                     {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
                   </button>
-                  {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow'].includes(activeCategory) && (
+                  {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'stick_figure_slideshow'].includes(activeCategory) && (
                     <button
                       type="button"
-                      onClick={() => setIsSyllabusModalOpen(true)}
+                      onClick={() => {
+                        if (activeCategory === 'stick_figure_slideshow') {
+                          setIsLongFormTopicsOpen(true);
+                        } else {
+                          setIsSyllabusModalOpen(true);
+                        }
+                      }}
                       className="suggestion-pill"
                       style={{
                         background: 'rgba(254, 44, 85, 0.14)',
@@ -625,7 +667,9 @@ export default function ContentForm({
                     >
                       {activeCategory === 'reading_practice'
                         ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                        : `📚 Xem danh sách 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                        : activeCategory === 'moral_talk_slideshow'
+                          ? `📚 Xem danh sách 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                          : `📚 Kho 200 Chủ Đề Video Dài (${STICK_FIGURE_LONGFORM_TOPIC_COUNT} chủ đề)`
                       }
                     </button>
                   )}
@@ -708,6 +752,16 @@ export default function ContentForm({
           isOpen={isSyllabusModalOpen}
           onClose={() => setIsSyllabusModalOpen(false)}
           currentTheme={currentInput.moralTheme || 'self_help'}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
+
+      {/* Kho chủ đề Video Dài (áp dụng cho skill Người Que) */}
+      {activeCategory === 'stick_figure_slideshow' && (
+        <StickFigureLongFormModal
+          isOpen={isLongFormTopicsOpen}
+          onClose={() => setIsLongFormTopicsOpen(false)}
           onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
           history={history}
         />

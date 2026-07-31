@@ -531,6 +531,7 @@ function CaptionStylePreview({
   secondaryFontSize,
   highlightColor,
   isFullLiveScreen = false,
+  showSafeZone = false,
   imageUrl = '',
   imageScale = 1,
   imageTranslateY = 0,
@@ -620,6 +621,50 @@ function CaptionStylePreview({
           Chưa có ảnh minh hoạ — xem trước phần chữ trên nền đen
         </div>
       )}
+
+      {/* Lớp phủ VÙNG AN TOÀN cho nền tảng short (chỉ khung dọc 9:16).
+          Video render ra đúng chuẩn 1080x1920, nhưng khi xem thực tế có 2 thứ ăn mất nội dung:
+            1. Máy màn hình DÀI (iPhone 14 Pro tỉ lệ 19.5:9): app lấp đầy chiều cao nên CẮT
+               ~9% mỗi bên trái/phải (đo được: 97px trên khung 1080px).
+            2. Giao diện TikTok/Reels ĐÈ LÊN video: thanh trên, khối caption + tên kênh + nhạc
+               ở dưới, và cột nút Tim/Bình luận/Chia sẻ bên phải.
+          Nội dung nằm trong các dải này vẫn được render nhưng người xem KHÔNG thấy. */}
+      {isFullLiveScreen && showSafeZone && !isLandscape && (() => {
+        const band = (extra) => ({
+          position: 'absolute',
+          background: 'rgba(255, 71, 87, 0.16)',
+          borderColor: 'rgba(255, 71, 87, 0.55)',
+          borderStyle: 'dashed',
+          borderWidth: 0,
+          zIndex: 5,
+          pointerEvents: 'none',
+          ...extra
+        });
+        const label = {
+          position: 'absolute',
+          fontSize: '0.5rem',
+          fontWeight: 800,
+          color: 'rgba(255,255,255,0.85)',
+          textShadow: '0 1px 3px #000',
+          whiteSpace: 'nowrap'
+        };
+        return (
+          <>
+            {/* Cắt 2 bên trên máy màn hình dài: 97/1080 = 9% mỗi bên */}
+            <div style={band({ left: 0, top: 0, bottom: 0, width: '9%', borderRightWidth: 1 })} />
+            <div style={band({ right: 0, top: 0, bottom: 0, width: '9%', borderLeftWidth: 1 })} />
+            {/* UI TikTok che phía trên: ~220/1920 = 11.5% */}
+            <div style={band({ left: 0, right: 0, top: 0, height: '11.5%', borderBottomWidth: 1 })} />
+            {/* UI TikTok che phía dưới (caption/tên kênh/nhạc): từ 1570/1920 = 81.8% */}
+            <div style={band({ left: 0, right: 0, top: '81.8%', bottom: 0, borderTopWidth: 1 })} />
+            {/* Cột nút bên phải (Tim/Bình luận/Chia sẻ): x từ 900/1080 = 83.3% */}
+            <div style={band({ right: 0, top: '31%', height: '51%', width: '16.7%', borderLeftWidth: 1 })} />
+            <span style={{ ...label, left: '10.5%', top: '12.5%' }}>▲ UI che</span>
+            <span style={{ ...label, left: '10.5%', bottom: '19%' }}>▼ UI che (caption, tên kênh)</span>
+          </>
+        );
+      })()}
+
       <div style={{
         width: '100%',
         display: 'flex',
@@ -1065,6 +1110,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderHighlightColor, setRenderHighlightColor] = useState(initialDefaults.highlightColor || '#FE2C55');
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
+  // Hiện lớp phủ vùng an toàn của nền tảng short lên khung xem trước — chỉ là lớp hướng dẫn
+  // trên giao diện, KHÔNG ảnh hưởng gì tới video render ra.
+  const [showSafeZone, setShowSafeZone] = useState(false);
   const [customScreenBg, setCustomScreenBg] = useState('#252538');
   const [customTab, setCustomTab] = useState('style'); // 'style' | 'layout' | 'typography'
 
@@ -1089,6 +1137,117 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+
+  // States & handlers for Pexels stock photos and videos
+  const [pexelsModal, setPexelsModal] = useState({ show: false, segment: null });
+  const [pexelsQuery, setPexelsQuery] = useState('');
+  const [pexelsType, setPexelsType] = useState('photos'); // 'photos' | 'videos'
+  const [pexelsResults, setPexelsResults] = useState([]);
+  const [pexelsLoading, setPexelsLoading] = useState(false);
+  const [pexelsError, setPexelsError] = useState('');
+  const [pexelsPage, setPexelsPage] = useState(1);
+  const [pexelsDownloading, setPexelsDownloading] = useState(null);
+
+  const openPexelsSearch = (segment) => {
+    setPexelsModal({ show: true, segment });
+    let defaultQuery = segment.visualDescription || '';
+    if (defaultQuery.length > 60) {
+      defaultQuery = defaultQuery.substring(0, 60).split(' ').slice(0, -1).join(' ');
+    }
+    setPexelsQuery(defaultQuery);
+    setPexelsResults([]);
+    setPexelsError('');
+    setPexelsPage(1);
+    triggerPexelsSearch(defaultQuery, 'photos', 1);
+  };
+
+  const triggerPexelsSearch = async (query, type, page) => {
+    if (!query.trim()) return;
+    setPexelsLoading(true);
+    setPexelsError('');
+    try {
+      const res = await fetch(`/api/prompts/pexels?query=${encodeURIComponent(query)}&type=${type}&page=${page}`);
+      const data = await res.json();
+      if (data.success) {
+        const list = type === 'videos' ? data.data.videos : data.data.photos;
+        if (page === 1) {
+          setPexelsResults(list || []);
+        } else {
+          setPexelsResults(prev => [...prev, ...(list || [])]);
+        }
+      } else {
+        setPexelsError(data.error || 'Lỗi tìm kiếm stock.');
+      }
+    } catch (err) {
+      setPexelsError('Không thể kết nối tới máy chủ.');
+    } finally {
+      setPexelsLoading(false);
+    }
+  };
+
+  const handleSelectPexelsMedia = async (media) => {
+    const segment = pexelsModal.segment;
+    if (!segment) return;
+
+    let mediaUrl = '';
+    if (pexelsType === 'videos') {
+      const videoFiles = media.video_files || [];
+      const bestFile = videoFiles.find(f => f.quality === 'hd' && f.file_type === 'video/mp4') ||
+                       videoFiles.find(f => f.quality === 'sd' && f.file_type === 'video/mp4') ||
+                       videoFiles[0];
+      if (!bestFile) {
+        alert('Không tìm thấy tệp video mp4 phù hợp.');
+        return;
+      }
+      mediaUrl = bestFile.link;
+    } else {
+      mediaUrl = media.src.large || media.src.original;
+    }
+
+    setPexelsDownloading(media.id);
+    try {
+      const res = await fetch('/api/prompts/pexels/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: result.input?.folderPath,
+          category: result.category,
+          segmentNumber: segment.segmentNumber,
+          mediaUrl,
+          type: pexelsType
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const updatedSegments = result.segments.map(s => {
+          if (s.segmentNumber === segment.segmentNumber) {
+            const ext = pexelsType === 'videos' ? 'mp4' : 'jpg';
+            return {
+              ...s,
+              imageExt: ext,
+              files: [`images/scene-${String(segment.segmentNumber).padStart(2, '0')}.${ext}`],
+              image: `${result.input.folderPath}/images/scene-${String(segment.segmentNumber).padStart(2, '0')}.${ext}`
+            };
+          }
+          return s;
+        });
+
+        onResult?.({
+          ...result,
+          segments: updatedSegments
+        });
+
+        setHeroImageVersion(prev => prev + 1);
+        setPexelsModal({ show: false, segment: null });
+      } else {
+        alert('Lỗi tải xuống: ' + (data.error || 'Vui lòng thử lại.'));
+      }
+    } catch (err) {
+      alert('Lỗi kết nối máy chủ.');
+    } finally {
+      setPexelsDownloading(null);
+    }
+  };
   // Nhạc nền nhẹ (tuỳ chọn) — ngoài kho 3 bản nhạc nhẹ của hệ thống, người dùng có thể tự tải
   // file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã tải hay không lúc
   // render — tắt đi không xoá file, bật lại dùng ngay không cần tải lại.
@@ -3830,6 +3989,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             {result.segments.map((seg, idx) => {
               const isThumb = seg.isThumbnail || (seg.dialogueOrNarration && seg.dialogueOrNarration.includes('Thumbnail'));
               const isSegDirty = dirtySegments.some(d => d.segmentNumber === seg.segmentNumber);
+              const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
               const editStyle = {
                 width: '100%',
                 boxSizing: 'border-box',
@@ -3930,105 +4090,424 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
-                    <div>
-                      <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
-                      </span>
-                      {isEditingScript ? (
-                        <textarea
-                          value={editedValue(seg, 'visualDescription')}
-                          onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
-                          rows={4}
-                          spellCheck={false}
-                          style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
-                        />
-                      ) : (
-                        <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                          {seg.visualDescription}
-                        </p>
-                      )}
-                    </div>
-
-                    {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
-                      <div>
-                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                          <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
-                          {/* Đếm chữ + thời lượng đọc ngay lúc gõ: prompt sinh kịch bản ràng buộc mỗi
-                              slide khoảng 6-15 giây, không có con số này thì sửa tay xong phải tạo
-                              giọng đọc mới biết mình vừa viết dài/ngắn quá. */}
-                          <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                            {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
-                          </span>
-                        </span>
-                        {isEditingScript ? (
-                          <textarea
-                            value={editedValue(seg, 'dialogueOrNarration')}
-                            onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
-                            rows={3}
-                            placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
-                            style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
-                          />
-                        ) : (
-                          <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                            {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {(seg.subtitle || isEditingScript) && !isThumb && (
+                  {/* Flex row layout: Left for fields, Right for Pexels media preview */}
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    {/* Left: Input Fields */}
+                    <div style={{ flex: '1', minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div>
                         <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>📝</span> <span>Phụ đề hiển thị</span>
-                          {isEditingScript && (
-                            <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                              Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
-                            </span>
-                          )}
+                          <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
                         </span>
                         {isEditingScript ? (
                           <textarea
-                            value={editedValue(seg, 'subtitle')}
-                            onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
-                            rows={2}
-                            placeholder="Dòng chính&#10;Dòng dịch"
-                            style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                            value={editedValue(seg, 'visualDescription')}
+                            onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
+                            rows={4}
+                            spellCheck={false}
+                            style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
                           />
                         ) : (
-                          <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                            {seg.subtitle}
+                          <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                            {seg.visualDescription}
                           </p>
                         )}
                       </div>
-                    )}
 
-                    <div style={{ marginTop: '8px' }}>
-                      <details style={{ width: '100%' }}>
-                        <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                          Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
-                        </summary>
-                        <div style={{
-                          background: '#0a0912',
-                          padding: '12px',
-                          borderRadius: '8px',
-                          fontSize: '0.76rem',
-                          fontFamily: 'monospace',
-                          marginTop: '8px',
-                          whiteSpace: 'pre-wrap',
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          color: 'rgba(255,255,255,0.65)',
-                          lineHeight: 1.45
-                        }}>
-                          {seg.textPrompt}
+                      {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
+                        <div>
+                          <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                              {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                            </span>
+                          </span>
+                          {isEditingScript ? (
+                            <textarea
+                              value={editedValue(seg, 'dialogueOrNarration')}
+                              onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
+                              rows={3}
+                              placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
+                              style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
+                            />
+                          ) : (
+                            <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                              {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
+                            </p>
+                          )}
                         </div>
-                      </details>
+                      )}
+
+                      {(seg.subtitle || isEditingScript) && !isThumb && (
+                        <div>
+                          <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📝</span> <span>Phụ đề hiển thị</span>
+                            {isEditingScript && (
+                              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
+                              </span>
+                            )}
+                          </span>
+                          {isEditingScript ? (
+                            <textarea
+                              value={editedValue(seg, 'subtitle')}
+                              onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
+                              rows={2}
+                              placeholder="Dòng chính&#10;Dòng dịch"
+                              style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                            />
+                          ) : (
+                            <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                              {seg.subtitle}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: '8px' }}>
+                        <details style={{ width: '100%' }}>
+                          <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                            Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
+                          </summary>
+                          <div style={{
+                            background: '#0a0912',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            fontSize: '0.76rem',
+                            fontFamily: 'monospace',
+                            marginTop: '8px',
+                            whiteSpace: 'pre-wrap',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.65)',
+                            lineHeight: 1.45
+                          }}>
+                            {seg.textPrompt}
+                          </div>
+                        </details>
+                      </div>
                     </div>
+
+                    {/* Right: Media Preview & Pexels search */}
+                    <div style={{
+                      width: '120px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, letterSpacing: '0.5px' }}>BACKGROUND</span>
+                      
+                      {(() => {
+                        const paddedNum = String(seg.segmentNumber).padStart(2, '0');
+                        const isSegVideo = (seg.imageExt === 'mp4' || (seg.files && seg.files[0]?.endsWith('.mp4')));
+                        const mediaUrl = `/api/prompts/image-stream?folderPath=${encodeURIComponent(result.input?.folderPath || '')}&file=images/scene-${paddedNum}.${seg.imageExt || 'jpg'}&category=${encodeURIComponent(result.category || '')}&v=${heroImageVersion}`;
+                        
+                        return (
+                          <div style={{
+                            width: '104px',
+                            height: isLandscape ? '58px' : '138px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            background: 'rgba(0,0,0,0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                          }}>
+                            {isSegVideo ? (
+                              <video
+                                src={mediaUrl}
+                                muted
+                                loop
+                                autoPlay
+                                playsInline
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <img
+                                src={mediaUrl}
+                                alt={`Slide ${seg.segmentNumber}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            )}
+                            <div style={{
+                              position: 'absolute',
+                              top: 0, right: 0, bottom: 0, left: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.2rem',
+                              color: 'rgba(255,255,255,0.15)',
+                              zIndex: 1
+                            }}>
+                              {isSegVideo ? '🎥' : '🖼️'}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          width: '100%',
+                          padding: '6px 4px',
+                          fontSize: '0.72rem',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                          border: 'none',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(0, 242, 254, 0.25)',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.15)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+                        onClick={() => openPexelsSearch(seg)}
+                      >
+                        🔍 Stock Pexels
+                      </button>
+                    </div>
+                  </div>
                   </div>
                 </div>
               );
             })}
           </div>
         </>
+      )}
+
+      {/* Pexels Stock Media Modal Dialog via Portal */}
+      {pexelsModal.show && mounted && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          backdropFilter: 'blur(10px)',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            width: '92%',
+            maxWidth: '900px',
+            height: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#14131d',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6)',
+            textAlign: 'left'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🔍</span> Thư viện Stock Pexels — Slide {pexelsModal.segment?.segmentNumber}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setPexelsModal({ show: false, segment: null })}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+              <input
+                type="text"
+                value={pexelsQuery}
+                onChange={(e) => setPexelsQuery(e.target.value)}
+                placeholder="Nhập từ khóa tìm kiếm (tiếng Anh)..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') triggerPexelsSearch(pexelsQuery, pexelsType, 1);
+                }}
+                style={{
+                  flex: 1,
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  color: '#fff',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <select
+                value={pexelsType}
+                onChange={(e) => {
+                  setPexelsType(e.target.value);
+                  triggerPexelsSearch(pexelsQuery, e.target.value, 1);
+                }}
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  color: '#fff',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <option value="photos">🖼️ Ảnh (Photos)</option>
+                <option value="videos">🎥 Video (Videos)</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => triggerPexelsSearch(pexelsQuery, pexelsType, 1)}
+                style={{
+                  background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 24px',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Tìm
+              </button>
+            </div>
+
+            {/* Error or loading status */}
+            {pexelsError && (
+              <div style={{
+                color: 'var(--danger)',
+                background: 'rgba(255, 71, 87, 0.1)',
+                border: '1px solid rgba(255, 71, 87, 0.2)',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                marginBottom: '12px'
+              }}>
+                {pexelsError}
+              </div>
+            )}
+
+            {/* Results Grid */}
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
+              {pexelsLoading && pexelsResults.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '10px' }}>
+                  <span style={{ fontSize: '1.5rem', animation: 'spin 1s linear infinite' }}>⏳</span>
+                  <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>Đang tìm kiếm stock từ Pexels...</span>
+                </div>
+              ) : pexelsResults.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+                  Không tìm thấy kết quả phù hợp. Hãy thử đổi từ khoá tiếng Anh khác.
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                  gap: '12px'
+                }}>
+                  {pexelsResults.map(item => {
+                    const isSelected = pexelsDownloading === item.id;
+                    const previewSrc = pexelsType === 'videos' ? item.image : item.src.medium;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => !pexelsDownloading && handleSelectPexelsMedia(item)}
+                        style={{
+                          position: 'relative',
+                          aspectRatio: pexelsType === 'videos' ? '16/9' : '1',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: isSelected ? '2px solid #00f2fe' : '1px solid rgba(255,255,255,0.1)',
+                          cursor: pexelsDownloading ? 'not-allowed' : 'pointer',
+                          transition: 'transform 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => { if (!pexelsDownloading) e.currentTarget.style.transform = 'scale(1.03)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                      >
+                        <img
+                          src={previewSrc}
+                          alt="Pexels Stock"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        {pexelsType === 'videos' && (
+                          <span style={{
+                            position: 'absolute',
+                            bottom: '4px',
+                            right: '4px',
+                            background: 'rgba(0,0,0,0.7)',
+                            padding: '2px 4px',
+                            borderRadius: '4px',
+                            fontSize: '0.65rem',
+                            color: '#fff'
+                          }}>
+                            🎥 {item.duration}s
+                          </span>
+                        )}
+                        {isSelected && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.6)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            zIndex: 10
+                          }}>
+                            <span style={{ fontSize: '1.2rem', animation: 'spin 1s linear infinite' }}>⏳</span>
+                            <span style={{ fontSize: '0.65rem', color: '#00f2fe', fontWeight: 700 }}>Đang tải...</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Load More Button */}
+            {pexelsResults.length > 0 && !pexelsLoading && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const nextPage = pexelsPage + 1;
+                  setPexelsPage(nextPage);
+                  triggerPexelsSearch(pexelsQuery, pexelsType, nextPage);
+                }}
+                style={{
+                  alignSelf: 'center',
+                  padding: '8px 24px',
+                  fontSize: '0.82rem',
+                  borderRadius: '8px',
+                  fontWeight: 700
+                }}
+              >
+                Tải thêm kết quả
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Voiceover setting block (Modal Dialog via Portal) */}
@@ -6224,9 +6703,42 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         imageTranslateY={Number(renderImageTranslateY)}
                         captionMarginY={Number(renderCaptionMarginY)}
                         showBilingual={renderBilingual}
+                        showSafeZone={showSafeZone}
                       />
                     )}
                   </div>
+
+                  {/* Bật/tắt lớp phủ vùng an toàn — chỉ có ý nghĩa với khung dọc 9:16 (các dải
+                      này là của TikTok/Reels/Shorts, khung ngang 16:9 không có). */}
+                  {capcutPreviewRatio !== '16:9' && (
+                    <div style={{ marginTop: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowSafeZone(v => !v)}
+                        title="Hiện các dải bị cắt trên máy màn hình dài + vùng bị giao diện TikTok/Reels che. Chỉ hiển thị hướng dẫn, không ảnh hưởng video render ra."
+                        style={{
+                          width: '100%',
+                          padding: '7px 10px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          color: showSafeZone ? '#ff6b6b' : 'rgba(255,255,255,0.7)',
+                          background: showSafeZone ? 'rgba(255,71,87,0.14)' : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${showSafeZone ? 'rgba(255,71,87,0.45)' : 'rgba(255,255,255,0.12)'}`
+                        }}
+                      >
+                        {showSafeZone ? '✓ Đang hiện vùng an toàn' : '🛡️ Hiện vùng an toàn (TikTok/Reels)'}
+                      </button>
+                      {showSafeZone && (
+                        <span style={{ display: 'block', marginTop: '6px', fontSize: '0.65rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                          Vùng đỏ = người xem <strong>không thấy</strong>: 2 bên bị cắt trên máy màn hình dài (iPhone 14 Pro trở lên),
+                          trên/dưới/cột phải bị giao diện app che. Kéo <strong>Kích thước ảnh</strong> và <strong>Vị trí ảnh</strong> sao cho
+                          hình nằm gọn trong vùng trong suốt.
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

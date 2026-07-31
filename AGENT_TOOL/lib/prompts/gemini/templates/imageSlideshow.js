@@ -5,9 +5,22 @@
 import { buildPunctuationRhythmGuidance } from './narrationPacing.js';
 import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
-export function buildImageSlideshowScriptPrompt(input, durationInfo) {
+export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isBilingual = true;
   const isLandscape = input.aspectRatio === '16:9';
+
+  // Nhịp slide phải GIÃN RA ở các mốc video dài. Ở nhịp ngắn 3-6 giây/slide, một video 8-10 phút
+  // sẽ cần tới ~120 ảnh — số ảnh phải sinh thủ công qua Google Flow lớn tới mức không làm nổi.
+  // Video explainer dài ngoài đời cũng giữ mỗi hình lâu hơn hẳn video ngắn, nên giãn nhịp vừa
+  // đúng thực tế biên tập vừa kéo số ảnh về mức làm được.
+  const LONG_TIERS = {
+    '4_6m': { slides: '35 đến 48', seconds: '6 đến 10 giây' },
+    '6_8m': { slides: '48 đến 65', seconds: '6 đến 10 giây' },
+    '8_10m': { slides: '60 đến 82', seconds: '7 đến 11 giây' },
+  };
+  const longTier = LONG_TIERS[durationRange];
+  const targetSlides = longTier ? longTier.slides : durationInfo.segmentsCount;
+  const slideSecondsHint = longTier ? longTier.seconds : '3 đến 6 giây (rất ngắn)';
 
   const charsDetail = `
 - Determine the stick-figure character(s) needed to silently depict the topic. Use as few as the topic actually needs (often just 1, at most 3).
@@ -48,10 +61,36 @@ ${compositionGuidance}
 - IMPORTANT — no unwanted text in the image: do NOT describe or request character-name labels, "reference sheet" style callouts, arrows, or any technical/construction annotations anywhere in the image. Only if the scene itself naturally calls for a short, meaningful piece of in-scene text (for example one bold impactful word or short phrase reinforcing what the slide is about, like on a sign, a phone screen, or as simple bold graphic text) should any text appear — and it must stay short and purposeful, never a label describing the drawing.
 - The visual description should be descriptive and detail-oriented, suitable for direct text-to-image prompts (e.g. Midjourney or Flux).
 
+PER-SLIDE LAYOUT ("layout") — HOW THIS SLIDE IS PRESENTED ON SCREEN:
+Set a "layout" on EVERY segment. A video that uses the exact same presentation on all slides looks
+flat and monotonous over several minutes; alternating between these keeps a long explainer watchable
+(this mirrors how whiteboard-explainer channels actually edit). Pick whichever genuinely fits that
+beat of the narration — do NOT cycle through them mechanically:
+  - "default"      : illustration fills the frame, subtitle rendered in the video's normal caption
+                     style. Use for most slides — this should still be the majority.
+  - "image-only"   : illustration fills the frame, NO subtitle drawn at all. Use as a breathing beat
+                     when the drawing alone already says it, or on a strong emotional/punchline
+                     image. Still write dialogueOrNarration and subtitle normally (the narration is
+                     still spoken; only the on-screen text is hidden).
+  - "caption-left" : illustration fills the frame, subtitle pinned to the BOTTOM-LEFT corner instead
+                     of centered. Use when the drawing's subject sits to the right/centre so the
+                     lower-left corner is visually empty.
+  - "split"        : frame split in half — text on one side, illustration on the other. Use for a
+                     definition, a contrast, or a single punchy statement tied to one character.
+                     Also set "splitSide": "right" (illustration on the right, the usual choice) or
+                     "left". For this layout describe a SINGLE character/object centered on a plain
+                     background in visualDescription, since it only gets half the frame.
+  - "bullets"      : a TEXT-ONLY slide, no illustration at all. Also fill "bullets" with 2 to 4
+                     short lines (each a complete, punchy point, max ~12 words). Use ONLY where the
+                     narration genuinely lists steps/reasons/tips. At most 1-2 of these in the whole
+                     video, never two in a row. Still write visualDescription normally (an image is
+                     generated anyway and simply not used for this slide) plus dialogueOrNarration
+                     that reads those points aloud.
+
 DURATION & PACING REQUIREMENTS:
 - Target total video duration: ${durationInfo.label} (about ${durationInfo.targetSeconds} seconds).
-- BẮT BUỘC: Bạn phải chia kịch bản thành chuỗi từ ${durationInfo.segmentsCount} phân đoạn/slide liên tục.
-- Mỗi phân đoạn/slide chỉ tương ứng với thời lượng đọc từ 3 đến 6 giây (rất ngắn). Hãy chia nhỏ lời thuyết minh tương ứng.
+- BẮT BUỘC: Bạn phải chia kịch bản thành chuỗi từ ${targetSlides} phân đoạn/slide liên tục.
+- Mỗi phân đoạn/slide tương ứng với thời lượng đọc từ ${slideSecondsHint}. Hãy chia lời thuyết minh tương ứng.
 
 CAST/CHARACTERS GUIDELINES:
 ${charsDetail}
@@ -88,7 +127,10 @@ Return the result as a JSON object matching exactly this schema:
       "dialogueOrNarration": "Full narration line in English, third-person voiceover style (e.g. Millions of people lie awake every night, scrolling instead of sleeping.)",
       "subtitle": "${isBilingual
         ? 'Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ.'
-        : 'Millions of people lie awake every night, scrolling instead of sleeping.'}"
+        : 'Millions of people lie awake every night, scrolling instead of sleeping.'}",
+      "layout": "default",
+      "splitSide": "right",
+      "bullets": ["Only include this field on a \\"bullets\\" slide", "2 to 4 short punchy lines", "Otherwise omit it entirely"]
     }
   ],
   "thumbnail": {

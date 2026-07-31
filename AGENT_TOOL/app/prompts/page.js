@@ -13,6 +13,7 @@ import SegmentedResultView from './components/SegmentedResultView.js';
 import ManualResultView from './components/ManualResultView.js';
 import HistoryList from './components/HistoryList.js';
 import CreatedVideosGrid from './components/CreatedVideosGrid.js';
+import PexelsSearchPanel from './components/PexelsSearchPanel.js';
 
 function PromptsStudioContent() {
   const searchParams = useSearchParams();
@@ -20,10 +21,138 @@ function PromptsStudioContent() {
   const s = usePromptStudio();
 
   const [activeRightTab, setActiveRightTab] = useState('videos');
+
+  // Trạng thái Google Drive Integration
+  const [driveFolders, setDriveFolders] = useState([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [isLinkingDrive, setIsLinkingDrive] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [showNewFolderInput, setShowNewFolderInput] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  // Xử lý tham số drive_status từ callback URL
+  useEffect(() => {
+    const driveStatus = searchParams.get('drive_status');
+    if (driveStatus === 'success') {
+      s.fetchSettings();
+      s.setShowSettings(true);
+      s.setSettingsMsg('✓ Liên kết tài khoản Google Drive thành công! Bạn hãy chọn thư mục lưu trữ phía dưới.');
+      router.replace('/prompts');
+    } else if (driveStatus === 'error') {
+      const errMsg = searchParams.get('error_msg') || 'Lỗi không xác định khi liên kết.';
+      s.fetchSettings();
+      s.setShowSettings(true);
+      s.setSettingsMsg(`Lỗi liên kết Drive: ${errMsg}`);
+      router.replace('/prompts');
+    }
+  }, [searchParams]);
+
+  // Quét danh sách thư mục Drive khi mở settings và tài khoản đã được liên kết
+  useEffect(() => {
+    if (s.showSettings && s.settings.googleDrive?.isLinked) {
+      fetchDriveFolders();
+    }
+  }, [s.showSettings, s.settings.googleDrive?.isLinked]);
+
+  const fetchDriveFolders = async () => {
+    setLoadingFolders(true);
+    try {
+      const res = await fetch('/api/prompts/drive/folders');
+      const data = await res.json();
+      if (data.success) {
+        setDriveFolders(data.folders || []);
+      } else {
+        console.error('Lỗi lấy danh mục Drive:', data.error);
+      }
+    } catch (err) {
+      console.error('Lỗi lấy danh mục Drive:', err);
+    } finally {
+      setLoadingFolders(false);
+    }
+  };
+
+  const handleLinkDrive = async () => {
+    if (!s.settings.googleDrive?.clientId || !s.settings.googleDrive?.clientSecret) {
+      s.setSettingsMsg('Lỗi: Vui lòng điền đầy đủ Client ID và Client Secret.');
+      return;
+    }
+    setIsLinkingDrive(true);
+    s.setSettingsMsg('');
+    try {
+      const res = await fetch('/api/prompts/drive/auth-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: s.settings.googleDrive.clientId,
+          clientSecret: s.settings.googleDrive.clientSecret
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.location.href = data.url;
+      } else {
+        s.setSettingsMsg('Lỗi: ' + (data.error || 'Không thể tạo liên kết đăng nhập.'));
+        setIsLinkingDrive(false);
+      }
+    } catch (err) {
+      s.setSettingsMsg('Lỗi kết nối máy chủ.');
+      setIsLinkingDrive(false);
+    }
+  };
+
+  const handleDisconnectDrive = () => {
+    s.setSettings(prev => ({
+      ...prev,
+      googleDrive: {
+        ...prev.googleDrive,
+        isLinked: false,
+        refreshToken: '',
+        email: '',
+        folderId: '',
+        folderName: ''
+      }
+    }));
+    s.setSettingsMsg('Đã hủy liên kết Drive. Hãy ấn "Lưu cấu hình" để lưu lại.');
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(true);
+    try {
+      const res = await fetch('/api/prompts/drive/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newFolderName })
+      });
+      const data = await res.json();
+      if (data.success && data.folder) {
+        setDriveFolders(prev => [data.folder, ...prev]);
+        s.setSettings(prev => ({
+          ...prev,
+          googleDrive: {
+            ...prev.googleDrive,
+            folderId: data.folder.id,
+            folderName: data.folder.name
+          }
+        }));
+        setNewFolderName('');
+        setShowNewFolderInput(false);
+        s.setSettingsMsg(`✓ Đã tạo và chọn thư mục "${data.folder.name}" trên Drive!`);
+      } else {
+        s.setSettingsMsg('Lỗi: ' + (data.error || 'Không thể tạo thư mục.'));
+      }
+    } catch (err) {
+      s.setSettingsMsg('Lỗi kết nối máy chủ khi tạo thư mục.');
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
   const [wasGenerating, setWasGenerating] = useState(false);
 
   const categoryParam = searchParams.get('category');
-  const isGridMode = !categoryParam || !PROMPT_CATEGORIES[categoryParam];
+  const tabParam = searchParams.get('tab');
+  const isPexelsTab = tabParam === 'pexels';
+  const isGridMode = !isPexelsTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
 
   // Tự động đồng bộ state chủ đề với URL query parameter
   useEffect(() => {
@@ -111,6 +240,18 @@ function PromptsStudioContent() {
             </svg>
             Prompt Ảnh
           </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/prompts?tab=pexels')}
+            className={`nav-item ${isPexelsTab ? 'active' : ''}`}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Stock Pexels
+          </button>
         </nav>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -150,8 +291,13 @@ function PromptsStudioContent() {
       {/* Nội dung chính bên phải */}
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
         <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-          
-          {isGridMode ? (
+
+          {isPexelsTab ? (
+            /* Màn hình Kho Stock Pexels độc lập */
+            <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
+              <PexelsSearchPanel />
+            </div>
+          ) : isGridMode ? (
             /* Màn hình Grid chọn chủ đề video */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px' }}>
               <VideoCategoryGrid onSelectCategory={handleSelectCategory} />
@@ -292,6 +438,7 @@ function PromptsStudioContent() {
                             <CreatedVideosGrid
                               category={s.activeCategory}
                               categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
+                              isDriveLinked={s.settings.googleDrive?.isLinked}
                               onSelectScript={(video) => {
                                 // Nút "✏️ Sửa" trên thẻ video -> tìm đúng bản ghi kịch bản gốc trong
                                 // lịch sử (khớp theo folderPath) rồi nhảy thẳng qua tab Quy trình &
@@ -468,7 +615,7 @@ function PromptsStudioContent() {
 
             {/* Content Sections Container */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
+
               {/* Section 1: Gemini API Keys */}
               <div style={{
                 background: 'rgba(255, 255, 255, 0.02)',
@@ -592,6 +739,313 @@ function PromptsStudioContent() {
                     color: '#fff'
                   }}
                 />
+              </div>
+
+              {/* Section 3: Google Drive Backup Settings */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>☁️</span> Google Drive Backup
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Google OAuth Credentials */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Client ID</label>
+                      <input
+                        type="text"
+                        placeholder="Nhập Google Client ID..."
+                        value={s.settings.googleDrive?.clientId || ''}
+                        disabled={s.settings.googleDrive?.isLinked}
+                        onChange={(e) => s.setSettings(prev => ({
+                          ...prev,
+                          googleDrive: { ...(prev.googleDrive || {}), clientId: e.target.value }
+                        }))}
+                        style={{
+                          width: '100%',
+                          fontSize: '0.78rem',
+                          padding: '8px 10px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '6px',
+                          color: '#fff'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Client Secret</label>
+                      <input
+                        type="password"
+                        placeholder="Nhập Google Client Secret..."
+                        value={s.settings.googleDrive?.clientSecret || ''}
+                        disabled={s.settings.googleDrive?.isLinked}
+                        onChange={(e) => s.setSettings(prev => ({
+                          ...prev,
+                          googleDrive: { ...(prev.googleDrive || {}), clientSecret: e.target.value }
+                        }))}
+                        style={{
+                          width: '100%',
+                          fontSize: '0.78rem',
+                          padding: '8px 10px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderRadius: '6px',
+                          color: '#fff'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auth Status & Link Buttons */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '10px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+                    {s.settings.googleDrive?.isLinked ? (
+                      <>
+                        <span style={{ fontSize: '0.78rem', color: '#2ed573', fontWeight: 600 }}>
+                          🟢 Đã liên kết: {s.settings.googleDrive?.email}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleDisconnectDrive}
+                          style={{
+                            background: 'rgba(255, 71, 87, 0.12)',
+                            border: '1px solid rgba(255, 71, 87, 0.3)',
+                            borderRadius: '6px',
+                            color: '#ff4757',
+                            fontSize: '0.74rem',
+                            padding: '4px 10px',
+                            cursor: 'pointer',
+                            fontWeight: 700
+                          }}
+                        >
+                          🔓 Hủy liên kết
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          ⚠️ Chưa liên kết tài khoản Drive
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleLinkDrive}
+                          disabled={isLinkingDrive || !s.settings.googleDrive?.clientId || !s.settings.googleDrive?.clientSecret}
+                          style={{
+                            background: 'linear-gradient(135deg, #00f2fe, #4facfe)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#fff',
+                            fontSize: '0.74rem',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            boxShadow: '0 3px 10px rgba(0, 242, 254, 0.2)'
+                          }}
+                        >
+                          {isLinkingDrive ? '⏳ Đang kết nối...' : '🔗 Liên kết tài khoản Google Drive'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Help Guide (Only show if not linked) */}
+                  {!s.settings.googleDrive?.isLinked && (
+                    <div style={{
+                      fontSize: '0.7rem',
+                      color: 'rgba(255, 255, 255, 0.45)',
+                      lineHeight: 1.4,
+                      background: 'rgba(0,0,0,0.15)',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.02)'
+                    }}>
+                      <strong>💡 Hướng dẫn lấy Client Credentials:</strong>
+                      <ol style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
+                        <li>Tạo dự án trên Google Cloud Console và bật <strong>Google Drive API</strong>.</li>
+                        <li>Thiết lập OAuth Consent Screen và cấu hình Credentials làm <strong>OAuth Client ID (Web Application)</strong>.</li>
+                        <li>Thêm Authorized redirect URI: <code style={{ color: '#00f2fe', background: 'rgba(0,0,0,0.3)', padding: '1px 4px', borderRadius: '3px' }}>http://localhost:3000/api/prompts/drive-callback</code> (hoặc cổng tương ứng của bạn).</li>
+                        <li>Dán Client ID & Secret vào ô trên rồi nhấn nút Liên kết.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* Destination Folder Selection (Only show if linked) */}
+                  {s.settings.googleDrive?.isLinked && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.76rem', color: '#fff', fontWeight: 600 }}>Thư mục lưu trữ trên Drive:</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewFolderInput(!showNewFolderInput)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#00f2fe',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {showNewFolderInput ? '✕ Đóng' : '➕ Tạo thư mục mới'}
+                        </button>
+                      </div>
+
+                      {showNewFolderInput ? (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            placeholder="Nhập tên thư mục mới..."
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            style={{
+                              flex: 1,
+                              fontSize: '0.76rem',
+                              padding: '6px 10px',
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '6px',
+                              color: '#fff'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCreateFolder}
+                            disabled={isCreatingFolder || !newFolderName.trim()}
+                            style={{
+                              background: '#2ed573',
+                              border: 'none',
+                              color: '#fff',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {isCreatingFolder ? '⏳' : 'Tạo'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <select
+                            value={s.settings.googleDrive?.folderId || ''}
+                            onChange={(e) => {
+                              const selectedOpt = e.target.options[e.target.selectedIndex];
+                              s.setSettings(prev => ({
+                                ...prev,
+                                googleDrive: {
+                                  ...prev.googleDrive,
+                                  folderId: e.target.value,
+                                  folderName: selectedOpt.text
+                                }
+                              }));
+                            }}
+                            disabled={loadingFolders}
+                            style={{
+                              flex: 1,
+                              fontSize: '0.78rem',
+                              padding: '8px 10px',
+                              background: 'rgba(0, 0, 0, 0.4)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">Thư mục gốc (Root)</option>
+                            {driveFolders.map(folder => (
+                              <option key={folder.id} value={folder.id}>
+                                {folder.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={fetchDriveFolders}
+                            disabled={loadingFolders}
+                            style={{
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '6px',
+                              padding: '8px 10px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="Làm mới thư mục"
+                          >
+                            {loadingFolders ? '⏳' : '🔄'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Pexels API Settings */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '18px'
+              }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📷</span> Pexels Stock Media API
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Pexels API Key</label>
+                    <input
+                      type="text"
+                      placeholder="Nhập Pexels API Key..."
+                      value={s.settings.pexelsApiKey || ''}
+                      onChange={(e) => s.setSettings(prev => ({
+                        ...prev,
+                        pexelsApiKey: e.target.value
+                      }))}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.78rem',
+                        padding: '8px 10px',
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '6px',
+                        color: '#fff'
+                      }}
+                    />
+                  </div>
+                  <div style={{
+                    fontSize: '0.7rem',
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    lineHeight: 1.4,
+                    background: 'rgba(0,0,0,0.15)',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.02)'
+                  }}>
+                    <strong>💡 Hướng dẫn lấy Pexels API Key:</strong>
+                    <ol style={{ margin: '4px 0 0 0', paddingLeft: '16px' }}>
+                      <li>Truy cập <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" style={{ color: '#00f2fe', textDecoration: 'none' }}>pexels.com/api</a> và đăng ký tài khoản.</li>
+                      <li>Vào mục <strong>Your API Key</strong> để copy mã khoá API của bạn.</li>
+                      <li>Dán mã khoá vào ô nhập ở trên rồi nhấn <strong>💾 Lưu cấu hình</strong> bên dưới để hoàn tất thiết lập.</li>
+                    </ol>
+                  </div>
+                </div>
               </div>
             </div>
 

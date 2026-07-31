@@ -134,6 +134,13 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
       ...body
     };
 
+    if (body.googleDrive) {
+      updatedSettings.googleDrive = {
+        ...(existingSettings.googleDrive || {}),
+        ...body.googleDrive
+      };
+    }
+
     // Xóa mongodbUri khỏi settings lưu ở DB để tránh trùng lặp
     delete updatedSettings.mongodbUri;
 

@@ -55,17 +55,18 @@ export async function GET(request) {
     // map thêm content-type audio thay vì tạo hẳn 1 route riêng gần như trùng lặp.
     const ext = path.extname(imagePath).toLowerCase();
     const AUDIO_CONTENT_TYPES = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.aac': 'audio/aac' };
+    const VIDEO_CONTENT_TYPES = { '.mp4': 'video/mp4', '.webm': 'video/webm' };
     const isAudio = ext in AUDIO_CONTENT_TYPES;
+    const isVideo = ext in VIDEO_CONTENT_TYPES;
+    const isPlayableMedia = isAudio || isVideo;
     const contentType = AUDIO_CONTENT_TYPES[ext]
+      || VIDEO_CONTENT_TYPES[ext]
       || (ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg');
 
     const fileSize = fs.statSync(imagePath).size;
-    const rangeHeader = isAudio ? request.headers.get('range') : null;
+    const rangeHeader = isPlayableMedia ? request.headers.get('range') : null;
 
-    // <audio> cần Content-Length (hoặc Range + Accept-Ranges) để biết duration và cho phép tua —
-    // thiếu cả 2 thì trình duyệt phát qua Transfer-Encoding: chunked, kẹt mãi ở 0:00/0:00 dù đã
-    // tải xong toàn bộ file. Ảnh không cần tua nên vẫn đọc trọn 1 lần như cũ, chỉ audio mới cần
-    // đường Range 206 Partial Content này.
+    // <audio> và <video> cần Content-Length (hoặc Range + Accept-Ranges) để biết duration và cho phép tua
     if (rangeHeader) {
       const match = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
       let start = match && match[1] ? parseInt(match[1], 10) : 0;
@@ -95,7 +96,7 @@ export async function GET(request) {
       headers: {
         'Content-Type': contentType,
         'Content-Length': String(fileSize),
-        ...(isAudio ? { 'Accept-Ranges': 'bytes' } : {}),
+        ...(isPlayableMedia ? { 'Accept-Ranges': 'bytes' } : {}),
         'Cache-Control': 'public, max-age=86400'
       }
     });

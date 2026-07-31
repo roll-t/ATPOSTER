@@ -49,10 +49,8 @@ let clientPromise = null;
 
 async function getClientPromise() {
   const uri = await resolveMongodbUri(MONGODB_URI);
-  // 2s từng đủ gây "rớt" oan khi máy đang bận (vd render video chiếm CPU/IO nặng) làm
-  // handshake Mongo bị trễ dù server Mongo hoàn toàn bình thường — nới lên 6s để tránh
-  // trip nhầm sang chế độ Local File DB chỉ vì máy đang bận việc khác.
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 6000 });
+  // Nới xuống 3s (từ 6s) để tránh bị treo lâu khi MongoDB offline, nhưng vẫn đủ thời gian khi máy bận.
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 3000 });
   return client.connect();
 }
 
@@ -281,7 +279,11 @@ export function readDb() {
       const posts = await db.collection('posts').find({}).toArray();
       
       let settings = await db.collection('settings').findOne({});
+      let googleDrive = {};
+      let pexelsApiKey = '';
       if (settings) {
+        googleDrive = settings.googleDrive || {};
+        pexelsApiKey = settings.pexelsApiKey || '';
         global.customUploadsDir = settings.customUploadsDir || '';
         global.geminiApiKey = settings.geminiApiKey || '';
         global.voiceMappings = settings.voiceMappings || {};
@@ -357,7 +359,9 @@ export function readDb() {
           defaultBgMusicEnabled: global.defaultBgMusicEnabled,
           defaultBgMusicVolume: global.defaultBgMusicVolume || '',
           defaultBgMusicTrackId: global.defaultBgMusicTrackId || '',
-          readingPracticeConfig: global.readingPracticeConfig || null
+          readingPracticeConfig: global.readingPracticeConfig || null,
+          googleDrive: googleDrive,
+          pexelsApiKey: pexelsApiKey
         }
       };
 
@@ -409,7 +413,9 @@ export function writeDb(data) {
               defaultBgMusicEnabled: typeof data.settings.defaultBgMusicEnabled === 'boolean' ? data.settings.defaultBgMusicEnabled : null,
               defaultBgMusicVolume: data.settings.defaultBgMusicVolume || '',
               defaultBgMusicTrackId: data.settings.defaultBgMusicTrackId || '',
-              readingPracticeConfig: (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null
+              readingPracticeConfig: (data.settings.readingPracticeConfig && typeof data.settings.readingPracticeConfig === 'object') ? data.settings.readingPracticeConfig : null,
+              googleDrive: data.settings.googleDrive || {},
+              pexelsApiKey: data.settings.pexelsApiKey || ''
             }
           },
           { upsert: true }

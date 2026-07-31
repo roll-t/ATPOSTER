@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit }) {
+function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit, onBackupToDrive, backingUpVideoId, isDriveLinked }) {
   const isLandscape = video.aspectRatio === '16:9';
 
   return (
@@ -127,7 +127,7 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
               <span style={{
                 position: 'absolute',
                 top: '8px',
-                right: '8px',
+                right: isDriveLinked ? '42px' : '8px',
                 padding: '3px 8px',
                 borderRadius: '6px',
                 background: 'rgba(0,0,0,0.75)',
@@ -135,10 +135,68 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
                 color: '#fbbf24',
                 fontSize: '0.7rem',
                 fontWeight: 800,
-                boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                zIndex: 9
               }}>
                 ⚡ {String(video.level).toUpperCase().slice(0, 2)}
               </span>
+            )}
+
+            {/* Google Drive Upload Button Overlay */}
+            {isDriveLinked && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation(); // Ngăn chặn sự kiện click phát video
+                  if (onBackupToDrive) onBackupToDrive(video, e);
+                }}
+                disabled={backingUpVideoId === video.id}
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: video.driveUrl 
+                    ? 'rgba(46, 213, 115, 0.9)' 
+                    : 'rgba(0, 242, 254, 0.9)',
+                  border: 'none',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.35)',
+                  transition: 'all 0.2s ease',
+                  zIndex: 10,
+                  opacity: backingUpVideoId === video.id ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.1)';
+                  if (video.driveUrl) {
+                    e.currentTarget.style.background = '#2ed573';
+                  } else {
+                    e.currentTarget.style.background = '#00f2fe';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.background = video.driveUrl 
+                    ? 'rgba(46, 213, 115, 0.9)' 
+                    : 'rgba(0, 242, 254, 0.9)';
+                }}
+                title={video.driveUrl ? "Mở video trên Google Drive" : "Sao lưu lên Google Drive"}
+              >
+                {backingUpVideoId === video.id ? (
+                  <span style={{ fontSize: '0.7rem' }}>⏳</span>
+                ) : video.driveUrl ? (
+                  '✓'
+                ) : (
+                  '☁️'
+                )}
+              </button>
             )}
 
             {/* Size Badge */}
@@ -253,7 +311,7 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
   );
 }
 
-export default function CreatedVideosGrid({ onSelectScript, category, categoryLabel }) {
+export default function CreatedVideosGrid({ onSelectScript, category, categoryLabel, isDriveLinked }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -261,6 +319,44 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
   const [selectedLevel, setSelectedLevel] = useState('all'); // 'all', 'a1', 'a2', 'b1', 'b2', 'c1', 'c2'
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [openingFolderId, setOpeningFolderId] = useState(null);
+  const [backingUpVideoId, setBackingUpVideoId] = useState(null);
+
+  const handleBackupToDrive = async (video, e) => {
+    if (e) e.stopPropagation();
+    if (video.driveUrl) {
+      window.open(video.driveUrl, '_blank');
+      return;
+    }
+    
+    setBackingUpVideoId(video.id);
+    try {
+      const res = await fetch('/api/prompts/drive/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: video.folderPath,
+          category: video.category
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.driveUrl) {
+        setVideos(prev => prev.map(v => {
+          if (v.id === video.id) {
+            return { ...v, driveFileId: data.fileId, driveUrl: data.driveUrl };
+          }
+          return v;
+        }));
+        alert(`✓ Sao lưu video "${video.title}" lên Google Drive thành công!`);
+      } else {
+        alert('Lỗi sao lưu: ' + (data.error || 'Vui lòng liên kết tài khoản Google Drive trong phần cài đặt trước.'));
+      }
+    } catch (err) {
+      console.error('Lỗi kết nối upload Drive:', err);
+      alert('Lỗi kết nối máy chủ khi sao lưu.');
+    } finally {
+      setBackingUpVideoId(null);
+    }
+  };
 
   const fetchVideos = async () => {
     setLoading(true);
@@ -493,6 +589,9 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       openingFolderId={openingFolderId}
                       onOpenFolder={handleOpenFolder}
                       onEdit={onSelectScript}
+                      onBackupToDrive={handleBackupToDrive}
+                      backingUpVideoId={backingUpVideoId}
+                      isDriveLinked={isDriveLinked}
                     />
                   ))}
                 </div>
@@ -524,6 +623,9 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       openingFolderId={openingFolderId}
                       onOpenFolder={handleOpenFolder}
                       onEdit={onSelectScript}
+                      onBackupToDrive={handleBackupToDrive}
+                      backingUpVideoId={backingUpVideoId}
+                      isDriveLinked={isDriveLinked}
                     />
                   ))}
                 </div>

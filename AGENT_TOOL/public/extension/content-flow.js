@@ -810,6 +810,11 @@ function saveManifest() {
     updatedAt: Date.now(),
     segments: queue.segments.map(s => ({
       segmentNumber: s.segmentNumber,
+      // Bố cục riêng của slide — phải ghi lại vào manifest.json, vì render-project.mjs đọc file
+      // này để dựng config cho Remotion. Bỏ sót là mọi slide rơi hết về bố cục mặc định.
+      ...(s.layout ? { layout: s.layout } : {}),
+      ...(s.splitSide ? { splitSide: s.splitSide } : {}),
+      ...(Array.isArray(s.bullets) && s.bullets.length > 0 ? { bullets: s.bullets } : {}),
       visualDescription: s.visualDescription,
       dialogueOrNarration: s.dialogueOrNarration,
       subtitle: s.subtitle,

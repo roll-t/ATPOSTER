@@ -1,5 +1,4 @@
-import React from "react";
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, Video, interpolate, useCurrentFrame } from "remotion";
 import { resolveSrc } from "../utils";
 
 export type KenBurnsDirection = "in" | "out" | "pan-left" | "pan-right" | "none";
@@ -53,18 +52,36 @@ export const SceneImage: React.FC<{
   // negative-space compositions tolerate fine).
   const offsetScale = topOffsetPercent > 0 ? 1 + (topOffsetPercent / 100) * 2 : 1;
 
+  const isVideo = src.toLowerCase().endsWith(".mp4") || src.toLowerCase().endsWith(".webm");
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <Img
-        src={resolveSrc(src)}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: fit,
-          transform: `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`,
-          transformOrigin: "center center",
-        }}
-      />
+      {isVideo ? (
+        <Video
+          src={resolveSrc(src)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: fit,
+            transform: `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`,
+            transformOrigin: "center center",
+          }}
+          startFrom={0}
+          muted
+          loop
+        />
+      ) : (
+        <Img
+          src={resolveSrc(src)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: fit,
+            transform: `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`,
+            transformOrigin: "center center",
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 };

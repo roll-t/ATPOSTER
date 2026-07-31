@@ -169,6 +169,13 @@ const scenes = manifest.segments.map((seg) => {
     // of estimating from word length. Omitted entirely when absent, so it
     // falls back to the estimate (schema field is optional).
     ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
+
+    // Bố cục riêng của slide (Gemini chọn lúc viết kịch bản — xem imageSlideshow.js). Chỉ truyền
+    // xuống khi manifest THẬT SỰ có, để mọi project cũ (không có 3 trường này) giữ nguyên
+    // layout mặc định và render ra đúng như trước.
+    ...(seg.layout ? { layout: seg.layout } : {}),
+    ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
+    ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
   };
 });
 
@@ -203,6 +210,18 @@ const remotionConfig = {
   // khác lộ ra thành viền/mảng màu lệch tông thấy được ở mép ảnh lúc Ken Burns pan/zoom hoặc lúc
   // chuyển cảnh, vì ảnh và nền không cùng 1 màu đen tuyệt đối.
   bgColor: isHookStyle ? "#000000" : "#0E0F13",
+
+  // Nền + màu chữ cho 3 bố cục mới theo TỪNG SLIDE ("bullets"/"split"/"caption-left", xem
+  // SceneLayouts.tsx). PHẢI ghi tường minh ở đây chứ không dựa vào giá trị mặc định của zod:
+  // giá trị mặc định trong schema chỉ áp cho defaultProps của Remotion Studio, còn config truyền
+  // qua --props thì thiếu khoá nào là undefined khoá đó — nền slide sẽ trong suốt và lòi màu tối
+  // toàn cục ra sau lưng (đã gặp đúng lỗi này khi render thử).
+  //
+  // Hai tông đối lập nhau theo phong cách của skill:
+  //   - "hook" = Nói Chuyện Đạo Lý: pictogram trắng trên nền ĐEN -> nền đen, chữ trắng.
+  //   - còn lại = Người Que whiteboard: mực đen trên nền TRẮNG -> nền giấy sáng, chữ đen.
+  slideBgColor: flags.slideBgColor || (isHookStyle ? "#000000" : "#F4F4F4"),
+  slideTextColor: flags.slideTextColor || (isHookStyle ? "#FFFFFF" : "#1A1A1A"),
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
   captionMode: isPageStyle || isHookStyle ? "full" : "chunked",
   captionWordsPerChunk: 4,

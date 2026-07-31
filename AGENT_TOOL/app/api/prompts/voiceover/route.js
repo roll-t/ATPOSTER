@@ -137,51 +137,45 @@ export async function POST(request) {
     const manifestPath = path.join(targetDir, 'manifest.json');
     const audioDir = path.join(targetDir, 'audio');
 
-    // manifest.json thường KHÔNG tồn tại lúc Bước 1 (Tạo Giọng Đọc) chạy — file này chỉ được
-    // Chrome Extension tạo ra ở Bước 2 (Đẩy sang Google Flow), là bước đứng SAU Bước 1 trong đúng
-    // thứ tự UI gợi ý. Nếu không tự tạo ở đây, đoạn ghi "voice" cuối hàm (bên dưới) sẽ không có
-    // file nào để ghi vào — người dùng chạy đúng thứ tự Bước 1 rồi Bước 2 như app hướng dẫn thì
-    // KHÔNG BAO GIỜ có giọng cũ để tra cứu, và "Đọc lại" 1 slide sau khi sửa lời sẽ luôn phải suy
-    // giọng lại từ Cấu hình hiện tại — dễ ra giọng khác hẳn giọng gốc dù không hề đổi cấu hình gì.
-    // Manifest tạo tạm ở đây chỉ cần đủ segmentNumber/dialogueOrNarration để đoạn ghi voice bên
-    // dưới khớp đúng slide; content-flow.js (extension) sẽ ghi đè lại đầy đủ hơn ở Bước 2 — miễn
-    // là nó PRESERVE lại field "voice" đã có (xem save-image/route.js).
-    if (!fs.existsSync(manifestPath)) {
-      try {
-        // title: ƯU TIÊN tiêu đề thật (result.title) do client gửi kèm. TUYỆT ĐỐI không được để mặc
-        // định là cleanFolder (tên thư mục, dạng "thuc_day_voi_muc_260730_162727") — nếu vì lý do
-        // gì đó Bước 2 (extension) không chạy/không ghi đè lại manifest trước lúc render, giá trị
-        // này sẽ lộ thẳng ra làm tiêu đề hiển thị TRÊN VIDEO (kiểu phụ đề "hook" ở slide đầu) y hệt
-        // tên thư mục viết hoa — đã xảy ra thật với 1 project trước khi có dòng ưu tiên title này.
-        fs.writeFileSync(manifestPath, JSON.stringify({
-          title: title || cleanFolder,
-          category: category || '',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          segments: scenes.map((s) => ({
-            segmentNumber: s.segmentNumber,
-            dialogueOrNarration: s.dialogueOrNarration || ''
-          }))
-        }, null, 2));
-      } catch (err) {
-        console.warn('[API Voiceover] Không tự tạo được manifest.json:', err.message);
-      }
-    }
+    // Giọng đã dùng cho từng slide được lưu ở FILE RIÊNG audio/voices.json, KHÔNG nhét vào
+    // manifest.json.
+    //
+    // Lý do: manifest.json là nguồn dữ liệu để RENDER (render-project.mjs lấy caption theo công
+    // thức `seg.subtitle || seg.dialogueOrNarration`), và nó chỉ được Chrome Extension tạo đầy đủ
+    // ở Bước 2. Bản trước từng tự tạo manifest tạm ngay ở Bước 1 để có chỗ ghi giọng — nhưng bản
+    // tạm đó chỉ có dialogueOrNarration, THIẾU subtitle. Project nào mà Bước 2 không ghi đè lại
+    // (đã xảy ra thật với 2 project) sẽ render ra phụ đề là nguyên đoạn lời kể dài thay vì câu
+    // phụ đề ngắn có tô màu — hỏng hẳn hình thức video.
+    //
+    // File sidecar tách biệt hoàn toàn: luôn ghi được kể cả khi chưa có manifest, và không bao giờ
+    // đụng tới dữ liệu render.
+    const voicesSidecarPath = path.join(audioDir, 'voices.json');
 
-    // Giọng đã dùng ở lần lồng tiếng TRƯỚC của từng slide, ghi trong manifest.json ngay sau khi
-    // tạo xong (xem cuối hàm). Nhờ nó, đọc lại 1 slide vừa sửa lời vẫn ra ĐÚNG giọng cũ dù Cấu
-    // hình Giọng đọc hiện tại đã đổi sang giọng/nhà cung cấp khác.
     const storedVoiceByNumber = new Map();
-    if (reuseExistingVoice && fs.existsSync(manifestPath)) {
-      try {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        for (const seg of manifest.segments || []) {
-          if (seg?.voice?.provider && seg?.voice?.voiceId) {
-            storedVoiceByNumber.set(seg.segmentNumber, seg.voice);
+    if (reuseExistingVoice) {
+      // Ưu tiên sidecar; nếu chưa có thì đọc từ manifest.json — các project lồng tiếng bằng bản
+      // code cũ đã ghi giọng thẳng vào manifest, vẫn phải tra cứu được để không mất giọng cũ.
+      if (fs.existsSync(voicesSidecarPath)) {
+        try {
+          const sidecar = JSON.parse(fs.readFileSync(voicesSidecarPath, 'utf8'));
+          for (const [num, voice] of Object.entries(sidecar.voices || {})) {
+            if (voice?.provider && voice?.voiceId) storedVoiceByNumber.set(Number(num), voice);
           }
+        } catch (err) {
+          console.warn('[API Voiceover] Không đọc được audio/voices.json:', err.message);
         }
-      } catch (err) {
-        console.warn('[API Voiceover] Không đọc được giọng cũ trong manifest.json:', err.message);
+      }
+      if (storedVoiceByNumber.size === 0 && fs.existsSync(manifestPath)) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          for (const seg of manifest.segments || []) {
+            if (seg?.voice?.provider && seg?.voice?.voiceId) {
+              storedVoiceByNumber.set(seg.segmentNumber, seg.voice);
+            }
+          }
+        } catch (err) {
+          console.warn('[API Voiceover] Không đọc được giọng cũ trong manifest.json:', err.message);
+        }
       }
     }
 
@@ -399,27 +393,45 @@ export async function POST(request) {
             send({ type: 'progress', segmentNumber, completed: results.length, total: scenesToProcess.length });
           }
 
-          // Ghi mốc thời gian từng từ (nếu lấy được) vào manifest.json của project — để
-          // render-project.mjs của skill đọc và đưa vào config cho kiểu phụ đề "karaoke"
-          // nhấn đúng từ đang đọc, thay vì chỉ ước lượng theo độ dài chữ.
-          // Kèm theo giọng đã dùng cho từng slide (segments[].voice) — nguồn duy nhất để lần sửa
-          // lời kể sau này đọc lại ĐÚNG giọng cũ thay vì giọng đang chọn trong Cài đặt.
-          // Chỉ đụng vào các slide vừa đọc trong lượt này; slide khác giữ nguyên timings/giọng cũ.
+          // Giọng đã dùng cho từng slide -> ghi vào audio/voices.json (file sidecar riêng, xem
+          // chú thích ở phần đọc phía trên). Ghi ĐƯỢC kể cả khi chưa có manifest.json, nên giọng
+          // luôn được nhớ dù người dùng chạy Bước 1 trước Bước 2 như UI hướng dẫn.
+          try {
+            let sidecar = { voices: {} };
+            if (fs.existsSync(voicesSidecarPath)) {
+              try {
+                const parsed = JSON.parse(fs.readFileSync(voicesSidecarPath, 'utf8'));
+                if (parsed && typeof parsed.voices === 'object') sidecar = parsed;
+              } catch (_) { /* file hỏng -> ghi đè bằng bản mới */ }
+            }
+            for (const r of results) {
+              if (r.voice?.voiceId) sidecar.voices[r.segmentNumber] = r.voice;
+            }
+            sidecar.updatedAt = Date.now();
+            if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+            fs.writeFileSync(voicesSidecarPath, JSON.stringify(sidecar, null, 2));
+          } catch (err) {
+            console.warn('[API Voiceover] Không ghi được audio/voices.json:', err.message);
+          }
+
+          // Mốc thời gian từng từ (nếu lấy được) -> manifest.json, để render-project.mjs đưa vào
+          // config cho kiểu phụ đề "karaoke" nhấn đúng từ đang đọc thay vì ước lượng theo độ dài
+          // chữ. Chỉ ghi khi manifest ĐÃ tồn tại — tuyệt đối không tự tạo manifest thiếu dữ liệu ở
+          // đây, vì file này quyết định phụ đề lúc render (xem chú thích ở đầu hàm).
+          // Chỉ đụng vào các slide vừa đọc trong lượt này; slide khác giữ nguyên timings cũ.
           if (fs.existsSync(manifestPath)) {
             try {
               const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
               const timingsByNumber = new Map(results.filter(r => r.wordTimings).map(r => [r.segmentNumber, r.wordTimings]));
-              const usedVoiceByNumber = new Map(results.filter(r => r.voice?.voiceId).map(r => [r.segmentNumber, r.voice]));
-              manifest.segments = (manifest.segments || []).map((seg) => {
-                const next = { ...seg };
-                if (timingsByNumber.has(seg.segmentNumber)) next.wordTimings = timingsByNumber.get(seg.segmentNumber);
-                if (usedVoiceByNumber.has(seg.segmentNumber)) next.voice = usedVoiceByNumber.get(seg.segmentNumber);
-                return next;
-              });
+              manifest.segments = (manifest.segments || []).map((seg) => (
+                timingsByNumber.has(seg.segmentNumber)
+                  ? { ...seg, wordTimings: timingsByNumber.get(seg.segmentNumber) }
+                  : seg
+              ));
               manifest.updatedAt = Date.now();
               fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
             } catch (err) {
-              console.warn('[API Voiceover] Không ghi được wordTimings/giọng vào manifest.json:', err.message);
+              console.warn('[API Voiceover] Không ghi được wordTimings vào manifest.json:', err.message);
             }
           }
 

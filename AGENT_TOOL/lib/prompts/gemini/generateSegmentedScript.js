@@ -21,7 +21,7 @@ export async function generateSegmentedScript({ category, durationRange, input, 
 
   let promptText;
   if (category === 'stick_figure_slideshow') {
-    promptText = buildImageSlideshowScriptPrompt(input, durationInfo);
+    promptText = buildImageSlideshowScriptPrompt(input, durationInfo, durationRange);
   } else if (category === 'moral_talk_slideshow') {
     promptText = buildMoralTalkSlideshowScriptPrompt(input, durationInfo, durationRange);
   } else if (category === 'reading_practice') {

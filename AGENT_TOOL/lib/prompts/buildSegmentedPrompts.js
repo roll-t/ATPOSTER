@@ -80,6 +80,12 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,
+        // Bố cục riêng của slide do Gemini chọn (xem imageSlideshow.js). Chỉ giữ lại khi Gemini
+        // thật sự trả về — kịch bản cũ không có 3 trường này thì slide vẫn dùng bố cục mặc định,
+        // render ra y hệt như trước.
+        ...(seg.layout ? { layout: seg.layout } : {}),
+        ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
+        ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
         jsonPrompt,
         textPrompt
       };

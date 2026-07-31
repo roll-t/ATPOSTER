@@ -19,6 +19,8 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     transitionSeconds,
     transitionStyle,
     bgColor,
+    slideBgColor,
+    slideTextColor,
     fontFamily,
     captionMode,
     captionWordsPerChunk,
@@ -82,6 +84,8 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               captionBgColor={captionBgColor}
               highlightColor={highlightColor}
               showBilingual={showBilingual}
+              slideBgColor={slideBgColor}
+              slideTextColor={slideTextColor}
               fontFamily={fontFamily}
             />
           </Sequence>

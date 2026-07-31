@@ -142,7 +142,9 @@ export function usePromptStudio() {
   const [settings, setSettings] = useState({ 
     geminiApiKey: '', 
     mongodbUri: '',
-    voiceMappings: {}
+    voiceMappings: {},
+    googleDrive: { clientId: '', clientSecret: '', refreshToken: '', email: '', isLinked: false, folderId: '', folderName: '' },
+    pexelsApiKey: ''
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState('');
@@ -170,7 +172,9 @@ export function usePromptStudio() {
         setSettings({
           geminiApiKey: data.settings.geminiApiKey || '',
           mongodbUri: data.settings.mongodbUri || '',
-          voiceMappings: data.settings.voiceMappings || {}
+          voiceMappings: data.settings.voiceMappings || {},
+          googleDrive: data.settings.googleDrive || { clientId: '', clientSecret: '', refreshToken: '', email: '', isLinked: false, folderId: '', folderName: '' },
+          pexelsApiKey: data.settings.pexelsApiKey || ''
         });
       }
     } catch (err) {
@@ -188,7 +192,9 @@ export function usePromptStudio() {
         body: JSON.stringify({
           geminiApiKey: settings.geminiApiKey,
           mongodbUri: settings.mongodbUri,
-          voiceMappings: settings.voiceMappings
+          voiceMappings: settings.voiceMappings,
+          googleDrive: settings.googleDrive,
+          pexelsApiKey: settings.pexelsApiKey
         })
       });
       const data = await res.json();
@@ -567,7 +573,7 @@ export function usePromptStudio() {
     history, historyLoading, selectedHistoryIds, fetchHistory,
     characters, charactersLoading,
     geminiApiKey, setGeminiApiKey, apiKeyVisible, setApiKeyVisible,
-    showSettings, setShowSettings, settings, setSettings, isSavingSettings, settingsMsg,
+    showSettings, setShowSettings, settings, setSettings, isSavingSettings, settingsMsg, setSettingsMsg,
     fetchSettings, handleSaveSettings,
     useGemini, setUseGemini, durationRange, setDurationRange,
     handleFieldChange, handleToggleCharacter, handleGenerate, handleCopy,

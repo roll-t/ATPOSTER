@@ -109,6 +109,29 @@ export const sceneSchema = z.object({
   // (e.g. calling out a prop or a piece of in-scene text). Omit for a
   // scene with no arrows.
   arrows: z.array(arrowCueSchema).optional(),
+
+  // BỐ CỤC RIÊNG CỦA SLIDE NÀY — thứ cho phép một video đổi cách trình bày giữa các slide thay
+  // vì lặp lại đúng một khuôn từ đầu đến cuối (kiểu dựng của các kênh explainer whiteboard).
+  //
+  //   "default"      : giữ nguyên bố cục toàn cục (captionStyle/captionPosition) — hành vi cũ,
+  //                    dùng cho mọi scene không khai báo gì, nên video cũ render y hệt như trước.
+  //   "image-only"   : chỉ hình, bỏ hẳn phụ đề dù scene có caption (nhịp nghỉ giữa các đoạn nói).
+  //   "caption-left" : hình giữ nguyên toàn khung, phụ đề dồn về GÓC DƯỚI-TRÁI thay vì căn giữa.
+  //   "split"        : chia đôi khung — chữ bên trái, hình bên phải (hoặc ngược lại, xem
+  //                    splitSide). Hình được thu nhỏ vừa nửa khung thay vì phủ kín.
+  //   "bullets"      : slide CHỮ THUẦN, không hình: liệt kê các ý trong `bullets` theo dạng gạch
+  //                    đầu dòng, hiện dần từng dòng theo tiến độ lời kể.
+  layout: z
+    .enum(["default", "image-only", "caption-left", "split", "bullets"])
+    .optional(),
+
+  // Chỉ dùng khi layout = "split": hình nằm bên nào. Mặc định "right" (chữ trái / hình phải).
+  splitSide: z.enum(["left", "right"]).optional(),
+
+  // Chỉ dùng khi layout = "bullets": danh sách các ý hiện lên. Mỗi phần tử là 1 gạch đầu dòng.
+  // Các dòng KHÔNG hiện cùng lúc — chúng xuất hiện dần đều theo thời lượng của scene, để khớp
+  // với việc người dẫn đang đọc lần lượt từng ý.
+  bullets: z.array(z.string()).optional(),
 });
 
 export const slideshowVideoSchema = z.object({
@@ -132,6 +155,18 @@ export const slideshowVideoSchema = z.object({
   // screen for the whole scene) — vertically centering a large block of
   // text reads better than pinning it to an edge the way a short subtitle
   // does.
+  // Màu nền cho các slide KHÔNG có ảnh phủ kín (layout "bullets" và "split") — bgColor toàn cục
+  // vốn chỉ là màu lót phía sau ảnh nên gần như không bao giờ lộ ra, thường để tối; còn 2 bố cục
+  // này phơi nền ra cả khung nên cần màu riêng, mặc định lấy tông giấy trắng khớp phong cách
+  // whiteboard (hình mực đen trên nền trắng).
+  slideBgColor: z.string().default("#F4F4F4"),
+
+  // Màu CHỮ cho 3 bố cục mới ("bullets", "split", "caption-left"). Tách riêng khỏi
+  // captionTextColor một cách có chủ đích: captionTextColor là chữ nằm TRONG khung nền phụ đề
+  // (nên thường để trắng vì khung nền tối), còn 3 bố cục này vẽ chữ TRỰC TIẾP lên nền slide —
+  // dùng chung một giá trị sẽ cho chữ trắng trên nền giấy trắng, mất hút hoàn toàn.
+  slideTextColor: z.string().default("#1A1A1A"),
+
   captionPosition: z.enum(["top", "bottom", "center"]).default("bottom"),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   imageScale: z.number().min(0.2).max(2).default(1),
