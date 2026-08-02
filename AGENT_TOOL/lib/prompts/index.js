@@ -8,9 +8,6 @@
 // ==========================================================================
 export { STICK_FIGURE_CHARACTERS } from './characters.js';
 export { PROMPT_CATEGORIES } from './categories.js';
-export { IMAGE_STYLES } from './imageStyles.js';
 export { getStickFigureCastOverrides } from './castOverrides.js';
 export { buildPrompt } from './buildPrompt.js';
-export { buildImagePrompt } from './buildImagePrompt.js';
 export { buildSegmentedPrompts } from './buildSegmentedPrompts.js';
-export { LAYOUT_TYPES } from './layouts.js';

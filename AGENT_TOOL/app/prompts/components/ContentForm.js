@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import CharacterPicker from './CharacterPicker.js';
-import StylePicker from './StylePicker.js';
-import LayoutPicker from './LayoutPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
 import StickFigureLongFormModal from './StickFigureLongFormModal.js';
 import { STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
-import { MORAL_THEMES, DEFAULT_MORAL_THEME, getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
+import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
+import LevelPicker from './LevelPicker.js';
+import MoralThemePicker from './MoralThemePicker.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
 
@@ -25,113 +25,6 @@ function pickRandomSubset(pool, count) {
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }
-
-function LevelPicker({ field, value, onChange }) {
-  const options = field.options || [
-    { value: 'a1', label: 'A1', sublabel: 'Mới bắt đầu', icon: '🌱' },
-    { value: 'a2', label: 'A2', sublabel: 'Sơ cấp', icon: '🌿' },
-    { value: 'b1', label: 'B1', sublabel: 'Trung cấp', icon: '🌳' },
-    { value: 'b2', label: 'B2', sublabel: 'Cao cấp', icon: '🚀' },
-    { value: 'c1', label: 'C1', sublabel: 'Thành thạo', icon: '👑' },
-    { value: 'c2', label: 'C2', sublabel: 'Bậc thầy', icon: '🔥' }
-  ];
-
-  const currentVal = (value || field.defaultValue || 'a2').toLowerCase();
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '10px' }}>
-      {options.map(opt => {
-        const isSelected = currentVal === opt.value.toLowerCase() || currentVal.startsWith(opt.value.toLowerCase());
-        return (
-          <button
-            type="button"
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              padding: '10px 8px',
-              borderRadius: '10px',
-              border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
-              background: isSelected ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              boxShadow: isSelected ? '0 4px 14px rgba(37, 244, 238, 0.2)' : 'none',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease-in-out',
-              fontFamily: 'inherit',
-              userSelect: 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ fontSize: '1rem' }}>{opt.icon || '⚡'}</span>
-              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: isSelected ? 'var(--secondary)' : '#fff' }}>
-                {opt.label}
-              </span>
-            </div>
-            <span style={{ fontSize: '0.7rem', color: isSelected ? 'rgba(255,255,255,0.9)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              {opt.sublabel || opt.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function MoralThemePicker({ value, onChange }) {
-  // Đọc từ registry (moralThemes.js) thay vì chép tay — xem chú thích ở file đó.
-  const options = MORAL_THEMES.map(t => ({ value: t.key, label: t.label, sublabel: t.sub, icon: t.icon }));
-
-  const currentVal = value || DEFAULT_MORAL_THEME;
-
-  // auto-fill thay cho repeat(3, 1fr) cố định: số nhóm chủ đề giờ do registry quyết định (9 nhóm),
-  // khoá cứng 3 cột sẽ bóp mỗi thẻ xuống quá hẹp để đọc được nhãn.
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-      {options.map(opt => {
-        const isSelected = currentVal === opt.value;
-        return (
-          <button
-            type="button"
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              padding: '10px 4px',
-              borderRadius: '10px',
-              border: isSelected ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
-              background: isSelected ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              boxShadow: isSelected ? '0 4px 14px rgba(37, 244, 238, 0.2)' : 'none',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease-in-out',
-              fontFamily: 'inherit',
-              userSelect: 'none'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-              <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
-              <span style={{ fontWeight: 800, fontSize: '0.82rem', color: isSelected ? 'var(--secondary)' : '#fff', whiteSpace: 'nowrap' }}>
-                {opt.label}
-              </span>
-            </div>
-            <span style={{ fontSize: '0.66rem', color: isSelected ? 'rgba(255,255,255,0.9)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
-              {opt.sublabel}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 
 export default function ContentForm({
   category, activeCategory, currentInput,
@@ -265,7 +158,6 @@ export default function ContentForm({
   // nên bỏ qua trạng thái useGemini kể cả khi nó còn bật dở từ 1 chủ đề VIDEO trước đó.
   const effectiveUseGemini = !isImageCategory && useGemini;
 
-  const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [isCharModalOpen, setIsCharModalOpen] = useState(false);
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
   const [isLongFormTopicsOpen, setIsLongFormTopicsOpen] = useState(false);
@@ -491,33 +383,6 @@ export default function ContentForm({
                     🎬 Kho chủ đề Video Dài ({STICK_FIGURE_LONGFORM_TOPIC_COUNT})
                   </button>
                 )}
-                {field.type === 'style-select' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsStyleModalOpen(true)}
-                    style={{
-                      background: 'rgba(37, 244, 238, 0.08)',
-                      border: '1px solid rgba(37, 244, 238, 0.2)',
-                      borderRadius: '6px',
-                      padding: '4px 10px',
-                      color: 'var(--secondary)',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(37, 244, 238, 0.15)';
-                      e.currentTarget.style.borderColor = 'rgba(37, 244, 238, 0.3)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(37, 244, 238, 0.08)';
-                      e.currentTarget.style.borderColor = 'rgba(37, 244, 238, 0.2)';
-                    }}
-                  >
-                    🎨 Xem tất cả (10)
-                  </button>
-                )}
                 {field.type === 'character-select' && (
                   <button
                     type="button"
@@ -558,18 +423,6 @@ export default function ContentForm({
                   onUpdateChar={onUpdateChar}
                   isListModalOpen={isCharModalOpen}
                   setIsListModalOpen={setIsCharModalOpen}
-                />
-              ) : field.type === 'style-select' ? (
-                <StylePicker
-                  value={currentInput[field.key]}
-                  onChange={(key) => onFieldChange(field.key, key)}
-                  isModalOpen={isStyleModalOpen}
-                  setIsModalOpen={setIsStyleModalOpen}
-                />
-              ) : field.type === 'layout-select' ? (
-                <LayoutPicker
-                  value={currentInput[field.key]}
-                  onChange={(key) => onFieldChange(field.key, key)}
                 />
               ) : field.key === 'level' ? (
                 <LevelPicker

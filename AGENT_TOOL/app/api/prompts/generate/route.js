@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/lib/db.js';
-import { PROMPT_CATEGORIES, buildPrompt, buildImagePrompt, buildSegmentedPrompts } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts } from '@/lib/prompts/index.js';
 import { generateSegmentedScript, translateAndExpandInputs } from '@/lib/prompts/gemini/index.js';
 import { getStickFigureCastOverrides } from '@/lib/prompts/castOverrides.js';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
@@ -30,10 +30,7 @@ export async function POST(request) {
 
     const catDef = PROMPT_CATEGORIES[category];
     const cleanInput = input || {};
-    const isImageCategory = catDef.type === 'image';
-    
-    // Chủ đề ẢNH hoặc các chủ đề không phân đoạn sẽ không dùng Gemini
-    const useGemini = isImageCategory ? false : requestedUseGemini;
+    const useGemini = requestedUseGemini;
 
     // --- Xác thực đầu vào tùy theo chế độ chạy (Thủ công / Gọi Gemini) ---
     if (useGemini) {
@@ -247,10 +244,7 @@ export async function POST(request) {
         createdAt: new Date().toISOString()
       };
     } else {
-      // Chế độ thủ công thông thường: chủ đề ẢNH dùng buildImagePrompt, chủ đề VIDEO dùng buildPrompt
-      const { jsonPrompt, textPrompt } = isImageCategory
-        ? buildImagePrompt(category, style, processedInput)
-        : buildPrompt(category, style, processedInput);
+      const { jsonPrompt, textPrompt } = buildPrompt(category, style, processedInput);
       record = {
         id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         category,

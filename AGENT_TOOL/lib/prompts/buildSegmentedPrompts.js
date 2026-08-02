@@ -1,13 +1,10 @@
 import { PROMPT_CATEGORIES } from './categories.js';
 import { getStickFigureCastOverrides } from './castOverrides.js';
-import { IMAGE_STYLES } from './imageStyles.js';
-
 const CATEGORY_ENGLISH_LABELS = {
   english_quiz: 'English Quiz Video',
   stick_figure: 'Stick Figure Video',
   moral_wisdom: 'Moral Wisdom Video',
   english_tips: 'English Tips Video',
-  character_ref: 'Character Reference Image',
   stick_figure_slideshow: 'Stick Figure Slideshow Image',
   reading_practice: 'Reading Practice Page Image',
   moral_talk_slideshow: 'Moral Talk Pictogram Slideshow Image'
@@ -25,7 +22,12 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
   // --- Nếu là Slide Ảnh Người Que ---
   if (categoryKey === 'stick_figure_slideshow') {
-    const imageStyle = IMAGE_STYLES.stick_figure;
+    const imageStyle = {
+      label: 'Người Que (Whiteboard)',
+      visualStyle: 'Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background. Draw every character with the same simple, consistent construction: a round circle for the head, with a small clean face that is never left blank — two small simple dot or oval eyes, plus a simple mouth line matching the expression. A short single neck line always connects the head to the shoulders, leaving a small clear gap between them (the head must never sit merged flush onto the shoulders), and nothing is ever wrapped around the neck (no headphones, scarf, necklace, or collar of any kind). The torso is a single closed outline shape (a plain t-shirt silhouette is fine — the only part allowed to be a filled 2D shape). Each arm and each leg is drawn as one single bare line stroke ending in a small round dot for the hand or foot — never a sleeve, never pants/trousers/shorts/jeans/leggings/skirt/shoes, no double-line limbs, no double-contour joints anywhere; legs are completely bare single lines with zero clothing, drawn the exact same simple way as the arms. Clean smooth unbroken lines, flat 2D line art, no shading, no fill except the torso shirt shape, no photorealism.',
+      background: "Plain white/cream background, no scenery, no props other than the character's own distinguishing accessory",
+      colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single small accent only)']
+    };
     const selectedAspectRatio = input.aspectRatio || '9:16';
     const paletteList = Array.isArray(imageStyle.colorPalette) ? imageStyle.colorPalette.join(', ') : String(imageStyle.colorPalette || '');
 

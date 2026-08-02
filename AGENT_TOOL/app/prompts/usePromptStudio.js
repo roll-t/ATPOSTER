@@ -1,16 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { PROMPT_CATEGORIES, IMAGE_STYLES } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
 
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
-const promptTypes = ['video', 'image'];
 
 function categoryKeysForType(type) {
-  if (type === 'slideshow' || type === 'video') {
-    return ['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
-  }
-  return categoryKeys.filter(k => (PROMPT_CATEGORIES[k].type || 'video') === type);
+  return ['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
 }
 
 function emptyInputFor(categoryKey) {
@@ -21,11 +17,6 @@ function emptyInputFor(categoryKey) {
       // Mặc định chọn sẵn cặp nhân vật chính quen thuộc nhất để bắt đầu nhanh hơn,
       // nhưng không vượt quá maxSelect của field (vd field chỉ cho chọn 1 nhân vật)
       obj[f.key] = ['alex', 'mia'].slice(0, Math.min(2, f.maxSelect || 3));
-    } else if (f.type === 'style-select') {
-      // Mặc định chọn sẵn phong cách đầu tiên trong danh mục (Người Que) để bắt đầu nhanh hơn
-      obj[f.key] = Object.keys(IMAGE_STYLES)[0] || '';
-    } else if (f.type === 'layout-select') {
-      obj[f.key] = 'front_facing';
     } else if (f.type === 'select') {
       obj[f.key] = f.defaultValue || '';
     } else {
@@ -275,17 +266,6 @@ export function usePromptStudio() {
       if (['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice'].includes(activeCategory) && key === 'scenario') {
         if (!isFolderPathUserEdited) {
           nextInput.folderPath = generateDefaultFolderName(value);
-        }
-      }
-
-      // Tự động điều chỉnh tỷ lệ khung hình dựa trên góc chụp/bố cục đã chọn
-      if (activeCategory === 'character_ref' && key === 'shotType') {
-        if (value === 'front_facing') {
-          nextInput.aspectRatio = '9:16'; // Chân dung điện thoại dọc
-        } else if (value === 'character_sheet') {
-          nextInput.aspectRatio = '16:9'; // Trình bày xoay chiều ngang rộng rãi
-        } else if (value === 'storyboard') {
-          nextInput.aspectRatio = '16:9'; // Bảng phân cảnh ngang rộng
         }
       }
 
@@ -563,7 +543,7 @@ export function usePromptStudio() {
 
   return {
     categoryKeys,
-    promptTypes, promptType, setPromptType,
+    promptType, setPromptType,
     visibleCategoryKeys: categoryKeysForType(promptType),
     activeCategory, setActiveCategory,
     currentCategory, currentInput,

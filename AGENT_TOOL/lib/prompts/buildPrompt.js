@@ -5,8 +5,7 @@ const CATEGORY_ENGLISH_LABELS = {
   english_quiz: 'English Quiz Video',
   stick_figure: 'Stick Figure Video',
   moral_wisdom: 'Moral Wisdom Video',
-  english_tips: 'English Tips Video',
-  character_ref: 'Character Reference Image'
+  english_tips: 'English Tips Video'
 };
 
 function splitLines(text) {
