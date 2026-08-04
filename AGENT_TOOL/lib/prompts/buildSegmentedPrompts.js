@@ -20,29 +20,39 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     throw new Error('Chủ đề không hợp lệ.');
   }
 
-  // --- Nếu là Slide Ảnh Người Que ---
+  // --- Nếu là Slide Ảnh Người Que (PNG asset approach) ---
   if (categoryKey === 'stick_figure_slideshow') {
-    const imageStyle = {
-      label: 'Người Que (Whiteboard)',
-      visualStyle: 'Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background. Draw every character with the same simple, consistent construction: a round circle for the head, with a small clean face that is never left blank — two small simple dot or oval eyes, plus a simple mouth line matching the expression. A short single neck line always connects the head to the shoulders, leaving a small clear gap between them (the head must never sit merged flush onto the shoulders), and nothing is ever wrapped around the neck (no headphones, scarf, necklace, or collar of any kind). The torso is a single closed outline shape (a plain t-shirt silhouette is fine — the only part allowed to be a filled 2D shape). Each arm and each leg is drawn as one single bare line stroke ending in a small round dot for the hand or foot — never a sleeve, never pants/trousers/shorts/jeans/leggings/skirt/shoes, no double-line limbs, no double-contour joints anywhere; legs are completely bare single lines with zero clothing, drawn the exact same simple way as the arms. Clean smooth unbroken lines, flat 2D line art, no shading, no fill except the torso shirt shape, no photorealism.',
-      background: "Plain white/cream background, no scenery, no props other than the character's own distinguishing accessory",
-      colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single small accent only)']
-    };
-    const selectedAspectRatio = input.aspectRatio || '9:16';
-    const paletteList = Array.isArray(imageStyle.colorPalette) ? imageStyle.colorPalette.join(', ') : String(imageStyle.colorPalette || '');
-
-    const { selectedCharacters } = getStickFigureCastOverrides(input);
-    const charactersDescription = selectedCharacters
-      .map(c => `${c.name} (${c.en.personality}, distinguishing look: ${c.en.trait})`)
-      .join(', and ');
-
-    // LƯU Ý: KHÔNG dùng imageStyle.renderNote ở đây — renderNote đó được viết riêng cho ảnh
-    // tham chiếu 1 nhân vật đứng thẳng nhìn thẳng (character_ref), nếu gắn vào từng slide cảnh
-    // truyện thì AI ảnh sẽ hiểu nhầm thành yêu cầu vẽ "character reference sheet" có chú thích/
-    // nhãn kỹ thuật (chính là nguyên nhân chữ "CHARACTER REFERENCE", "NECK GAP"... bị vẽ lên ảnh).
-    const sceneRenderNote = 'This is a single static story-illustration frame (NOT a character reference sheet) — depict the scene naturally exactly as described, in whatever pose/angle/framing fits the action, with no labeled callouts, no arrows, no technical/construction annotations, and no character name text anywhere in the image.';
-
     return segments.map(seg => {
+      const hasElements = Array.isArray(seg.elements) && seg.elements.length > 0;
+
+      // Nếu segment có elements[] (PNG assets) thì KHÔNG cần sinh textPrompt / image generation.
+      // Nếu không có elements (kịch bản cũ vẫn dùng visualDescription) thì giữ nguyên hành vi cũ.
+      if (hasElements) {
+        return {
+          segmentNumber: seg.segmentNumber,
+          durationSeconds: seg.durationSeconds || 5,
+          dialogueOrNarration: seg.dialogueOrNarration,
+          subtitle: seg.subtitle,
+          elements: seg.elements,
+          ...(seg.layout ? { layout: seg.layout } : {}),
+        };
+      }
+
+      // --- Backward-compat: kịch bản cũ có visualDescription + imageGroup ---
+      const imageStyle = {
+        label: 'Người Que (Whiteboard)',
+        visualStyle: 'Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background.',
+        background: "Plain white/cream background, no scenery, no props other than the character's own distinguishing accessory",
+        colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single small accent only)']
+      };
+      const selectedAspectRatio = input.aspectRatio || '9:16';
+      const paletteList = Array.isArray(imageStyle.colorPalette) ? imageStyle.colorPalette.join(', ') : String(imageStyle.colorPalette || '');
+      const { selectedCharacters } = getStickFigureCastOverrides(input);
+      const charactersDescription = selectedCharacters
+        .map(c => `${c.name} (${c.en.personality}, distinguishing look: ${c.en.trait})`)
+        .join(', and ');
+      const sceneRenderNote = 'This is a single static story-illustration frame (NOT a character reference sheet) — depict the scene naturally exactly as described, with no labeled callouts, no arrows, no technical annotations, and no character name text anywhere in the image.';
+
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
         category: 'Image Slideshow Video',
@@ -54,40 +64,32 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
           color_palette: imageStyle.colorPalette,
           render_note: sceneRenderNote
         },
-        scene: {
-          setting: seg.visualDescription,
-          characters: charactersDescription || 'None'
-        },
-        audio: {
-          dialogue_lines: [seg.dialogueOrNarration]
-        },
-        on_screen_captions: {
-          subtitle: seg.subtitle
-        }
+        scene: { setting: seg.visualDescription, characters: charactersDescription || 'None' },
+        audio: { dialogue_lines: [seg.dialogueOrNarration] },
+        on_screen_captions: { subtitle: seg.subtitle }
       };
 
       const textPrompt = [
         `${imageStyle.visualStyle}.`,
         `Scene description: ${seg.visualDescription}.`,
         charactersDescription ? `Featuring characters: ${charactersDescription}.` : '',
-        imageStyle.background ? `Background setting: ${imageStyle.background}.` : '',
-        paletteList ? `Color palette: ${paletteList}.` : '',
+        `Background setting: ${imageStyle.background}.`,
+        `Color palette: ${paletteList}.`,
         `${sceneRenderNote}`,
         `Format: aspect ratio ${selectedAspectRatio}.`
       ].filter(Boolean).join(' ');
 
       return {
         segmentNumber: seg.segmentNumber,
-        durationSeconds: 10,
+        durationSeconds: seg.durationSeconds || 10,
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,
-        // Bố cục riêng của slide do Gemini chọn (xem imageSlideshow.js). Chỉ giữ lại khi Gemini
-        // thật sự trả về — kịch bản cũ không có 3 trường này thì slide vẫn dùng bố cục mặc định,
-        // render ra y hệt như trước.
         ...(seg.layout ? { layout: seg.layout } : {}),
         ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
         ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
+        ...(Number.isFinite(Number(seg.imageGroup)) ? { imageGroup: Number(seg.imageGroup) } : {}),
+        ...(seg.revealLayout ? { revealLayout: seg.revealLayout } : {}),
         jsonPrompt,
         textPrompt
       };

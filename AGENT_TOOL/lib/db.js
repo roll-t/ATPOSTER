@@ -306,6 +306,15 @@ export function readDb() {
         global.defaultCaptionStyle = settings.defaultCaptionStyle || '';
         global.defaultTransitionStyle = settings.defaultTransitionStyle || '';
         global.defaultBilingual = typeof settings.defaultBilingual === 'boolean' ? settings.defaultBilingual : undefined;
+        // 3 field ngay trên là bản ghim DÙNG CHUNG cho mọi skill slideshow. Skill nào cần bộ ghim
+        // RIÊNG (hiện là stick_figure_slideshow) ghi vào khoá có hậu tố "__<category>" — xem
+        // settingsKey() trong SegmentedResultView.js. readDb() dựng lại settings theo danh sách
+        // trường CỐ ĐỊNH nên mọi khoá lạ sẽ bị rơi mất khi đọc; gom chúng lại ở đây theo QUY TẮC
+        // (mọi khoá chứa "__") thay vì liệt kê từng cái, để thêm skill mới sau này không phải
+        // sửa lại db.js nữa.
+        global.scopedRenderDefaults = Object.fromEntries(
+          Object.entries(settings).filter(([k]) => k.includes('__'))
+        );
         // "Ghim mặc định" cho Nhạc nền (nút "Lưu & Áp dụng" trong Studio Thiết Kế Trang Đọc Video,
         // xem handleSaveAndApply trong SegmentedResultView.js) — cùng cơ chế với 3 field phía trên,
         // nhưng riêng cho tab "🎵 Nhạc nền". readingPracticeConfig là bản sao TOÀN BỘ config CapCut
@@ -331,6 +340,7 @@ export function readDb() {
         global.defaultCaptionStyle = '';
         global.defaultTransitionStyle = '';
         global.defaultBilingual = undefined;
+        global.scopedRenderDefaults = {};
         global.defaultBgMusicEnabled = undefined;
         global.defaultBgMusicVolume = '';
         global.defaultBgMusicTrackId = '';
@@ -356,6 +366,10 @@ export function readDb() {
           defaultCaptionStyle: global.defaultCaptionStyle || '',
           defaultTransitionStyle: global.defaultTransitionStyle || '',
           defaultBilingual: global.defaultBilingual,
+          // Bộ ghim mặc định RIÊNG của từng skill (khoá "...__<category>") — xem chú thích ở chỗ
+          // gán global.scopedRenderDefaults phía trên. Phải trải ra đây, nếu không settings đọc về
+          // luôn thiếu chúng và mọi lần ghim của skill riêng đều như không có tác dụng.
+          ...(global.scopedRenderDefaults || {}),
           defaultBgMusicEnabled: global.defaultBgMusicEnabled,
           defaultBgMusicVolume: global.defaultBgMusicVolume || '',
           defaultBgMusicTrackId: global.defaultBgMusicTrackId || '',
@@ -436,6 +450,11 @@ export function writeDb(data) {
         global.defaultCaptionStyle = data.settings.defaultCaptionStyle || '';
         global.defaultTransitionStyle = data.settings.defaultTransitionStyle || '';
         global.defaultBilingual = typeof data.settings.defaultBilingual === 'boolean' ? data.settings.defaultBilingual : undefined;
+        // Bộ ghim riêng theo skill (khoá "...__<category>") — giữ cùng quy tắc với nhánh đọc Mongo
+        // ở trên, để đường di trú từ db.json không làm mất thiết lập riêng của skill.
+        global.scopedRenderDefaults = Object.fromEntries(
+          Object.entries(data.settings).filter(([k]) => k.includes('__'))
+        );
 
         // Lưu đồng thời bản sao vào local db.json
         try {

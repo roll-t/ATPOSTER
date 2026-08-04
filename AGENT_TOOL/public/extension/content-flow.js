@@ -815,10 +815,20 @@ function saveManifest() {
       ...(s.layout ? { layout: s.layout } : {}),
       ...(s.splitSide ? { splitSide: s.splitSide } : {}),
       ...(Array.isArray(s.bullets) && s.bullets.length > 0 ? { bullets: s.bullets } : {}),
-      visualDescription: s.visualDescription,
+      // Nhóm ảnh dùng chung + cách chia ô để hé lộ dần (xem imageSlideshow.js và RevealMask.tsx).
+      // render-project.mjs đọc 2 trường này từ manifest để biết segment nào xài chung ảnh với
+      // segment nào và mỗi câu hé thêm mấy ô. Danh sách trường ở đây là DANH SÁCH TRẮNG — quên
+      // thêm vào là 2 trường bị rơi âm thầm, manifest trông vẫn hợp lệ nhưng mọi segment lại quay
+      // về "mỗi câu một ảnh riêng" như chưa hề có tính năng.
+      ...(s.imageGroup !== undefined && s.imageGroup !== null ? { imageGroup: s.imageGroup } : {}),
+      ...(s.revealLayout ? { revealLayout: s.revealLayout } : {}),
+      // PNG asset elements — segment dùng thư viện ảnh sẵn có, không cần Google Flow sinh ảnh.
+      // render-project.mjs đọc trường này để dựng SceneCanvas thay vì SceneImage.
+      ...(Array.isArray(s.elements) && s.elements.length > 0 ? { elements: s.elements } : {}),
+      ...(s.visualDescription ? { visualDescription: s.visualDescription } : {}),
       dialogueOrNarration: s.dialogueOrNarration,
       subtitle: s.subtitle,
-      textPrompt: s.textPrompt,
+      ...(s.textPrompt ? { textPrompt: s.textPrompt } : {}),
       durationSeconds: s.durationSeconds,
       status: s.status,
       files: (s.downloadedFiles || []).map(f => f.filename)
@@ -942,8 +952,31 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
       return false;
     }
 
+    // CHỈ tải ĐÚNG 1 ảnh - ảnh đầu lưới.
+    //
+    // Vì sao lại quét ra nhiều ảnh dù Flow đặt x1 (mỗi prompt 1 ảnh): nếu trong CÙNG một phiên
+    // làm việc bạn tạo nhiều project/nhiều lượt, lưới ảnh của Flow đã chứa sẵn ảnh của các lượt
+    // TRƯỚC. Mỗi lần lưới bị dựng lại (cuộn, đổi project, ảnh mới chèn vào đầu...) những ảnh cũ
+    // đó nhận blob URL MỚI và phần tử DOM MỚI, nên lọt qua CẢ HAI lớp lọc srcIsNew + elIsNew của
+    // findNewGeneratedImages và bị hiểu nhầm là "ảnh vừa sinh".
+    //
+    // Trước đây ta tải HẾT rồi đặt tên _1, _2... - vừa tốn dung lượng vừa lẫn ảnh giữa các phân
+    // đoạn (đã quan sát được scene-01_1.jpg trùng byte tuyệt đối với scene-02_3.jpg, tức cùng 1
+    // tấm ảnh bị lưu cho 2 phân đoạn khác nhau).
+    //
+    // Flow luôn chèn ảnh mới nhất lên ĐẦU lưới (ô đang render % cũng nằm ở vị trí đầu), nên ảnh
+    // ở chỉ số 0 chính là ảnh vừa sinh cho phân đoạn này. Ảnh cũ bị dựng lại luôn nằm phía sau.
+    if (newImages.length > 1) {
+      console.warn(
+        `[Flow Helper] Phân đoạn ${segmentNumber}: quét ra ${newImages.length} ảnh "mới", chỉ lấy ảnh đầu lưới ` +
+        `làm scene-${paddedNum}. ${newImages.length - 1} ảnh còn lại là ảnh của các lượt tạo TRƯỚC bị Flow ` +
+        `dựng lại với blob URL mới - đã bỏ qua, không tải về.`
+      );
+    }
+    const pickedImages = newImages.slice(0, 1);
+
     let downloadSuccess = true;
-    const downloadPromises = newImages.map(async (imgEl, i) => {
+    const downloadPromises = pickedImages.map(async (imgEl) => {
       const src = imgEl.currentSrc || imgEl.src;
 
       // Nhận dạng extension
@@ -952,11 +985,15 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
       else if (src.includes('.webp')) ext = 'webp';
       else if (src.includes('.jpg') || src.includes('.jpeg')) ext = 'jpg';
 
-      const suffix = newImages.length > 1 ? `_${i + 1}` : '';
+      // Luôn ghi ra ĐÚNG tên trần "scene-NN" mà render-project.mjs đi tìm. TRƯỚC ĐÂY dùng
+      // `newImages.length > 1 ? `_${i+1}` : ''`: hễ quét ra nhiều hơn 1 ảnh là TẤT CẢ đều bị gắn
+      // hậu tố, nên thư mục có scene-02_1..scene-02_4 mà TUYỆT NHIÊN không có scene-02.jpg ->
+      // phân đoạn đó mất ảnh khi render. Giờ pickedImages luôn chỉ có 1 phần tử nên không còn
+      // hậu tố nữa.
       // segment.outputFilename (nếu có) ghi đè tên file mặc định "scene-NN" - dùng cho các
       // trường hợp cần tên gợi nhớ hơn (vd hero image reading_practice: "scene-01-landscape")
       const baseName = segment.outputFilename || `scene-${paddedNum}`;
-      const filename = `${folder}/images/${baseName}${suffix}.${ext}`;
+      const filename = `${folder}/images/${baseName}.${ext}`;
 
       const ok = await downloadResultUrl(src, filename);
       if (ok) {

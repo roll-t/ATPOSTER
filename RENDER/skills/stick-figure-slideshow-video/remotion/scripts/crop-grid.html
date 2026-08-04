@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crop 3×3 Grid → 9 PNG</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;max-width:860px;margin:32px auto;padding:0 16px;background:#f4f4f4;color:#1a1a1a}
+    h2{font-size:18px;margin-bottom:4px}
+    .sub{color:#666;font-size:13px;margin-bottom:18px}
+
+    .drop{border:2px dashed #bbb;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#fff;transition:.15s}
+    .drop:hover,.drop.over{border-color:#c00;background:#fff5f5}
+    .drop input{display:none}
+
+    .presets{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap;align-items:center}
+    .presets button{padding:5px 12px;border-radius:6px;border:1.5px solid #ccc;background:#fff;cursor:pointer;font-size:12px;font-weight:600;transition:.15s}
+    .presets button:hover{border-color:#c00;color:#c00}
+    .presets button.active{border-color:#c00;background:#c00;color:#fff}
+    .presets-label{font-size:11px;color:#888;white-space:nowrap}
+
+    .name-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:10px 0 16px}
+    .name-grid input{font-family:monospace;font-size:11px;padding:4px 7px;border:1px solid #ddd;border-radius:5px;width:100%;background:#fff}
+    .name-grid input:focus{outline:none;border-color:#c00}
+
+    /* ── Adjustable crop area ── */
+    #imgWrap{position:relative;display:none;margin:16px 0;line-height:0;-webkit-user-select:none;user-select:none}
+    #imgWrap img{width:100%;display:block;border-radius:6px}
+    .hline,.vline{position:absolute;background:rgba(200,0,0,0.7);cursor:grab}
+    .hline{left:0;right:0;height:3px}
+    .vline{top:0;bottom:0;width:3px}
+    .hline:active,.vline:active{cursor:grabbing}
+    .hint{font-size:11px;color:#c00;margin:-10px 0 12px;font-weight:600}
+
+    /* preview cells */
+    #preview{display:none}
+    #grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+    .cell{background:#fff;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;display:flex;flex-direction:column}
+    .cell-label{font-family:monospace;font-size:9px;background:#1a1a1a;color:#fff;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cell canvas{width:100%;display:block}
+
+    #btn{display:none;background:#c00;color:#fff;border:none;padding:11px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+    #btn:hover{background:#a00}
+    #cropBtn{background:#555;color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-right:10px}
+    #cropBtn:hover{background:#333}
+    #status{font-size:13px;color:#2e7d32;margin-top:10px}
+  </style>
+</head>
+<body>
+
+<h2>Crop 3×3 Grid → 9 PNG assets</h2>
+<p class="sub">Chọn preset → kéo ảnh → kéo đường đỏ chỉnh vùng cắt → download.</p>
+
+<div class="drop" id="dropZone" onclick="document.getElementById('fi').click()">
+  <input type="file" id="fi" accept="image/*">
+  📂 Click hoặc kéo ảnh lưới 3×3 vào đây
+</div>
+
+<div style="margin-top:14px">
+  <div class="presets">
+    <span class="presets-label">Pose:</span>
+    <button onclick="applyPreset(0)" id="p0">Pose 1 – Đứng</button>
+    <button onclick="applyPreset(1)" id="p1">Pose 2 – Ngồi</button>
+    <button onclick="applyPreset(2)" id="p2">Pose 3 – Chạy</button>
+    <button onclick="applyPreset(3)" id="p3">Pose 4 – Nằm</button>
+  </div>
+  <div class="presets">
+    <span class="presets-label">Props:</span>
+    <button onclick="applyPreset(4)" id="p4">Props 1 – Thiết bị</button>
+    <button onclick="applyPreset(5)" id="p5">Props 2 – Công việc</button>
+  </div>
+  <div class="presets">
+    <span class="presets-label">Sym:</span>
+    <button onclick="applyPreset(6)" id="p6">Sym 1 – Ký hiệu cơ bản</button>
+    <button onclick="applyPreset(7)" id="p7">Sym 2 – Ký hiệu khái niệm</button>
+  </div>
+  <div class="presets">
+    <span class="presets-label">BG:</span>
+    <button onclick="applyPreset(8)" id="p8">BG 1 – Thiên nhiên</button>
+    <button onclick="applyPreset(9)" id="p9">BG 2 – Nhà cửa</button>
+    <button onclick="applyPreset(10)" id="p10">BG 3 – Hiệu ứng vui</button>
+  </div>
+  <div class="name-grid" id="nameGrid"></div>
+</div>
+
+<!-- Adjustable crop view -->
+<div id="imgWrap">
+  <img id="srcImg" src="" alt="">
+  <!-- 2 horizontal lines (row dividers at ~33% and ~66%) -->
+  <div class="hline" id="h1" style="top:33.3%"></div>
+  <div class="hline" id="h2" style="top:66.6%"></div>
+  <!-- 2 vertical lines (col dividers at ~33% and ~66%) -->
+  <div class="vline" id="v1" style="left:33.3%"></div>
+  <div class="vline" id="v2" style="left:66.6%"></div>
+</div>
+<p class="hint" id="dragHint" style="display:none">↕ Kéo đường đỏ để chỉnh vùng cắt → nhấn "Cắt & Preview"</p>
+
+<div id="actionRow" style="display:none;margin-bottom:16px">
+  <button id="cropBtn" onclick="doCrop()">✂ Cắt &amp; Preview</button>
+</div>
+
+<div id="preview">
+  <p style="font-weight:600;margin-bottom:8px">Preview:</p>
+  <div id="grid"></div>
+  <button id="btn" onclick="downloadAll()">⬇ Download tất cả 9 PNG</button>
+  <div id="status"></div>
+</div>
+
+<script>
+const PRESETS = [
+  ['pose_standing_neutral','pose_happy_arms_up','pose_sad','pose_thinking','pose_angry','pose_shocked','pose_pointing_right','pose_waving','pose_pointing_at_viewer'],
+  ['pose_meditating','pose_typing','pose_writing_sitting','pose_reading','pose_sleeping_at_desk','pose_stressed','pose_sad_hugging_knees','pose_phone_sitting','pose_eating'],
+  ['pose_running','pose_walking','pose_jumping','pose_walking_phone','pose_tired_running','pose_stretching','pose_overwhelmed','pose_facepalm','pose_celebrating'],
+  ['pose_sleeping','pose_lying_phone','pose_lying_resting','pose_crying','pose_laughing','pose_comparing','pose_exhausted','pose_shocked_receipt','pose_listening'],
+  ['prop_phone','prop_laptop','prop_alarm_clock','prop_coffee_cup','prop_book_open','prop_headphones','prop_notebook','prop_pencil','prop_backpack'],
+  ['prop_clock','prop_calendar','prop_checklist','prop_chart_up','prop_hourglass','prop_coins','prop_wallet_empty','prop_receipt','prop_desk_lamp'],
+  ['sym_checkmark','sym_xmark','sym_star','sym_heart','sym_lightning','sym_zzz','sym_thought_bubble','sym_speech_bubble','sym_exclamation'],
+  ['sym_arrow_up','sym_target','sym_key','sym_warning','sym_fire','sym_trophy','sym_chain','sym_arrow_down','sym_crown'],
+  ['bg_tree','bg_bush_flower','bg_flower_sun','bg_sun','bg_cloud','bg_rain_cloud','bg_hill_flowers','bg_rainbow','bg_moon_stars'],
+  ['bg_house','bg_building','bg_school','bg_shop','bg_bench','bg_lamp_post','bg_fence','bg_road','bg_city_skyline'],
+  ['bg_balloon_heart','bg_kite','bg_airplane','bg_confetti','bg_sparkle','bg_books_stack','bg_trophy_gold','bg_piggy_bank','bg_plant_pot'],
+];
+
+let cells = [];
+let srcImage = null;
+
+// Build name inputs
+const nameGrid = document.getElementById('nameGrid');
+for (let i = 0; i < 9; i++) {
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.id = `n${i}`; inp.placeholder = `name_${i+1}`;
+  inp.addEventListener('input', rebuildLabels);
+  nameGrid.appendChild(inp);
+}
+
+function applyPreset(idx) {
+  document.querySelectorAll('.presets button').forEach((b,i) => b.classList.toggle('active', i===idx));
+  PRESETS[idx].forEach((name,i) => { document.getElementById(`n${i}`).value = name; });
+  rebuildLabels();
+}
+applyPreset(0);
+
+function getNames() {
+  return Array.from({length:9},(_,i)=>document.getElementById(`n${i}`).value.trim()||`item_${i+1}`);
+}
+function rebuildLabels() {
+  const names = getNames();
+  document.querySelectorAll('.cell-label').forEach((el,i)=>{ el.textContent=names[i]; });
+}
+
+// Drop / file load
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');loadFile(e.dataTransfer.files[0]);});
+document.getElementById('fi').addEventListener('change',e=>loadFile(e.target.files[0]));
+
+function loadFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      srcImage = img;
+      document.getElementById('srcImg').src = ev.target.result;
+      document.getElementById('imgWrap').style.display = 'block';
+      document.getElementById('dragHint').style.display = 'block';
+      document.getElementById('actionRow').style.display = 'block';
+      document.getElementById('preview').style.display = 'none';
+      document.getElementById('btn').style.display = 'none';
+      // reset lines to thirds
+      setLine('h1','top','33.3%'); setLine('h2','top','66.6%');
+      setLine('v1','left','33.3%'); setLine('v2','left','66.6%');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function setLine(id, prop, val) { document.getElementById(id).style[prop] = val; }
+
+// ── Draggable lines ──
+function makeDraggable(el, axis) {
+  el.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const wrap = document.getElementById('imgWrap');
+    const rect = wrap.getBoundingClientRect();
+    const move = ev => {
+      if (axis === 'y') {
+        const pct = Math.max(5, Math.min(95, (ev.clientY - rect.top) / rect.height * 100));
+        el.style.top = pct + '%';
+      } else {
+        const pct = Math.max(5, Math.min(95, (ev.clientX - rect.left) / rect.width * 100));
+        el.style.left = pct + '%';
+      }
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
+  // touch
+  el.addEventListener('touchstart', e => {
+    const wrap = document.getElementById('imgWrap');
+    const rect = wrap.getBoundingClientRect();
+    const move = ev => {
+      const t = ev.touches[0];
+      if (axis === 'y') {
+        const pct = Math.max(5, Math.min(95, (t.clientY - rect.top) / rect.height * 100));
+        el.style.top = pct + '%';
+      } else {
+        const pct = Math.max(5, Math.min(95, (t.clientX - rect.left) / rect.width * 100));
+        el.style.left = pct + '%';
+      }
+    };
+    const up = () => { window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); };
+    window.addEventListener('touchmove', move);
+    window.addEventListener('touchend', up);
+  }, {passive:true});
+}
+makeDraggable(document.getElementById('h1'), 'y');
+makeDraggable(document.getElementById('h2'), 'y');
+makeDraggable(document.getElementById('v1'), 'x');
+makeDraggable(document.getElementById('v2'), 'x');
+
+// ── Crop using current line positions ──
+function doCrop() {
+  if (!srcImage) return;
+  const wrap = document.getElementById('imgWrap');
+  const W = srcImage.naturalWidth;
+  const H = srcImage.naturalHeight;
+
+  // read % from line styles
+  const h1 = parseFloat(document.getElementById('h1').style.top) / 100;
+  const h2 = parseFloat(document.getElementById('h2').style.top) / 100;
+  const v1 = parseFloat(document.getElementById('v1').style.left) / 100;
+  const v2 = parseFloat(document.getElementById('v2').style.left) / 100;
+
+  const cols = [0, v1, v2, 1].map(p => Math.round(p * W));
+  const rows = [0, h1, h2, 1].map(p => Math.round(p * H));
+
+  const gridEl = document.getElementById('grid');
+  gridEl.innerHTML = '';
+  cells = [];
+  const names = getNames();
+
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const i = r * 3 + c;
+      const x = cols[c], y = rows[r];
+      const cw = cols[c+1] - x;
+      const ch = rows[r+1] - y;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      canvas.getContext('2d').drawImage(srcImage, x, y, cw, ch, 0, 0, cw, ch);
+
+      const label = document.createElement('div');
+      label.className = 'cell-label';
+      label.textContent = names[i];
+
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.appendChild(label);
+      cell.appendChild(canvas);
+      gridEl.appendChild(cell);
+      cells.push({ canvas, idx: i });
+    }
+  }
+
+  document.getElementById('preview').style.display = 'block';
+  document.getElementById('btn').style.display = 'inline-block';
+  document.getElementById('status').textContent = '';
+}
+
+function downloadAll() {
+  const names = getNames();
+  document.getElementById('status').textContent = 'Đang download...';
+  cells.forEach(({ canvas, idx }, i) => {
+    setTimeout(() => {
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.download = `${names[idx]}.png`;
+        a.href = url;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        if (i === cells.length - 1)
+          document.getElementById('status').textContent = `✓ Đã download ${cells.length} file PNG.`;
+      }, 'image/png');
+    }, i * 300);
+  });
+}
+</script>
+</body>
+</html>

@@ -8,6 +8,10 @@ import path from 'path';
 const DEFAULT_SKILL_FOLDER = 'narrated-slideshow-video';
 const CATEGORY_SKILL_FOLDER = {
   reading_practice: 'reading-page-video',
+  // stick_figure_slideshow TỪNG dùng chung DEFAULT_SKILL_FOLDER với moral_talk_slideshow, nên
+  // mọi chỉnh sửa src/ (Caption.tsx, SceneLayouts.tsx...) cho skill này đều đổi luôn format
+  // video của skill kia. Đã tách thành skill RIÊNG để hai bên không phá logic của nhau nữa.
+  stick_figure_slideshow: 'stick-figure-slideshow-video',
 };
 export const ALL_SKILL_FOLDERS = Array.from(new Set([DEFAULT_SKILL_FOLDER, ...Object.values(CATEGORY_SKILL_FOLDER)]));
 
@@ -19,8 +23,14 @@ function skillFolderForCategory(category) {
 // moral_talk_slideshow) đều lưu project của mình PHẲNG ngay dưới public/ của skill đó —
 // project của 2 category khác nhau nằm LẪN làm anh em cùng cấp, không phân biệt được bằng
 // mắt thường trong Explorer (chỉ phân biệt được qua field category trong DB). category nào
-// có skill RIÊNG (reading_practice) thì không cần xử lý gì thêm — public/ của skill đó vốn
-// đã chỉ chứa đúng 1 category.
+// có skill RIÊNG (reading_practice, và nay cả stick_figure_slideshow) thì không cần xử lý gì
+// thêm — public/ của skill đó vốn đã chỉ chứa đúng 1 category.
+//
+// SAU KHI TÁCH stick_figure_slideshow RA SKILL RIÊNG: category duy nhất còn dùng
+// DEFAULT_SKILL_FOLDER là moral_talk_slideshow. Nhánh lồng theo category bên dưới vì thế hiện
+// chỉ còn phục vụ đúng category đó, nhưng GIỮ NGUYÊN (không rút gọn thành phẳng) vì project
+// moral_talk_slideshow đã tạo từ trước đang nằm ở public/moral_talk_slideshow/<folderPath>/ —
+// đổi quy ước bây giờ là mọi project cũ mất đường tìm.
 //
 // GIẢI PHÁP: với category dùng chung DEFAULT_SKILL_FOLDER, project MỚI được lồng thêm 1 cấp
 // thư mục theo tên category: public/<category>/<folderPath>/ thay vì public/<folderPath>/.
@@ -114,6 +124,25 @@ export function resolveProjectDir(folderPath, categoryHint) {
     // này (chưa từng lồng theo category) tiếp tục mở/render được bình thường.
     const flatCandidate = path.join(skillPublicDir, folderPath);
     if (fs.existsSync(flatCandidate)) return flatCandidate;
+  }
+
+  // KHÔNG có categoryHint (bên gọi quên truyền, hoặc truyền chuỗi rỗng) và cũng chưa thấy ở vị
+  // trí phẳng nào. TRƯỚC ĐÂY rơi thẳng xuống return bên dưới -> vì needsCategorySubfolder('')
+  // là false nên nó TẠO MỚI 1 thư mục ở vị trí PHẲNG, dù project đó đã tồn tại sẵn ở vị trí
+  // LỒNG do một bước trước đó (có category đầy đủ) tạo ra. Hậu quả: 1 project nằm ở 2 nơi —
+  // audio/ ghi vào bản lồng còn images/ ghi vào bản phẳng, render ra thiếu ảnh hoặc thiếu tiếng.
+  // Ở đây dò thêm MỌI thư mục con của public/ để tìm <category>/<folderPath> đang thực sự tồn
+  // tại, nhờ vậy vẫn về đúng project cũ mà không cần biết trước category.
+  if (!categoryHint) {
+    for (const folder of searchOrder) {
+      const skillPublicDir = path.join(resolveSkillRemotionDir(folder), 'public');
+      if (!fs.existsSync(skillPublicDir)) continue;
+      for (const entry of fs.readdirSync(skillPublicDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const nestedCandidate = path.join(skillPublicDir, entry.name, folderPath);
+        if (fs.existsSync(nestedCandidate)) return nestedCandidate;
+      }
+    }
   }
 
   // Chưa tồn tại ở đâu cả — đây là lần ghi ĐẦU TIÊN cho 1 project HOÀN TOÀN MỚI, tạo thẳng ở

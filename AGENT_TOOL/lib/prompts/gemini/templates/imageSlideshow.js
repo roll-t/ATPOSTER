@@ -1,18 +1,15 @@
 /**
  * Xây dựng prompt gửi cho Gemini để sinh kịch bản phân cảnh cho dòng
- * "Video Slide Ảnh Học Tiếng Anh".
+ * "Video Slide Người Que PNG" — dùng thư viện ảnh PNG sẵn có thay vì sinh ảnh AI.
+ * Gemini chọn asset ID + toạ độ (x,y) cho từng slide; Remotion ghép chúng thành cảnh.
  */
 import { buildPunctuationRhythmGuidance } from './narrationPacing.js';
 import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
 export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isBilingual = true;
-  const isLandscape = input.aspectRatio === '16:9';
+  const isVietnamese = (input.narrationLanguage || 'en') === 'vi';
 
-  // Nhịp slide phải GIÃN RA ở các mốc video dài. Ở nhịp ngắn 3-6 giây/slide, một video 8-10 phút
-  // sẽ cần tới ~120 ảnh — số ảnh phải sinh thủ công qua Google Flow lớn tới mức không làm nổi.
-  // Video explainer dài ngoài đời cũng giữ mỗi hình lâu hơn hẳn video ngắn, nên giãn nhịp vừa
-  // đúng thực tế biên tập vừa kéo số ảnh về mức làm được.
   const LONG_TIERS = {
     '4_6m': { slides: '35 đến 48', seconds: '6 đến 10 giây' },
     '6_8m': { slides: '48 đến 65', seconds: '6 đến 10 giây' },
@@ -20,122 +17,146 @@ export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRan
   };
   const longTier = LONG_TIERS[durationRange];
   const targetSlides = longTier ? longTier.slides : durationInfo.segmentsCount;
-  const slideSecondsHint = longTier ? longTier.seconds : '3 đến 6 giây (rất ngắn)';
-
-  const charsDetail = `
-- Determine the stick-figure character(s) needed to silently depict the topic. Use as few as the topic actually needs (often just 1, at most 3).
-- Give them simple names (e.g. Alex, Mia, John, Leo) and a simple distinguishing accessory/look (e.g. wearing a red baseball cap, wearing round glasses, holding a notebook, wearing a blue hoodie) — this is only for YOUR OWN consistency across slides. Never write these names as visible text anywhere in the image.
-- Since this is a stick figure style, characters must be simple black-ink hand-drawn stick figures on a plain white/cream background (whiteboard style).
-- Keep these characters, their accessories, and the background highly consistent across all segments/slides.
-`;
-
-  const compositionGuidance = isLandscape
-    ? `- FRAME ORIENTATION: This slide is a WIDE 16:9 landscape frame. Use the extra horizontal space deliberately — do not just draw the same narrow portrait composition with empty margins on the sides.
-- Enrich each scene with supporting visual details that reinforce what the narration is saying at that moment: relevant props, background elements, simple environmental context (e.g. a clock on the wall, a calendar with a crossed-out date, a stack of books, other people in the background, a chart/graph sketched on a whiteboard, small supporting icons/objects placed around the main character).
-- These extra details act as visual "evidence" for the narration's point — they should directly illustrate or emphasize the specific idea being said, not be random clutter. Keep them minimalist whiteboard-sketch style, consistent with the main character's line-art.
-- You may compose the frame with the main character on one side and a secondary supporting element/mini-scene on the other side (e.g. character + a thought-bubble-like inset showing a related detail), as long as it stays clean and readable at a glance.`
-    : `- FRAME ORIENTATION: This slide is a TALL 9:16 portrait frame. Keep the composition simple and focused — one clear focal point (the main character and their immediate action), minimal background elements, close framing so it reads instantly on a phone screen.`;
+  const slideSecondsHint = longTier ? longTier.seconds : '3 đến 6 giây';
 
   return `
-You are a professional documentary-style scriptwriter and an expert AI image prompt engineer.
-Your task is to write a short third-person NARRATION (voiceover) script for learning English about a real, relatable everyday problem/issue, and design a detailed image generation prompt for each slide of the video.
+You are a professional scriptwriter creating a narrated story video using a library of pre-built PNG stick-figure assets.
+Your job: write the narration AND choose which assets to place on screen for each slide.
 
-NARRATION STYLE REQUIREMENTS (IMPORTANT):
-- This is NOT a conversation/dialogue between characters. Do NOT write back-and-forth lines like "Alex: ... / Mia: ...".
-- Write it as ONE narrator's voiceover (third-person, documentary/storytelling tone) describing the problem: what it looks like, why it happens, its effects, and — if it fits naturally — a closing thought.
-- The stick figure character(s) shown in each slide simply ACT OUT / illustrate whatever the narration is describing at that moment. They are silent — no speech, no dialogue, no speech bubbles.
+NARRATION STYLE:
+- ONE narrator's voiceover (third-person, documentary/storytelling tone) — NOT dialogue between characters.
+- The stick figure simply ACTS OUT what the narration describes. It is silent — no speech, no dialogue.
 
-${buildHumanVoiceGuidance({ isVietnamese: false })}
-- Note: the vocabulary constraint below (simple A2/B1 English) still applies on top of everything above — write like a real person talking, using only simple words.
+${buildHumanVoiceGuidance({ isVietnamese })}
+${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
-${buildHookGuidance({ isVietnamese: false })}
+${buildHookGuidance({ isVietnamese })}
 
-VISUAL STYLE & IMAGE PROMPT REQUIREMENTS:
-- The style is: Minimalist hand-drawn whiteboard-animation style, simple black ink line illustrations and stick figures (circle head, simple line body/limbs) on a plain white background, plain sketch look.
-- Describe the visual scene in detail in English (visualDescription) for each segment/slide.
-- Since the video is a SLIDESHOW of static images, each segment represents ONE slide/image.
-- Describe the scene with the stick figure character(s) silently depicting the moment the narration is talking about right then — their pose, action, simple facial expression, the minimalist whiteboard-sketched setting, and mood. No speech, no dialogue.
-- Keep the character appearance (accessories, etc.) and background settings highly consistent across all segments/slides, so the slideshow flows logically as one continuous depiction of the issue.
-${compositionGuidance}
-- Do NOT mention motion/animation words like "animating", "zooming", "moving" in the visualDescription because we are generating static images. Focus on poses, gestures, and static frame composition.
-- IMPORTANT — no unwanted text in the image: do NOT describe or request character-name labels, "reference sheet" style callouts, arrows, or any technical/construction annotations anywhere in the image. Only if the scene itself naturally calls for a short, meaningful piece of in-scene text (for example one bold impactful word or short phrase reinforcing what the slide is about, like on a sign, a phone screen, or as simple bold graphic text) should any text appear — and it must stay short and purposeful, never a label describing the drawing.
-- The visual description should be descriptive and detail-oriented, suitable for direct text-to-image prompts (e.g. Midjourney or Flux).
+═══════════════════════════════════════════════════════
+PNG ASSET LIBRARY — use ONLY these exact IDs, no others
+═══════════════════════════════════════════════════════
 
-PER-SLIDE LAYOUT ("layout") — HOW THIS SLIDE IS PRESENTED ON SCREEN:
-Set a "layout" on EVERY segment. A video that uses the exact same presentation on all slides looks
-flat and monotonous over several minutes; alternating between these keeps a long explainer watchable
-(this mirrors how whiteboard-explainer channels actually edit). Pick whichever genuinely fits that
-beat of the narration — do NOT cycle through them mechanically:
-  - "default"      : illustration fills the frame, subtitle rendered in the video's normal caption
-                     style. Use for most slides — this should still be the majority.
-  - "image-only"   : illustration fills the frame, NO subtitle drawn at all. Use as a breathing beat
-                     when the drawing alone already says it, or on a strong emotional/punchline
-                     image. Still write dialogueOrNarration and subtitle normally (the narration is
-                     still spoken; only the on-screen text is hidden).
-  - "caption-left" : illustration fills the frame, subtitle pinned to the BOTTOM-LEFT corner instead
-                     of centered. Use when the drawing's subject sits to the right/centre so the
-                     lower-left corner is visually empty.
-  - "split"        : frame split in half — text on one side, illustration on the other. Use for a
-                     definition, a contrast, or a single punchy statement tied to one character.
-                     Also set "splitSide": "right" (illustration on the right, the usual choice) or
-                     "left". For this layout describe a SINGLE character/object centered on a plain
-                     background in visualDescription, since it only gets half the frame.
-  - "bullets"      : a TEXT-ONLY slide, no illustration at all. Also fill "bullets" with 2 to 4
-                     short lines (each a complete, punchy point, max ~12 words). Use ONLY where the
-                     narration genuinely lists steps/reasons/tips. At most 1-2 of these in the whole
-                     video, never two in a row. Still write visualDescription normally (an image is
-                     generated anyway and simply not used for this slide) plus dialogueOrNarration
-                     that reads those points aloud.
+POSES — stick figure with red snapback cap (use exactly 1 per scene):
 
-DURATION & PACING REQUIREMENTS:
-- Target total video duration: ${durationInfo.label} (about ${durationInfo.targetSeconds} seconds).
-- BẮT BUỘC: Bạn phải chia kịch bản thành chuỗi từ ${targetSlides} phân đoạn/slide liên tục.
-- Mỗi phân đoạn/slide tương ứng với thời lượng đọc từ ${slideSecondsHint}. Hãy chia lời thuyết minh tương ứng.
+  Standing / Emotions:
+    pose_standing_neutral  pose_happy_arms_up  pose_sad  pose_thinking
+    pose_angry  pose_shocked  pose_pointing_right  pose_waving
+    pose_pointing_at_viewer  pose_facepalm  pose_celebrating
+    pose_laughing  pose_crying  pose_comparing  pose_listening
 
-CAST/CHARACTERS GUIDELINES:
-${charsDetail}
+  Sitting / Desk work:
+    pose_meditating  pose_typing  pose_writing_sitting  pose_reading
+    pose_sleeping_at_desk  pose_stressed  pose_sad_hugging_knees
+    pose_phone_sitting  pose_eating
 
-USER'S TOPIC / ISSUE:
+  Movement:
+    pose_running  pose_walking  pose_jumping  pose_walking_phone
+    pose_tired_running  pose_stretching  pose_overwhelmed
+
+  Lying / Resting:
+    pose_sleeping  pose_lying_phone  pose_lying_resting
+    pose_exhausted  pose_shocked_receipt
+
+PROPS — objects held or placed near the character (zIndex 3):
+  prop_phone  prop_laptop  prop_alarm_clock  prop_coffee_cup  prop_book_open
+  prop_headphones  prop_notebook  prop_pencil  prop_backpack  prop_clock
+  prop_calendar  prop_checklist  prop_chart_up  prop_hourglass  prop_coins
+  prop_wallet_empty  prop_receipt  prop_desk_lamp
+
+SYMBOLS — floating icons and effects (zIndex 4):
+  sym_checkmark  sym_xmark  sym_star  sym_heart  sym_lightning
+  sym_zzz  sym_thought_bubble  sym_speech_bubble  sym_exclamation
+  sym_arrow_up  sym_target  sym_key  sym_warning  sym_fire
+  sym_trophy  sym_chain  sym_arrow_down  sym_crown
+
+BACKGROUND ELEMENTS — scene dressing behind the character (zIndex 0–1):
+  Nature:    bg_tree  bg_bush_flower  bg_flower_sun  bg_sun  bg_cloud
+             bg_rain_cloud  bg_hill_flowers  bg_rainbow  bg_moon_stars
+  Buildings: bg_house  bg_building  bg_school  bg_shop  bg_bench
+             bg_lamp_post  bg_fence  bg_road  bg_city_skyline
+  Fun:       bg_balloon_heart  bg_kite  bg_airplane  bg_confetti
+             bg_sparkle  bg_books_stack  bg_trophy_gold  bg_piggy_bank  bg_plant_pot
+
+═══════════════════════════════════════════════════════
+CANVAS LAYOUT — 9:16 portrait (1080×1920 px)
+═══════════════════════════════════════════════════════
+
+Each element is a square PNG centered on its (x, y) point:
+
+  x      — 0 = left edge, 100 = right edge, 50 = horizontal center
+  y      — 0 = top edge,  100 = bottom edge, 62 = typical character standing spot
+  scale  — size multiplier: 1.0 ≈ 32% of canvas height (~614 px tall)
+  zIndex — draw order: 0 (furthest back) → 4 (in front of everything)
+  flip   — true = mirror horizontally (character faces the other way)
+  delay  — seconds before this element fades in (0 = appears immediately)
+
+Recommended sizes by type:
+  bg_*   → scale 1.5–3.0   (fill the background behind the character)
+  pose_* → scale 0.9–1.2   (character, lower-center of frame)
+  prop_* → scale 0.4–0.7   (objects near the character)
+  sym_*  → scale 0.4–0.65  (floating icons above or beside the character)
+
+Typical 9:16 composition (character with background, 4–5 elements):
+  bg element  — x=50, y=55, scale=2.5, zIndex=0, delay=0
+  2nd bg (opt)— x=20, y=68, scale=1.8, zIndex=1, delay=0
+  CHARACTER   — x=50, y=62, scale=1.0, zIndex=2, delay=0.2   ← always required
+  prop (opt)  — x=72, y=50, scale=0.55, zIndex=3, delay=0.5
+  symbol (opt)— x=73, y=28, scale=0.55, zIndex=4, delay=0.8
+
+COMPOSITION RULES (follow strictly):
+  1. Every scene MUST have exactly 1 pose_* element.
+  2. Maximum 5 elements total per scene (keep it clean and readable).
+  3. Do NOT use the exact same element combination for 3 or more scenes in a row.
+  4. Choose the pose that BEST matches what the narration says at that moment.
+  5. Pick background elements that fit the story's setting.
+  6. Use delay to create a natural reveal: bg first (0) → character (0.2) → props/effects (0.5–1.0).
+  7. The character must always be in the lower-center area (x=40–60, y=55–70) unless the story clearly says otherwise.
+
+DURATION & PACING:
+- Target total video duration: ${durationInfo.label} (~${durationInfo.targetSeconds} seconds total).
+- BẮT BUỘC: chia kịch bản thành ${targetSlides} phân đoạn liên tục.
+- Thời lượng đọc mỗi segment: ${slideSecondsHint}. Tổng thời lượng phải khớp target.
+
+USER'S TOPIC:
 "${input.scenario || 'No specific topic given'}"
-Draft narration/content suggestion (if any):
-"${input.script || 'Freely write a natural narration about this issue'}"
+Draft content / narration suggestion (if any):
+"${input.script || 'Freely write a natural narration about this topic'}"
 
-NARRATION SCRIPT GUIDELINES:
-1. The script must go straight into describing a real, relatable everyday problem/issue (e.g. procrastination, phone addiction, wasting money, fear of failure, unhealthy habits, social media comparison...) told in a narrator's voice — never as a scripted conversation between named characters.
-2. The narration (dialogueOrNarration) must be third-person storytelling/documentary-style voiceover, spoken in a natural, normal narrating voice.
-3. Language constraint: The content MUST be 100% in simple, basic English (suitable for high school level, TOEIC 300+ level). Use simple vocabulary and short, clear sentences. No advanced expressions.
-4. ${isBilingual
-    ? 'Subtitle language: for EVERY segment, the "subtitle" field must contain the English line, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line (e.g. "Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ."). Keep the Vietnamese translation short and natural, matching the meaning of the English line above it — do not translate dialogueOrNarration, only subtitle.'
-    : 'Display the English-only subtitle/text clearly.'}
-5. Do NOT include bracketed tags like "[sighs]", "[softly]", "[gasp]", "[whispering]", "[pause]" anywhere in the narration — the voice engine does not read them and does not act on them, they have zero effect on the spoken audio and only show up as clutter in the text. Express emotion/pacing through word choice and punctuation instead, never through bracket tags.
-6. ${buildPunctuationRhythmGuidance()}
+NARRATION GUIDELINES:
+1. Third-person documentary voiceover about a real, relatable everyday problem or situation.
+2. ${isVietnamese
+    ? 'Lời thuyết minh (dialogueOrNarration) PHẢI bằng tiếng Việt. Viết tự nhiên, câu ngắn, gần gũi — như người bạn kể chuyện, KHÔNG phải văn nghị luận.'
+    : 'Content MUST be in simple, basic English (A2/B1). Use short, natural sentences.'}
+3. ${isVietnamese
+    ? 'Subtitle: "subtitle" phải chứa câu tiếng Việt TRƯỚC, rồi "\\n", rồi bản dịch tiếng Anh (vd: "Hàng triệu người thức trắng đêm lướt điện thoại.\\nMillions of people lie awake every night, scrolling.").'
+    : isBilingual
+      ? 'Subtitle: "subtitle" must contain the English line FIRST, then "\\n", then a natural Vietnamese translation (e.g. "Millions of people lie awake every night, scrolling.\\nHàng triệu người thức trắng đêm lướt điện thoại.").'
+      : 'Subtitle: English only.'}
+4. Do NOT include emotion tags like [sighs], [softly], [pause] — they have no effect and just clutter the text.
+5. ${buildPunctuationRhythmGuidance()}
 
+═══════════════════════════════════════════════════════
+RETURN FORMAT — raw JSON only, no markdown code fences
+═══════════════════════════════════════════════════════
 
-YÊU CẦU BẮT BUỘC DÀNH CHO ẢNH THU NHỎ YOUTUBE (YOUTUBE THUMBNAIL):
-- Bên cạnh các slide phân cảnh câu chuyện, bạn BẮT BUỘC phải sinh thêm 1 mục "thumbnail" ở cuối JSON.
-- Ảnh Thu Nhỏ (Thumbnail) là YẾU TỐ QUAN TRỌNG NHẤT quyết định tỉ lệ nhấp xem video (CTR) trên YouTube.
-- Viết prompt cho thumbnail (visualDescription) thật có ý nghĩa, sâu sắc, cô đọng được bài học / xung đột tâm lý cốt lõi của toàn bộ video trong 1 bức ảnh người que tối giản trên nền trắng.
-- Tăng cường độ tương phản thị giác, biểu cảm nét mặt và tư thế nhân vật thật giàu cảm xúc, kèm 1 câu tiêu đề ngắn 2-4 từ (headlineText) nổi bật (ví dụ: "STOP PROCRASTINATING!" hoặc "OVERCOME SHYNESS NOW!").
-
-Return the result as a JSON object matching exactly this schema:
 {
   "title": "Episode title",
   "segments": [
     {
       "segmentNumber": 1,
-      "visualDescription": "Detailed visual description in English of the slide image, focusing on the stick figure character(s) silently acting out the moment the narration describes, their positions, poses, accessories, expressions, and whiteboard sketch background, suitable for direct text-to-image prompts. No text/labels in the image unless one short meaningful phrase naturally belongs in the scene. (e.g. In a simple whiteboard-sketched dark bedroom at night, a simple black ink stickman lies in bed scrolling on a glowing phone, eyes half-closed, clearly unable to sleep. Plain white background, minimalist line-art.)",
-      "dialogueOrNarration": "Full narration line in English, third-person voiceover style (e.g. Millions of people lie awake every night, scrolling instead of sleeping.)",
-      "subtitle": "${isBilingual
-        ? 'Millions of people lie awake every night, scrolling instead of sleeping.\\nHàng triệu người thức trắng đêm để lướt điện thoại thay vì ngủ.'
-        : 'Millions of people lie awake every night, scrolling instead of sleeping.'}",
-      "layout": "default",
-      "splitSide": "right",
-      "bullets": ["Only include this field on a \\"bullets\\" slide", "2 to 4 short punchy lines", "Otherwise omit it entirely"]
+      "dialogueOrNarration": "Full narration line in third-person voiceover.",
+      "subtitle": "${isVietnamese ? 'Câu tiếng Việt.\\nEnglish translation.' : isBilingual ? 'English line.\\nVietnamese translation.' : 'Caption text.'}",
+      "durationSeconds": 5,
+      "elements": [
+        { "asset": "bg_tree",              "x": 80, "y": 65, "scale": 2.0,  "zIndex": 0, "flip": false, "delay": 0   },
+        { "asset": "pose_standing_neutral", "x": 50, "y": 62, "scale": 1.0,  "zIndex": 2, "flip": false, "delay": 0.2 },
+        { "asset": "sym_zzz",              "x": 73, "y": 28, "scale": 0.55, "zIndex": 4, "flip": false, "delay": 0.8 }
+      ]
     }
   ],
   "thumbnail": {
-    "visualDescription": "Detailed, highly impactful, curiosity-inducing YouTube thumbnail scene description in English. Depicting the stick figure character in the most dramatic, emotional, and meaningful dilemma of the story, with high contrast, clear 16:9 composition, minimalist whiteboard line-art style on plain white background. (e.g. Minimalist whiteboard line-art style: A stick figure character sitting at a desk surrounded by giant ticking clocks and towering stacks of unfinished work, head in hands in deep realization, while a bold glowing banner reads 'STOP PROCRASTINATING!'. Plain white background, high contrast, dramatic emotional storytelling composition.)",
-    "headlineText": "STOP PROCRASTINATING!"
+    "visualDescription": "Detailed whiteboard-style stick-figure thumbnail scene — the most dramatic/emotional moment of the story, plain white background, high-contrast composition, suitable for a YouTube 16:9 thumbnail. No text in the image itself.",
+    "headlineText": "CATCHY HOOK TEXT!"
   }
 }
 `;

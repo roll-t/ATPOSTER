@@ -1,0 +1,50 @@
+{
+  "voices": {
+    "1": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "2": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "3": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "4": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "5": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "6": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "7": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "8": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    },
+    "9": {
+      "provider": "edge",
+      "voiceId": "en-US-GuyNeural",
+      "readingSpeed": null
+    }
+  },
+  "updatedAt": 1785743748575
+}

@@ -135,10 +135,15 @@ export async function GET() {
       // (chỉ còn ý nghĩa với project phẳng cũ không có bất kỳ manh mối nào ở trên).
       let itemCategory = folderToCategory.get(folderName) || categoryFromConfig || categoryHintFromPath;
       if (!itemCategory) {
-        if (basePublicDir.includes('narrated-slideshow-video')) {
+        if (basePublicDir.includes('stick-figure-slideshow-video')) {
           itemCategory = 'stick_figure_slideshow';
         } else if (basePublicDir.includes('reading-page-video')) {
           itemCategory = 'reading_practice';
+        } else if (basePublicDir.includes('narrated-slideshow-video')) {
+          // Skill mặc định giờ chỉ còn phục vụ moral_talk_slideshow (stick_figure_slideshow đã
+          // tách sang skill riêng). Project phẳng cũ nằm ở đây mà không có manh mối nào khác
+          // thì gần như chắc chắn là moral_talk_slideshow.
+          itemCategory = 'moral_talk_slideshow';
         }
       }
 

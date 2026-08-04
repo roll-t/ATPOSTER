@@ -53,6 +53,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // bytes video CŨ đã tải trước đó thay vì tải lại bản vừa render xong.
   const [videoVersion, setVideoVersion] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
+
+  // Kho "Format đã lưu" (preset kiểu phụ đề / chuyển cảnh / font / màu) tách RIÊNG theo skill.
+  //
+  // TRƯỚC ĐÂY mọi category không phải reading_practice đều dùng chung đúng 1 khoá 'caption_style',
+  // nên preset của video đạo lý (vd "Pictogram Nền Đen 9:16") hiện ra trong màn cấu hình render của
+  // skill người que — thậm chí còn đang được GHIM làm mặc định ở đó, tức mỗi kịch bản người que mới
+  // đều tự động ăn nguyên bộ thông số thiết kế cho nền đen pictogram. Hai skill có phong cách hình
+  // ngược hẳn nhau (pictogram trắng phát sáng trên nền đen tuyệt đối vs whiteboard mực đen trên nền
+  // trắng) nên dùng chung một kho preset là sai từ gốc.
+  //
+  // moral_talk_slideshow GIỮ NGUYÊN khoá cũ 'caption_style': toàn bộ preset đang có đều do nó tạo ra
+  // và thuộc về nó, đổi khoá sẽ làm chúng biến mất khỏi giao diện. Chỉ stick_figure_slideshow được
+  // cấp kho mới, ban đầu rỗng.
+  const PRESET_SCOPE = isReadingPractice
+    ? 'reading_practice'
+    : (result.category === 'stick_figure_slideshow' ? 'stick_figure_slideshow' : 'caption_style');
+
+  // "Ghim mặc định" (kiểu phụ đề / kiểu chuyển cảnh / phụ đề song ngữ — áp cho MỌI kịch bản MỚI)
+  // cũng phải tách theo skill, cùng lý do với PRESET_SCOPE ở trên. Ba trường này trước đây nằm
+  // PHẲNG trong bảng settings và dùng chung toàn app, nên ghim "Tiêu đề mở đầu" ở video đạo lý thì
+  // mọi kịch bản người que tạo sau đó cũng bị đặt sang đúng kiểu đó.
+  //
+  // stick_figure_slideshow ghi vào khoá có hậu tố riêng; các skill còn lại giữ nguyên khoá phẳng cũ
+  // để thiết lập đang có không bị mất.
+  const settingsKey = (base) =>
+    result.category === 'stick_figure_slideshow' ? `${base}__stick_figure_slideshow` : base;
   // Tốc độ đọc gửi cho nhà cung cấp TTS khi tạo lồng tiếng — đây là NƠI DUY NHẤT chọn tốc độ
   // đọc (cố tình không lặp lại ở form tạo kịch bản ban đầu nữa, vì 2 chỗ độc lập dễ lệch trạng
   // thái nhau và gây rối cho người dùng), đổi thoải mái trước khi lồng tiếng lại mà không cần
@@ -111,6 +137,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // đây bị hardcode cứng trong Caption.tsx, giờ có thể tuỳ chỉnh qua highlightColor (schema.ts).
   const [renderHighlightColor, setRenderHighlightColor] = useState(initialDefaults.highlightColor || '#FE2C55');
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
+  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'edge', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, favoriteEdgeVoiceIds: [], favoriteVieneuVoiceIds: [] });
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
   // Hiện lớp phủ vùng an toàn của nền tảng short lên khung xem trước — chỉ là lớp hướng dẫn
   // trên giao diện, KHÔNG ảnh hưởng gì tới video render ra.
@@ -271,10 +298,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // xem trong phiên, khiến mọi kịch bản khác mở sau đó (kể cả kịch bản hoàn toàn mới, chưa từng
   // tuỳ chỉnh) không còn được tự động áp preset mặc định nữa.
   const lastResultIdRef = useRef(result?.id);
+  const hasLoadedSettingsRef = useRef(false);
 
   // Load Presets từ API + localStorage
   const fetchPresets = async () => {
-    const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    const category = PRESET_SCOPE;
     try {
       const local = localStorage.getItem(`custom_presets_${category}`);
       if (local) {
@@ -307,9 +335,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   useEffect(() => {
-    if (lastResultIdRef.current !== result?.id) {
-      lastResultIdRef.current = result?.id;
-      hasAppliedDefaultPresetRef.current = false;
+    const isNewScript = lastResultIdRef.current !== result?.id;
+    const settingsJustLoaded = !hasLoadedSettingsRef.current && settings?.defaultBgMusicVolume !== undefined;
+
+    if (isNewScript || settingsJustLoaded) {
+      if (isNewScript) {
+        lastResultIdRef.current = result?.id;
+        hasAppliedDefaultPresetRef.current = false;
+      }
+      if (settingsJustLoaded) {
+        hasLoadedSettingsRef.current = true;
+      }
 
       const savedTrack = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_track_id') : null) || settings?.defaultBgMusicTrackId || 'track1';
       const activeTrack = result?.remotionConfig?.bgMusicTrackId || savedTrack;
@@ -336,7 +372,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       }
     }
     fetchPresets();
-  }, [showCustomCapCut, isReadingPractice, result?.id]);
+  }, [
+    showCustomCapCut,
+    isReadingPractice,
+    result?.id,
+    settings?.defaultBgMusicVolume,
+    settings?.defaultBgMusicTrackId,
+    settings?.defaultBgMusicEnabled
+  ]);
 
   // Ghim 1 bản nhạc + âm lượng làm mặc định hệ thống cho các dự án mới. Trước đây đây là hành
   // động THỦ CÔNG (nút "📌 Đặt làm Mặc Định" riêng) — giờ gọi TỰ ĐỘNG mỗi khi đóng modal
@@ -382,7 +425,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       alert('Vui lòng nhập tên cho Mẫu Preset.');
       return;
     }
-    const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    const category = PRESET_SCOPE;
     const config = {
       // Kiểu phụ đề & kiểu chuyển cảnh là 2 thứ ĐỊNH HÌNH video rõ nhất, nhưng trước đây preset
       // không lưu chúng — lưu preset từ một video kiểu "Tiêu đề mở đầu" rồi chọn lại preset đó cho
@@ -440,7 +483,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
   const handleDeletePreset = async (presetId) => {
     if (!confirm('Bạn có chắc chắn muốn xóa mẫu Preset này?')) return;
-    const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    const category = PRESET_SCOPE;
     try {
       const res = await fetch(`/api/prompts/presets?id=${presetId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -459,7 +502,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // mặc định tại 1 thời điểm mỗi category, nên bật mặc định cho preset này sẽ tự tắt mặc định ở
   // mọi preset khác. Cập nhật lạc quan (optimistic) trên UI trước, refetch lại nếu API lỗi.
   const handleToggleDefaultPreset = async (preset) => {
-    const category = isReadingPractice ? 'reading_practice' : 'caption_style';
+    const category = PRESET_SCOPE;
     let target = preset;
 
     // Nếu là Mẫu hệ thống chưa có trong userPresets — tạo 1 bản ghi ẩn (isSystemClone) chỉ để
@@ -620,7 +663,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [openFolderError, setOpenFolderError] = useState('');
 
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
-  const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'edge', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, favoriteEdgeVoiceIds: [], favoriteVieneuVoiceIds: [] });
   const [vieneuVoices, setVieneuVoices] = useState([]);
   const [loadingVieneuVoices, setLoadingVieneuVoices] = useState(false);
   const [vieneuConnectionStatus, setVieneuConnectionStatus] = useState(null); // 'connected' | 'error' | null
@@ -666,10 +708,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Dùng useRef (không phải state) vì đây chỉ là cache nội bộ, không cần re-render khi cập nhật.
   const voicePreviewCacheRef = useRef({});
   const [activeLangTab, setActiveLangTab] = useState({});
-  // Tab lọc giọng đọc theo từng nhân vật: 'favorite' (chỉ hiện giọng đã đánh dấu ⭐ Hay dùng) hoặc
-  // 'other' (toàn bộ giọng còn lại — nơi "quản lý" các giọng chưa đánh dấu, có thể bấm ⭐ để thêm
-  // vào Hay dùng). Không lưu vào DB vì chỉ là trạng thái xem tạm thời của phiên làm việc hiện tại.
-  const [activeVoiceFilterTab, setActiveVoiceFilterTab] = useState({});
 
   const stopVoicePreview = () => {
     if (voicePreviewAudioRef.current) {
@@ -766,9 +804,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         // Bỏ qua giá trị không nằm trong danh sách kiểu của skill slideshow (vd 'page' bị ghim
         // nhầm từ màn reading_practice trước khi có bản sửa ở handlePinDefaultRenderConfig) —
         // nếu không, kịch bản mới bị đặt sang một kiểu phụ đề không có trong lưới chọn.
-        const isValidDefaultStyle = CAPTION_STYLE_OPTIONS.some((o) => o.value === s.defaultCaptionStyle);
-        if (s.defaultCaptionStyle && isValidDefaultStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
-          setRenderCaptionStyle(s.defaultCaptionStyle);
+        const pinnedCaptionStyle = s[settingsKey('defaultCaptionStyle')];
+        const isValidDefaultStyle = CAPTION_STYLE_OPTIONS.some((o) => o.value === pinnedCaptionStyle);
+        if (pinnedCaptionStyle && isValidDefaultStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
+          setRenderCaptionStyle(pinnedCaptionStyle);
           // ...VÀ áp luôn bộ mặc định (font/cỡ chữ/màu chữ/nền) CỦA CHÍNH kiểu vừa ghim.
           //
           // Trước đây chỉ đặt mỗi tên kiểu: initialDefaults ở đầu component được tính lúc render
@@ -781,10 +820,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           //
           // Chỉ áp cho những trường kịch bản này CHƯA tự lưu riêng — tuỳ chỉnh tay của người dùng
           // luôn thắng mặc định hệ thống.
-          const styleDefaults = CAPTION_STYLE_DEFAULTS[s.defaultCaptionStyle];
+          const styleDefaults = CAPTION_STYLE_DEFAULTS[pinnedCaptionStyle];
           if (styleDefaults) {
             const rc = result.remotionConfig || {};
-            const sizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[s.defaultCaptionStyle];
+            const sizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[pinnedCaptionStyle];
             if (!rc.font) setRenderCaptionFont(styleDefaults.font);
             if (!rc.fontSize) setRenderCaptionFontSize(sizeOverride || styleDefaults.fontSize);
             if (!rc.textColor) setRenderCaptionTextColor(styleDefaults.textColor);
@@ -793,11 +832,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             if (!rc.highlightColor) setRenderHighlightColor(styleDefaults.highlightColor || '#FE2C55');
           }
         }
-        if (s.defaultTransitionStyle && !result.remotionConfig?.transitionEffect) {
-          setRenderTransitionStyle(s.defaultTransitionStyle);
+        const pinnedTransitionStyle = s[settingsKey('defaultTransitionStyle')];
+        if (pinnedTransitionStyle && !result.remotionConfig?.transitionEffect) {
+          setRenderTransitionStyle(pinnedTransitionStyle);
         }
-        if (s.defaultBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
-          setRenderBilingual(s.defaultBilingual);
+        const pinnedBilingual = s[settingsKey('defaultBilingual')];
+        if (pinnedBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
+          setRenderBilingual(pinnedBilingual);
         }
         // ĐÃ BỎ: khối tự áp "mặc định nhạc nền" từ settings.readingPracticeConfig/defaultBgMusicVolume
         // từng nằm ở đây. Đây là 1 cơ chế "mặc định" THỨ HAI, độc lập và chồng lấn với việc ghim
@@ -826,9 +867,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           // defaultCaptionStyle = 'page', rồi giá trị này lại được áp cho các kịch bản slideshow
           // (moral_talk/stick_figure) — nơi 'page' không phải một lựa chọn hợp lệ, dẫn tới ô
           // "📌 Đang ghim" hiện chữ "page" và kịch bản mới bị đặt sai kiểu. Giữ nguyên giá trị cũ.
-          ...(isReadingPractice ? {} : { defaultCaptionStyle: renderCaptionStyle }),
-          defaultTransitionStyle: renderTransitionStyle,
-          defaultBilingual: renderBilingual
+          ...(isReadingPractice ? {} : { [settingsKey('defaultCaptionStyle')]: renderCaptionStyle }),
+          [settingsKey('defaultTransitionStyle')]: renderTransitionStyle,
+          [settingsKey('defaultBilingual')]: renderBilingual
         })
       });
       if (res.ok) {
@@ -944,10 +985,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   }, [showVoiceConfig]);
 
   useEffect(() => {
-    if (showVoiceConfig && settings.ttsProvider === 'vieneu') {
+    const effectiveProvider = (result?.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge');
+    if (showVoiceConfig && effectiveProvider === 'vieneu') {
       fetchVieneuVoices();
     }
-  }, [showVoiceConfig, settings.ttsProvider]);
+  }, [showVoiceConfig, settings.ttsProvider, result?.input?.narrationLanguage]);
 
 
   useEffect(() => {
@@ -1063,9 +1105,25 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       );
       if (!confirmed) return;
     }
+
+    // Chỉ đẩy segment ĐẠI DIỆN (đầu tiên) của mỗi imageGroup sang Google Flow. Các segment cùng
+    // nhóm dùng CHUNG đúng 1 hình minh hoạ (xem imageSlideshow.js) — đó chính là hiệu ứng "giữ
+    // nguyên hình, chỉ đổi chữ" của video whiteboard. Nếu đẩy cả nhóm thì Flow sinh ra mỗi
+    // segment 1 hình KHÁC nhau, vừa tốn thời gian gấp mấy lần vừa phá hỏng đúng hiệu ứng đó.
+    // Kịch bản CŨ (chưa có imageGroup) thì mọi segment đều là đại diện -> hành vi y như trước.
+    // Segment có elements[] dùng thư viện PNG sẵn có — Remotion ghép trực tiếp, không cần Flow.
+    const seenImageGroups = new Set();
+    const segmentsToGenerate = (result.segments || []).filter((s) => {
+      if (Array.isArray(s.elements) && s.elements.length > 0) return false;
+      if (s.imageGroup === undefined || s.imageGroup === null) return true;
+      if (seenImageGroups.has(s.imageGroup)) return false;
+      seenImageGroups.add(s.imageGroup);
+      return true;
+    });
+
     window.postMessage({
       type: 'START_FLOW_GENERATION',
-      segments: result.segments,
+      segments: segmentsToGenerate,
       title: result.title,
       isImage: isSlideshowPipeline || result.category === 'image_slideshow',
       folderPath: result.input?.folderPath || 'example',
@@ -1132,6 +1190,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           category: result.category,
           readingSpeed: isReadingPractice ? renderReadingSpeed : undefined,
           ttsProvider: settings.ttsProvider || 'edge',
+          narrationLanguage: result.input?.narrationLanguage,
           scenes: result.segments.map(seg => ({
             segmentNumber: seg.segmentNumber,
             dialogueOrNarration: seg.dialogueOrNarration
@@ -1205,12 +1264,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
       const orientation = isLandscape ? 'landscape' : 'portrait';
 
+      // Video người que PNG: gửi kèm segments để server tự tạo manifest.json nếu chưa có
+      // (không dùng Google Flow, không cần Extension).
+      const allHaveElements = (result.segments || []).every(s => Array.isArray(s.elements) && s.elements.length > 0);
+
       const res = await fetch('/api/prompts/render-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
+          ...(allHaveElements ? { segments: result.segments, title: result.title } : {}),
           captionStyle: renderCaptionStyle,
           transitionStyle: renderTransitionStyle,
           bilingual: renderBilingual,
@@ -1492,6 +1556,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       ...overrides
     };
     onResult?.({ ...result, remotionConfig: merged });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
+    }
     try {
       await fetch('/api/prompts/history', {
         method: 'PATCH',
@@ -1610,7 +1677,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
-          defaultBilingual: renderBilingual,
+          [settingsKey('defaultBilingual')]: renderBilingual,
           defaultBgMusicEnabled: renderBgMusicEnabled,
           defaultBgMusicVolume: renderBgMusicVolume,
           readingPracticeConfig: configObj
@@ -2982,103 +3049,103 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
-                  {/* Flex row layout: Left for fields, Right for Pexels media preview */}
-                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                    {/* Left: Input Fields */}
-                    <div style={{ flex: '1', minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div>
-                        <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
-                        </span>
-                        {isEditingScript ? (
-                          <textarea
-                            value={editedValue(seg, 'visualDescription')}
-                            onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
-                            rows={4}
-                            spellCheck={false}
-                            style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
-                          />
-                        ) : (
-                          <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                            {seg.visualDescription}
-                          </p>
-                        )}
-                      </div>
-
-                      {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
-                        <div>
-                          <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                            <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                              {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
-                            </span>
-                          </span>
-                          {isEditingScript ? (
-                            <textarea
-                              value={editedValue(seg, 'dialogueOrNarration')}
-                              onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
-                              rows={3}
-                              placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
-                              style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
-                            />
-                          ) : (
-                            <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                              {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {(seg.subtitle || isEditingScript) && !isThumb && (
+                    {/* Flex row layout: Left for fields, Right for Pexels media preview */}
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      {/* Left: Input Fields */}
+                      <div style={{ flex: '1', minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
                           <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>📝</span> <span>Phụ đề hiển thị</span>
-                            {isEditingScript && (
-                              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                                Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
-                              </span>
-                            )}
+                            <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
                           </span>
                           {isEditingScript ? (
                             <textarea
-                              value={editedValue(seg, 'subtitle')}
-                              onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
-                              rows={2}
-                              placeholder="Dòng chính&#10;Dòng dịch"
-                              style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                              value={editedValue(seg, 'visualDescription')}
+                              onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
+                              rows={4}
+                              spellCheck={false}
+                              style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
                             />
                           ) : (
-                            <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                              {seg.subtitle}
+                            <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                              {seg.visualDescription}
                             </p>
                           )}
                         </div>
-                      )}
 
-                      <div style={{ marginTop: '8px' }}>
-                        <details style={{ width: '100%' }}>
-                          <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                            Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
-                          </summary>
-                          <div style={{
-                            background: '#0a0912',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            fontSize: '0.76rem',
-                            fontFamily: 'monospace',
-                            marginTop: '8px',
-                            whiteSpace: 'pre-wrap',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            color: 'rgba(255,255,255,0.65)',
-                            lineHeight: 1.45
-                          }}>
-                            {seg.textPrompt}
+                        {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
+                          <div>
+                            <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                              </span>
+                            </span>
+                            {isEditingScript ? (
+                              <textarea
+                                value={editedValue(seg, 'dialogueOrNarration')}
+                                onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
+                                rows={3}
+                                placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
+                                style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
+                              />
+                            ) : (
+                              <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                                {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
+                              </p>
+                            )}
                           </div>
-                        </details>
-                      </div>
-                    </div>
+                        )}
 
-                  </div>
+                        {(seg.subtitle || isEditingScript) && !isThumb && (
+                          <div>
+                            <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>📝</span> <span>Phụ đề hiển thị</span>
+                              {isEditingScript && (
+                                <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                  Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
+                                </span>
+                              )}
+                            </span>
+                            {isEditingScript ? (
+                              <textarea
+                                value={editedValue(seg, 'subtitle')}
+                                onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
+                                rows={2}
+                                placeholder="Dòng chính&#10;Dòng dịch"
+                                style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                              />
+                            ) : (
+                              <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                                {seg.subtitle}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: '8px' }}>
+                          <details style={{ width: '100%' }}>
+                            <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                              Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
+                            </summary>
+                            <div style={{
+                              background: '#0a0912',
+                              padding: '12px',
+                              borderRadius: '8px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'monospace',
+                              marginTop: '8px',
+                              whiteSpace: 'pre-wrap',
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              color: 'rgba(255,255,255,0.65)',
+                              lineHeight: 1.45
+                            }}>
+                              {seg.textPrompt}
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
                 </div>
               );
@@ -3141,46 +3208,52 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
-              <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {(settings.ttsProvider === 'vieneu') ? '🇻🇳 Giọng VieNeu-TTS (Local)' : '🆓 Giọng đọc Miễn phí (Edge & CapCut)'}
+               <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {result.input?.narrationLanguage === 'en'
+                  ? '🆓 Giọng đọc Miễn phí (Edge & CapCut)'
+                  : (settings.ttsProvider === 'vieneu' ? '🇻🇳 Giọng VieNeu-TTS (Local)' : '🆓 Giọng đọc Miễn phí (Edge & CapCut)')
+                }
               </span>
             </div>
 
-            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Nhà cung cấp giọng đọc:</span>
-              <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                {[
-                  { id: 'edge', label: '🆓 Edge & CapCut (Miễn phí)' },
-                  { id: 'vieneu', label: '🇻🇳 VieNeu-TTS (Cục bộ)' }
-                ].map(p => {
-                  const isActive = (settings.ttsProvider || 'edge') === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSettings(prev => ({ ...prev, ttsProvider: p.id }));
-                      }}
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '0.74rem',
-                        fontWeight: 700,
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: isActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
-                        color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
+            {result.input?.narrationLanguage !== 'en' && (
+              <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Nhà cung cấp giọng đọc:</span>
+                <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {[
+                    { id: 'edge', label: '🆓 Edge & CapCut (Miễn phí)' },
+                    { id: 'vieneu', label: '🇻🇳 VieNeu-TTS (Cục bộ)' }
+                  ].map(p => {
+                    const effectiveProvider = settings.ttsProvider || 'edge';
+                    const isActive = effectiveProvider === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSettings(prev => ({ ...prev, ttsProvider: p.id }));
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: isActive ? 'rgba(37, 244, 238, 0.16)' : 'transparent',
+                          color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.5)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            {(settings.ttsProvider === 'vieneu') && (
+            {((result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge')) === 'vieneu' && (
               <div style={{
                 background: 'rgba(255,255,255,0.02)',
                 border: '1px solid rgba(255,255,255,0.08)',
@@ -3370,8 +3443,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '24px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
                     {activeCharacters.map(char => {
-                      const isEdge = (settings.ttsProvider || 'edge') === 'edge';
-                      const isVieneu = settings.ttsProvider === 'vieneu';
+                      const effectiveProvider = (result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge');
+                      const isEdge = effectiveProvider === 'edge';
+                      const isVieneu = effectiveProvider === 'vieneu';
 
                       const currentVal = isEdge
                         ? (settings.edgeVoiceMappings?.[char.key] || char.defaultVoice)
@@ -3423,8 +3497,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 Chọn giọng đọc cho {char.name}:
                               </span>
 
-                              {/* Tab ngôn ngữ (Chỉ hiện cho Edge TTS) */}
-                              {isEdge && (
+                              {/* Tab ngôn ngữ — ẩn nếu kịch bản đã xác định ngôn ngữ qua narrationLanguage */}
+                              {isEdge && !result.input?.narrationLanguage && (
                                 <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                   {[
                                     { code: 'vi', label: '🇻🇳 Tiếng Việt' },
@@ -3458,74 +3532,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               )}
                             </div>
 
-                            {/* Tab lọc ⭐ Hay dùng / 🗂️ Khác — thu gọn danh sách giọng để dễ chọn hơn
-                                khi catalog có nhiều giọng. "Khác" là nơi "quản lý" các giọng chưa
-                                đánh dấu: bấm ⭐ trên 1 giọng ở đây để đưa nó vào Hay dùng. */}
-                            {(isEdge || isVieneu) && (() => {
-                              const favField = isEdge ? 'favoriteEdgeVoiceIds' : 'favoriteVieneuVoiceIds';
-                              const favIds = settings[favField] || [];
-                              const defaultFilterTab = favIds.length > 0 ? 'favorite' : 'other';
-                              const activeFilterTab = activeVoiceFilterTab[char.key] || defaultFilterTab;
-                              return (
-                                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
-                                  {[
-                                    { code: 'favorite', label: `⭐ Hay dùng${favIds.length ? ` (${favIds.length})` : ''}` },
-                                    { code: 'other', label: '🗂️ Khác' }
-                                  ].map(filterTab => {
-                                    const isTabActive = activeFilterTab === filterTab.code;
-                                    return (
-                                      <button
-                                        key={filterTab.code}
-                                        type="button"
-                                        onClick={() => setActiveVoiceFilterTab(prev => ({ ...prev, [char.key]: filterTab.code }))}
-                                        style={{
-                                          padding: '4px 10px',
-                                          fontSize: '0.72rem',
-                                          fontWeight: 700,
-                                          borderRadius: '6px',
-                                          border: 'none',
-                                          background: isTabActive ? 'rgba(250, 204, 21, 0.16)' : 'transparent',
-                                          color: isTabActive ? '#facc15' : 'rgba(255,255,255,0.5)',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.15s ease'
-                                        }}
-                                      >
-                                        {filterTab.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })()}
-
                             {/* Lưới chọn giọng đọc trực quan cho Edge hoặc VieNeu-TTS */}
                             {(isEdge || isVieneu) && (
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
-                                  const activeTabVal = activeLangTab[char.key] || (['reading_practice', 'moral_talk_slideshow'].includes(result?.category) ? 'vi' : 'en');
-                                  const favField = isEdge ? 'favoriteEdgeVoiceIds' : 'favoriteVieneuVoiceIds';
-                                  const favIds = settings[favField] || [];
-                                  const defaultFilterTab = favIds.length > 0 ? 'favorite' : 'other';
-                                  const activeFilterTab = activeVoiceFilterTab[char.key] || defaultFilterTab;
+                                  const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                  const activeTabVal = result.input?.narrationLanguage || activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
 
-                                  const toggleFavoriteVoice = (voiceId) => {
-                                    setSettings(prev => {
-                                      const cur = prev[favField] || [];
-                                      const next = cur.includes(voiceId) ? cur.filter(id => id !== voiceId) : [...cur, voiceId];
-                                      return { ...prev, [favField]: next };
-                                    });
-                                  };
-
-                                  const fullVoiceList = isEdge
+                                  const voiceList = isEdge
                                     ? EDGE_TTS_VOICES.filter(v => activeTabVal === 'vi' ? v.category === 'vi' : v.category !== 'vi')
                                     : vieneuVoices;
-                                  // Giọng đang được chọn (currentVal) luôn hiện trong danh sách dù không khớp tab lọc,
-                                  // để không "biến mất" chính giọng đang dùng chỉ vì nó chưa được đánh dấu Hay dùng.
-                                  const voiceList = fullVoiceList.filter(v => {
-                                    if (v.id === currentVal) return true;
-                                    const isFav = favIds.includes(v.id);
-                                    return activeFilterTab === 'favorite' ? isFav : !isFav;
-                                  });
 
                                   const isAnyActive = activePreviewState.status !== 'idle';
 
@@ -3620,35 +3636,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                             </span>
                                           </div>
                                         </div>
-
-                                        <button
-                                          type="button"
-                                          title={favIds.includes(v.id) ? `Bỏ "${cleanName}" khỏi Hay dùng` : `Thêm "${cleanName}" vào Hay dùng`}
-                                          disabled={isDisabled}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleFavoriteVoice(v.id);
-                                          }}
-                                          style={{
-                                            flexShrink: 0,
-                                            width: '28px',
-                                            height: '28px',
-                                            borderRadius: '6px',
-                                            border: favIds.includes(v.id) ? '1px solid rgba(250, 204, 21, 0.4)' : '1px solid rgba(255,255,255,0.15)',
-                                            background: favIds.includes(v.id) ? 'rgba(250, 204, 21, 0.16)' : 'rgba(255,255,255,0.04)',
-                                            color: favIds.includes(v.id) ? '#facc15' : 'rgba(255,255,255,0.35)',
-                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                            opacity: isDisabled ? 0.35 : 1,
-                                            fontSize: '0.85rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            transition: 'all 0.2s ease'
-                                          }}
-                                        >
-                                          {favIds.includes(v.id) ? '⭐' : '☆'}
-                                        </button>
-
                                         <button
                                           type="button"
                                           title={isPlaying ? `Dừng nghe thử` : `Nghe thử giọng ${cleanName}`}
@@ -4359,15 +4346,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu phụ đề</span>
-                      {CAPTION_STYLE_OPTIONS.some((o) => o.value === settings?.defaultCaptionStyle) && (
+                      {CAPTION_STYLE_OPTIONS.some((o) => o.value === settings?.[settingsKey('defaultCaptionStyle')]) && (
                         <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
-                          📌 Đang ghim: {optionLabel(CAPTION_STYLE_OPTIONS, settings.defaultCaptionStyle)}
+                          📌 Đang ghim: {optionLabel(CAPTION_STYLE_OPTIONS, settings[settingsKey('defaultCaptionStyle')])}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {CAPTION_STYLE_OPTIONS.map(opt => {
-                        const isPinned = settings?.defaultCaptionStyle === opt.value;
+                        const isPinned = settings?.[settingsKey('defaultCaptionStyle')] === opt.value;
                         return (
                           <PickerCard
                             key={opt.value}
@@ -4394,15 +4381,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu chuyển cảnh</span>
-                      {settings?.defaultTransitionStyle && (
+                      {settings?.[settingsKey('defaultTransitionStyle')] && (
                         <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
-                          📌 Đang ghim: {optionLabel(TRANSITION_STYLE_OPTIONS, settings.defaultTransitionStyle)}
+                          📌 Đang ghim: {optionLabel(TRANSITION_STYLE_OPTIONS, settings[settingsKey('defaultTransitionStyle')])}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {TRANSITION_STYLE_OPTIONS.map(opt => {
-                        const isPinned = settings?.defaultTransitionStyle === opt.value;
+                        const isPinned = settings?.[settingsKey('defaultTransitionStyle')] === opt.value;
                         return (
                           <PickerCard
                             key={opt.value}
@@ -4456,7 +4443,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                     <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       Hiện phụ đề song ngữ
-                      {settings?.defaultBilingual !== undefined && settings.defaultBilingual === renderBilingual && (
+                      {settings?.[settingsKey('defaultBilingual')] !== undefined && settings[settingsKey('defaultBilingual')] === renderBilingual && (
                         <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
                       )}
                     </span>

@@ -276,7 +276,13 @@ export async function POST(request) {
         imageFit: "cover",
         kenBurns: true,
         transitionSeconds: 0.5,
-        bgColor: "#0E0F13",
+        // Nền video. stick_figure_slideshow dùng ảnh whiteboard (mực đen trên nền TRẮNG) nên nền
+        // lót phải trắng — nền chỉ lộ ra khi ảnh thiếu/không phủ kín khung, và lúc đó một mảng đen
+        // giữa video toàn trắng rất chói mắt. Các category khác giữ nền tối như cũ.
+        // Đây chỉ là bản config HIỂN THỊ lưu trong DB; bản thật sự dùng để render do
+        // render-project.mjs của từng skill tự dựng ra (final/config.json) — giữ khớp nhau để
+        // người đọc mục "Xem cấu hình Remotion nâng cao" không bị hiểu nhầm.
+        bgColor: category === 'stick_figure_slideshow' ? "#FFFFFF" : "#0E0F13",
         fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
         captionMode: "chunked",
         captionWordsPerChunk: 4,

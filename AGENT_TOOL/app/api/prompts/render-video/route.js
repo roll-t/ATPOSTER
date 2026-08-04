@@ -24,7 +24,9 @@ export async function POST(req) {
       captionFont, captionFontSize, captionSecondaryFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
       contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume,
-      imageScale, imageTranslateY, captionMarginY
+      imageScale, imageTranslateY, captionMarginY,
+      // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
+      segments: segmentsForManifest, title: titleForManifest
     } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
@@ -104,6 +106,33 @@ export async function POST(req) {
           } catch (_) { /* không sao nếu chưa xoá được, chỉ là dọn dẹp phụ */ }
         }
       }
+    }
+
+    // Video người que PNG: nếu manifest.json chưa có và client gửi kèm segments, tự tạo luôn.
+    // Chrome Extension không cần thiết cho dạng này vì không có image generation step.
+    const manifestPath = path.join(targetProjectDir, 'manifest.json');
+    if (!fs.existsSync(manifestPath) && Array.isArray(segmentsForManifest) && segmentsForManifest.length > 0) {
+      const manifest = {
+        title: titleForManifest || projectFolder,
+        isImage: true,
+        category: category || '',
+        orientation: (orientation === 'landscape') ? 'landscape' : 'portrait',
+        createdAt: new Date().toISOString(),
+        updatedAt: Date.now(),
+        segments: segmentsForManifest.map(s => ({
+          segmentNumber: s.segmentNumber,
+          ...(Array.isArray(s.elements) && s.elements.length > 0 ? { elements: s.elements } : {}),
+          ...(s.layout ? { layout: s.layout } : {}),
+          dialogueOrNarration: s.dialogueOrNarration,
+          subtitle: s.subtitle,
+          durationSeconds: s.durationSeconds || 5,
+          status: 'completed',
+          files: []
+        }))
+      };
+      fs.mkdirSync(targetProjectDir, { recursive: true });
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+      console.log(`[API RenderVideo] Tạo manifest.json từ segments (PNG mode): ${manifestPath}`);
     }
 
     // Chỉ chuyển tiếp các option hợp lệ (nằm trong danh sách cho phép) thành cờ dòng lệnh

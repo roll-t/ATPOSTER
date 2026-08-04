@@ -1,0 +1,586 @@
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { SlideshowVideoProps, Scene } from "../schema";
+import { resolveCaptionFontFamily } from "../captionFonts";
+
+type WordTiming = NonNullable<Scene["wordTimings"]>[number];
+
+// A reliable cross-renderer way to fake a text outline: draw the same glyph
+// 8 times, offset in a ring, all in the stroke color, then the real
+// (colored) text renders on top via normal paint order. `-webkit-text-stroke`
+// renders inconsistently in Remotion's headless-Chrome pipeline (the outline
+// can pick up the wrong color at small sizes) — text-shadow does not have
+// that problem.
+function strokeShadow(color: string, width = 2.5): string {
+  const steps = 14;
+  const shadows: string[] = [];
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const x = Math.round(Math.cos(angle) * width * 10) / 10;
+    const y = Math.round(Math.sin(angle) * width * 10) / 10;
+    shadows.push(`${x}px ${y}px 0 ${color}`);
+  }
+  return shadows.join(", ");
+}
+
+function splitWords(text: string): string[] {
+  return text.trim().split(/\s+/).filter(Boolean);
+}
+
+// Gemini có thể chèn [emotion tag] (vd "[warmly]", "[pause]") vào lời kể để hướng dẫn giọng đọc
+// TTS diễn cảm hơn (xem voiceover/route.js, nơi các tag này được strip trước khi gửi cho TTS
+// tổng hợp giọng) — nhưng field hiển thị trên màn hình (subtitle/caption) là 1 field RIÊNG mà
+// Gemini không phải lúc nào cũng tách bạch tuyệt đối khỏi narration, nên đôi khi tag lọt vào và
+// bị đọc-hiển-thị ra thành chữ trên video. Strip ở đây là lớp bảo vệ cuối cùng tại chính nơi
+// render — đảm bảo tag không bao giờ hiện thành text dù lọt qua từ bất kỳ nguồn nào (kịch bản
+// Gemini, chỉnh tay JSON cấu hình Remotion...), thay vì phải sửa từng nơi ghi ra caption.
+function stripEmotionTags(text: string): string {
+  return text.replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Gemini có thể đánh dấu 1-3 từ/cụm từ cần nhấn màu trong "subtitle" bằng cú pháp
+// "**từ**" (xem moralTalkSlideshow.js) — CHỈ captionStyle "hook" hiểu và tô màu cú pháp này
+// (xem renderWithHighlights bên dưới). Với mọi style khác (box/tiktok/karaoke/page), strip
+// sạch cặp ** đi (giữ lại chữ bên trong) để không bao giờ hiện dấu ** trần trụi trên màn hình
+// nếu người dùng đổi sang style khác sau khi kịch bản đã được sinh với đánh dấu này.
+function stripHighlightMarkers(text: string): string {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
+// Tách text theo cú pháp "**từ**" thành các <span>, phần được đánh dấu tô màu `highlightColor`,
+// phần còn lại giữ nguyên màu chữ mặc định — dùng riêng cho HookCaption (style "hook").
+function renderWithHighlights(text: string, highlightColor: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p.length > 0);
+  return parts.map((part, i) => {
+    const match = /^\*\*([^*]+)\*\*$/.exec(part);
+    if (match) {
+      return (
+        <span key={i} style={{ color: highlightColor }}>
+          {match[1]}
+        </span>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
+// captionStyle: "hook" — scenes after the first are often a numbered list
+// item ("1. ...", "2. ..."), since this style targets "top N" listicle-type
+// scripts. The reference design shows the text WITHOUT its number (the card
+// itself is the visual "beat", it doesn't need a redundant digit), so strip
+// a leading "N." / "N)" / "N:" if the caption happens to start with one.
+function stripListNumber(text: string): string {
+  return text.replace(/^\s*\d+[.):]\s*/, "").trim();
+}
+
+// Splits text into exactly `count` chunks (by word count, as evenly as
+// possible) rather than by a fixed words-per-chunk size — used for the
+// secondary (translation) line so it always has the same number of chunks
+// as the primary line, keeping the two languages switching in lockstep
+// even though a translation rarely has the same word count as the original.
+function chunkIntoCount(text: string, count: number): string[] {
+  const words = splitWords(text);
+  if (count <= 0) return [""];
+  if (words.length === 0) return new Array(count).fill("");
+  const base = Math.floor(words.length / count);
+  const extra = words.length % count;
+  const chunks: string[] = [];
+  let idx = 0;
+  for (let i = 0; i < count; i++) {
+    const size = base + (i < extra ? 1 : 0);
+    chunks.push(words.slice(idx, idx + size).join(" "));
+    idx += size;
+  }
+  return chunks;
+}
+
+/**
+ * Picks which WORD of `words` should be "active" right now — the one
+ * currently being spoken. There's no word-level transcript/timestamp for
+ * the narration (no forced alignment step in this pipeline), so each
+ * word's on-screen time is weighted by its own character length (longer
+ * words linger a little longer) across the scene's duration — a stable
+ * approximation of "the caption follows the voice" that needs no extra
+ * tooling. Also used to derive which chunk (of captionWordsPerChunk words)
+ * should be showing, so chunk switching is paced by the same per-word
+ * timing instead of a coarser per-chunk average.
+ */
+function activeWordIndex(words: string[], durationInFrames: number, frame: number): number {
+  if (words.length === 0) return 0;
+  const weights = words.map((w) => w.length + 2);
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+
+  let elapsed = 0;
+  for (let i = 0; i < words.length; i++) {
+    const wordFrames = (weights[i] / totalWeight) * durationInFrames;
+    if (frame < elapsed + wordFrames || i === words.length - 1) return i;
+    elapsed += wordFrames;
+  }
+  return words.length - 1;
+}
+
+/**
+ * Same job as activeWordIndex(), but from REAL per-word start/end timestamps
+ * (seconds, relative to the scene's own audio start) instead of a
+ * character-length estimate — used whenever a scene has `wordTimings` from
+ * the TTS provider's alignment API, for exact sync between the highlighted
+ * word and the actual spoken audio.
+ *
+ * IMPORTANT: real TTS timestamps always have small GAPS between words (a
+ * natural pause — noticeably longer right after punctuation/sentence ends;
+ * gaps approaching a full second aren't unusual). During a gap, `timeSeconds`
+ * is past the current word's `end` but before the next word's `start`.
+ * Treating "past this word's end" as "show the next word" lights up the next
+ * word before it's actually spoken — reads as the highlight "running ahead"
+ * of the narration, most visible with voices/providers that have pronounced
+ * inter-sentence pauses (e.g. Edge TTS). Fixed by holding the CURRENT word
+ * highlighted through the gap until the next word's real start time arrives,
+ * instead of jumping the moment the current word's `end` passes.
+ */
+function activeWordIndexFromTimings(timings: WordTiming[], timeSeconds: number): number {
+  if (timings.length === 0) return 0;
+  if (timeSeconds <= timings[0].start) return 0;
+  for (let i = 0; i < timings.length; i++) {
+    if (timeSeconds < timings[i].end) return i;
+    if (i + 1 < timings.length && timeSeconds < timings[i + 1].start) return i;
+  }
+  return timings.length - 1;
+}
+
+/**
+ * Picks the active word index for the ON-SCREEN `words` array, preferring
+ * real `wordTimings` when available. Used 1:1 when the counts match exactly;
+ * if they don't (the alignment came from narration text that isn't
+ * word-for-word identical to the on-screen caption), the matched timing
+ * index is proportionally remapped onto `words`' own range instead of
+ * discarding the real timings altogether — still tracks the narration's
+ * actual pace reasonably well, rather than reverting the WHOLE scene to the
+ * coarse per-character-length estimate over one stray mismatch.
+ */
+function resolveActiveWordIndex(
+  words: string[],
+  wordTimings: WordTiming[] | undefined,
+  durationInFrames: number,
+  fps: number,
+  frame: number
+): number {
+  if (words.length === 0) return 0;
+  if (!wordTimings || wordTimings.length === 0) {
+    return activeWordIndex(words, durationInFrames, frame);
+  }
+  const timingIdx = activeWordIndexFromTimings(wordTimings, frame / fps);
+  if (wordTimings.length === words.length) return timingIdx;
+  const ratio = timingIdx / Math.max(1, wordTimings.length - 1);
+  return Math.min(words.length - 1, Math.round(ratio * (words.length - 1)));
+}
+
+const CaptionLine: React.FC<{
+  words: string[];
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  color: string;
+  lineHeight?: number;
+  strokeColor?: string;
+  highlightIndex?: number;
+  highlightColor?: string;
+  highlightTextColor?: string;
+}> = ({ words, fontFamily, fontSize, fontWeight, color, lineHeight = 1.35, strokeColor, highlightIndex, highlightColor, highlightTextColor = "#FFFFFF" }) => (
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      alignItems: "baseline",
+      rowGap: 2,
+      columnGap: 10,
+      fontFamily,
+      lineHeight,
+      textWrap: "balance" as any,
+    }}
+  >
+    {words.map((word, i) => {
+      const isActive = highlightIndex === i;
+      return (
+        <span
+          key={i}
+          style={{
+            fontSize: isActive ? Math.round(fontSize * 1.16) : fontSize,
+            fontWeight,
+            color: isActive && highlightColor ? highlightTextColor : color,
+            background: isActive && highlightColor ? highlightColor : "transparent",
+            borderRadius: isActive && highlightColor ? 6 : 0,
+            padding: isActive && highlightColor ? "1px 8px" : 0,
+            textShadow: strokeColor && !(isActive && highlightColor) ? strokeShadow(strokeColor) : undefined,
+          }}
+        >
+          {word}
+        </span>
+      );
+    })}
+  </div>
+);
+
+export const Caption: React.FC<{
+  text: string;
+  sceneIndex?: number;
+  videoTitle?: string;
+  position: "top" | "bottom" | "center";
+  captionMarginY?: number;
+  fontFamily: string;
+  mode: "chunked" | "full";
+  wordsPerChunk: number;
+  style: SlideshowVideoProps["captionStyle"];
+  captionFont?: SlideshowVideoProps["captionFont"];
+  captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionSecondaryFontSize?: SlideshowVideoProps["captionSecondaryFontSize"];
+  captionTextColor?: SlideshowVideoProps["captionTextColor"];
+  captionBgColor?: SlideshowVideoProps["captionBgColor"];
+  highlightColor?: SlideshowVideoProps["highlightColor"];
+  showBilingual: boolean;
+  durationInFrames: number;
+  wordTimings?: WordTiming[];
+  opacity: number;
+}> = ({
+  text,
+  sceneIndex = 0,
+  videoTitle,
+  position,
+  captionMarginY = 0,
+  fontFamily,
+  mode,
+  wordsPerChunk,
+  style,
+  captionFont,
+  captionFontSize,
+  captionSecondaryFontSize,
+  captionTextColor,
+  captionBgColor,
+  highlightColor: highlightColorOverride,
+  showBilingual,
+  durationInFrames,
+  wordTimings,
+  opacity,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  // captionStyle: "hook" has its own content routing (scene 0 = video title,
+  // every other scene = its own caption) and layout/animation, structurally
+  // separate from the shared box/tiktok/karaoke/page logic below — see
+  // HookCaption's own doc comment.
+  if (style === "hook") {
+    return (
+      <HookCaption
+        text={text}
+        sceneIndex={sceneIndex}
+        videoTitle={videoTitle}
+        captionMarginY={captionMarginY}
+        fontFamily={fontFamily}
+        captionFont={captionFont}
+        captionFontSize={captionFontSize}
+        captionSecondaryFontSize={captionSecondaryFontSize}
+        captionTextColor={captionTextColor}
+        captionBgColor={captionBgColor}
+        highlightColor={highlightColorOverride}
+        showBilingual={showBilingual}
+        durationInFrames={durationInFrames}
+        opacity={opacity}
+      />
+    );
+  }
+
+  if (!text) return null;
+
+  // Bilingual captions are authored as a single string: the primary
+  // (e.g. English) line, a literal "\n", then the secondary (e.g.
+  // Vietnamese) translation line. A caption with no "\n" behaves exactly
+  // as before — single line, no schema/config changes needed to opt in.
+  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => stripHighlightMarkers(stripEmotionTags(s)));
+  const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
+
+  const allWords = splitWords(primaryTextRaw);
+
+  const isKaraoke = style === "karaoke";
+  const isPage = style === "page";
+  const isTiktok = style === "tiktok";
+  // "page" is meant for a whole paragraph held on screen for the scene's
+  // entire duration (captionMode: "full") — it still needs the active-word
+  // highlight (that's the "read-along" effect), unlike the plain "box"/
+  // "tiktok" full-caption case which shows static text with no highlight.
+  const highlightsWords = isKaraoke || isPage;
+
+  const activeIdx =
+    mode === "full" && !highlightsWords
+      ? -1
+      : resolveActiveWordIndex(allWords, wordTimings, durationInFrames, fps, frame);
+
+  // In "chunked" mode, show the wordsPerChunk-sized slice that contains
+  // the active word — chunk boundaries are the same as before, only the
+  // timing of when to switch chunks now comes from per-word weighting.
+  const chunkStart = mode === "full" ? 0 : Math.floor(activeIdx / wordsPerChunk) * wordsPerChunk;
+  const primaryWords = mode === "full" ? allWords : allWords.slice(chunkStart, chunkStart + wordsPerChunk);
+  const localActiveIndex = mode === "full" ? activeIdx : activeIdx - chunkStart;
+
+  let secondaryWords: string[] = [];
+  if (hasSecondary) {
+    if (mode === "full") {
+      secondaryWords = splitWords(secondaryTextRaw);
+    } else {
+      const totalChunks = Math.max(1, Math.ceil(allWords.length / wordsPerChunk));
+      const chunkIndex = Math.floor(chunkStart / wordsPerChunk);
+      secondaryWords = splitWords(chunkIntoCount(secondaryTextRaw, totalChunks)[chunkIndex] ?? "");
+    }
+  }
+
+  // CapCut-style manual overrides — each is independent and only replaces the
+  // one thing it names, so an unset override keeps that style's own built-in
+  // look exactly as before (see schema.ts for the full override contract).
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const basePrimaryFontSize = isPage ? 32 : 40;
+  const primaryFontSize = captionFontSize ?? basePrimaryFontSize;
+  // Secondary/translation line keeps the same ratio to the primary line as the
+  // original hardcoded sizes (26/40 = 0.65 for box-ish styles, 22/32 ≈ 0.69 for
+  // "page") whether or not captionFontSize is overridden — unless the user set
+  // an explicit captionSecondaryFontSize, which always wins.
+  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
+  const primaryColor = captionTextColor || (isPage ? "#2A2118" : "#FFFFFF");
+  const isTransparentBg = captionBgColor === "transparent";
+  const boxBgColor = captionBgColor || (isPage ? "#FBF3E3" : "rgba(10, 10, 14, 0.72)");
+  // CapCut-style override for the karaoke/page active-word highlight pill — same
+  // optional-override contract as captionTextColor/captionBgColor above (unset
+  // keeps each style's own built-in default).
+  const resolvedHighlightColor = highlightColorOverride || (isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : undefined);
+
+  const primaryLine = (
+    <CaptionLine
+      words={primaryWords}
+      fontFamily={resolvedFontFamily}
+      fontSize={primaryFontSize}
+      fontWeight={isPage ? 600 : 700}
+      color={primaryColor}
+      lineHeight={isPage ? 1.55 : 1.35}
+      strokeColor={isTiktok ? "#000000" : undefined}
+      highlightIndex={highlightsWords ? localActiveIndex : undefined}
+      highlightColor={resolvedHighlightColor}
+      highlightTextColor={isPage ? "#2A2118" : "#FFFFFF"}
+    />
+  );
+
+  const secondaryLine = hasSecondary ? (
+    <CaptionLine
+      words={secondaryWords}
+      fontFamily={resolvedFontFamily}
+      fontSize={secondaryFontSize}
+      fontWeight={500}
+      color={isTiktok ? "#FFE14D" : isPage ? "rgba(42, 33, 24, 0.65)" : "rgba(255, 255, 255, 0.82)"}
+      strokeColor={isTiktok ? "#000000" : undefined}
+    />
+  ) : null;
+
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: position === "bottom" ? "flex-end" : position === "top" ? "flex-start" : "center",
+        alignItems: "center",
+        padding: "0 90px",
+        opacity,
+      }}
+    >
+      {isTiktok ? (
+        <div
+          style={{
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            maxWidth: "88%",
+            textAlign: "center",
+          }}
+        >
+          {primaryLine}
+          {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
+        </div>
+      ) : isPage ? (
+        <div
+          style={{
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            maxWidth: "84%",
+            background: boxBgColor,
+            border: isTransparentBg ? "none" : "1px solid rgba(42, 33, 24, 0.08)",
+            borderRadius: 28,
+            padding: "56px 64px",
+            boxShadow: isTransparentBg ? "none" : "0 20px 60px rgba(0,0,0,0.35)",
+            textAlign: "center",
+          }}
+        >
+          {primaryLine}
+          {secondaryLine && <div style={{ marginTop: 18 }}>{secondaryLine}</div>}
+        </div>
+      ) : (
+        <div
+          style={{
+            marginTop: position === "top" ? 64 - captionMarginY : 0,
+            marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            maxWidth: "82%",
+            background: boxBgColor,
+            borderRadius: 18,
+            padding: "22px 40px",
+            boxShadow: isTransparentBg ? "none" : "0 8px 30px rgba(0,0,0,0.35)",
+            textAlign: "center",
+          }}
+        >
+          {primaryLine}
+          {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
+        </div>
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// Slide+fade duration for captionStyle: "hook"'s entrance/exit (~0.4s @
+// 30fps) — independent of the whole-scene crossfade/slide transition in
+// Scene.tsx (that one moves the ENTIRE frame; this one only moves the
+// caption card, so the two layer naturally without conflicting).
+const HOOK_ANIM_FRAMES = 12;
+
+/**
+ * captionStyle: "hook" — a top-anchored dark title card, structurally
+ * separate from the box/tiktok/karaoke/page styles above (no chunking, no
+ * per-word highlight, no bottom/center positioning) rather than threaded
+ * through their shared logic, since its content source differs by scene:
+ * scene 0 shows the video's own `videoTitle` (the "hook", first ~3s of the
+ * video) in a big uppercase headline; every other scene shows its own
+ * `text` (that scene's caption) in a smaller sentence-case card, with any
+ * leading "N." list-number prefix stripped. See schema.ts's captionStyle
+ * doc comment and Scene.tsx (which also nudges the image down for this
+ * style — SceneImage.tsx's topOffsetPercent).
+ */
+const HookCaption: React.FC<{
+  text: string;
+  sceneIndex: number;
+  videoTitle?: string;
+  captionMarginY?: number;
+  fontFamily: string;
+  captionFont?: SlideshowVideoProps["captionFont"];
+  captionFontSize?: SlideshowVideoProps["captionFontSize"];
+  captionSecondaryFontSize?: SlideshowVideoProps["captionSecondaryFontSize"];
+  captionTextColor?: SlideshowVideoProps["captionTextColor"];
+  captionBgColor?: SlideshowVideoProps["captionBgColor"];
+  highlightColor?: SlideshowVideoProps["highlightColor"];
+  showBilingual: boolean;
+  durationInFrames: number;
+  opacity: number;
+}> = ({
+  text,
+  sceneIndex,
+  videoTitle,
+  captionMarginY = 0,
+  fontFamily,
+  captionFont,
+  captionFontSize,
+  captionSecondaryFontSize,
+  captionTextColor,
+  captionBgColor,
+  highlightColor,
+  showBilingual,
+  durationInFrames,
+  opacity,
+}) => {
+  const frame = useCurrentFrame();
+  const isFirstScene = sceneIndex === 0;
+
+  const rawText = isFirstScene && videoTitle ? videoTitle : text;
+  if (!rawText) return null;
+
+  // Emotion tags stripped here, but "**word**" highlight markers (see moralTalkSlideshow.js)
+  // are deliberately KEPT through this step — renderWithHighlights() below parses them into
+  // colored spans. (Every OTHER captionStyle strips them instead — see stripHighlightMarkers().)
+  const [primaryTextRaw, secondaryTextRaw] = rawText.split("\n").map((s) => stripEmotionTags(s));
+  // Uppercase the STRING itself in JS (not via CSS text-transform: uppercase below) — Chromium's
+  // CSS uppercase transform doesn't reliably recompose Vietnamese combining diacritics (renders
+  // broken/mismatched tone marks, e.g. "ừ" -> a garbled "Ừ"), while JS's .toUpperCase() produces
+  // proper precomposed Unicode codepoints that render correctly.
+  const primaryText = isFirstScene ? primaryTextRaw.toUpperCase() : stripListNumber(primaryTextRaw);
+  const hasSecondary = !isFirstScene && showBilingual && Boolean(secondaryTextRaw);
+  const secondaryText = hasSecondary ? stripHighlightMarkers(stripListNumber(secondaryTextRaw)) : "";
+
+  if (!stripHighlightMarkers(primaryText)) return null;
+
+  const resolvedHighlightColor = highlightColor || "#FE2C55";
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const basePrimaryFontSize = isFirstScene ? 52 : 46;
+  const primaryFontSize = captionFontSize
+    ? Math.round(isFirstScene ? captionFontSize * 1.3 : captionFontSize)
+    : basePrimaryFontSize;
+  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * 0.6);
+  const primaryColor = captionTextColor || "#FFFFFF";
+  const isTransparentBg = captionBgColor === "transparent";
+  const boxBgColor = captionBgColor && !isTransparentBg ? captionBgColor : "rgba(8, 8, 11, 0.88)";
+
+  // Entrance (frame 0 -> HOOK_ANIM_FRAMES): fade in + slide down from above.
+  // Exit (last HOOK_ANIM_FRAMES of the scene's own duration): the exact
+  // reverse — fade out + slide back up.
+  const inProgress = Math.min(1, frame / HOOK_ANIM_FRAMES);
+  const outStart = durationInFrames - HOOK_ANIM_FRAMES;
+  const outProgress = frame >= outStart ? Math.min(1, Math.max(0, (frame - outStart) / HOOK_ANIM_FRAMES)) : 0;
+  const animProgress = outProgress > 0 ? 1 - outProgress : inProgress;
+  const animOpacity = animProgress;
+  const animTranslateY = interpolate(animProgress, [0, 1], [-28, 0]);
+
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: "flex-start",
+        alignItems: "center",
+        padding: "0 56px",
+        opacity: opacity * animOpacity,
+      }}
+    >
+      <div
+        style={{
+          // Same "top"-position sign convention as the shared box/tiktok/karaoke/page styles
+          // above (64 - captionMarginY): increasing the slider moves the card UP the screen
+          // (closer to the top edge), decreasing/negative moves it DOWN, regardless of which
+          // edge a style anchors to.
+          marginTop: (isFirstScene ? 48 : 96) - captionMarginY,
+          maxWidth: "90%",
+          background: isTransparentBg ? "transparent" : boxBgColor,
+          borderRadius: 24,
+          padding: isFirstScene ? "32px 40px" : "20px 32px",
+          boxShadow: isTransparentBg ? "none" : "0 12px 40px rgba(0,0,0,0.45)",
+          textAlign: "center",
+          transform: `translateY(${animTranslateY}px)`,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: resolvedFontFamily,
+            fontSize: primaryFontSize,
+            fontWeight: 800,
+            lineHeight: 1.3,
+            color: primaryColor,
+            letterSpacing: isFirstScene ? "0.5px" : "normal",
+          }}
+        >
+          {renderWithHighlights(primaryText, resolvedHighlightColor)}
+        </div>
+        {hasSecondary && (
+          <div
+            style={{
+              fontFamily: resolvedFontFamily,
+              fontSize: secondaryFontSize,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.75)",
+              marginTop: 8,
+            }}
+          >
+            {secondaryText}
+          </div>
+        )}
+      </div>
+    </AbsoluteFill>
+  );
+};

@@ -90,6 +90,7 @@ export async function POST(request) {
       category,
       readingSpeed,
       ttsProvider: requestedProvider,
+      narrationLanguage,
       // Chỉ đọc lại những slide ĐÃ có sẵn file audio, bỏ qua slide chưa từng được lồng tiếng.
       // Dùng khi người dùng sửa tay lời kể rồi bấm Lưu: chỉ slide nào từng có giọng mới đọc lại.
       onlyExistingAudio = false,
@@ -113,7 +114,10 @@ export async function POST(request) {
     // Python cục bộ). Ưu tiên giá trị gửi thẳng trong request (đổi nhanh lúc lồng tiếng), fallback
     // về lựa chọn đã lưu trong Cài đặt. Cấu hình cũ còn lưu 'elevenlabs' (đã gỡ bỏ) thì coi như 'edge'.
     const rawProvider = requestedProvider || settingsRecord?.ttsProvider || 'edge';
-    const provider = rawProvider === 'elevenlabs' ? 'edge' : rawProvider;
+    let provider = rawProvider === 'elevenlabs' ? 'edge' : rawProvider;
+    if (narrationLanguage === 'en' && provider === 'vieneu') {
+      provider = 'edge';
+    }
     const isVieneu = provider === 'vieneu';
     const vieneuServerUrl = settingsRecord?.vieneuServerUrl || 'http://127.0.0.1:8001';
     // CapCut & VieNeu-TTS là giọng đọc CHỈ tiếng Việt — dùng để phiên âm lại các từ tiếng Anh lẫn

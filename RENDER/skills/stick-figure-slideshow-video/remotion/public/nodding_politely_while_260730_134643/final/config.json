@@ -1,0 +1,133 @@
+{
+  "title": "Why You Forget Names Immediately",
+  "orientation": "landscape",
+  "captionPosition": "bottom",
+  "imageFit": "cover",
+  "kenBurns": true,
+  "transitionSeconds": 0.5,
+  "transitionStyle": "crossfade",
+  "bgColor": "#0E0F13",
+  "fontFamily": "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+  "captionMode": "chunked",
+  "captionWordsPerChunk": 4,
+  "captionStyle": "karaoke",
+  "captionFont": "be-vietnam-pro",
+  "captionFontSize": 30,
+  "captionTextColor": "#FFFFFF",
+  "captionBgColor": "#0A0A0E",
+  "highlightColor": "#FE2C55",
+  "showBilingual": true,
+  "imageScale": 0.69,
+  "imageTranslateY": 10,
+  "captionMarginY": 25,
+  "audioPaddingSeconds": 0.4,
+  "scenes": [
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-01.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-01.mp3",
+      "caption": "You smile and nod, but inside, you're panicking because you forgot their name.\nBạn mỉm cười gật đầu, nhưng bên trong lại hoảng hốt vì đã quên tên họ."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-02_1.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-02.mp3",
+      "caption": "It happens just two seconds after they introduce themselves.\nĐiều đó xảy ra chỉ hai giây sau khi họ giới thiệu bản thân."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-03.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-03.mp3",
+      "caption": "They shake your hand, and say their name very clearly.\nHọ bắt tay bạn, và nói tên họ rất rõ ràng."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-04.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-04.mp3",
+      "caption": "You reply 'Nice to meet you,' and instantly, the name vanishes.\nBạn đáp 'Rất vui được gặp bạn,' và ngay lập tức, cái tên biến mất."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-05.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-05.mp3",
+      "caption": "Now, you're trapped in a friendly conversation with a total stranger.\nBây giờ, bạn mắc kẹt trong cuộc trò chuyện thân thiện với một người hoàn toàn xa lạ."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-06.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-06.mp3",
+      "caption": "Your brain isn't listening to what they are saying anymore.\nBộ não của bạn không còn nghe những gì họ đang nói nữa."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-07.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-07.mp3",
+      "caption": "Instead, you're desperately searching every corner of your mind.\nThay vào đó, bạn đang tuyệt vọng tìm kiếm khắp mọi ngóc ngách trong trí nhớ."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-08.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-08.mp3",
+      "caption": "Did it start with a B, or maybe a D?\nTên đó bắt đầu bằng chữ B, hay là chữ D nhỉ?"
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-09.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-09.mp3",
+      "caption": "Meanwhile, your face keeps smiling and nodding on autopilot.\nTrong khi đó, gương mặt bạn vẫn mỉm cười và gật đầu một cách tự động."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-10.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-10.mp3",
+      "caption": "You don't want to stop them, and sound rude.\nBạn không muốn ngắt lời họ, và trở nên bất lịch sự."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-11.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-11.mp3",
+      "caption": "So, you use safe words like 'man', 'buddy', or 'my friend'.\nThế nên, bạn dùng những từ an toàn như 'bạn ơi', 'ông bạn', hay 'bằng hữu'."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-12.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-12.mp3",
+      "caption": "You pray that someone walks by, and calls their name out loud.\nBạn cầu mong có ai đó đi ngang qua, và gọi to tên của họ."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-13.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-13.mp3",
+      "caption": "But no one comes, to save you from this awkward moment.\nNhưng không có ai đến, để giải cứu bạn khỏi khoảnh khắc ngại ngùng này."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-14.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-14.mp3",
+      "caption": "Why does our brain wipe names, so quickly?\nTại sao não bộ chúng ta lại xóa tên, nhanh đến như vậy?"
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-15.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-15.mp3",
+      "caption": "It happens because we focus on making a good first impression.\nNó xảy ra vì chúng ta quá tập trung vào việc tạo ấn tượng đầu tiên."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-16.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-16.mp3",
+      "caption": "We worry about our handshake, our smile, and our voice.\nChúng ta lo lắng về cái bắt tay, nụ cười, và giọng nói của mình."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-17.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-17.mp3",
+      "caption": "So, our working memory completely discards the new information.\nVì thế, bộ nhớ ngắn hạn hoàn toàn bỏ qua thông tin mới."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-18.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-18.mp3",
+      "caption": "To fix this, repeat their name out loud immediately.\nĐể khắc phục, hãy lặp lại tên của họ ra tiếng ngay lập tức."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-19.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-19.mp3",
+      "caption": "Just say, 'Nice to meet you, Mark.'\nChỉ cần nói, 'Rất vui được gặp bạn, Mark.'"
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-20_1.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-20.mp3",
+      "caption": "This simple action locks the name into your memory.\nHành động đơn giản này sẽ khóa cái tên vào trí nhớ của bạn."
+    },
+    {
+      "image": "stick_figure_slideshow/nodding_politely_while_260730_134643/images/scene-21.jpg",
+      "audio": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/scene-21.mp3",
+      "caption": "That way, you can stop pretending, and actually connect.\nBằng cách đó, bạn có thể ngừng giả vờ, và thực sự kết nối."
+    }
+  ],
+  "bgMusic": "stick_figure_slideshow/nodding_politely_while_260730_134643/audio/bg-music.mp3",
+  "bgMusicVolume": 0.1
+}

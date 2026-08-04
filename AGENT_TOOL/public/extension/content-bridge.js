@@ -3,21 +3,31 @@ console.log('[Flow Helper Extension] Bridge script loaded successfully.');
 // --- Đồng bộ ngược trạng thái hàng đợi (flowQueue) cho trang Web để hiển thị tiến độ chạy
 // (chưa bắt đầu / đang chạy n trên tổng / hoàn thành) ngay trên nút "Đẩy sang...".
 function broadcastQueueState() {
-  if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
-  chrome.storage.local.get(['flowQueue', 'autoRunActive'], (result) => {
-    window.postMessage({
-      type: 'FLOW_QUEUE_STATE',
-      queue: result.flowQueue || null,
-      autoRunActive: result.autoRunActive === true
-    }, '*');
-  });
+  try {
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id || !chrome.storage || !chrome.storage.local) return;
+    chrome.storage.local.get(['flowQueue', 'autoRunActive'], (result) => {
+      if (chrome.runtime.lastError) return;
+      window.postMessage({
+        type: 'FLOW_QUEUE_STATE',
+        queue: result.flowQueue || null,
+        autoRunActive: result.autoRunActive === true
+      }, '*');
+    });
+  } catch (e) {
+    // Extension context đã bị hủy — bỏ qua, không spam lỗi
+  }
 }
 
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local') return;
-    if (changes.flowQueue || changes.autoRunActive) {
-      broadcastQueueState();
+    try {
+      if (!chrome.runtime || !chrome.runtime.id) return;
+      if (areaName !== 'local') return;
+      if (changes.flowQueue || changes.autoRunActive) {
+        broadcastQueueState();
+      }
+    } catch (e) {
+      // Extension context đã bị hủy — bỏ qua
     }
   });
 }

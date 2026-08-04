@@ -5,11 +5,12 @@ import CharacterPicker from './CharacterPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
 import StickFigureLongFormModal from './StickFigureLongFormModal.js';
-import { STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
+import { STICK_FIGURE_LONGFORM_GROUPS, STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
 import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
 import LevelPicker from './LevelPicker.js';
 import MoralThemePicker from './MoralThemePicker.js';
+import StickFigureThemePicker from './StickFigureThemePicker.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
 
@@ -50,21 +51,13 @@ export default function ContentForm({
   // khung đó là sai mục đích sử dụng.
   const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow'];
 
-  // Mốc "video dài" (4-6/6-8/8-10 phút) chỉ hợp lệ cho các category trên + Dạng ngang 16:9 (xem
-  // <optgroup> "🎬 Video dài" bên dưới). durationRange là state DÙNG CHUNG cho mọi category video
-  // (không tự reset khi đổi category/tỉ lệ khung hình) — nên nếu người dùng chọn "8-10 phút" rồi
-  // đổi sang category khác hoặc đổi về Dạng dọc 9:16 mà không có gì clear lại, ô chọn sẽ giữ một
-  // giá trị KHÔNG còn <option> nào khớp (mất khỏi danh sách hiển thị) trong khi state ngầm vẫn là
-  // '8_10m' — Gemini vẫn âm thầm nhận đúng durationRange đó và viết kịch bản 8-10 phút dù người
-  // dùng tưởng đang ở chế độ mặc định. Reset về 'under_1m' ngay khi rời khỏi phạm vi hợp lệ.
-  const currentAspectRatio = currentInput['aspectRatio'];
+  // Reset durationRange về mặc định khi đổi sang category không hỗ trợ mốc "video dài"
   useEffect(() => {
     const isLongTier = ['4_6m', '6_8m', '8_10m'].includes(durationRange);
-    const isValidForLongTier = LONG_FORM_CATEGORIES.includes(activeCategory) && currentAspectRatio === '16:9';
-    if (isLongTier && !isValidForLongTier) {
+    if (isLongTier && !LONG_FORM_CATEGORIES.includes(activeCategory)) {
       setDurationRange('under_1m');
     }
-  }, [activeCategory, currentAspectRatio]);
+  }, [activeCategory, durationRange]);
 
   // Reset suggestions for moral_talk_slideshow when theme changes
   useEffect(() => {
@@ -81,11 +74,31 @@ export default function ContentForm({
     }
   }, [currentInput.moralTheme, activeCategory]);
 
+  // Reset suggestions for stick_figure_slideshow when theme group changes
+  useEffect(() => {
+    if (activeCategory === 'stick_figure_slideshow') {
+      setDynamicSuggestions(prev => ({ ...prev, scenario: [] }));
+      setSuggestionSubsets(prev => {
+        const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+        const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+        const pool = group ? group.topics : [];
+        return {
+          ...prev,
+          scenario: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
+        };
+      });
+    }
+  }, [currentInput.stickFigureTheme, activeCategory]);
+
   const shuffleSuggestions = (field) => {
     let pool = field.suggestions || [];
     if (activeCategory === 'moral_talk_slideshow' && field.key === 'scenario') {
       const themeKey = currentInput.moralTheme || 'self_help';
       pool = MORAL_SYLLABUS[themeKey] || [];
+    } else if (activeCategory === 'stick_figure_slideshow' && field.key === 'scenario') {
+      const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+      const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+      pool = group ? group.topics : [];
     }
     setSuggestionSubsets(prev => ({
       ...prev,
@@ -139,6 +152,10 @@ export default function ContentForm({
       if (activeCategory === 'moral_talk_slideshow' && field.key === 'scenario') {
         const themeKey = currentInput.moralTheme || 'self_help';
         rawList = MORAL_SYLLABUS[themeKey] || [];
+      } else if (activeCategory === 'stick_figure_slideshow' && field.key === 'scenario') {
+        const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+        const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+        rawList = group ? group.topics : [];
       } else {
         rawList = field.suggestions || [];
       }
@@ -279,22 +296,30 @@ export default function ContentForm({
                 value={durationRange}
                 onChange={(e) => setDurationRange(e.target.value)}
               >
-                <option value="under_1m">Dưới 1 phút ({activeCategory === 'stick_figure_slideshow' ? '8 - 12 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '8 - 12 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
-                <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'stick_figure_slideshow' ? '15 - 25 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
-                <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'stick_figure_slideshow' ? '28 - 45 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
-                <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'stick_figure_slideshow' ? '45 - 60 slide ảnh' : activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
-                {/* Mốc "video dài" — chỉ dành cho skill Nói Chuyện Đạo Lý ở Dạng ngang 16:9 (video
-                    YouTube dài hơi thật sự, không phải short dọc). Giới hạn phạm vi vì: (1) thang
-                    bố cục pictogram của khung dọc 9:16 được thiết kế để đơn giản/đọc nhanh trên
-                    điện thoại — 8-10 phút phụ đề dồn dập trên khung dọc không hợp; (2) các category
-                    khác dùng chung state durationRange này chưa được rà lại pacing/prompt cho thời
-                    lượng này. Mở rộng cho category/tỉ lệ khác cần rà riêng, không nên bật đại trà. */}
-                {LONG_FORM_CATEGORIES.includes(activeCategory) && currentInput['aspectRatio'] === '16:9' && (
-                  <optgroup label="🎬 Video dài (YouTube ngang)">
-                    <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'stick_figure_slideshow' ? '35 - 48 slide ảnh' : '28 - 40 slide pictogram'})</option>
-                    <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'stick_figure_slideshow' ? '48 - 65 slide ảnh' : '38 - 54 slide pictogram'})</option>
-                    <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'stick_figure_slideshow' ? '60 - 82 slide ảnh' : '48 - 68 slide pictogram'})</option>
-                  </optgroup>
+                {activeCategory === 'stick_figure_slideshow' ? (
+                  <>
+                    <option value="under_1m">Dưới 1 phút</option>
+                    <option value="1_2m">Từ 1 - 2 phút</option>
+                    <option value="2_3m">Từ 2 - 3 phút</option>
+                    <option value="3_4m">Từ 3 - 4 phút</option>
+                    <option value="4_6m">Từ 4 - 6 phút</option>
+                    <option value="6_8m">Từ 6 - 8 phút</option>
+                    <option value="8_10m">Từ 8 - 10 phút</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '8 - 12 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                    <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                    <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                    <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                    {LONG_FORM_CATEGORIES.includes(activeCategory) && (
+                      <optgroup label="🎬 Video dài">
+                        <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 40 slide pictogram' : '35 - 48 slide'})</option>
+                        <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '38 - 54 slide pictogram' : '48 - 65 slide'})</option>
+                        <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '48 - 68 slide pictogram' : '60 - 82 slide'})</option>
+                      </optgroup>
+                    )}
+                  </>
                 )}
               </select>
               {['4_6m', '6_8m', '8_10m'].includes(durationRange) && (
@@ -435,6 +460,11 @@ export default function ContentForm({
                   value={currentInput[field.key]}
                   onChange={(val) => onFieldChange(field.key, val)}
                 />
+              ) : field.type === 'stick-figure-theme-select' ? (
+                <StickFigureThemePicker
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
               ) : field.type === 'select' ? (
                 <select
                   className="form-control"
@@ -466,7 +496,7 @@ export default function ContentForm({
                 />
               )}
               
-              {((Array.isArray(field.suggestions) && field.suggestions.length > 0 && activeCategory !== 'moral_talk_slideshow') && (
+              {((Array.isArray(field.suggestions) && field.suggestions.length > 0 && activeCategory !== 'moral_talk_slideshow' && activeCategory !== 'stick_figure_slideshow') && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
                   {visibleSuggestions(field).map(sug => {
                     const text = suggestionText(sug);
@@ -483,22 +513,24 @@ export default function ContentForm({
                       </button>
                     );
                   })}
-                  <button
-                    type="button"
-                    onClick={() => fetchMoreSuggestions(field)}
-                    disabled={loadingSuggestions[field.key]}
-                    title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
-                    className="suggestion-pill"
-                    style={{
-                      background: 'rgba(37, 244, 238, 0.08)',
-                      borderColor: 'rgba(37, 244, 238, 0.25)',
-                      color: 'var(--secondary)',
-                      fontWeight: 700,
-                      cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
-                    }}
-                  >
-                    {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
-                  </button>
+                  {activeCategory !== 'stick_figure_slideshow' && (
+                    <button
+                      type="button"
+                      onClick={() => fetchMoreSuggestions(field)}
+                      disabled={loadingSuggestions[field.key]}
+                      title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
+                      className="suggestion-pill"
+                      style={{
+                        background: 'rgba(37, 244, 238, 0.08)',
+                        borderColor: 'rgba(37, 244, 238, 0.25)',
+                        color: 'var(--secondary)',
+                        fontWeight: 700,
+                        cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
+                    </button>
+                  )}
                   {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'stick_figure_slideshow'].includes(activeCategory) && (
                     <button
                       type="button"

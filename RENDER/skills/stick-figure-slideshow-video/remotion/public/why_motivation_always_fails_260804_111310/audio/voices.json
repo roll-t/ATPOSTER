@@ -1,0 +1,10 @@
+{
+  "voices": {
+    "1": {
+      "provider": "edge",
+      "voiceId": "vi_female_huong",
+      "readingSpeed": null
+    }
+  },
+  "updatedAt": 1785816875078
+}

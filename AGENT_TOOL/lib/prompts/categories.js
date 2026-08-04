@@ -265,7 +265,7 @@ export const PROMPT_CATEGORIES = {
     type: 'slideshow',
     label: 'Kịch Bản & Slide Ảnh Người Que',
     icon: '📸',
-    description: 'Tạo kịch bản thoại ngắn và danh sách prompt để sinh ảnh người que cho từng phân cảnh, ghép thành video slideshow tiếng Anh nhất quán.',
+    description: 'Tạo kịch bản thoại ngắn và danh sách prompt để sinh ảnh người que cho từng phân cảnh, ghép thành video slideshow nhất quán.',
     fields: [
       {
         key: 'aspectRatio',
@@ -278,9 +278,24 @@ export const PROMPT_CATEGORIES = {
           { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
         ]
       },
-
-
-
+      {
+        key: 'narrationLanguage',
+        label: 'Ngôn ngữ thuyết minh (lồng tiếng)',
+        type: 'select',
+        required: true,
+        defaultValue: 'en',
+        options: [
+          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' },
+          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' }
+        ]
+      },
+      {
+        key: 'stickFigureTheme',
+        label: 'Nhóm chủ đề gợi ý',
+        type: 'stick-figure-theme-select',
+        required: true,
+        defaultValue: 'habits'
+      },
       {
         key: 'scenario',
         label: 'Chủ đề / vấn nạn muốn thuyết minh',
