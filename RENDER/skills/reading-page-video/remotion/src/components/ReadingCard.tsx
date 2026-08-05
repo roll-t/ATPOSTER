@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { ReadingPageVideoProps } from "../schema";
-import { resolveCaptionFontFamily } from "../captionFonts";
+import { resolveCaptionFontFamily } from "@atposter/remotion-shared";
 
 type WordTiming = NonNullable<ReadingPageVideoProps["wordTimings"]>[number];
 

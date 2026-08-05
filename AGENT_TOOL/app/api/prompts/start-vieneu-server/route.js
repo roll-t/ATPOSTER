@@ -48,18 +48,15 @@ export async function POST(req) {
         });
       }
     } else if (process.platform === 'darwin') {
-      // macOS: ưu tiên chạy bằng 'uv' (nếu có) — 'uv run --python 3.12 --with ...' tự tải một bản
-      // Python 3.12 riêng biệt (không phụ thuộc thư viện hệ thống) và cài gói vào môi trường tạm,
-      // né được lỗi python3 hệ thống (Apple CommandLineTools) quá cũ (3.9) không cài được vieneu
-      // (gói yêu cầu Python >=3.10 trên PyPI) hoặc lỗi lệch phiên bản thư viện libexpat của các
-      // bản Python Homebrew đã build sẵn. Không có 'uv' thì rơi về python3 + pip cài trực tiếp
-      // như cũ (chỉ chạy được nếu python3 mặc định của máy đã là bản >=3.10).
+      // macOS: ưu tiên chạy bằng 'uv' (nếu có) — tự tải Python riêng biệt và cài gói vào môi
+      // trường tạm, né lỗi python3 hệ thống quá cũ hoặc lỗi lệch libexpat của Homebrew.
       //
-      // Lệnh bash chứa dấu " (vd python3 -c "import ...") nên phải escape TOÀN BỘ dấu " thành \"
-      // trước khi nhét vào chuỗi AppleScript "do script \"...\"" — trước đây chỉ escape thủ công
-      // 2 dấu " quanh đường dẫn cwd mà bỏ sót dấu " của python3 -c, khiến AppleScript coi chuỗi
-      // kết thúc sớm ngay tại đó và báo lỗi cú pháp (-2740).
-      const bashCommand = `cd "${agentToolDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.12 --with vieneu --with fastapi --with uvicorn --with soundfile python scripts/vieneu_server.py; else (python3 -c "import uvicorn, vieneu" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile) && python3 scripts/vieneu_server.py; fi`;
+      // Dùng Python 3.11 + numba>=0.57 vì:
+      //   • vieneu → librosa → numba → llvmlite; llvmlite==0.36.0 (numba 0.53) chỉ hỗ trợ <3.10
+      //   • numba>=0.57 dùng llvmlite>=0.40 — hỗ trợ Python 3.11 đầy đủ
+      //
+      // Lệnh bash chứa dấu " nên phải escape TOÀN BỘ thành \" trước khi nhét vào AppleScript.
+      const bashCommand = `cd "${agentToolDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.11 --with vieneu --with "numba>=0.57.0" --with fastapi --with uvicorn --with soundfile python scripts/vieneu_server.py; else (python3 -c "import uvicorn, vieneu" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile) && python3 scripts/vieneu_server.py; fi`;
       const appleScriptEscaped = bashCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const macScript = `tell application "Terminal" to do script "${appleScriptEscaped}"`;
       const macCmd = `osascript -e '${macScript}'`;
@@ -68,7 +65,7 @@ export async function POST(req) {
           console.warn('[Start VieNeu] Terminal osascript error, fallback detached spawn:', err);
           // Ưu tiên 'uv' ở fallback này luôn (không có cửa sổ Terminal để thấy log cài đặt, nhưng
           // ít nhất tránh spawn thẳng python3 hệ thống nếu nó là bản quá cũ không có vieneu).
-          const child = spawn('uv', ['run', '--python', '3.12', '--with', 'vieneu', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'soundfile', 'python', scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
+          const child = spawn('uv', ['run', '--python', '3.11', '--with', 'vieneu', '--with', 'numba>=0.57.0', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'soundfile', 'python', scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
           child.on('error', () => {
             const fallbackChild = spawn('python3', [scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
             fallbackChild.unref();

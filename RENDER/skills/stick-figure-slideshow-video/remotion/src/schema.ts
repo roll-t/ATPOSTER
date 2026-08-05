@@ -1,54 +1,7 @@
 import { z } from "zod";
-
-// One-shot sound effect cue (whoosh, ding, pop, ...) layered on top of a
-// scene's narration — separate from the single looping bgMusic track.
-// Plays once starting at atSeconds (relative to the scene's own start) and
-// stops naturally when the clip ends; does not loop.
-export const sfxCueSchema = z.object({
-  // Path under public/ (resolved via staticFile) or a full https:// URL.
-  src: z.string(),
-
-  // When the cue starts, in seconds relative to this scene's own start
-  // (i.e. 0 = the instant the scene appears).
-  atSeconds: z.number().min(0).default(0),
-
-  // Cue volume, independent of narration/bgMusic volume.
-  volume: z.number().min(0).max(1).default(0.6),
-});
-
-const pointSchema = z.object({
-  // Normalized position within the frame — 0,0 = top-left, 1,1 =
-  // bottom-right — so it lines up regardless of orientation/resolution.
-  // NOT relative to the source image's own pixels: if this scene has
-  // Ken Burns motion, the image moves under a fixed-position arrow, so
-  // pointing arrows usually read best on a scene with `kenBurns: "none"`.
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-});
-
-// A single animated pointing arrow, drawn in from `from` to `to` starting
-// at atSeconds — for calling out a specific detail (a prop, a face, a
-// piece of on-screen text) rather than baking a static arrow into the
-// scene's image, which can't be timed to the narration.
-export const arrowCueSchema = z.object({
-  from: pointSchema,
-  to: pointSchema,
-
-  // When the arrow starts drawing in, seconds relative to this scene's
-  // own start (0 = the instant the scene appears).
-  atSeconds: z.number().min(0).default(0),
-
-  // How long the draw-in animation (tail to arrowhead) takes.
-  animateInSeconds: z.number().min(0.05).max(3).default(0.4),
-
-  // How long the arrow stays fully visible after it finishes drawing in,
-  // before fading out over ~0.3s. Omit to just hold until the scene ends
-  // (no fade-out).
-  holdSeconds: z.number().min(0).optional(),
-
-  color: z.string().default("#FE2C55"),
-  strokeWidth: z.number().min(1).max(20).default(6),
-});
+import { sfxCueSchema, arrowCueSchema } from "@atposter/remotion-shared";
+export { sfxCueSchema, arrowCueSchema } from "@atposter/remotion-shared";
+export type { SfxCue, ArrowCue } from "@atposter/remotion-shared";
 
 // One asset element in a composed (no-image) scene
 export const assetElementSchema = z.object({
@@ -335,6 +288,4 @@ export const slideshowVideoSchema = z.object({
 
 export type SlideshowVideoProps = z.infer<typeof slideshowVideoSchema>;
 export type Scene = z.infer<typeof sceneSchema>;
-export type SfxCue = z.infer<typeof sfxCueSchema>;
-export type ArrowCue = z.infer<typeof arrowCueSchema>;
 export type AssetElementConfig = z.infer<typeof assetElementSchema>;

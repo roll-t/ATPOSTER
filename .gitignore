@@ -36,6 +36,16 @@ coverage/
 # AGENT_TOOL local runtime data (MongoDB binaries/db files, uploads, sessions, cookies)
 /AGENT_TOOL/data/
 
-# RENDER generated video/image/audio project outputs (keep the skill's own README)
+# RENDER generated video/image/audio project outputs (keep source assets & README)
 /RENDER/skills/narrated-slideshow-video/remotion/public/*
 !/RENDER/skills/narrated-slideshow-video/remotion/public/README.md
+
+/RENDER/skills/reading-page-video/remotion/public/*
+!/RENDER/skills/reading-page-video/remotion/public/README.md
+
+/RENDER/skills/pexels-talk-video/remotion/public/*
+!/RENDER/skills/pexels-talk-video/remotion/public/README.md
+
+/RENDER/skills/stick-figure-slideshow-video/remotion/public/*
+!/RENDER/skills/stick-figure-slideshow-video/remotion/public/README.md
+!/RENDER/skills/stick-figure-slideshow-video/remotion/public/assets

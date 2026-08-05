@@ -1,0 +1,17 @@
+{
+  "name": "@atposter/remotion-shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@remotion/cli": "*",
+    "@remotion/google-fonts": "*",
+    "@remotion/media-utils": "*",
+    "react": "*",
+    "remotion": "*",
+    "zod": "*"
+  }
+}

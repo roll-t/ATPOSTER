@@ -1,8 +1,11 @@
 {
-  "name": "agent",
+  "name": "atposter-render",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "skills/*/remotion"
+  ],
   "scripts": {
     "measure": "node scripts/measure-durations.mjs",
     "studio": "remotion studio",

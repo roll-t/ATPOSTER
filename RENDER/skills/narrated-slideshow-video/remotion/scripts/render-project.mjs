@@ -251,15 +251,18 @@ const configOutPath = path.join(finalDir, "config.json");
 fs.writeFileSync(configOutPath, JSON.stringify(remotionConfig, null, 2));
 console.log(`Generated Remotion config: ${configOutPath}`);
 
-// Run Remotion install if missing
+// Tìm @remotion/cli: local trước, fallback workspace root (RENDER/node_modules).
 const isWindows = process.platform === "win32";
-if (!fs.existsSync(path.join(root, "node_modules", "@remotion", "cli"))) {
+const workspaceRoot = path.resolve(root, "..", "..", ".."); // RENDER/
+const localCliDir  = path.join(root, "node_modules", "@remotion", "cli");
+const wsCliDir     = path.join(workspaceRoot, "node_modules", "@remotion", "cli");
+if (!fs.existsSync(localCliDir) && !fs.existsSync(wsCliDir)) {
   console.log("Remotion not installed yet — running npm install...");
-  execFileSync("npm", ["install"], { cwd: root, stdio: "inherit", shell: isWindows });
+  execFileSync("npm", ["install"], { cwd: workspaceRoot, stdio: "inherit", shell: isWindows });
 }
 
 // Render the video
-const remotionCliEntry = path.join(root, "node_modules", "@remotion", "cli", "remotion-cli.js");
+const remotionCliEntry = path.join(fs.existsSync(localCliDir) ? localCliDir : wsCliDir, "remotion-cli.js");
 const outputVideoPath = path.join(finalDir, "video.mp4");
 
 console.log(`\nRendering video to -> public/${projectFolder}/final/video.mp4`);

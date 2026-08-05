@@ -3,6 +3,7 @@ import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { getRemotionDir, getRemotionPublicDir, resolveProjectDir, getEffectiveFolderPath } from '@/lib/remotionPaths';
+import { getSkill } from '@/lib/skills/index.js';
 
 // Tên thư mục project chỉ được chứa chữ/số/gạch dưới/gạch ngang — khớp với cách
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
@@ -113,10 +114,10 @@ export async function POST(req) {
     //   • pexels_talk_video: segments là narration, không có `elements`
     const manifestPath = path.join(targetProjectDir, 'manifest.json');
     if (!fs.existsSync(manifestPath) && Array.isArray(segmentsForManifest) && segmentsForManifest.length > 0) {
-      const isPexelsTalk = category === 'pexels_talk_video';
+      const skill = getSkill(category);
       const manifest = {
         title: titleForManifest || projectFolder,
-        isImage: !isPexelsTalk,
+        isImage: skill?.manifestIsImage !== false,
         category: category || '',
         orientation: (orientation === 'landscape') ? 'landscape' : 'portrait',
         createdAt: new Date().toISOString(),

@@ -1,9 +1,9 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, useVideoConfig } from "remotion";
 import { SlideshowVideoProps } from "./schema";
-import { Background } from "./components/Background";
+import { Background } from "@atposter/remotion-shared";
 import { Scene } from "./components/Scene";
-import { resolveSrc, sceneSeconds } from "./utils";
+import { resolveSrc, sceneSeconds } from "@atposter/remotion-shared";
 
 export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
   const { fps } = useVideoConfig();

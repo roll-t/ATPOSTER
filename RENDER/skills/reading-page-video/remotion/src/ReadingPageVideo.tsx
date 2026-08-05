@@ -1,10 +1,10 @@
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { ReadingPageVideoProps } from "./schema";
-import { Background } from "./components/Background";
-import { SceneImage } from "./components/SceneImage";
+import { Background } from "@atposter/remotion-shared";
+import { SceneImage } from "@atposter/remotion-shared";
 import { ReadingCard } from "./components/ReadingCard";
-import { resolveSrc } from "./utils";
+import { resolveSrc } from "@atposter/remotion-shared";
 
 const AUDIO_FADE_FRAMES = 8; // ~0.27s at 30fps, just enough to avoid clicks
 

@@ -1,14 +1,14 @@
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
-import { SceneImage, KenBurnsDirection } from "./SceneImage";
+import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
 import { RevealMask, RevealLayout } from "./RevealMask";
 import { SceneCanvas } from "./SceneCanvas";
-import { Caption } from "./Caption";
-import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "./SceneLayouts";
-import { Sfx } from "./Sfx";
-import { Arrows } from "./Arrows";
+import { Caption } from "@atposter/remotion-shared";
+import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "@atposter/remotion-shared";
+import { Sfx } from "@atposter/remotion-shared";
+import { Arrows } from "@atposter/remotion-shared";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
-import { resolveSrc } from "../utils";
+import { resolveSrc } from "@atposter/remotion-shared";
 
 const AUDIO_FADE_FRAMES = 5; // ~0.15s at 30fps, just enough to avoid clicks
 

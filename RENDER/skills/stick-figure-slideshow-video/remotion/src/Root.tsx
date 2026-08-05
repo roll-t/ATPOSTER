@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { getAudioDurationInSeconds } from "@remotion/media-utils";
 import { SlideshowVideo } from "./SlideshowVideo";
 import { slideshowVideoSchema, SlideshowVideoProps, Scene } from "./schema";
-import { resolveSrc } from "./utils";
+import { resolveSrc } from "@atposter/remotion-shared";
 import exampleProps from "../configs/example.json";
 
 const FPS = 30;

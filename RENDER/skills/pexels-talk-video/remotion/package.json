@@ -1,16 +1,13 @@
 {
-  "name": "reading-page-video",
+  "name": "pexels-talk-video",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "start": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts ReadingPageVideo out/video.mp4",
-    "still": "remotion still src/index.ts"
+    "render": "remotion render src/index.ts PexelsTalkVideo out/video.mp4"
   },
   "dependencies": {
-    "@atposter/remotion-shared": "*",
     "@remotion/cli": "^4.0.489",
-    "@remotion/google-fonts": "^4.0.489",
     "@remotion/media-utils": "^4.0.489",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
