@@ -2,11 +2,14 @@
 
 import { MORAL_THEMES, DEFAULT_MORAL_THEME } from '@/lib/prompts/moralThemes.js';
 
-// auto-fill thay cho repeat(3, 1fr) cố định: số nhóm chủ đề giờ do registry quyết định (9 nhóm),
+// auto-fill thay cho repeat(3, 1fr) cố định: số nhóm chủ đề giờ do registry quyết định,
 // khoá cứng 3 cột sẽ bóp mỗi thẻ xuống quá hẹp để đọc được nhãn.
-export default function MoralThemePicker({ value, onChange }) {
-  // Đọc từ registry (moralThemes.js) thay vì chép tay — xem chú thích ở file đó.
-  const options = MORAL_THEMES.map(t => ({ value: t.key, label: t.label, sublabel: t.sub, icon: t.icon }));
+export default function MoralThemePicker({ value, onChange, themeKeys }) {
+  // Nếu có themeKeys, lọc + giữ đúng thứ tự themeKeys; không thì hiện toàn bộ.
+  const themes = themeKeys
+    ? themeKeys.map(k => MORAL_THEMES.find(t => t.key === k)).filter(Boolean)
+    : MORAL_THEMES;
+  const options = themes.map(t => ({ value: t.key, label: t.label, sublabel: t.sub, icon: t.icon }));
 
   const currentVal = value || DEFAULT_MORAL_THEME;
 

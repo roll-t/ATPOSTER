@@ -14,19 +14,20 @@ import HistoryList from './components/HistoryList.js';
 import CreatedVideosGrid from './components/CreatedVideosGrid.js';
 import PexelsSearchPanel from './components/PexelsSearchPanel.js';
 import SettingsModal from './components/SettingsModal.js';
-
 function PromptsStudioContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const s = usePromptStudio();
-
-  const [activeRightTab, setActiveRightTab] = useState('videos');
-  const [wasGenerating, setWasGenerating] = useState(false);
 
   const categoryParam = searchParams.get('category');
   const tabParam = searchParams.get('tab');
   const isPexelsTab = tabParam === 'pexels';
   const isGridMode = !isPexelsTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+
+  const initialCategory = categoryParam && PROMPT_CATEGORIES[categoryParam] ? categoryParam : undefined;
+  const s = usePromptStudio(initialCategory);
+
+  const [activeRightTab, setActiveRightTab] = useState('videos');
+  const [wasGenerating, setWasGenerating] = useState(false);
 
   // Xử lý tham số drive_status từ callback URL
   useEffect(() => {
@@ -49,7 +50,6 @@ function PromptsStudioContent() {
   useEffect(() => {
     if (categoryParam && PROMPT_CATEGORIES[categoryParam]) {
       s.setActiveCategory(categoryParam);
-      s.setPromptType('slideshow');
     }
   }, [categoryParam]);
 

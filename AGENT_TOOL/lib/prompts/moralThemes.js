@@ -93,6 +93,30 @@ export const MORAL_THEMES = [
     icon: '⏳',
     voice: 'list',
     styleLabel: 'Regrets of Youth / Things To Do Before 25-30 — time-deadline framing'
+  },
+  {
+    key: 'inner_world',
+    label: 'Thế Giới Nội Tâm',
+    sub: 'Hướng nội & Chiều sâu',
+    icon: '🌿',
+    voice: 'reflective',
+    styleLabel: 'Introvert Psychology / Inner Life / Depth of Soul — quiet, contemplative, speaks to those who feel everything deeply'
+  },
+  {
+    key: 'self_acceptance',
+    label: 'Chấp Nhận Bản Thân',
+    sub: 'Yêu thương bản thân',
+    icon: '🌸',
+    voice: 'reflective',
+    styleLabel: 'Self-Acceptance / Self-Compassion / Letting Go of Perfectionism — gentle, warm, forgiving inner voice'
+  },
+  {
+    key: 'overthinking',
+    label: 'Suy Nghĩ Quá Nhiều',
+    sub: 'Tâm trí & Bình an',
+    icon: '🌀',
+    voice: 'reflective',
+    styleLabel: 'Overthinking / Anxiety / Finding Mental Stillness — soothing, grounding, helps quiet a restless mind'
   }
 ];
 

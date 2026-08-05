@@ -21,6 +21,27 @@ import {
   optionLabel, detectActiveCharacters, getFlowQueueStatus
 } from './SegmentedResultView/utils.js';
 
+// Map moralTheme key → English Pexels search query phù hợp với mood của video đó.
+// English vì Pexels tìm kiếm chuẩn hơn với từ khoá tiếng Anh.
+const THEME_PEXELS_KEYWORDS = {
+  healing_pressure: 'peaceful nature forest calm healing',
+  self_help: 'morning sunrise outdoor motivation light',
+  inner_world: 'solitude forest path alone quiet nature',
+  self_acceptance: 'soft sunlight flowers gentle peaceful',
+  overthinking: 'rain window meditation still water calm',
+  love_boundaries: 'couple walking park nature autumn',
+  // other themes (fallbacks for future categories)
+  social_connection: 'people friendship outdoors together',
+  gratitude: 'golden hour sunset sky peaceful',
+  growth: 'plant growing nature sunrise morning',
+};
+
+function derivePexelsQueryFromResult(result) {
+  const theme = result.input?.moralTheme;
+  if (theme && THEME_PEXELS_KEYWORDS[theme]) return THEME_PEXELS_KEYWORDS[theme];
+  return 'peaceful nature calm atmospheric';
+}
+
 export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process', onResult, onHistoryRefresh }) {
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [voiceMsg, setVoiceMsg] = useState('');
@@ -53,6 +74,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // bytes video CŨ đã tải trước đó thay vì tải lại bản vừa render xong.
   const [videoVersion, setVideoVersion] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
+  const isPexelsTalkVideo = result.category === 'pexels_talk_video';
 
   // Kho "Format đã lưu" (preset kiểu phụ đề / chuyển cảnh / font / màu) tách RIÊNG theo skill.
   //
@@ -225,6 +247,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [bgMusicLibrary, setBgMusicLibrary] = useState([]);
   const [deletingLibraryTrackId, setDeletingLibraryTrackId] = useState(null);
 
+  // Pexels video picker state (chỉ dùng cho pexels_talk_video)
+  const [pexelsQuery, setPexelsQuery] = useState(
+    () => result.input?.pexelsQuery || derivePexelsQueryFromResult(result)
+  );
+  const [pexelsVideos, setPexelsVideos] = useState([]);
+  const [isPexelsSearching, setIsPexelsSearching] = useState(false);
+  const [pexelsSearchMsg, setPexelsSearchMsg] = useState('');
+  const [isDlBgVideo, setIsDlBgVideo] = useState(false);
+  const [dlBgVideoMsg, setDlBgVideoMsg] = useState('');
+  const [dlBgVideoProgress, setDlBgVideoProgress] = useState({ current: 0, total: 0 });
+  // Đảm bảo auto-search và auto-select chỉ chạy 1 lần dù effect re-fire nhiều lần
+  const pexelsAutoSearchedRef = useRef(false);
+  const pexelsAutoSelectedRef = useRef(false);
+
   const fetchBgMusicLibrary = async () => {
     try {
       const res = await fetch('/api/prompts/bg-music-library');
@@ -238,6 +274,97 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   useEffect(() => {
     if (showBgMusicModal) fetchBgMusicLibrary();
   }, [showBgMusicModal]);
+
+  const handlePexelsSearch = async () => {
+    if (!pexelsQuery.trim()) return;
+    setIsPexelsSearching(true);
+    setPexelsSearchMsg('');
+    setPexelsVideos([]);
+    try {
+      const res = await fetch(`/api/prompts/pexels?query=${encodeURIComponent(pexelsQuery.trim())}&type=videos`);
+      const data = await res.json();
+      const videos = data.data?.videos || [];
+      if (res.ok && data.success) {
+        setPexelsVideos(videos.slice(0, 6));
+        if (videos.length === 0) setPexelsSearchMsg('Không tìm thấy video phù hợp.');
+      } else {
+        setPexelsSearchMsg(data.error || 'Lỗi tìm kiếm Pexels.');
+      }
+    } catch (err) {
+      setPexelsSearchMsg('Lỗi kết nối Pexels.');
+    } finally {
+      setIsPexelsSearching(false);
+    }
+  };
+
+  const handleDownloadBgVideo = async (video) => {
+    const folder = result.input?.folderPath;
+    if (!folder) { setDlBgVideoMsg('Chưa có folderPath.'); return; }
+    const files = video.video_files || [];
+    const mp4 = files.filter(f => f.file_type === 'video/mp4').sort((a, b) => (b.width || 0) - (a.width || 0));
+    const chosen = mp4[0];
+    if (!chosen?.link) { setDlBgVideoMsg('Không tìm thấy link MP4.'); return; }
+    setIsDlBgVideo(true);
+    setDlBgVideoMsg('Đang tải video nền...');
+    try {
+      const res = await fetch('/api/prompts/music-player/download-bg-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: folder, videoUrl: chosen.link, pexelsId: video.id, clearExisting: true })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDlBgVideoMsg(`✓ Đã tải xong (${data.sizeMB} MB)`);
+        setPexelsVideos([]);
+        checkAssets();
+      } else {
+        setDlBgVideoMsg(`Lỗi: ${data.error}`);
+      }
+    } catch (err) {
+      setDlBgVideoMsg('Lỗi kết nối khi tải video.');
+    } finally {
+      setIsDlBgVideo(false);
+    }
+  };
+
+  // Tải toàn bộ danh sách video Pexels (đã sắp xếp theo tỉ lệ khung hình) — mỗi video
+  // lưu thành bg-01.mp4, bg-02.mp4... để render-project.mjs ghép playlist đủ dài.
+  const handleDownloadAllBgVideos = async (sortedVideos) => {
+    const folder = result.input?.folderPath;
+    if (!folder || sortedVideos.length === 0) return;
+    setIsDlBgVideo(true);
+    setDlBgVideoProgress({ current: 0, total: sortedVideos.length });
+    setDlBgVideoMsg('');
+    let successCount = 0;
+    for (let i = 0; i < sortedVideos.length; i++) {
+      const video = sortedVideos[i];
+      const files = video.video_files || [];
+      const mp4 = files.filter(f => f.file_type === 'video/mp4').sort((a, b) => (b.width || 0) - (a.width || 0));
+      const chosen = mp4[0];
+      if (!chosen?.link) continue;
+      setDlBgVideoProgress({ current: i + 1, total: sortedVideos.length });
+      try {
+        const res = await fetch('/api/prompts/music-player/download-bg-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folderPath: folder,
+            videoUrl: chosen.link,
+            pexelsId: video.id,
+            index: i,
+            clearExisting: i === 0, // chỉ xoá file cũ khi bắt đầu batch
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) successCount++;
+      } catch (_) {}
+    }
+    setDlBgVideoMsg(`✓ Đã tải ${successCount}/${sortedVideos.length} video nền`);
+    setDlBgVideoProgress({ current: 0, total: 0 });
+    setPexelsVideos([]);
+    setIsDlBgVideo(false);
+    checkAssets();
+  };
 
   // Tên file ảnh hero khớp với bố cục đang chọn: "Hero Top" (dải ngang) dùng bản landscape,
   // "Full Nền Sau" (nền dọc toàn khung) dùng bản portrait - xem buildSegmentedPrompts.js/
@@ -255,8 +382,38 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     audioCount: 0,
     videoCreated: false,
     hasBgMusic: false,
-    bgMusicFile: null // tên file nhạc nền thật trên đĩa, vd "bg-music.mp3" hoặc "bg-music.m4a"
+    bgMusicFile: null, // tên file nhạc nền thật trên đĩa, vd "bg-music.mp3" hoặc "bg-music.m4a"
+    hasBgVideo: false
   });
+
+  // Khi assetCounts load xong và chưa có video nền → tự động tìm Pexels với từ khoá đã suy ra
+  useEffect(() => {
+    if (!isPexelsTalkVideo) return;
+    if (pexelsAutoSearchedRef.current) return;
+    if (assetCounts.hasBgVideo === undefined) return;
+    if (assetCounts.hasBgVideo) return;
+    if (!pexelsQuery.trim() || pexelsVideos.length > 0 || isPexelsSearching) return;
+    pexelsAutoSearchedRef.current = true;
+    handlePexelsSearch();
+  }, [isPexelsTalkVideo, assetCounts.hasBgVideo]);
+
+  // Khi có kết quả Pexels và chưa có video nền → tự động tải TOÀN BỘ video,
+  // sắp xếp theo mức độ khớp tỉ lệ khung hình để video đẹp nhất lên đầu playlist.
+  useEffect(() => {
+    if (!isPexelsTalkVideo) return;
+    if (pexelsAutoSelectedRef.current) return;
+    if (assetCounts.hasBgVideo || isDlBgVideo) return;
+    if (pexelsVideos.length === 0) return;
+    const isPortrait = result.input?.orientation !== 'landscape';
+    const targetRatio = isPortrait ? (9 / 16) : (16 / 9);
+    const sorted = [...pexelsVideos].sort((a, b) => {
+      const scoreA = -Math.abs((a.width / a.height) - targetRatio);
+      const scoreB = -Math.abs((b.width / b.height) - targetRatio);
+      return scoreB - scoreA;
+    });
+    pexelsAutoSelectedRef.current = true;
+    handleDownloadAllBgVideos(sorted);
+  }, [isPexelsTalkVideo, pexelsVideos.length, assetCounts.hasBgVideo, isDlBgVideo]);
 
   // Tự động phát hiện tỉ lệ ảnh (Ảnh nằm ngang -> mode 'hero', Ảnh nằm dọc -> mode 'full_bg')
   useEffect(() => {
@@ -330,7 +487,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         }
       }
     } catch (err) {
-      console.error('Error fetching presets:', err);
+      // Lỗi mạng hoặc MongoDB chưa khởi động — không hiển thị overlay dev, localStorage đã fallback rồi
+      console.warn('[Presets] Không tải được từ server:', err?.message || err);
     }
   };
 
@@ -764,7 +922,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
   // Cả 2 chủ đề đều dùng chung quy trình các bước (TTS giọng -> Google Flow ảnh ->
   // Remotion render) thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
-  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice;
+  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice || isPexelsTalkVideo;
+  // true khi TẤT CẢ segments dùng PNG assets (elements[]) — không cần sinh ảnh qua Google Flow
+  const allHaveElements = result.category === 'stick_figure_slideshow' &&
+    (result.segments || []).length > 0 &&
+    (result.segments || []).every(s => Array.isArray(s.elements) && s.elements.length > 0);
 
   const checkAssets = async () => {
     try {
@@ -783,11 +945,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           audioCount: data.audioCount,
           videoCreated: data.videoCreated,
           hasBgMusic: data.hasBgMusic || false,
-          bgMusicFile: data.bgMusicFile || null
+          bgMusicFile: data.bgMusicFile || null,
+          hasBgVideo: data.hasBgVideo || false
         });
       }
     } catch (err) {
-      console.error('Error checking assets:', err);
+      console.warn('[checkAssets] Failed to fetch:', err?.message || err);
     }
   };
 
@@ -985,7 +1148,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   }, [showVoiceConfig]);
 
   useEffect(() => {
-    const effectiveProvider = (result?.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge');
+    const effectiveProvider = (result?.category === 'reading_practice' || (result?.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu')) ? 'edge' : (settings.ttsProvider || 'edge');
     if (showVoiceConfig && effectiveProvider === 'vieneu') {
       fetchVieneuVoices();
     }
@@ -1274,7 +1437,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
-          ...(allHaveElements ? { segments: result.segments, title: result.title } : {}),
+          ...(allHaveElements || isPexelsTalkVideo ? { segments: result.segments, title: result.title } : {}),
           captionStyle: renderCaptionStyle,
           transitionStyle: renderTransitionStyle,
           bilingual: renderBilingual,
@@ -2154,7 +2317,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           marginBottom: '24px'
         }}>
           <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⚙️</span> Quy trình sản xuất video (4 Bước)
+            <span>⚙️</span> Quy trình sản xuất video ({isPexelsTalkVideo || allHaveElements ? '3' : '4'} Bước)
           </h4>
 
           {/* Steps Pipeline */}
@@ -2305,8 +2468,133 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               );
             })()}
 
-            {/* Bước 2: Sinh & tải ảnh */}
-            {(() => {
+            {/* Bước 2 (pexels_talk_video): Chọn video nền Pexels */}
+            {isPexelsTalkVideo && (() => {
+              const isStep1Done = assetCounts.audioCount >= result.segments.length;
+              const hasBgVideo = assetCounts.hasBgVideo;
+              return (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '12px 16px',
+                  background: 'rgba(255, 255, 255, 0.015)',
+                  border: hasBgVideo ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(167, 139, 250, 0.25)' : '1px solid rgba(255, 255, 255, 0.03)',
+                  borderRadius: '10px',
+                  opacity: isStep1Done ? 1 : 0.5,
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                      background: hasBgVideo ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #a78bfa, #7c3aed)' : 'rgba(255,255,255,0.1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 800, fontSize: '0.8rem'
+                    }}>
+                      {hasBgVideo ? '✓' : '2'}
+                    </div>
+                    <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                      Bước 2: Chọn Video Nền Pexels
+                    </span>
+                    {hasBgVideo && (
+                      <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
+                        ✓ Đã có video nền
+                      </span>
+                    )}
+                  </div>
+
+                  {isStep1Done && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          value={pexelsQuery}
+                          onChange={(e) => setPexelsQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handlePexelsSearch()}
+                          placeholder="Nhập từ khoá tìm video nền (vd: nature, city, sunset)"
+                          disabled={isPexelsSearching || isDlBgVideo}
+                          style={{
+                            flex: 1, padding: '7px 10px', fontSize: '0.8rem', borderRadius: '7px',
+                            background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)',
+                            color: '#fff', outline: 'none'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                          onClick={handlePexelsSearch}
+                          disabled={isPexelsSearching || isDlBgVideo || !pexelsQuery.trim()}
+                        >
+                          {isPexelsSearching ? '⏳ Tìm...' : '🔍 Tìm video'}
+                        </button>
+                      </div>
+
+                      {pexelsSearchMsg && (
+                        <div style={{ fontSize: '0.78rem', color: pexelsSearchMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
+                          {pexelsSearchMsg}
+                        </div>
+                      )}
+
+                      {pexelsVideos.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                          {pexelsVideos.map(video => {
+                            const thumb = video.image || (video.video_pictures?.[0]?.picture);
+                            return (
+                              <div
+                                key={video.id}
+                                style={{
+                                  position: 'relative', borderRadius: '8px', overflow: 'hidden',
+                                  border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
+                                  aspectRatio: '16/9', background: '#000'
+                                }}
+                                onClick={() => handleDownloadBgVideo(video)}
+                                title={`${video.width}×${video.height} · Nhấn để chọn`}
+                              >
+                                {thumb && (
+                                  <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                                )}
+                                <div style={{
+                                  position: 'absolute', inset: 0,
+                                  background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.75))',
+                                  display: 'flex', alignItems: 'flex-end', padding: '6px 8px'
+                                }}>
+                                  <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 700 }}>
+                                    ▶ Chọn
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {isDlBgVideo && dlBgVideoProgress.total > 0 && (
+                        <div style={{ fontSize: '0.78rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>⏳ Đang tải video nền {dlBgVideoProgress.current}/{dlBgVideoProgress.total}...</span>
+                          <div style={{
+                            flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden'
+                          }}>
+                            <div style={{
+                              height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
+                              width: `${(dlBgVideoProgress.current / dlBgVideoProgress.total) * 100}%`,
+                              transition: 'width 0.3s ease'
+                            }} />
+                          </div>
+                        </div>
+                      )}
+                      {!isDlBgVideo && dlBgVideoMsg && (
+                        <div style={{ fontSize: '0.78rem', color: dlBgVideoMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
+                          {dlBgVideoMsg}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Bước 2: Sinh & tải ảnh — ẩn với video người que PNG (không cần Google Flow) và pexels_talk_video */}
+            {!allHaveElements && !isPexelsTalkVideo && (() => {
               const total = result.segments.length;
               const isStep1Done = assetCounts.audioCount >= total;
               const completedFlow = flowStatus ? flowStatus.completed : 0;
@@ -2420,11 +2708,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         fontSize: '0.8rem',
                         flexShrink: 0
                       }}>
-                        {isStep3Done ? '✓' : '3'}
+                        {isStep3Done ? '✓' : (allHaveElements ? '2' : '3')}
                       </div>
                       <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 3: Nhạc nền hòa âm
+                          Bước {allHaveElements ? '2' : '3'}: Nhạc nền hòa âm
                         </span>
                         <span style={{
                           fontSize: '0.72rem',
@@ -2490,10 +2778,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             {(() => {
               const total = result.segments.length;
               const isStep1Done = assetCounts.audioCount >= total;
-              const isStep2Done = (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total);
+              const isStep2Done = isPexelsTalkVideo
+                ? assetCounts.hasBgVideo
+                : (allHaveElements || (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
               const isReadyToRender = isStep1Done && isStep2Done;
               const isRenderDone = assetCounts.videoCreated;
-              const stepNum = '4';
+              const stepNum = isPexelsTalkVideo ? '3' : allHaveElements ? '3' : '4';
 
               return (
                 <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
@@ -2830,7 +3120,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               một cột chữ dựng đứng), vừa xấu vừa ngốn chiều cao hơn cả khi cho nó nguyên một hàng. */}
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', gap: '10px' }}>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-              Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
+              {allHaveElements
+                ? <>Kịch bản đã chia thành từng slide với ảnh người que PNG. Bấm <strong>✏️ Sửa kịch bản</strong> để chỉnh lời kể/phụ đề, sau đó tạo giọng và nhấn <strong>🎥 Tạo Video (Render)</strong> để xuất video — không cần sinh ảnh AI.</>
+                : <>Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.</>
+              }
             </p>
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
@@ -3208,7 +3501,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🎙️</span> Cấu hình Giọng đọc theo Nhân vật
               </h4>
-               <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#4ade80', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
                 {result.input?.narrationLanguage === 'en'
                   ? '🆓 Giọng đọc Miễn phí (Edge & CapCut)'
                   : (settings.ttsProvider === 'vieneu' ? '🇻🇳 Giọng VieNeu-TTS (Local)' : '🆓 Giọng đọc Miễn phí (Edge & CapCut)')
@@ -3216,7 +3509,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </span>
             </div>
 
-            {result.input?.narrationLanguage !== 'en' && (
+            {result.input?.narrationLanguage !== 'en' && result.category !== 'reading_practice' && (
               <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Nhà cung cấp giọng đọc:</span>
                 <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.25)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -3253,7 +3546,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               </div>
             )}
 
-            {((result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge')) === 'vieneu' && (
+            {((result?.category === 'reading_practice' || (result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu')) ? 'edge' : (settings.ttsProvider || 'edge')) === 'vieneu' && (
               <div style={{
                 background: 'rgba(255,255,255,0.02)',
                 border: '1px solid rgba(255,255,255,0.08)',
@@ -3443,7 +3736,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '24px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
                     {activeCharacters.map(char => {
-                      const effectiveProvider = (result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu') ? 'edge' : (settings.ttsProvider || 'edge');
+                      const effectiveProvider = (result?.category === 'reading_practice' || (result.input?.narrationLanguage === 'en' && settings.ttsProvider === 'vieneu')) ? 'edge' : (settings.ttsProvider || 'edge');
                       const isEdge = effectiveProvider === 'edge';
                       const isVieneu = effectiveProvider === 'vieneu';
 
@@ -3498,13 +3791,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               </span>
 
                               {/* Tab ngôn ngữ — ẩn nếu kịch bản đã xác định ngôn ngữ qua narrationLanguage */}
-                              {isEdge && !result.input?.narrationLanguage && (
+                              {isEdge && !result.input?.narrationLanguage && result.category !== 'reading_practice' && (
                                 <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                   {[
                                     { code: 'vi', label: '🇻🇳 Tiếng Việt' },
                                     { code: 'en', label: '🇺🇸 Tiếng Anh' }
                                   ].map(langTab => {
-                                    const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                    const isVietCategory = ['moral_talk_slideshow'].includes(result?.category);
                                     const activeTabVal = activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
                                     const isTabActive = activeTabVal === langTab.code;
                                     return (
@@ -3536,7 +3829,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             {(isEdge || isVieneu) && (
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
-                                  const isVietCategory = ['reading_practice', 'moral_talk_slideshow'].includes(result?.category);
+                                  const isVietCategory = ['moral_talk_slideshow'].includes(result?.category);
                                   const activeTabVal = result.input?.narrationLanguage || activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
 
                                   const voiceList = isEdge

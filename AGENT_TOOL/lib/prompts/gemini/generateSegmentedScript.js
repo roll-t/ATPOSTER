@@ -5,6 +5,7 @@ import { buildEnglishQuizScriptPrompt } from './templates/englishQuiz.js';
 import { buildEnglishTipsScriptPrompt } from './templates/englishTips.js';
 import { buildImageSlideshowScriptPrompt } from './templates/imageSlideshow.js';
 import { buildMoralTalkSlideshowScriptPrompt } from './templates/moralTalkSlideshow.js';
+import { buildPexelsTalkVideoScriptPrompt } from './templates/pexelsTalkVideo.js';
 import { buildReadingPracticeScriptPrompt } from './templates/readingPractice.js';
 import { callGeminiApi } from './callGeminiApi.js';
 
@@ -24,6 +25,8 @@ export async function generateSegmentedScript({ category, durationRange, input, 
     promptText = buildImageSlideshowScriptPrompt(input, durationInfo, durationRange);
   } else if (category === 'moral_talk_slideshow') {
     promptText = buildMoralTalkSlideshowScriptPrompt(input, durationInfo, durationRange);
+  } else if (category === 'pexels_talk_video') {
+    promptText = buildPexelsTalkVideoScriptPrompt(input, durationInfo, durationRange);
   } else if (category === 'reading_practice') {
     promptText = buildReadingPracticeScriptPrompt(input, durationInfo);
   } else if (category === 'stick_figure') {

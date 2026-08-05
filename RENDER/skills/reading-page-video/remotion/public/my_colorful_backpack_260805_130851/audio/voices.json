@@ -1,0 +1,10 @@
+{
+  "voices": {
+    "1": {
+      "provider": "edge",
+      "voiceId": "en-US-AnaNeural",
+      "readingSpeed": "medium"
+    }
+  },
+  "updatedAt": 1785910549707
+}

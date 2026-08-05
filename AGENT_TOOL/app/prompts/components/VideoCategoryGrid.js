@@ -193,6 +193,86 @@ function ReadingPracticePreview() {
   );
 }
 
+function PexelsTalkPreview() {
+  const bars = Array.from({ length: 22 }, (_, i) => i);
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: 'linear-gradient(160deg, #080810 0%, #100820 55%, #050810 100%)',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      padding: '10px 12px 12px',
+      boxSizing: 'border-box',
+    }}>
+      {/* Simulated Pexels video frame (faint scene shapes) */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(ellipse 80% 55% at 50% 38%, rgba(120,80,200,0.18) 0%, transparent 75%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '55%', left: '22%', width: '18px', height: '32px',
+        background: 'rgba(255,255,255,0.05)', borderRadius: '3px',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '55%', left: '48%', width: '14px', height: '24px',
+        background: 'rgba(255,255,255,0.04)', borderRadius: '2px',
+      }} />
+
+      {/* Audio waveform bars (Gaussian-envelope style, centered) — all values pre-rounded to
+          avoid floating-point toString() differences between Node.js SSR and browser */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2.5px', height: '28px', marginBottom: '7px' }}>
+        {bars.map(i => {
+          const center = (bars.length - 1) / 2;
+          const env = Math.exp(-0.07 * Math.pow(i - center, 2));
+          const opacity = Math.round((0.45 + 0.55 * env) * 1000) / 1000;
+          const dur = (Math.round((0.5 + (i * 0.09) % 0.6) * 100) / 100).toFixed(2);
+          return (
+            <div key={i} style={{
+              width: '4px',
+              height: '10px',
+              background: '#a78bfa',
+              borderRadius: '2px',
+              opacity,
+              animation: `ptWave${i % 6} ${dur}s ease-in-out infinite alternate`,
+            }} />
+          );
+        })}
+      </div>
+
+      {/* Glass text card */}
+      <div style={{
+        width: '95%',
+        background: 'rgba(15,10,30,0.72)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(167,139,250,0.3)',
+        borderRadius: '10px',
+        padding: '7px 10px',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#fff', lineHeight: 1.4, letterSpacing: '-0.2px' }}>
+          Bạn có bao giờ dừng lại và hỏi{' '}
+          <span style={{ color: '#a78bfa' }}>mình sống vì điều gì?</span>
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes ptWave0 { from { height: 4px; } to { height: 14px; } }
+        @keyframes ptWave1 { from { height: 8px; } to { height: 5px; } }
+        @keyframes ptWave2 { from { height: 16px; } to { height: 9px; } }
+        @keyframes ptWave3 { from { height: 5px; } to { height: 20px; } }
+        @keyframes ptWave4 { from { height: 20px; } to { height: 7px; } }
+        @keyframes ptWave5 { from { height: 11px; } to { height: 4px; } }
+      `}} />
+    </div>
+  );
+}
+
 function MoralTalkPreview() {
   return (
     <div style={{
@@ -297,11 +377,18 @@ const CARD_CONFIGS = {
     accentColor: '#a78bfa',
     glowColor: 'rgba(167, 139, 250, 0.25)',
     tags: ['✨ Pictogram Phát Sáng', '🇻🇳🇬🇧 Việt/Anh Linh Hoạt', '🎙️ Lồng Tiếng Tự Động']
+  },
+  pexels_talk_video: {
+    badge: '🎙️ TÂM SỰ ĐẠO LÝ',
+    badgeBg: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
+    accentColor: '#a78bfa',
+    glowColor: 'rgba(167, 139, 250, 0.25)',
+    tags: ['🎞️ Nền Video Pexels Tự Động', '〰️ Sóng Âm Thanh Giọng Đọc', '🪟 Glass Text Overlay']
   }
 };
 
 export default function VideoCategoryGrid({ onSelectCategory }) {
-  const allCategoryKeys = ['stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow'].filter(k => PROMPT_CATEGORIES[k]);
+  const allCategoryKeys = ['stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
 
   return (
     <div style={{ padding: '8px 8px 36px 8px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -422,9 +509,10 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 {key === 'stick_figure_slideshow' && <StickFigurePreview />}
                 {key === 'reading_practice' && <ReadingPracticePreview />}
                 {key === 'moral_talk_slideshow' && <MoralTalkPreview />}
-                
+                {key === 'pexels_talk_video' && <PexelsTalkPreview />}
+
                 {/* Fallback for other potential categories */}
-                {key !== 'stick_figure_slideshow' && key !== 'reading_practice' && key !== 'moral_talk_slideshow' && bgImg && (
+                {!['stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
                   <div
                     className="card-bg-layer"
                     style={{

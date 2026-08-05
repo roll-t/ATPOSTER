@@ -40,13 +40,20 @@ export async function POST(req) {
       bgMusicFile = fs.readdirSync(audioDir).find(f => f.startsWith('bg-music.')) || null;
     }
 
+    const bgDir = path.join(targetDir, 'bg');
+    let hasBgVideo = false;
+    if (fs.existsSync(bgDir)) {
+      hasBgVideo = fs.readdirSync(bgDir).some(f => f.endsWith('.mp4') || f.endsWith('.webm'));
+    }
+
     return NextResponse.json({
       success: true,
       imageCount,
       audioCount,
       videoCreated,
       hasBgMusic: Boolean(bgMusicFile),
-      bgMusicFile
+      bgMusicFile,
+      hasBgVideo
     });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

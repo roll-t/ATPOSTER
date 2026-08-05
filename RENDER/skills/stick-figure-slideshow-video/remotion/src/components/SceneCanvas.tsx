@@ -34,7 +34,10 @@ export const SceneCanvas: React.FC<{
           );
           const size = baseSize * (el.scale ?? 1);
           const left = (el.x / 100) * width - size / 2;
-          const top  = (el.y / 100) * height - size / 2;
+          // anchor "bottom": y là ĐÁY phần tử, nên mọi thứ đứng trên đất dùng chung một y
+          // (đường chân trời) sẽ thẳng hàng dù scale khác nhau. "center": y là tâm (mặc định,
+          // dùng cho mây/mặt trời/ký hiệu bay lơ lửng).
+          const top = (el.y / 100) * height - (el.anchor === "bottom" ? size : size / 2);
 
           return (
             <div

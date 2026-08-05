@@ -108,13 +108,15 @@ export async function POST(req) {
       }
     }
 
-    // Video người que PNG: nếu manifest.json chưa có và client gửi kèm segments, tự tạo luôn.
-    // Chrome Extension không cần thiết cho dạng này vì không có image generation step.
+    // Tự tạo manifest.json nếu chưa có và client gửi kèm segments:
+    //   • PNG người que: segments có trường `elements`
+    //   • pexels_talk_video: segments là narration, không có `elements`
     const manifestPath = path.join(targetProjectDir, 'manifest.json');
     if (!fs.existsSync(manifestPath) && Array.isArray(segmentsForManifest) && segmentsForManifest.length > 0) {
+      const isPexelsTalk = category === 'pexels_talk_video';
       const manifest = {
         title: titleForManifest || projectFolder,
-        isImage: true,
+        isImage: !isPexelsTalk,
         category: category || '',
         orientation: (orientation === 'landscape') ? 'landscape' : 'portrait',
         createdAt: new Date().toISOString(),
@@ -132,7 +134,7 @@ export async function POST(req) {
       };
       fs.mkdirSync(targetProjectDir, { recursive: true });
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
-      console.log(`[API RenderVideo] Tạo manifest.json từ segments (PNG mode): ${manifestPath}`);
+      console.log(`[API RenderVideo] Tạo manifest.json từ segments (${isPexelsTalk ? 'pexels-talk' : 'PNG'} mode): ${manifestPath}`);
     }
 
     // Chỉ chuyển tiếp các option hợp lệ (nằm trong danh sách cho phép) thành cờ dòng lệnh

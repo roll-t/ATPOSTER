@@ -263,9 +263,9 @@ export const PROMPT_CATEGORIES = {
   stick_figure_slideshow: {
     key: 'stick_figure_slideshow',
     type: 'slideshow',
-    label: 'Kịch Bản & Slide Ảnh Người Que',
-    icon: '📸',
-    description: 'Tạo kịch bản thoại ngắn và danh sách prompt để sinh ảnh người que cho từng phân cảnh, ghép thành video slideshow nhất quán.',
+    label: 'Kịch Bản & Clip Người Que',
+    icon: '🎬',
+    description: 'Tạo kịch bản và ghép ảnh PNG người que sẵn có thành video hoạt hình tự động — không cần sinh ảnh AI.',
     fields: [
       {
         key: 'aspectRatio',
@@ -395,6 +395,47 @@ export const PROMPT_CATEGORIES = {
       series: 'Moral Talk Pictogram Slideshow',
       aspectRatio: '9:16',
       durationSeconds: 30
+    }
+  },
+
+  pexels_talk_video: {
+    key: 'pexels_talk_video',
+    type: 'slideshow',
+    label: 'Video Tâm Sự Đạo Lý',
+    icon: '🎙️',
+    description: 'Video tâm sự đạo lý / cách sống chiều sâu: giọng đọc TTS, nền video Pexels tự động, chữ Glass overlay, hiệu ứng sóng âm — dài và chạm cảm xúc hơn Moral Talk thông thường.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '16:9',
+        options: [
+          { value: '16:9', label: '💻 YouTube Dài (16:9 ngang)' },
+          { value: '9:16', label: '📱 Shorts / TikTok (9:16 dọc)' }
+        ]
+      },
+      {
+        key: 'moralTheme',
+        label: 'Nhóm chủ đề',
+        type: 'moral-theme-select',
+        required: true,
+        defaultValue: 'healing_pressure',
+        themeKeys: ['healing_pressure', 'self_help', 'inner_world', 'self_acceptance', 'overthinking', 'love_boundaries']
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / bài học cuộc sống muốn chia sẻ',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Tại sao chúng ta luôn trì hoãn những điều quan trọng nhất?'
+      },
+    ],
+    defaultStyle: {
+      series: 'Pexels Talk Video',
+      aspectRatio: '16:9',
+      durationSeconds: 60
     }
   }
 };

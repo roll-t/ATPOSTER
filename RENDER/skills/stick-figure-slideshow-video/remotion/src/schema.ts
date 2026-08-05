@@ -54,13 +54,23 @@ export const arrowCueSchema = z.object({
 export const assetElementSchema = z.object({
   asset: z.string(),               // ID from asset registry, e.g. "pose_anxious_sitting"
   x: z.number().min(0).max(100),   // center-x as % of canvas width
-  y: z.number().min(0).max(100),   // center-y as % of canvas height
+  y: z.number().min(0).max(100),   // y as % of canvas height — center-y, or bottom edge when anchor="bottom"
   scale: z.number().min(0.05).max(5).default(1),
   flip: z.boolean().default(false),
   delay: z.number().min(0).default(0), // seconds before draw-in starts
   color: z.string().optional(),
   accentColor: z.string().optional(),
   zIndex: z.number().default(0),
+
+  // Điểm neo của phần tử theo trục dọc.
+  //   "center" (mặc định) — y là TÂM của phần tử. Dùng cho thứ bay lơ lửng: mặt trời, mây,
+  //                          ký hiệu, bong bóng thoại.
+  //   "bottom"            — y là ĐÁY của phần tử. Dùng cho mọi thứ ĐỨNG TRÊN MẶT ĐẤT: nhân
+  //                          vật, cây, nhà, ghế, cột đèn. Nhờ dùng chung một giá trị y (đường
+  //                          chân trời), chúng tự động đứng thẳng hàng trên cùng một mặt đất
+  //                          bất kể scale khác nhau — nếu neo tâm thì vật to sẽ chìm xuống
+  //                          dưới còn vật nhỏ lại lơ lửng giữa không trung.
+  anchor: z.enum(["center", "bottom"]).default("center"),
 });
 
 export const sceneSchema = z.object({

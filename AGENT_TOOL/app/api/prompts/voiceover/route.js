@@ -115,7 +115,7 @@ export async function POST(request) {
     // về lựa chọn đã lưu trong Cài đặt. Cấu hình cũ còn lưu 'elevenlabs' (đã gỡ bỏ) thì coi như 'edge'.
     const rawProvider = requestedProvider || settingsRecord?.ttsProvider || 'edge';
     let provider = rawProvider === 'elevenlabs' ? 'edge' : rawProvider;
-    if (narrationLanguage === 'en' && provider === 'vieneu') {
+    if ((category === 'reading_practice' || narrationLanguage === 'en') && provider === 'vieneu') {
       provider = 'edge';
     }
     const isVieneu = provider === 'vieneu';

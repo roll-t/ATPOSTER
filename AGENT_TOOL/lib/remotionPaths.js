@@ -12,6 +12,9 @@ const CATEGORY_SKILL_FOLDER = {
   // mọi chỉnh sửa src/ (Caption.tsx, SceneLayouts.tsx...) cho skill này đều đổi luôn format
   // video của skill kia. Đã tách thành skill RIÊNG để hai bên không phá logic của nhau nữa.
   stick_figure_slideshow: 'stick-figure-slideshow-video',
+  // Pexels Talk Video — video tâm sự đạo lý với nền video Pexels, glass text overlay, waveform.
+  // Dùng pipeline Gemini + TTS chuẩn, render-project.mjs riêng đọc backgroundVideo từ manifest.
+  pexels_talk_video: 'music-player-video',
 };
 export const ALL_SKILL_FOLDERS = Array.from(new Set([DEFAULT_SKILL_FOLDER, ...Object.values(CATEGORY_SKILL_FOLDER)]));
 

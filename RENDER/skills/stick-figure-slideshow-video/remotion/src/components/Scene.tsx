@@ -212,7 +212,18 @@ export const Scene: React.FC<{
         <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
         <Sfx cues={scene.sfx} />
         <Arrows cues={scene.arrows} />
-        {layout !== "image-only" && (
+        {layout === "caption-left" ? (
+          <CaptionLeftOverlay
+            caption={scene.caption}
+            fontFamily={fontFamily}
+            captionFont={captionFont}
+            fontSize={layoutFontSize}
+            secondaryFontSize={layoutSecondaryFontSize}
+            textColor={layoutTextColor}
+            highlightColor={layoutHighlightColor}
+            showBilingual={showBilingual}
+          />
+        ) : layout === "image-only" ? null : (
           <Caption
             text={scene.caption}
             sceneIndex={sceneIndex}

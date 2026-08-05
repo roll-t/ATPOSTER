@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kiểm chứng bố cục SceneCanvas</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#222;color:#eee;padding:20px;margin:0}
+  h1{font-size:17px;margin:0 0 4px}
+  p.sub{color:#999;font-size:13px;margin:0 0 20px}
+  .row{display:flex;flex-wrap:wrap;gap:20px}
+  figure{margin:0}
+  figcaption{font-size:12px;color:#aaa;margin-top:6px;font-family:monospace}
+  .stage{position:relative;background:#fff;outline:1px solid #444;overflow:hidden}
+  .stage img{position:absolute;object-fit:contain}
+  .guide{position:absolute;pointer-events:none}
+  .ground{left:0;right:0;height:1px;background:rgba(255,0,0,.35)}
+  .center-zone{top:0;bottom:0;background:rgba(255,0,0,.06);border-left:1px dashed rgba(255,0,0,.4);border-right:1px dashed rgba(255,0,0,.4)}
+</style>
+</head>
+<body>
+<h1>Kiểm chứng bố cục — công thức y hệt SceneCanvas.tsx</h1>
+<p class="sub">Vùng đỏ nhạt = cột giữa dành riêng cho nhân vật. Đường đỏ = đường chân trời (ground line).</p>
+<div class="row" id="row"></div>
+
+<script>
+// ── Hằng số khớp với imageSlideshow.js (nhánh 16:9 landscape) ──
+const G = { ground:82, laneFarL:8, laneL:22, laneR:78, laneFarR:92, centerLo:36, centerHi:64, skyLo:8, skyHi:30, charScaleNum:1.35 };
+
+const SCENES = [
+  { name:'1 phần tử — nhân vật một mình (chiếm ~50% số slide)', els:[
+    { asset:'pose_thinking', x:50, y:G.ground, scale:G.charScaleNum, anchor:'bottom', zIndex:2 },
+  ]},
+  { name:'2 phần tử — nhân vật + ký hiệu cảm xúc', els:[
+    { asset:'pose_phone_sitting', x:50, y:G.ground, scale:G.charScaleNum, anchor:'bottom', zIndex:2 },
+    { asset:'sym_zzz', x:G.laneR, y:G.skyHi-4, scale:0.45, anchor:'center', zIndex:4 },
+  ]},
+  { name:'3 phần tử — cao trào (tối đa nên dùng)', els:[
+    { asset:'bg_tree', x:G.laneFarL, y:G.ground, scale:0.7, anchor:'bottom', zIndex:0 },
+    { asset:'pose_celebrating', x:50, y:G.ground, scale:G.charScaleNum, anchor:'bottom', zIndex:2 },
+    { asset:'sym_star', x:G.laneR, y:G.skyLo+8, scale:0.45, anchor:'center', zIndex:4 },
+  ]},
+  { name:'ĐỐI CHỨNG — cách CŨ gây lỗi (bg giữa, scale 2.5)', bad:true, els:[
+    { asset:'bg_building', x:50, y:55, scale:2.5, anchor:'center', zIndex:0 },
+    { asset:'pose_stressed', x:50, y:62, scale:1.0, anchor:'center', zIndex:2 },
+    { asset:'prop_laptop', x:72, y:50, scale:0.55, anchor:'center', zIndex:3 },
+    { asset:'sym_exclamation', x:20, y:28, scale:0.55, anchor:'center', zIndex:4 },
+  ]},
+];
+
+function src(id){
+  const dir = id.startsWith('prop_') ? 'prop' : id.startsWith('sym_') ? 'sym' : id.startsWith('bg_') ? 'bg' : 'pose';
+  return `../public/assets/${dir}/${id}.png`;
+}
+
+const W = 640, H = 360;                 // thu nhỏ từ 1920×1080, giữ nguyên tỉ lệ
+const baseSize = H * 0.32;              // == SceneCanvas: height * baseSizeFraction
+
+const row = document.getElementById('row');
+for (const sc of SCENES) {
+  const fig = document.createElement('figure');
+  const stage = document.createElement('div');
+  stage.className = 'stage';
+  stage.style.width = W + 'px';
+  stage.style.height = H + 'px';
+
+  if (!sc.bad) {
+    const cz = document.createElement('div');
+    cz.className = 'guide center-zone';
+    cz.style.left  = (G.centerLo/100*W) + 'px';
+    cz.style.width = ((G.centerHi-G.centerLo)/100*W) + 'px';
+    stage.appendChild(cz);
+    const gl = document.createElement('div');
+    gl.className = 'guide ground';
+    gl.style.top = (G.ground/100*H) + 'px';
+    stage.appendChild(gl);
+  }
+
+  for (const el of [...sc.els].sort((a,b)=>(a.zIndex??0)-(b.zIndex??0))) {
+    const size = baseSize * (el.scale ?? 1);
+    const left = (el.x/100)*W - size/2;
+    const top  = (el.y/100)*H - (el.anchor === 'bottom' ? size : size/2);
+    const img = document.createElement('img');
+    img.src = src(el.asset);
+    img.style.left = left+'px'; img.style.top = top+'px';
+    img.style.width = size+'px'; img.style.height = size+'px';
+    stage.appendChild(img);
+  }
+
+  const cap = document.createElement('figcaption');
+  cap.textContent = (sc.bad ? '❌ ' : '✅ ') + sc.name;
+  cap.style.color = sc.bad ? '#ff8080' : '#8fd88f';
+  fig.appendChild(stage); fig.appendChild(cap);
+  row.appendChild(fig);
+}
+</script>
+</body>
+</html>

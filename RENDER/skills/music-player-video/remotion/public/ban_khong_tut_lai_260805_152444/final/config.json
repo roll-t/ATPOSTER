@@ -1,0 +1,67 @@
+{
+  "title": "Bạn Không Hề Tụt Lại Phía Sau",
+  "orientation": "landscape",
+  "segments": [
+    {
+      "caption": "Bạn có cảm thấy mình đang **tụt lại phía sau**?\nDo you feel like you are falling behind?",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-01.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Thế giới này luôn bắt chúng ta phải **vội vã**.\nThis world always forces us to rush.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-02.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Con đường đông đúc đó có phải **nơi bạn thuộc về**?\nIs that crowded road truly where you belong?",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-03.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Mỗi loài hoa nở vào một **mùa khác nhau**.\nEvery flower blooms in its own season.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-04.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Đó không phải trễ hẹn, đó là **sự chuẩn bị**.\nThat is not being late, that is preparation.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-05.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Mỗi người có một **mốc thời gian** riêng.\nEveryone has their own timeline.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-06.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Đi chậm hơn không có nghĩa là **thua cuộc**.\nMoving slower does not mean you are losing.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-07.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Bạn chỉ cần sống **đúng với chính mình**.\nYou only need to live true to yourself.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-08.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Bạn vẫn đang bước tiếp, **giỏi lắm rồi**.\nYou are still moving forward, and that is enough.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-09.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "Bạn không hề **tụt lại phía sau**.\nYou are not falling behind at all.",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-10.mp3",
+      "durationInFrames": 300
+    },
+    {
+      "caption": "'Mình đang đi đúng hướng rồi, **không cần phải vội**.'\n'I am on the right path, there is no need to rush.'",
+      "audio": "ban_khong_tut_lai_260805_152444/audio/scene-11.mp3",
+      "durationInFrames": 300
+    }
+  ],
+  "backgroundVideo": "ban_khong_tut_lai_260805_152444/bg/background-looped.mp4",
+  "bgMusic": "ban_khong_tut_lai_260805_152444/audio/bg-music.mp3",
+  "bgMusicEnabled": true,
+  "bgMusicVolume": 0.2,
+  "accentColor": "#a78bfa",
+  "showWaveform": true
+}

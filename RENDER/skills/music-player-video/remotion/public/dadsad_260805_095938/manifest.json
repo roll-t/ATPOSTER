@@ -1,0 +1,13 @@
+{
+  "title": "dádsad",
+  "category": "music_player_video",
+  "orientation": "landscape",
+  "playerStyle": "glass",
+  "accentColor": "#A78BFA",
+  "barCount": 32,
+  "bgVideoOpacity": 0.35,
+  "backgroundVideo": "dadsad_260805_095938/bg/background-30764224.mp4",
+  "songs": [],
+  "createdAt": "2026-08-05T02:59:38.397Z",
+  "updatedAt": "2026-08-05T02:59:47.920Z"
+}

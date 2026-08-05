@@ -6,7 +6,7 @@ import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
 
 function categoryKeysForType(type) {
-  return ['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
+  return ['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
 }
 
 function emptyInputFor(categoryKey) {
@@ -77,9 +77,9 @@ function generateDefaultFolderName(scenario) {
  * Toàn bộ state & handler của trang Prompt AI Studio, tách khỏi phần render để
  * page.js và các component con chỉ tập trung vào UI.
  */
-export function usePromptStudio() {
+export function usePromptStudio(initialCategory) {
   const [promptType, setPromptTypeState] = useState('slideshow');
-  const [activeCategory, setActiveCategory] = useState('stick_figure_slideshow');
+  const [activeCategory, setActiveCategory] = useState(initialCategory || 'stick_figure_slideshow');
 
   const setPromptType = (type) => {
     setPromptTypeState(type);
@@ -263,7 +263,7 @@ export function usePromptStudio() {
       const nextInput = { ...prev[activeCategory], [key]: value };
 
       // Tự động sinh folderPath cho slideshow khi scenario thay đổi
-      if (['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice'].includes(activeCategory) && key === 'scenario') {
+      if (['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice'].includes(activeCategory) && key === 'scenario') {
         if (!isFolderPathUserEdited) {
           nextInput.folderPath = generateDefaultFolderName(value);
         }
