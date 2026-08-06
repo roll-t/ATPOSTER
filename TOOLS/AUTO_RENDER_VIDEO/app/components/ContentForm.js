@@ -1,0 +1,669 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import CharacterPicker from './CharacterPicker.js';
+import SyllabusModal from './SyllabusModal.js';
+import MoralSyllabusModal from './MoralSyllabusModal.js';
+import StickFigureLongFormModal from './StickFigureLongFormModal.js';
+import { STICK_FIGURE_LONGFORM_GROUPS, STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
+import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
+import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
+import LevelPicker from './LevelPicker.js';
+import MoralThemePicker from './MoralThemePicker.js';
+import StickFigureThemePicker from './StickFigureThemePicker.js';
+
+const VISIBLE_SUGGESTIONS_COUNT = 5;
+
+function suggestionText(sug) {
+  return typeof sug === 'string' ? sug : sug.text;
+}
+
+function suggestionPeople(sug) {
+  return typeof sug === 'string' ? null : sug.people;
+}
+
+function pickRandomSubset(pool, count) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+export default function ContentForm({
+  category, activeCategory, currentInput,
+  useGemini, setUseGemini, durationRange, setDurationRange,
+  onFieldChange, onToggleCharacter,
+  errorMsg, isGenerating, onGenerate, onOpenStyleEditor,
+  characters = [], onDeleteCustomChar, onUploadChar, onUpdateChar,
+  history = []
+}) {
+  const [suggestionSubsets, setSuggestionSubsets] = useState({});
+  const [dynamicSuggestions, setDynamicSuggestions] = useState({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState({});
+
+  // Danh sách các kịch bản đã từng tạo trong lịch sử để loại trừ không cho hiển thị lại
+  const usedScenariosSet = new Set(
+    (history || [])
+      .map(item => (item.input?.scenario || item.title || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  // Các category có mốc "video dài" (4-6/6-8/8-10 phút) — đều là skill dựng bằng Remotion.
+  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video'];
+
+  // Trong số đó, category CHỈ cho phép mốc dài ở Dạng ngang 16:9: khung dọc 9:16 vốn để lướt nhanh
+  // trên điện thoại, video 8-10 phút ở khung đó là sai mục đích sử dụng. Cố ý chỉ áp cho
+  // pexels_talk_video — hai skill còn lại đã chạy mốc dài ở cả 2 khung từ trước, siết lại bây giờ
+  // sẽ làm hỏng luồng đang dùng của người dùng.
+  const LONG_FORM_LANDSCAPE_ONLY = ['pexels_talk_video'];
+
+  const isLandscapeInput = (currentInput['aspectRatio'] || '9:16') === '16:9';
+  const supportsLongForm =
+    LONG_FORM_CATEGORIES.includes(activeCategory)
+    && (!LONG_FORM_LANDSCAPE_ONLY.includes(activeCategory) || isLandscapeInput);
+
+  // Reset durationRange về mặc định khi mốc "video dài" đang chọn không còn hợp lệ — đổi sang
+  // category không hỗ trợ, HOẶC chuyển từ khung ngang về khung dọc ở skill chỉ cho khung ngang.
+  useEffect(() => {
+    const isLongTier = ['4_6m', '6_8m', '8_10m'].includes(durationRange);
+    if (isLongTier && !supportsLongForm) {
+      setDurationRange('under_1m');
+    }
+  }, [activeCategory, durationRange, supportsLongForm]);
+
+  // Reset suggestions for moral_talk_slideshow / pexels_talk_video when theme changes
+  useEffect(() => {
+    if (['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory)) {
+      setDynamicSuggestions(prev => ({ ...prev, scenario: [] }));
+      setSuggestionSubsets(prev => {
+        const themeKey = currentInput.moralTheme || 'self_help';
+        const pool = MORAL_SYLLABUS[themeKey] || [];
+        return {
+          ...prev,
+          scenario: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
+        };
+      });
+    }
+  }, [currentInput.moralTheme, activeCategory]);
+
+  // Reset suggestions for stick_figure_slideshow when theme group changes
+  useEffect(() => {
+    if (activeCategory === 'stick_figure_slideshow') {
+      setDynamicSuggestions(prev => ({ ...prev, scenario: [] }));
+      setSuggestionSubsets(prev => {
+        const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+        const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+        const pool = group ? group.topics : [];
+        return {
+          ...prev,
+          scenario: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
+        };
+      });
+    }
+  }, [currentInput.stickFigureTheme, activeCategory]);
+
+  const shuffleSuggestions = (field) => {
+    let pool = field.suggestions || [];
+    if (['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && field.key === 'scenario') {
+      const themeKey = currentInput.moralTheme || 'self_help';
+      pool = MORAL_SYLLABUS[themeKey] || [];
+    } else if (activeCategory === 'stick_figure_slideshow' && field.key === 'scenario') {
+      const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+      const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+      pool = group ? group.topics : [];
+    }
+    setSuggestionSubsets(prev => ({
+      ...prev,
+      [field.key]: pickRandomSubset(pool, VISIBLE_SUGGESTIONS_COUNT)
+    }));
+  };
+
+  const fetchMoreSuggestions = async (field) => {
+    setLoadingSuggestions(prev => ({ ...prev, [field.key]: true }));
+    try {
+      let currentList = dynamicSuggestions[field.key] || [];
+      if (currentList.length === 0) {
+        if (['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && field.key === 'scenario') {
+          const themeKey = currentInput.moralTheme || 'self_help';
+          currentList = MORAL_SYLLABUS[themeKey] || [];
+        } else {
+          currentList = field.suggestions || [];
+        }
+      }
+      const res = await fetch('/api/prompts/generate-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoryKey: activeCategory,
+          fieldKey: field.key,
+          existingSuggestions: currentList.map(suggestionText),
+          usedScenarios: Array.from(usedScenariosSet)
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+        setDynamicSuggestions(prev => ({
+          ...prev,
+          [field.key]: data.suggestions
+        }));
+      } else {
+        shuffleSuggestions(field);
+      }
+    } catch (err) {
+      console.error('Lỗi sinh gợi ý với Gemini:', err);
+      shuffleSuggestions(field);
+    } finally {
+      setLoadingSuggestions(prev => ({ ...prev, [field.key]: false }));
+    }
+  };
+
+  const visibleSuggestions = (field) => {
+    let rawList = dynamicSuggestions[field.key] || suggestionSubsets[field.key];
+    if (!rawList || rawList.length === 0) {
+      if (['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && field.key === 'scenario') {
+        const themeKey = currentInput.moralTheme || 'self_help';
+        rawList = MORAL_SYLLABUS[themeKey] || [];
+      } else if (activeCategory === 'stick_figure_slideshow' && field.key === 'scenario') {
+        const themeKey = currentInput.stickFigureTheme || STICK_FIGURE_LONGFORM_GROUPS[0].key;
+        const group = STICK_FIGURE_LONGFORM_GROUPS.find(g => g.key === themeKey);
+        rawList = group ? group.topics : [];
+      } else {
+        rawList = field.suggestions || [];
+      }
+    }
+    
+    // Lọc loại bỏ hoàn toàn các kịch bản đã từng được tạo trong lịch sử
+    const filtered = rawList.filter(sug => {
+      const text = suggestionText(sug).trim().toLowerCase();
+      return !usedScenariosSet.has(text);
+    });
+
+    return filtered.slice(0, VISIBLE_SUGGESTIONS_COUNT);
+  };
+
+  const isImageCategory = category.type === 'image';
+  // Chủ đề ẢNH chỉ tạo 1 khung hình tĩnh, không có khái niệm kịch bản/phân đoạn Gemini,
+  // nên bỏ qua trạng thái useGemini kể cả khi nó còn bật dở từ 1 chủ đề VIDEO trước đó.
+  const effectiveUseGemini = !isImageCategory && useGemini;
+
+  const [isCharModalOpen, setIsCharModalOpen] = useState(false);
+  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
+  const [isLongFormTopicsOpen, setIsLongFormTopicsOpen] = useState(false);
+
+  return (
+    <div className="glass-card" style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '12px', minWidth: 0 }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, whiteSpace: 'nowrap' }}>
+          <span style={{ flexShrink: 0 }}>{category.icon}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.label}</span>
+        </h3>
+        {category && (
+          <button
+            type="button"
+            onClick={onOpenStyleEditor}
+            className="btn btn-secondary"
+            style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px', flexShrink: 0, fontWeight: 700 }}
+          >
+            🎨 Custom Style (Remotion)
+          </button>
+        )}
+      </div>
+
+      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.45 }}>{category.description}</p>
+
+      {/* 1. Chọn Dạng Video (Tỉ lệ 9:16 / 16:9) dạng 2 Option Card ở trên cùng */}
+      {category.fields.some(f => f.key === 'aspectRatio') && (
+        <div style={{ marginBottom: '24px' }}>
+          <label className="form-label" style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 700, marginBottom: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Dạng Video
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => onFieldChange('aspectRatio', '9:16')}
+              style={{
+                padding: '14px 12px',
+                borderRadius: '12px',
+                border: (currentInput['aspectRatio'] || '9:16') === '9:16' ? '2px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: (currentInput['aspectRatio'] || '9:16') === '9:16' ? 'rgba(254, 44, 85, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                boxShadow: (currentInput['aspectRatio'] || '9:16') === '9:16' ? '0 4px 16px rgba(254, 44, 85, 0.25)' : 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'inherit'
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>📱</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'inherit', letterSpacing: '-0.2px' }}>Dạng TikTok thẳng</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>Màn dọc 9:16</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onFieldChange('aspectRatio', '16:9')}
+              style={{
+                padding: '14px 12px',
+                borderRadius: '12px',
+                border: currentInput['aspectRatio'] === '16:9' ? '2px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: currentInput['aspectRatio'] === '16:9' ? 'rgba(37, 244, 238, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                boxShadow: currentInput['aspectRatio'] === '16:9' ? '0 4px 16px rgba(37, 244, 238, 0.25)' : 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: 'inherit'
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>💻</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'inherit', letterSpacing: '-0.2px' }}>Dạng ngang video</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>Màn ngang 16:9</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Toggle & Cấu hình thời lượng — chỉ áp dụng cho chủ đề VIDEO */}
+      {!isImageCategory && (
+        <div style={{ marginBottom: '24px' }}>
+          <div
+            className="custom-switch-container"
+            onClick={() => setUseGemini(!useGemini)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '8px' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>
+                Tự động tạo phân đoạn bằng Gemini
+              </span>
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                Tự động viết kịch bản & phân chia cảnh slide ảnh tối ưu
+              </span>
+            </div>
+            <label className="custom-switch" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={useGemini}
+                onChange={(e) => setUseGemini(e.target.checked)}
+              />
+              <span className="switch-slider"></span>
+            </label>
+          </div>
+
+          {useGemini && (
+            <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
+              <label className="form-label">
+                THỜI LƯỢNG MỤC TIÊU CỦA VIDEO
+              </label>
+              <select
+                className="form-control"
+                value={durationRange}
+                onChange={(e) => setDurationRange(e.target.value)}
+              >
+                {activeCategory === 'stick_figure_slideshow' ? (
+                  <>
+                    <option value="under_1m">Dưới 1 phút</option>
+                    <option value="1_2m">Từ 1 - 2 phút</option>
+                    <option value="2_3m">Từ 2 - 3 phút</option>
+                    <option value="3_4m">Từ 3 - 4 phút</option>
+                    <option value="4_6m">Từ 4 - 6 phút</option>
+                    <option value="6_8m">Từ 6 - 8 phút</option>
+                    <option value="8_10m">Từ 8 - 10 phút</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '8 - 12 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                    <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                    <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                    <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                    {supportsLongForm && (
+                      <optgroup label="🎬 Video dài">
+                        <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 40 slide pictogram' : activeCategory === 'pexels_talk_video' ? '14 - 17 đoạn kể' : '35 - 48 slide'})</option>
+                        <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '38 - 54 slide pictogram' : activeCategory === 'pexels_talk_video' ? '20 - 24 đoạn kể' : '48 - 65 slide'})</option>
+                        <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '48 - 68 slide pictogram' : activeCategory === 'pexels_talk_video' ? '26 - 31 đoạn kể' : '60 - 82 slide'})</option>
+                      </optgroup>
+                    )}
+                  </>
+                )}
+              </select>
+              {['4_6m', '6_8m', '8_10m'].includes(durationRange) && (
+                <span style={{ display: 'block', marginTop: '6px', fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                  Video càng dài càng cần nhiều ảnh minh hoạ + giọng đọc hơn — kịch bản có thể mất nhiều thời gian hơn để Gemini viết xong, và khâu sinh ảnh/lồng tiếng sau đó cũng lâu hơn tương ứng.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+        {category.fields.map(field => {
+          // aspectRatio đã hiển thị dạng option card ở trên cùng
+          if (field.key === 'aspectRatio') return null;
+          // Ẩn các trường kịch bản chi tiết thủ công khi bật Gemini AI để làm gọn giao diện
+          const isHiddenForGemini = effectiveUseGemini && (
+            (activeCategory === 'english_quiz' && ['options', 'correctAnswer', 'explanation'].includes(field.key)) ||
+            (['stick_figure', 'stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice'].includes(activeCategory) && field.key === 'script') ||
+            (activeCategory === 'moral_wisdom' && field.key === 'quote')
+          );
+          if (isHiddenForGemini) return null;
+
+          const isHiddenHairColor = field.key === 'hairColor' && currentInput.imageStyle === 'stick_figure';
+          if (isHiddenHairColor) return null;
+
+          return (
+            <div className="form-group" key={field.key} style={{ margin: 0 }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '12px', minWidth: 0 }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {field.label}
+                  {field.required && <span style={{ color: 'var(--primary)', marginLeft: '4px' }}>*</span>}
+                </span>
+                {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSyllabusModalOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
+                      border: '1px solid rgba(37, 244, 238, 0.35)',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      color: '#fff',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 10px rgba(37, 244, 238, 0.2)',
+                      flexShrink: 0
+                    }}
+                  >
+                    {activeCategory === 'reading_practice'
+                      ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
+                      : `📚 Lộ trình 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                    }
+                  </button>
+                )}
+                {/* Kho chủ đề Video Dài — LUÔN hiện cho skill Người Que, giống nút "Lộ trình 50
+                    chủ đề" của skill Đạo Lý. Bản đầu từng khoá nút này lại, chỉ cho hiện khi đã
+                    chọn sẵn một mốc thời lượng dài; hoá ra đó là cách chắc chắn khiến không ai tìm
+                    thấy nó — người dùng mở form ra ở mốc mặc định "Dưới 1 phút" và nút vô hình,
+                    không có gì gợi ý rằng phải đổi thời lượng trước thì nó mới xuất hiện. */}
+                {field.key === 'scenario' && activeCategory === 'stick_figure_slideshow' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLongFormTopicsOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
+                      border: '1px solid rgba(37, 244, 238, 0.35)',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      color: '#fff',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 10px rgba(37, 244, 238, 0.2)',
+                      flexShrink: 0
+                    }}
+                  >
+                    🎬 Kho chủ đề Video Dài ({STICK_FIGURE_LONGFORM_TOPIC_COUNT})
+                  </button>
+                )}
+                {field.type === 'character-select' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCharModalOpen(true)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      color: '#fff',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    }}
+                  >
+                    👤 Xem tất cả ({characters.length})
+                  </button>
+                )}
+              </label>
+              
+              {field.type === 'character-select' ? (
+                <CharacterPicker
+                  field={field}
+                  selectedIds={currentInput[field.key]}
+                  onToggle={onToggleCharacter}
+                  characters={characters}
+                  onDeleteCustomChar={onDeleteCustomChar}
+                  onUploadChar={onUploadChar}
+                  onUpdateChar={onUpdateChar}
+                  isListModalOpen={isCharModalOpen}
+                  setIsListModalOpen={setIsCharModalOpen}
+                />
+              ) : field.key === 'level' ? (
+                <LevelPicker
+                  field={field}
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
+              ) : field.type === 'moral-theme-select' ? (
+                <MoralThemePicker
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                  themeKeys={field.themeKeys}
+                />
+              ) : field.type === 'stick-figure-theme-select' ? (
+                <StickFigureThemePicker
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
+              ) : field.type === 'select' ? (
+                <select
+                  className="form-control"
+                  value={currentInput[field.key] || field.defaultValue || ''}
+                  onChange={(e) => onFieldChange(field.key, e.target.value)}
+                >
+                  {field.options.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === 'textarea' ? (
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  placeholder={field.placeholder}
+                  value={currentInput[field.key] || ''}
+                  onChange={(e) => onFieldChange(field.key, e.target.value)}
+                  style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+                />
+              ) : (
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder={field.placeholder}
+                  value={currentInput[field.key] || ''}
+                  onChange={(e) => onFieldChange(field.key, e.target.value)}
+                />
+              )}
+              
+              {((
+                (Array.isArray(field.suggestions) && field.suggestions.length > 0 && activeCategory !== 'moral_talk_slideshow' && activeCategory !== 'stick_figure_slideshow' && activeCategory !== 'reading_practice')
+              ) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
+                  {visibleSuggestions(field).map(sug => {
+                    const text = suggestionText(sug);
+                    const people = suggestionPeople(sug);
+                    const isSelected = currentInput[field.key] === text;
+                    return (
+                      <button
+                        type="button"
+                        key={text}
+                        onClick={() => onFieldChange(field.key, text)}
+                        className={`suggestion-pill ${isSelected ? 'active' : ''}`}
+                      >
+                        {text}{people ? ` · 👥 ${people}` : ''}
+                      </button>
+                    );
+                  })}
+                  {activeCategory !== 'stick_figure_slideshow' && (
+                    <button
+                      type="button"
+                      onClick={() => fetchMoreSuggestions(field)}
+                      disabled={loadingSuggestions[field.key]}
+                      title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
+                      className="suggestion-pill"
+                      style={{
+                        background: 'rgba(37, 244, 238, 0.08)',
+                        borderColor: 'rgba(37, 244, 238, 0.25)',
+                        color: 'var(--secondary)',
+                        fontWeight: 700,
+                        cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
+                    </button>
+                  )}
+                  {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'pexels_talk_video', 'stick_figure_slideshow'].includes(activeCategory) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeCategory === 'stick_figure_slideshow') {
+                          setIsLongFormTopicsOpen(true);
+                        } else {
+                          setIsSyllabusModalOpen(true);
+                        }
+                      }}
+                      className="suggestion-pill"
+                      style={{
+                        background: 'rgba(254, 44, 85, 0.14)',
+                        borderColor: 'rgba(254, 44, 85, 0.35)',
+                        color: 'var(--primary)',
+                        fontWeight: 800,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {activeCategory === 'reading_practice'
+                        ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
+                        : ['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory)
+                          ? `📚 Xem danh sách 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                          : `📚 Kho 200 Chủ Đề Video Dài (${STICK_FIGURE_LONGFORM_TOPIC_COUNT} chủ đề)`
+                      }
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {errorMsg && (
+        <div style={{ 
+          color: 'var(--danger)', 
+          fontSize: '0.85rem', 
+          marginBottom: '20px', 
+          padding: '12px 14px', 
+          background: 'var(--danger-bg)', 
+          borderRadius: '10px', 
+          border: '1px solid rgba(255, 71, 87, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>⚠️</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onGenerate}
+        disabled={isGenerating}
+        className="btn btn-primary"
+        style={{ 
+          width: '100%', 
+          padding: '14px 20px', 
+          fontSize: '1rem', 
+          fontWeight: 700, 
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+      >
+        {isGenerating ? (
+          <>
+            <svg className="animate-spin" style={{ width: '18px', height: '18px', flexShrink: 0, color: '#fff' }} viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+              <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span>
+              {effectiveUseGemini ? 'Gemini AI đang lập kịch bản...' : (isImageCategory ? 'Đang tạo prompt ảnh...' : 'Đang tạo prompt video...')}
+            </span>
+          </>
+        ) : (
+          <>
+            {effectiveUseGemini ? '✨' : (isImageCategory ? '🖼️' : '🎬')}
+            <span>
+              {effectiveUseGemini ? 'Tạo kịch bản phân đoạn với Gemini' : (isImageCategory ? 'Tạo Prompt Ảnh Tham Chiếu' : 'Tạo Prompt Video')}
+            </span>
+          </>
+        )}
+      </button>
+
+      {/* Modal Lộ trình học 50 bài cho mỗi Level (chỉ áp dụng cho skill Luyện Đọc Tiếng Anh) */}
+      {activeCategory === 'reading_practice' && (
+        <SyllabusModal
+          isOpen={isSyllabusModalOpen}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          currentLevel={currentInput.level || 'a2'}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
+
+      {/* Modal Lộ trình 50 chủ đề cho mỗi nhóm (áp dụng cho Nói Chuyện Đạo Lý + Video Tâm Sự) */}
+      {['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && (
+        <MoralSyllabusModal
+          isOpen={isSyllabusModalOpen}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          currentTheme={currentInput.moralTheme || 'self_help'}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
+
+      {/* Kho chủ đề Video Dài (áp dụng cho skill Người Que) */}
+      {activeCategory === 'stick_figure_slideshow' && (
+        <StickFigureLongFormModal
+          isOpen={isLongFormTopicsOpen}
+          onClose={() => setIsLongFormTopicsOpen(false)}
+          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          history={history}
+        />
+      )}
+    </div>
+  );
+}

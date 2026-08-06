@@ -4,12 +4,18 @@
   "description": "ATPOSTER Workspace Root - AGENT_TOOL & RENDER Manager",
   "private": true,
   "scripts": {
-    "install:agent": "npm install --prefix AGENT_TOOL",
-    "install:render": "npm install --prefix RENDER && npm install --prefix RENDER/skills/narrated-slideshow-video/remotion",
+    "install:agent": "npm install --prefix TOOLS/AUTO_POST_VIDEO",
+    "install:render": "npm install --prefix TOOLS/AUTO_RENDER_VIDEO",
     "install:all": "npm run install:agent && npm run install:render",
-    "dev:agent": "npm run dev --prefix AGENT_TOOL",
-    "dev:render": "npm run studio --prefix RENDER",
-    "build:agent": "npm run build --prefix AGENT_TOOL",
-    "render:video": "npm run render --prefix RENDER"
+    "dev:agent": "npm run dev --prefix TOOLS/AUTO_POST_VIDEO",
+    "dev:render": "npm run dev --prefix TOOLS/AUTO_RENDER_VIDEO",
+    "dev:studio": "npm run studio --prefix TOOLS/AUTO_RENDER_VIDEO",
+    "studio:moral": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion",
+    "studio:reading": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion",
+    "studio:stick": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion",
+    "studio:pexels": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion",
+    "build:agent": "npm run build --prefix TOOLS/AUTO_POST_VIDEO",
+    "build:render": "npm run build --prefix TOOLS/AUTO_RENDER_VIDEO",
+    "render:video": "npm run render --prefix TOOLS/AUTO_RENDER_VIDEO"
   }
 }

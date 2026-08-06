@@ -1,0 +1,49 @@
+{
+  "accounts": [],
+  "posts": [],
+  "settings": {
+    "customUploadsDir": "",
+    "geminiApiKey": "AIzaSyB3JZXwQGZQw4SOhlduXc2l3oej9URgBCY\nAQ.Ab8RN6Jt6nlZxZzMjs21vUSAF0ZRYmnSXSqwUV6r0XgsdMbtAQ\nAQ.Ab8RN6JPF2ArDllLVly-i5Mfj3FPbtD9GwdbWaFXuMKT9R70cg",
+    "voiceMappings": {},
+    "ttsProvider": "vieneu",
+    "edgeVoiceMappings": {},
+    "vieneuServerUrl": "http://127.0.0.1:8001",
+    "vieneuVoiceMappings": {
+      "narrator": "Minh Quân"
+    },
+    "favoriteEdgeVoiceIds": [],
+    "favoriteVieneuVoiceIds": [],
+    "defaultCaptionStyle": "page",
+    "defaultTransitionStyle": "crossfade",
+    "defaultBilingual": true,
+    "defaultBgMusicEnabled": true,
+    "defaultBgMusicVolume": "30",
+    "defaultBgMusicTrackId": "lib_1785374327050_f5qh2",
+    "readingPracticeConfig": {
+      "captionStyle": "page",
+      "font": "",
+      "fontSize": 41,
+      "textColor": "#241C10",
+      "bgColor": "#F3EAD9",
+      "bgOpacity": "100",
+      "isBgTransparent": false,
+      "heroPercent": 20,
+      "titlePercent": 8,
+      "bodyPercent": 56,
+      "titleFontSize": "65",
+      "titleBodyGap": "1",
+      "paddingPercent": "5",
+      "bodyAlign": "justify",
+      "imageMode": "hero",
+      "bilingual": true,
+      "bgMusicEnabled": true,
+      "bgMusicVolume": "20",
+      "bgMusicTrackId": "track3",
+      "imageScale": 1,
+      "imageTranslateY": 0,
+      "captionMarginY": 0
+    },
+    "googleDrive": {},
+    "pexelsApiKey": "oy58Z6fXnGpH038CeQN5IzLZClmkSOrnbaNE6fe1lrp7qDkWk5DGaIdJ"
+  }
+}

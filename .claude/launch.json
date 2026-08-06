@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:agent"],
       "port": 3000
+    },
+    {
+      "name": "atposter-render-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:render"],
+      "port": 3001
     }
   ]
 }

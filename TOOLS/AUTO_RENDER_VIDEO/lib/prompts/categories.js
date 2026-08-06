@@ -1,0 +1,441 @@
+// Mỗi chủ đề có 1 "style mặc định" CỐ ĐỊNH (màu sắc, ánh sáng, khung hình, giọng đọc,
+// nhịp phim...) được tái sử dụng cho MỌI video trong series đó — đảm bảo video sau luôn
+// giống video trước về mặt hình ảnh/âm thanh để xây dựng nhận diện thương hiệu.
+export const PROMPT_CATEGORIES = {
+  english_quiz: {
+    key: 'english_quiz',
+    type: 'video',
+    label: 'Video Trả Lời Câu Hỏi Tiếng Anh',
+    icon: '❓',
+    description: 'Video quiz ngắn: đưa ra câu hỏi tiếng Anh, đếm giờ, tiết lộ đáp án + giải thích.',
+    fields: [
+      { key: 'question', label: 'Câu hỏi tiếng Anh', type: 'text', required: true, placeholder: 'What is the past tense of "go"?' },
+      { key: 'options', label: 'Các đáp án (mỗi dòng 1 đáp án)', type: 'textarea', required: true, placeholder: 'A. Goed\nB. Went\nC. Gone\nD. Going' },
+      { key: 'correctAnswer', label: 'Đáp án đúng', type: 'text', required: true, placeholder: 'B. Went' },
+      { key: 'explanation', label: 'Giải thích ngắn gọn (tiếng Anh đơn giản)', type: 'textarea', required: true, placeholder: '"Go" is an irregular verb. The past tense is "went", not "goed".' },
+      {
+        key: 'topic',
+        label: 'Chủ đề ngữ pháp / từ vựng (tuỳ chọn)',
+        type: 'text',
+        required: false,
+        placeholder: 'Irregular verbs',
+        suggestions: [
+          'Irregular verbs',
+          'Present perfect vs. past simple',
+          'Prepositions of place',
+          'Comparatives and superlatives',
+          'Modal verbs (can, should, must)',
+          'Phrasal verbs',
+          'Countable vs. uncountable nouns',
+          'Question words (who, what, where...)',
+          'Past continuous',
+          'First conditional sentences',
+          'Articles (a, an, the)',
+          "Confusing word pairs (its/it's, there/their)"
+        ]
+      }
+    ],
+    defaultStyle: {
+      series: 'Boost Your English - Quiz Series',
+      aspectRatio: '9:16',
+      durationSeconds: 25,
+      visualStyle: 'Clean flat 2D motion graphics, modern educational app aesthetic, minimal vector shapes, no photorealism',
+      colorPalette: ['#FE2C55', '#25F4EE', '#121118', '#FFFFFF'],
+      lighting: 'Flat even studio lighting, no shadows, bright and energetic',
+      camera: 'Static frontal camera; subtle zoom pulse on the countdown; quick punch-in when the correct answer is revealed',
+      moodTone: 'Upbeat, playful, game-show energy',
+      typographyNote: 'Large bold sans-serif for the question at the top third; 4 answer cards in a 2x2 grid; circular countdown ring center-bottom',
+      characters: 'Small friendly cartoon mascot (owl or robot) reacting with simple expressions to correct/wrong answers',
+      voice: 'Energetic young adult voice, clear and simple English pronunciation',
+      music: 'Upbeat quiz-show synth loop; tension rises during the countdown; short victory sting on reveal',
+      sfx: 'Tick-tock countdown, "ding" on correct answer, soft "buzz" on wrong answer'
+    }
+  },
+
+  stick_figure: {
+    key: 'stick_figure',
+    type: 'video',
+    label: 'Video Người Que Học Tiếng Anh',
+    icon: '🚶',
+    description: 'Kịch bản đời thường ngắn do 2 nhân vật người que thực hiện, lồng thoại tiếng Anh cơ bản để học.',
+    fields: [
+      { key: 'characterIds', label: 'Nhân vật xuất hiện (chọn 1-3)', type: 'character-select', required: true, minSelect: 1, maxSelect: 3 },
+      {
+        key: 'scenario',
+        label: 'Tình huống / bối cảnh ngắn',
+        type: 'text',
+        required: true,
+        placeholder: 'Ordering coffee at a small café',
+        suggestions: [
+          { text: 'Ordering coffee at a small cafe', people: 2 },
+          { text: 'Asking a stranger for directions to the train station', people: 2 },
+          { text: 'A job interview that goes slightly wrong', people: 2 },
+          { text: 'Grocery shopping and mixing up two similar words', people: 2 },
+          { text: 'Checking into a hotel with a booking mix-up', people: 2 },
+          { text: 'Returning a broken product at a store', people: 2 },
+          { text: 'Meeting a new coworker on the first day', people: 2 },
+          { text: 'Ordering food at a restaurant and mispronouncing a dish', people: 2 },
+          { text: 'Talking on the phone with a delivery driver', people: 1 },
+          { text: 'Catching a taxi and giving the wrong address', people: 2 },
+          { text: 'Checking in at the airport before a flight', people: 2 },
+          { text: 'Borrowing a tool from a neighbor', people: 2 },
+          { text: 'Complaining politely about noisy neighbors', people: 2 },
+          { text: 'Planning a weekend trip with a friend', people: 2 },
+          { text: 'Asking to swap seats on a bus', people: 2 },
+          { text: 'Practicing an English speech alone in front of a mirror', people: 1 },
+          { text: 'Three friends deciding where to eat for lunch', people: 3 },
+          { text: 'A group project discussion at school', people: 3 },
+          { text: 'Welcoming a foreign exchange student to the neighborhood', people: 2 },
+          { text: 'Teaching a friend how to say a tricky English phrase', people: 2 }
+        ]
+      },
+      { key: 'script', label: 'Kịch bản thoại tiếng Anh (mỗi dòng 1 câu, dùng A:/B:/C: theo đúng thứ tự nhân vật đã chọn ở trên — hệ thống sẽ tự thay bằng tên nhân vật)', type: 'textarea', required: true, placeholder: 'A: Hi! Can I get a small latte, please?\nB: Sure! For here or to go?\nA: To go, thanks.' },
+      { key: 'keyPhrase', label: 'Cụm từ / mẫu câu trọng tâm cần dạy (tuỳ chọn)', type: 'text', required: false, placeholder: '"Can I get...?" / "For here or to go?"' },
+      { key: 'continuityNote', label: 'Liên hệ tới tập trước (tuỳ chọn — để nối thành 1 câu chuyện dài)', type: 'text', required: false, placeholder: 'Tiếp nối tập trước: Alex vừa làm quen với Mia ở quán cà phê' }
+    ],
+    defaultStyle: {
+      series: 'Stick Figure English Life',
+      aspectRatio: '9:16',
+      durationSeconds: 30,
+      visualStyle: 'Minimalist whiteboard-animation style, hand-drawn black ink stick figures (circle head, simple line body/limbs) on a plain white/cream background. Mouths must be simple and clean when speaking — a small line that opens/closes minimally; avoid fast, exaggerated, or blurry lip-flapping motion that could render as a smudge',
+      colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single accent prop per episode)'],
+      lighting: 'Flat 2D sketch lighting, no shadows',
+      camera: 'Mostly static wide/medium shot showing both characters fully; occasional simple cut between two fixed compositions',
+      moodTone: 'Light, humorous, relatable everyday-life energy',
+      typographyNote: 'Simple black-outline comic-style speech bubble above the speaking character\'s head, containing ONLY a short English caption (a few words, not the full sentence) in bold clean lettering. The bubble must appear instantly with a hard cut — no fade-in, slide, or animated transition — stay static for the full line, then cut directly to the next caption (or disappear) the same way. No subtitle bar anywhere on screen.',
+      characters: 'Exactly 2 simple black stick-figure characters, each with ONE small consistent prop/accessory (e.g. Character A always wears a tiny hat, Character B always holds a cup) so they stay recognizable across every episode',
+      voice: 'Two distinct casual voices (Character A / Character B), natural conversational pace, everyday basic English vocabulary',
+      music: 'Light acoustic ukulele or lo-fi loop, very low volume under the dialogue',
+      sfx: 'Minimal soft foley only where the scene needs it (door bell, cup clink, footsteps)'
+    }
+  },
+
+  moral_wisdom: {
+    key: 'moral_wisdom',
+    type: 'video',
+    label: 'Video Đạo Lý Tiếng Anh',
+    icon: '🌅',
+    description: 'Video ngắn kể một tình huống đời thường rút ra bài học/đạo lý, tường thuật bằng tiếng Anh cơ bản.',
+    fields: [
+      {
+        key: 'theme',
+        label: 'Chủ đề đạo lý / bài học',
+        type: 'text',
+        required: true,
+        placeholder: 'Kindness always comes back to you',
+        suggestions: [
+          'Kindness always comes back to you',
+          'Honesty is the best policy',
+          'Hard work pays off in the end',
+          'Patience brings the best rewards',
+          'Never give up on your dreams',
+          'Sharing is caring',
+          'Respect others even when they are different',
+          'Actions speak louder than words',
+          "A small act of kindness can change someone's day",
+          'Family comes first',
+          'True friends stay through hard times',
+          "It's never too late to start again"
+        ]
+      },
+      { key: 'story', label: 'Tình huống / câu chuyện ngắn minh họa', type: 'textarea', required: true, placeholder: 'A boy shares his lunch with a hungry stray dog every day. Years later, when he is lost in the forest, the same dog (now grown) finds and saves him.' },
+      { key: 'quote', label: 'Câu trích dẫn / thông điệp chính (tiếng Anh đơn giản)', type: 'text', required: true, placeholder: '"Kindness is never wasted."' }
+    ],
+    defaultStyle: {
+      series: 'Simple English Wisdom',
+      aspectRatio: '9:16',
+      durationSeconds: 35,
+      visualStyle: 'Warm cinematic live-action look, soft naturalistic color grade, gentle film-grain texture, relatable real-world settings',
+      colorPalette: ['warm amber/golden-hour tones', 'soft desaturated background colors', '#FE2C55 (accent for the closing text overlay)'],
+      lighting: 'Soft warm golden-hour or window light, gentle contrast, cozy inviting atmosphere',
+      camera: 'Slow, calm camera movement only — gentle push-in or slow pan, no fast cuts, contemplative pacing',
+      moodTone: 'Reflective, heartfelt, gently inspirational, never preachy',
+      typographyNote: 'Key quote/message appears as an elegant centered text overlay in the final 3 seconds, clean serif or simple sans-serif font, soft fade-in; persistent bilingual subtitle bar (English/Vietnamese) throughout narration',
+      characters: 'Ordinary relatable people matching the story (age/appearance can vary per episode), authentic everyday expressions',
+      voice: 'Warm, calm, slightly slow-paced narrator voice, very simple English (CEFR A2 level: short sentences, common everyday words only)',
+      music: 'Soft emotional piano or acoustic guitar underscore, swells gently at the closing message',
+      sfx: 'Natural ambient sound only (wind, room tone, footsteps) — no artificial effects, keeps it grounded and authentic'
+    }
+  },
+
+  english_tips: {
+    key: 'english_tips',
+    type: 'video',
+    label: 'Video Mẹo Học Tiếng Anh',
+    icon: '💡',
+    description: 'Video whiteboard-animation nhiều cảnh nối tiếp kiểu "Effortless English": mở đầu gây chú ý, liệt kê mẹo/quy tắc học tiếng Anh, ví dụ minh họa, kêu gọi hành động. CHỈ hỗ trợ tạo qua Gemini AI phân đoạn (video dài 1-3 phút, nhiều cảnh).',
+    fields: [
+      { key: 'hook', label: 'Câu mở đầu gây chú ý (hook)', type: 'text', required: true, placeholder: 'Want to speak English more naturally?' },
+      { key: 'ruleTitle', label: 'Tên mẹo / quy tắc chính', type: 'text', required: true, placeholder: 'Effortless English Rule 1: Learn Phrases, Not Words' },
+      {
+        key: 'keyPoints',
+        label: 'Các ý chính sẽ dạy (mỗi dòng 1 ý)',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Why memorizing single words slows down your progress\nHow learning phrases helps you speak naturally\nA simple method to remember vocabulary faster'
+      },
+      { key: 'example', label: 'Ví dụ minh họa cụ thể', type: 'textarea', required: true, placeholder: 'Instead of memorizing the word "go", learn the whole phrase: "go to the gym", "go shopping", "go on vacation".' },
+      { key: 'closingCTA', label: 'Lời kêu gọi hành động cuối video (tuỳ chọn)', type: 'text', required: false, placeholder: 'Like, Subscribe, and turn on notifications for weekly English lessons.' }
+    ],
+    defaultStyle: {
+      series: 'Effortless English Tips',
+      aspectRatio: '9:16',
+      durationSeconds: 150,
+      visualStyle: 'Minimalist hand-drawn whiteboard-animation style, clean black ink line illustrations and simple icons/diagrams on a plain white/cream background, no photorealism, no recurring character mascot',
+      colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single accent for key text/highlights)'],
+      lighting: 'Flat 2D sketch lighting, no shadows',
+      camera: 'Mostly static wide shot of the whiteboard; occasional slow simple pan or zoom-in onto the key text/diagram being discussed',
+      moodTone: 'Friendly, confident, encouraging teacher energy — clear and motivating, never boring',
+      typographyNote: 'Bold on-screen keyword/bullet text appears in sync with the narration to reinforce each point, clean sans-serif lettering. Text/diagram elements appear instantly with a hard cut — no fade-in, slide, or animated transition — then cut directly to the next element the same way',
+      characters: 'No recurring character — visuals are simple hand-drawn icons, diagrams, objects, and short text callouts illustrating each teaching point',
+      voice: 'Warm, confident, clear narrator voice, natural teaching pace, simple direct sentences, encouraging tone',
+      music: 'Light inspirational lo-fi or acoustic background loop, low volume under the narration',
+      sfx: 'Minimal soft whoosh/pop sound whenever a new on-screen text or diagram element appears'
+    }
+  },
+
+  reading_practice: {
+    key: 'reading_practice',
+    type: 'slideshow',
+    label: 'Video Trang Đọc Luyện Tiếng Anh',
+    icon: '📖',
+    description: 'Video luyện đọc & nghe kiểu "graded reader": mỗi cảnh là một trang văn bản tĩnh (không phải nhân vật minh hoạ), chữ được tô sáng theo từng từ đúng lúc giọng đọc đọc tới (karaoke), kèm bản dịch tiếng Việt bên dưới.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'level',
+        label: 'Trình độ tiếng Anh (CEFR)',
+        type: 'select',
+        required: true,
+        defaultValue: 'a2',
+        options: [
+          { value: 'a1', label: 'A1', sublabel: 'Mới bắt đầu', icon: '🌱' },
+          { value: 'a2', label: 'A2', sublabel: 'Sơ cấp', icon: '🌿' },
+          { value: 'b1', label: 'B1', sublabel: 'Trung cấp', icon: '🌳' },
+          { value: 'b2', label: 'B2', sublabel: 'Cao cấp', icon: '🚀' },
+          { value: 'c1', label: 'C1', sublabel: 'Thành thạo', icon: '👑' },
+          { value: 'c2', label: 'C2', sublabel: 'Bậc thầy', icon: '🔥' }
+        ]
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / câu chuyện muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: 'The magic of reading books',
+        suggestions: [
+          { text: 'The magic of reading books', people: 1 },
+          { text: 'A boy who is afraid of the dark', people: 1 },
+          { text: 'Learning to ride a bicycle for the first time', people: 1 },
+          { text: 'A kind neighbor who helps everyone', people: 1 },
+          { text: 'The little seed that grew into a big tree', people: 1 },
+          { text: 'A rainy day that changed someone\'s plans', people: 1 },
+          { text: 'Making a new friend at school', people: 2 },
+          { text: 'A lost dog that finds its way home', people: 1 },
+          { text: 'The joy of a family dinner together', people: 2 },
+          { text: 'Saving money to buy something special', people: 1 },
+          { text: 'A student who learns from a mistake', people: 1 },
+          { text: 'The first day at a new job', people: 1 },
+          { text: 'A grandmother who tells wonderful stories', people: 2 },
+          { text: 'Helping a stranger find their way', people: 2 },
+          { text: 'Waking up early to watch the sunrise', people: 1 }
+        ]
+      },
+      { key: 'script', label: 'Gợi ý nội dung câu chuyện (tuỳ chọn, tiếng Anh — hệ thống sẽ viết lại thành các trang đọc mạch lạc)', type: 'textarea', required: false, placeholder: 'A short story about a boy who did not like reading until he found one book that changed his mind.' }
+    ],
+    defaultStyle: {
+      series: 'English Reading Practice',
+      aspectRatio: '9:16',
+      durationSeconds: 40
+    }
+  },
+
+  stick_figure_slideshow: {
+    key: 'stick_figure_slideshow',
+    type: 'slideshow',
+    label: 'Kịch Bản & Clip Người Que',
+    icon: '🎬',
+    description: 'Tạo kịch bản và ghép ảnh PNG người que sẵn có thành video hoạt hình tự động — không cần sinh ảnh AI.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'narrationLanguage',
+        label: 'Ngôn ngữ thuyết minh (lồng tiếng)',
+        type: 'select',
+        required: true,
+        defaultValue: 'en',
+        options: [
+          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' },
+          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' }
+        ]
+      },
+      {
+        key: 'stickFigureTheme',
+        label: 'Nhóm chủ đề gợi ý',
+        type: 'stick-figure-theme-select',
+        required: true,
+        defaultValue: 'habits'
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / vấn nạn muốn thuyết minh',
+        type: 'textarea',
+        required: true,
+        placeholder: 'The habit of procrastination among students',
+        suggestions: [
+          { text: 'Wasting hours scrolling social media instead of sleeping', people: 1 },
+          { text: 'Procrastinating important tasks until the last minute', people: 1 },
+          { text: 'The pressure of comparing your life to others online', people: 1 },
+          { text: 'Being too shy to speak up in class or at work', people: 1 },
+          { text: 'Spending money on things you do not really need', people: 1 },
+          { text: 'Skipping breakfast because you are always in a rush', people: 1 },
+          { text: 'Struggling to balance study and rest', people: 1 },
+          { text: 'Feeling anxious before a big exam', people: 1 },
+          { text: 'The habit of complaining instead of taking action', people: 1 },
+          { text: 'Ignoring your health until it is too late', people: 1 },
+          { text: 'The struggle of waking up early every morning', people: 1 },
+          { text: 'Being addicted to your phone during family time', people: 2 },
+          { text: 'Giving up too quickly when things get hard', people: 1 },
+          { text: 'The fear of making mistakes in front of others', people: 1 },
+          { text: 'Forgetting to drink enough water every day', people: 1 },
+          { text: 'Bullying and its effect on a shy classmate', people: 2 },
+          { text: 'Overworking and forgetting to rest', people: 1 },
+          { text: 'Making excuses instead of practicing English every day', people: 1 }
+        ]
+      },
+      { key: 'script', label: 'Gợi ý nội dung thuyết minh (tuỳ chọn, tiếng Anh — hệ thống sẽ viết lại thành lời thuyết minh mạch lạc)', type: 'textarea', required: false, placeholder: 'Something about how people keep checking their phones instead of focusing on real life, and how it slowly affects their sleep and relationships.' }
+    ],
+    defaultStyle: {
+      series: 'Stick Figure English Slideshow',
+      aspectRatio: '9:16',
+      durationSeconds: 30
+    }
+  },
+
+  moral_talk_slideshow: {
+    key: 'moral_talk_slideshow',
+    type: 'slideshow',
+    label: 'Video Nói Chuyện Đạo Lý',
+    icon: '🗣️',
+    description: 'Kể một tình huống đời thường rút ra bài học sống (đạo lý), minh hoạ bằng pictogram trắng phát sáng trên nền đen, hỗ trợ lồng tiếng & phụ đề song ngữ Việt-Anh, linh hoạt chọn ngôn ngữ đọc chính.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'narrationLanguage',
+        label: 'Ngôn ngữ đọc chính (lồng tiếng)',
+        type: 'select',
+        required: true,
+        defaultValue: 'vi',
+        options: [
+          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' },
+          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' }
+        ]
+      },
+      {
+        key: 'moralTheme',
+        label: 'Nhóm chủ đề gợi ý',
+        type: 'moral-theme-select',
+        required: true,
+        defaultValue: 'self_help'
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / bài học đạo lý muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Lòng biết ơn sẽ luôn được đền đáp',
+        suggestions: [
+          { text: 'Lòng biết ơn sẽ luôn được đền đáp', people: 1 },
+          { text: 'Sự tử tế nhỏ bé có thể thay đổi cả một cuộc đời', people: 1 },
+          { text: 'Kiên trì sẽ luôn được đền đáp xứng đáng', people: 1 },
+          { text: 'Tha thứ là món quà bạn tặng cho chính mình', people: 1 },
+          { text: 'Gia đình luôn là chỗ dựa vững chắc nhất', people: 2 },
+          { text: 'Khiêm tốn học hỏi giúp bạn đi xa hơn', people: 1 },
+          { text: 'Cho đi không cần mong nhận lại', people: 1 },
+          { text: 'Đừng đánh giá người khác qua vẻ bề ngoài', people: 2 },
+          { text: 'Thành công thật sự đến từ sự chân thành', people: 1 },
+          { text: 'Một lời động viên đúng lúc có thể cứu cả một ngày tồi tệ của ai đó', people: 2 },
+          { text: 'Biết đủ là hạnh phúc', people: 1 },
+          { text: 'Đối xử tốt với người khác dù họ không thể trả ơn bạn', people: 2 }
+        ]
+      },
+      { key: 'script', label: 'Gợi ý nội dung câu chuyện (tuỳ chọn — hệ thống sẽ viết lại thành lời kể mạch lạc)', type: 'textarea', required: false, placeholder: 'Một cậu bé thường chia sẻ bữa trưa của mình cho một chú chó hoang đói bụng mỗi ngày. Nhiều năm sau, khi cậu bị lạc trong rừng, chính chú chó ấy (giờ đã lớn) đã tìm và cứu cậu.' }
+    ],
+    defaultStyle: {
+      series: 'Moral Talk Pictogram Slideshow',
+      aspectRatio: '9:16',
+      durationSeconds: 30
+    }
+  },
+
+  pexels_talk_video: {
+    key: 'pexels_talk_video',
+    type: 'slideshow',
+    label: 'Video Tâm Sự Đạo Lý',
+    icon: '🎙️',
+    description: 'Video tâm sự đạo lý / cách sống chiều sâu: giọng đọc TTS, nền video Pexels tự động, chữ Glass overlay, hiệu ứng sóng âm — dài và chạm cảm xúc hơn Moral Talk thông thường.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '16:9',
+        options: [
+          { value: '16:9', label: '💻 YouTube Dài (16:9 ngang)' },
+          { value: '9:16', label: '📱 Shorts / TikTok (9:16 dọc)' }
+        ]
+      },
+      {
+        key: 'moralTheme',
+        label: 'Nhóm chủ đề',
+        type: 'moral-theme-select',
+        required: true,
+        defaultValue: 'healing_pressure',
+        themeKeys: ['healing_pressure', 'self_help', 'inner_world', 'self_acceptance', 'overthinking', 'love_boundaries']
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / bài học cuộc sống muốn chia sẻ',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Tại sao chúng ta luôn trì hoãn những điều quan trọng nhất?'
+      },
+    ],
+    defaultStyle: {
+      series: 'Pexels Talk Video',
+      aspectRatio: '16:9',
+      durationSeconds: 60
+    }
+  }
+};

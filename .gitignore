@@ -5,7 +5,8 @@ node_modules/
 .next/
 /AGENT_TOOL/out/
 /AGENT_TOOL/build/
-/RENDER/out/
+/TOOLS/AUTO_RENDER_VIDEO/out/
+/TOOLS/AUTO_RENDER_VIDEO/build/
 
 # Remotion cache
 .remotion/
@@ -16,6 +17,12 @@ node_modules/
 
 # Env files
 .env*
+.env/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 
 # Logs
 npm-debug.log*
@@ -36,16 +43,19 @@ coverage/
 # AGENT_TOOL local runtime data (MongoDB binaries/db files, uploads, sessions, cookies)
 /AGENT_TOOL/data/
 
-# RENDER generated video/image/audio project outputs (keep source assets & README)
-/RENDER/skills/narrated-slideshow-video/remotion/public/*
-!/RENDER/skills/narrated-slideshow-video/remotion/public/README.md
+# TOOLS generated video/image/audio project outputs (keep source assets & README)
+/TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion/public/*
+!/TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion/public/README.md
 
-/RENDER/skills/reading-page-video/remotion/public/*
-!/RENDER/skills/reading-page-video/remotion/public/README.md
+/TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion/public/*
+!/TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion/public/README.md
 
-/RENDER/skills/pexels-talk-video/remotion/public/*
-!/RENDER/skills/pexels-talk-video/remotion/public/README.md
+/TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion/public/*
+!/TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion/public/README.md
 
-/RENDER/skills/stick-figure-slideshow-video/remotion/public/*
-!/RENDER/skills/stick-figure-slideshow-video/remotion/public/README.md
-!/RENDER/skills/stick-figure-slideshow-video/remotion/public/assets
+/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/*
+!/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/README.md
+!/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/assets
+
+/TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/*
+!/TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/README.md

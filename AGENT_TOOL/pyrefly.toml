@@ -1,7 +1,0 @@
-# Trỏ thẳng Pyrefly (type checker Python dùng trong editor) tới venv đã tạo cho
-# scripts/vieneu_server.py (uv venv tại AGENT_TOOL/.venv — xem start-vieneu-server.bat).
-# Không có file này, Pyrefly không tự tìm ra .venv nằm lồng trong AGENT_TOOL/ (vì cả repo
-# ATPOSTER là 1 monorepo Node.js, không có pyproject.toml nào ở gốc để Pyrefly xác định đúng
-# project root Python) — dẫn tới báo lỗi "Cannot find module fastapi/pydantic" dù package đã
-# cài đủ và code chạy đúng ngoài thực tế (đã verify bằng cách chạy trực tiếp .venv/Scripts/python.exe).
-python-interpreter-path = "D:/code/wed/ATPOSTER/AGENT_TOOL/.venv/Scripts/python.exe"
