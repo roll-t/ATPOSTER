@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Audio, Sequence, useVideoConfig, staticFile } from 'remotion';
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence, useVideoConfig, staticFile } from 'remotion';
 import { PexelsTalkVideoProps } from './schema';
 import { VideoBackground } from './components/VideoBackground';
 import { GlassTextCard } from './components/GlassTextCard';
@@ -16,7 +16,7 @@ export const PexelsTalkVideo: React.FC<PexelsTalkVideoProps> = ({
   showWaveform,
   leadInFrames,
 }) => {
-  const { width, height } = useVideoConfig();
+  const { width, height, fps } = useVideoConfig();
   const isPortrait = (orientation ?? 'portrait') === 'portrait' || height > width;
 
   // Thoại bắt đầu SAU khoảng lặng đầu video (leadInFrames) — nền video và nhạc đã chạy từ frame 0.
@@ -32,7 +32,9 @@ export const PexelsTalkVideo: React.FC<PexelsTalkVideoProps> = ({
 
   return (
     <AbsoluteFill>
-      {/* Background video(s): dùng mảng nếu có nhiều clip, loop 1 nếu chỉ có 1 */}
+      {/* Lớp nền NỀN TẢNG: playlist chung, chạy suốt cả video. Đoạn nào có nền riêng sẽ vẽ đè lên
+          lớp này; giữ nó lại để phần chờ đầu video, phần lặng cuối và các đoạn chưa gán nền riêng
+          luôn có hình, không bao giờ lọt ra khung đen. */}
       <VideoBackground
         src={backgroundVideos && backgroundVideos.length > 0 ? backgroundVideos : backgroundVideo}
         opacity={0.55}
@@ -49,6 +51,33 @@ export const PexelsTalkVideo: React.FC<PexelsTalkVideoProps> = ({
         const dur = seg.durationInFrames;
         return (
           <Sequence from={from} durationInFrames={dur} key={idx}>
+            {/* Nền RIÊNG của đoạn này (clip chọn theo đúng câu đang đọc). Vẽ đè lên playlist nền
+                chung và chỉ tồn tại trong khoảng thời gian của đoạn, nên hết đoạn là tự trả lại
+                nền chung — không cần xử lý ranh giới thủ công. */}
+            {seg.bgVideo ? (
+              <Sequence
+                from={0}
+                durationInFrames={Math.max(
+                  1,
+                  Math.min(
+                    dur,
+                    seg.bgVideoDurationInSeconds
+                      ? Math.round(seg.bgVideoDurationInSeconds * fps)
+                      : dur
+                  )
+                )}
+              >
+                <AbsoluteFill>
+                  <OffthreadVideo
+                    src={staticFile(seg.bgVideo)}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    volume={0}
+                  />
+                  <AbsoluteFill style={{ background: 'rgba(0,0,0,0.55)' }} />
+                </AbsoluteFill>
+              </Sequence>
+            ) : null}
+
             {/* Narration voice */}
             {seg.audio ? (
               <Audio src={staticFile(seg.audio)} volume={1} />

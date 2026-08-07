@@ -4,6 +4,12 @@ export const segmentSchema = z.object({
   caption: z.string().default(''),
   audio: z.string().default(''),
   durationInFrames: z.number().min(1).default(90),
+  // Clip nền RIÊNG của đoạn này, chọn theo đúng nội dung câu đang đọc. Bỏ trống thì đoạn dùng
+  // playlist nền chung của cả video (xem backgroundVideos).
+  bgVideo: z.string().optional(),
+  // Độ dài thật của clip trên. Cần để cắt đúng lúc clip hết: clip ngắn hơn đoạn mà cứ để nguyên
+  // thì phần dư sẽ ĐỨNG HÌNH — thay vào đó trả lại nền chung cho tới hết đoạn.
+  bgVideoDurationInSeconds: z.number().positive().optional(),
   wordTimings: z.array(z.object({
     word: z.string(),
     startMs: z.number(),

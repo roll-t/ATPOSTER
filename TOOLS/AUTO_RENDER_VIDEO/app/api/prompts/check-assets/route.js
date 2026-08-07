@@ -42,8 +42,17 @@ export async function POST(req) {
 
     const bgDir = path.join(targetDir, 'bg');
     let hasBgVideo = false;
+    // Số hiệu các đoạn ĐÃ có nền riêng ("seg-bg-NN.mp4") trên đĩa. Giao diện giữ thông tin gán nền
+    // trong state React nên tải lại trang là mất; trả về đây để dựng lại được trạng thái thật.
+    const segmentBgNumbers = [];
     if (fs.existsSync(bgDir)) {
-      hasBgVideo = fs.readdirSync(bgDir).some(f => f.endsWith('.mp4') || f.endsWith('.webm'));
+      const files = fs.readdirSync(bgDir);
+      hasBgVideo = files.some(f => f.endsWith('.mp4') || f.endsWith('.webm'));
+      for (const f of files) {
+        const m = f.match(/^seg-bg-(\d+)\.(mp4|webm)$/);
+        if (m) segmentBgNumbers.push(Number(m[1]));
+      }
+      segmentBgNumbers.sort((a, b) => a - b);
     }
 
     return NextResponse.json({
@@ -53,7 +62,8 @@ export async function POST(req) {
       videoCreated,
       hasBgMusic: Boolean(bgMusicFile),
       bgMusicFile,
-      hasBgVideo
+      hasBgVideo,
+      segmentBgNumbers
     });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

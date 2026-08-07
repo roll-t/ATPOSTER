@@ -5,12 +5,10 @@
     "customUploadsDir": "",
     "geminiApiKey": "AIzaSyB3JZXwQGZQw4SOhlduXc2l3oej9URgBCY\nAQ.Ab8RN6Jt6nlZxZzMjs21vUSAF0ZRYmnSXSqwUV6r0XgsdMbtAQ\nAQ.Ab8RN6JPF2ArDllLVly-i5Mfj3FPbtD9GwdbWaFXuMKT9R70cg",
     "voiceMappings": {},
-    "ttsProvider": "vieneu",
+    "ttsProvider": "edge",
     "edgeVoiceMappings": {},
     "vieneuServerUrl": "http://127.0.0.1:8001",
-    "vieneuVoiceMappings": {
-      "narrator": "Minh Quân"
-    },
+    "vieneuVoiceMappings": {},
     "favoriteEdgeVoiceIds": [],
     "favoriteVieneuVoiceIds": [],
     "defaultCaptionStyle": "page",

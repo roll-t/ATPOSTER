@@ -54,7 +54,15 @@ async function pickBestFile(candidates, maxBytes, apiKey) {
 // Nếu clearExisting = true (video đầu tiên trong batch), xoá toàn bộ bg cũ trước khi tải.
 export async function POST(req) {
   try {
-    const { folderPath, videoUrl, videoFiles, pexelsId, index, clearExisting, maxSizeMB } = await req.json();
+    const { folderPath, videoUrl, videoFiles, pexelsId, index, segmentNumber, clearExisting, maxSizeMB } = await req.json();
+
+    // Hai NHÓM file nền sống song song trong cùng thư mục bg/, phải tách nhau rạch ròi:
+    //   • "seg-bg-NN.mp4" — nền riêng của đoạn NN, khớp với đúng câu đang đọc
+    //   • "bg-NN.mp4"     — playlist nền chung, dùng cho đoạn chưa gán riêng và phần đầu/cuối video
+    // Nếu không tách, mỗi lần áp dụng lại playlist chung (clearExisting) sẽ xoá sạch nền riêng của
+    // từng đoạn mà người dùng đã cất công chọn.
+    const isSegmentBg = Number.isFinite(Number(segmentNumber));
+    const segNum = isSegmentBg ? Number(segmentNumber) : null;
 
     if (!folderPath || !SAFE_FOLDER_RE.test(folderPath)) {
       return NextResponse.json({ success: false, error: 'Tên thư mục không hợp lệ.' }, { status: 400 });
@@ -85,10 +93,17 @@ export async function POST(req) {
     const bgDir = path.join(publicDir, folderPath, 'bg');
     fs.mkdirSync(bgDir, { recursive: true });
 
-    // Xoá toàn bộ file bg cũ khi bắt đầu batch mới
+    // Dọn file cũ — CHỈ trong nhóm đang được thay, không đụng sang nhóm kia.
     if (clearExisting) {
+      const isVideoFile = (f) => f.endsWith('.mp4') || f.endsWith('.webm');
       fs.readdirSync(bgDir)
-        .filter(f => f.endsWith('.mp4') || f.endsWith('.webm'))
+        .filter(f => isVideoFile(f) && (
+          isSegmentBg
+            // Thay nền của riêng 1 đoạn -> chỉ xoá đúng file của đoạn đó.
+            ? f.startsWith(`seg-bg-${String(segNum).padStart(2, '0')}.`)
+            // Thay playlist chung -> xoá mọi file KHÔNG phải nền riêng của đoạn nào.
+            : !f.startsWith('seg-bg-')
+        ))
         .forEach(f => { try { fs.unlinkSync(path.join(bgDir, f)); } catch (_) {} });
     }
 
@@ -132,11 +147,13 @@ export async function POST(req) {
       });
     }
 
-    // Multi-video mode: bg-01.mp4, bg-02.mp4...
-    // Single-video fallback: background-{pexelsId}.mp4
-    const filename = index !== undefined
-      ? `bg-${String(index + 1).padStart(2, '0')}.mp4`
-      : `background${pexelsId ? `-${pexelsId}` : ''}.mp4`;
+    const filename = isSegmentBg
+      // Nền riêng của 1 đoạn — đặt tên theo SỐ ĐOẠN để render-project.mjs ghép lại đúng đoạn.
+      ? `seg-bg-${String(segNum).padStart(2, '0')}.mp4`
+      : index !== undefined
+        // Playlist nền chung: bg-01.mp4, bg-02.mp4...
+        ? `bg-${String(index + 1).padStart(2, '0')}.mp4`
+        : `background${pexelsId ? `-${pexelsId}` : ''}.mp4`;
 
     fs.writeFileSync(path.join(bgDir, filename), buffer);
 
@@ -148,6 +165,7 @@ export async function POST(req) {
       success: true,
       filename,
       index,
+      segmentNumber: segNum,
       backgroundVideo: bgVideoRelPath,
       sizeMB,
       width: chosen.width,

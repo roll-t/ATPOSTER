@@ -81,40 +81,46 @@ const bgDir = path.join(projectPath, 'bg');
 let backgroundVideo = manifest.backgroundVideo || '';
 let backgroundVideos = [];
 
+// ffprobe dùng chung cho cả playlist nền lẫn nền riêng của từng đoạn — ưu tiên bản đi kèm Remotion
+// compositor, không có thì dùng ffprobe của hệ thống.
+const ffprobeExe = (() => {
+  const isWin = process.platform === 'win32';
+  const pkg = isWin ? 'compositor-win32-x64-msvc'
+    : process.platform === 'darwin'
+      ? (process.arch === 'arm64' ? 'compositor-darwin-arm64' : 'compositor-darwin-x64')
+      : (process.arch === 'arm64' ? 'compositor-linux-arm64-musl' : 'compositor-linux-x64-musl');
+  const wsRoot = path.resolve(root, '..', '..', '..');
+  const localDir = path.join(root, 'node_modules', '@remotion', pkg);
+  const rootDir = path.join(wsRoot, 'node_modules', '@remotion', pkg);
+  const dir = fs.existsSync(localDir) ? localDir : rootDir;
+  const bundled = path.join(dir, isWin ? 'ffprobe.exe' : 'ffprobe');
+  return fs.existsSync(bundled) ? bundled : 'ffprobe';
+})();
+
+function getDuration(filePath) {
+  try {
+    const out = execFileSync(ffprobeExe, [
+      '-v', 'error', '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1', filePath,
+    ]).toString().trim();
+    const secs = parseFloat(out);
+    return Number.isFinite(secs) && secs > 0 ? secs : 0;
+  } catch { return 0; }
+}
+
 if (fs.existsSync(bgDir)) {
   const LEGACY_LOOPED_NAME = 'background-looped.mp4';
 
+  // "seg-bg-NN.mp4" là nền RIÊNG của đoạn NN, không thuộc playlist chung — ghép riêng bên dưới.
   const srcFiles = fs.readdirSync(bgDir)
-    .filter(f => (f.endsWith('.mp4') || f.endsWith('.webm')) && f !== LEGACY_LOOPED_NAME)
+    .filter(f => (f.endsWith('.mp4') || f.endsWith('.webm'))
+      && f !== LEGACY_LOOPED_NAME
+      && !f.startsWith('seg-bg-'))
     .sort()
     .map(f => path.join(bgDir, f))
     .filter(f => fs.existsSync(f));
 
   if (srcFiles.length > 0) {
-    // ffprobe: ưu tiên bản đi kèm Remotion compositor, không có thì dùng ffprobe hệ thống.
-    const isWindows = process.platform === 'win32';
-    const compositorPkg = isWindows ? 'compositor-win32-x64-msvc'
-      : process.platform === 'darwin'
-        ? (process.arch === 'arm64' ? 'compositor-darwin-arm64' : 'compositor-darwin-x64')
-        : (process.arch === 'arm64' ? 'compositor-linux-arm64-musl' : 'compositor-linux-x64-musl');
-    const workspaceRoot = path.resolve(root, '..', '..', '..'); // RENDER/
-    const localCompositorDir = path.join(root, 'node_modules', '@remotion', compositorPkg);
-    const rootCompositorDir  = path.join(workspaceRoot, 'node_modules', '@remotion', compositorPkg);
-    const compositorDir = fs.existsSync(localCompositorDir) ? localCompositorDir : rootCompositorDir;
-    const bundledFfprobe = path.join(compositorDir, isWindows ? 'ffprobe.exe' : 'ffprobe');
-    const ffprobeExe = fs.existsSync(bundledFfprobe) ? bundledFfprobe : 'ffprobe';
-
-    const getDuration = (filePath) => {
-      try {
-        const out = execFileSync(ffprobeExe, [
-          '-v', 'error', '-show_entries', 'format=duration',
-          '-of', 'default=noprint_wrappers=1:nokey=1', filePath
-        ]).toString().trim();
-        const secs = parseFloat(out);
-        return Number.isFinite(secs) && secs > 0 ? secs : 0;
-      } catch { return 0; }
-    };
-
     backgroundVideos = srcFiles.map((f) => {
       const src = `${projectFolder}/bg/${path.basename(f)}`;
       const durationInSeconds = getDuration(f);
@@ -178,13 +184,31 @@ const segments = manifest.segments.map(seg => {
 
   const subtitle = stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || '');
 
+  // Nền riêng của đoạn: file "seg-bg-NN.mp4" trong bg/. Đo độ dài thật để Remotion cắt đúng lúc
+  // clip hết thay vì để nó đứng hình cho tới hết đoạn.
+  let segBg = {};
+  const segBgPath = path.join(bgDir, `seg-bg-${paddedNum}.mp4`);
+  if (fs.existsSync(segBgPath)) {
+    const secs = getDuration(segBgPath);
+    segBg = {
+      bgVideo: `${projectFolder}/bg/seg-bg-${paddedNum}.mp4`,
+      ...(secs > 0 ? { bgVideoDurationInSeconds: secs } : {}),
+    };
+  }
+
   return {
     caption: subtitle,
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
     durationInFrames,
+    ...segBg,
     ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
   };
 });
+
+const segmentsWithOwnBg = segments.filter(s => s.bgVideo).length;
+if (segmentsWithOwnBg > 0) {
+  console.log(`[BgVideo] ${segmentsWithOwnBg}/${segments.length} đoạn có nền riêng khớp lời kể.`);
+}
 
 // Build config
 const remotionConfig = {
