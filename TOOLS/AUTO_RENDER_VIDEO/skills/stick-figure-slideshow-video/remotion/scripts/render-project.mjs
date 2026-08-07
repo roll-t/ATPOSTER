@@ -39,6 +39,7 @@
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -325,7 +326,11 @@ if (!fs.existsSync(localCliDir) && !fs.existsSync(wsCliDir)) {
 const remotionCliEntry = path.join(fs.existsSync(localCliDir) ? localCliDir : wsCliDir, "remotion-cli.js");
 const outputVideoPath = path.join(finalDir, "video.mp4");
 
-console.log(`\nRendering video to -> public/${projectFolder}/final/video.mp4`);
+const cores = os.cpus().length;
+const defaultConcurrency = Math.max(1, Math.floor(cores / 2));
+const concurrency = process.env.REMOTION_CONCURRENCY ? parseInt(process.env.REMOTION_CONCURRENCY, 10) : defaultConcurrency;
+
+console.log(`\nRendering video to -> public/${projectFolder}/final/video.mp4 (concurrency: ${concurrency}/${cores})`);
 execFileSync(
   process.execPath,
   [
@@ -335,6 +340,7 @@ execFileSync(
     "SlideshowVideo",
     outputVideoPath,
     `--props=${configOutPath}`,
+    `--concurrency=${concurrency}`,
   ],
   { cwd: root, stdio: "inherit" }
 );

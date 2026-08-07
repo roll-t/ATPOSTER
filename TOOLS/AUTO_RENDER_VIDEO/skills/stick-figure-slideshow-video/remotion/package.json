@@ -9,13 +9,13 @@
   },
   "dependencies": {
     "@atposter/remotion-shared": "*",
-    "@remotion/cli": "^4.0.489",
-    "@remotion/google-fonts": "^4.0.489",
-    "@remotion/media-utils": "^4.0.489",
+    "@remotion/cli": "4.0.506",
+    "@remotion/google-fonts": "4.0.506",
+    "@remotion/media-utils": "4.0.506",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "remotion": "^4.0.489",
-    "zod": "4.3.6"
+    "remotion": "4.0.506",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

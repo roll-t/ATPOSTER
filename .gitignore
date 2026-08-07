@@ -59,3 +59,6 @@ coverage/
 
 /TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/*
 !/TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/README.md
+
+# Agent customizations
+.agents/

@@ -15,6 +15,7 @@
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,7 +80,11 @@ items.forEach((cfg, i) => {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify(cfg, null, 2));
 
-  console.log(`\n[${i + 1}/${items.length}] rendering -> public/${projectFolder}/final/video.mp4`);
+  const cores = os.cpus().length;
+  const defaultConcurrency = Math.max(1, Math.floor(cores / 2));
+  const concurrency = process.env.REMOTION_CONCURRENCY ? parseInt(process.env.REMOTION_CONCURRENCY, 10) : defaultConcurrency;
+
+  console.log(`\n[${i + 1}/${items.length}] rendering -> public/${projectFolder}/final/video.mp4 (concurrency: ${concurrency}/${cores})`);
   execFileSync(
     process.execPath,
     [
@@ -89,6 +94,7 @@ items.forEach((cfg, i) => {
       "ReadingPageVideo",
       path.join(dir, "video.mp4"),
       `--props=${path.join(dir, "config.json")}`,
+      `--concurrency=${concurrency}`,
     ],
     { cwd: root, stdio: "inherit" }
   );

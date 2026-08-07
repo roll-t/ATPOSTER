@@ -14,6 +14,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -255,10 +256,22 @@ const remotionCli = path.join(
 );
 const outputPath = path.join(finalDir, 'video.mp4');
 
-console.log(`\nRendering → ${outputPath}`);
+const cores = os.cpus().length;
+const defaultConcurrency = Math.max(1, Math.floor(cores / 2));
+const concurrency = process.env.REMOTION_CONCURRENCY ? parseInt(process.env.REMOTION_CONCURRENCY, 10) : defaultConcurrency;
+
+console.log(`\nRendering → ${outputPath} (concurrency: ${concurrency}/${cores})`);
 execFileSync(
   process.execPath,
-  [remotionCli, 'render', 'src/index.ts', 'PexelsTalkVideo', outputPath, `--props=${configPath}`],
+  [
+    remotionCli,
+    'render',
+    'src/index.ts',
+    'PexelsTalkVideo',
+    outputPath,
+    `--props=${configPath}`,
+    `--concurrency=${concurrency}`
+  ],
   { cwd: root, stdio: 'inherit' }
 );
 
