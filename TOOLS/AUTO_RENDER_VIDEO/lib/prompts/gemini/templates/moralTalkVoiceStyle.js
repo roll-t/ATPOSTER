@@ -15,6 +15,30 @@
  */
 import { isReflectiveMoralTheme } from '../../moralThemes.js';
 
+/**
+ * Quy tắc MỞ BÀI HAI NHỊP, dùng chung cho cả 2 văn phong.
+ *
+ * Trước đây con số ("7 điều...") bị gộp thẳng vào câu hook, nên kịch bản đi từ câu mở chấn động
+ * nhảy luôn sang "Thứ nhất" — người xem không kịp biết sắp nghe bao nhiêu ý, mất luôn cái cớ để
+ * ngồi lại nghe hết. Tách làm 2 nhịp: hook gây sốc trước, rồi một câu riêng hứa số lượng, xong mới
+ * vào ý thứ nhất.
+ *
+ * Đặt ở file dùng chung này (không nhét riêng vào moralTalkSlideshow.js) vì nút "Viết lại lời kể
+ * (giữ ảnh)" đi qua buildRegenerateNarrationPrompt — chỉ sửa một bên là hai bên lệch pha ngay, đúng
+ * cái bẫy mà docblock đầu file này đã cảnh báo.
+ *
+ * Cố ý KHÔNG quy định dùng "Một." hay "Thứ nhất" ở đây: mỗi văn phong đã có quy ước đánh số riêng
+ * ở phần kỹ thuật bên trên, viết đè lại sẽ mâu thuẫn với chính nó.
+ */
+const ENUMERATED_OPENING_RULE = `
+TWO-BEAT OPENING (MANDATORY whenever the script enumerates points — i.e. the topic promises a count such as "7 điều...", "5 cách...", "6 dấu hiệu...", or you are writing points led by a sequence word):
+- BEAT 1 — THE HOOK: the scroll-stopping opening line(s), following the 3-SECOND HOOK rules above. Do NOT put the count inside this beat; the hook's job is to shock/intrigue, not to announce an agenda.
+- BEAT 2 — THE PROMISE: immediately after the hook and BEFORE the first numbered point, write ONE short standalone sentence that names the exact count and what the list will deliver. Vietnamese examples: "Bảy điều sau đây, không ai nói với bạn trước khi ra trường." / "Sau đây là 5 dấu hiệu bạn nên rời đi sớm." English example: "Here are the 7 things nobody warns you about."
+- The number in BEAT 2 MUST equal exactly how many numbered points actually follow.
+- NEVER merge BEAT 2 into the hook sentence, and NEVER jump straight from the hook into the first point — the listener has to know how many points are coming before point one starts, otherwise they have no reason to stay to the end.
+- BEAT 2 is its own narration beat: when the output is split into slides/segments, it gets its own slide, separate from the hook slide and separate from point one.
+- Number the points using whichever sequence-word convention this voice's techniques above specify — do not invent a different one here.`;
+
 export function getMoralTalkStyleReference(theme) {
   // Văn phong đọc từ registry (moralThemes.js) chứ KHÔNG so sánh chuỗi tại đây nữa: trước đây là
   // `theme === 'self_help' || theme === 'rules_of_life'`, nên mọi nhóm chủ đề thêm về sau đều âm
@@ -44,7 +68,9 @@ Techniques to reproduce from this reference, applied to whatever topic is given:
 2. Use repetition / parallel sentence structure at least once (e.g. "Chúng ta từng... Chúng ta từng...", "vẫn... vẫn... vẫn...") to build rhythmic, almost lyrical momentum.
 3. Use a clear BEFORE/AFTER or contrast structure — what we once believed, hoped for, or felt as a child/beginner, versus what life actually taught us or how things really turned out.
 4. Use elevated, image-rich, literary spoken language (metaphor, emotionally specific word choices like "giấu nước mắt sau một nụ cười") while still sounding natural when read aloud — not stiff, not academic, not a list of vague generalities.
-5. Close by circling back to the opening image/question, landing on ONE short, quotable closing line — ideally imagined direct speech in quotation marks, the kind of line someone would screenshot and share.`;
+5. Close by circling back to the opening image/question, landing on ONE short, quotable closing line — ideally imagined direct speech in quotation marks, the kind of line someone would screenshot and share.
+6. If (and only if) the topic promises a count of points, number them naturally in this warm register — "Thứ nhất, ... Thứ hai, ... Thứ ba, ..." — and keep each point's explanation in the same reflective, image-rich voice. A reflective topic that is NOT enumerative must stay a flowing piece with no numbering at all.
+${ENUMERATED_OPENING_RULE}`;
 
     return { isReflectiveTheme, narrationModeLine, styleReferenceBlock };
   }
@@ -80,12 +106,13 @@ Bạn biết được bao nhiêu điều trong số này?`;
 ${listSample}
 """
 Techniques to reproduce from this reference, applied to whatever topic is given:
-1. Open with ONE short, blunt hook line that frames the whole list as hard-won truths learned through real-life experience, not textbook advice — and states the exact count of points, leading with the number itself, e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." This line must also satisfy the 3-SECOND HOOK rules given above: at most ~14 words, no warm-up clause in front of the number. NEVER start this line with "Có" (e.g. NOT "Có 10 quy tắc..." — start straight with the number instead). That number MUST equal exactly how many list-point slides/lines follow, so the viewer knows upfront how long the list is and can follow along.
+1. Open with TWO separate beats, never one merged line (see the TWO-BEAT OPENING block below for the full rule). First a short, blunt hook that frames the whole list as hard-won truths learned through real life, not textbook advice — at most ~14 words, no warm-up clause, and no count in it. Then, as its own line, the promise stating the exact count, leading with the number itself, e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." NEVER start that promise line with "Có" (e.g. NOT "Có 10 quy tắc..." — start straight with the number instead). The count MUST equal exactly how many list-point slides/lines follow, so the viewer knows upfront how long the list is and can follow along.
 2. Each list point states the rule/fact DIRECTLY and PLAINLY, as its own complete statement — this is the DEFAULT for every point, straight to the point, no framing, no hedging. DO NOT force an artificial "[điều đúng], không phải [điều người ta thường lầm tưởng]" contrast onto every single point — repeated point after point across 5-10 points, that template becomes wordy and roundabout ("vòng vo") instead of sounding decisive. A contrast structure (e.g. "X, không phải Y" or "X thay vì Y") is fine ONLY where the content itself genuinely calls for correcting a common misconception — most points should just state the rule outright with zero contrast framing, exactly like "Hai. Có mượn thì phải trả." or "Năm. Được mời đi tiệc thì mang theo quà." in the reference sample.
 3. Lead each point with a plain sequential counting word FOLLOWED BY A PERIOD (not a comma, not the word "là") — "Một. Hai. Ba. Bốn. Năm. Sáu...." (NOT "Một, Hai," and NOT "Một là, Hai là...") — or in English mode: "First. Second. Third. Fourth...." The period after the number is a deliberate full stop, giving the voice a clear beat/pause before each point begins.
 4. Keep each point SHORT — usually just ONE sentence (occasionally two short clauses joined by a comma when the rule naturally has two related parts, like point Bốn/Chín in the sample). Do not pad with an extra justification/explanation sentence after the rule — state it and move on. Real hard-won-wisdom lists don't explain themselves; explaining every point is exactly the "lòng vòng" (roundabout) feeling to avoid.
 5. Optionally close with ONE short, punchy line that invites the viewer to self-check against the list, e.g. "Bạn biết được bao nhiêu điều trong số này?" — this works well as a scroll-stopping, comment-bait closer for this genre.
-6. Tone across the whole list: direct, confident, unsentimental, slightly blunt — never preachy, never flowery. This is the opposite register from a warm bedtime-story voice.`;
+6. Tone across the whole list: direct, confident, unsentimental, slightly blunt — never preachy, never flowery. This is the opposite register from a warm bedtime-story voice.
+${ENUMERATED_OPENING_RULE}`;
 
   return { isReflectiveTheme, narrationModeLine, styleReferenceBlock };
 }

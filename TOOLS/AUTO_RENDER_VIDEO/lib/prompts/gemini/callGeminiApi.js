@@ -62,7 +62,28 @@ const deadModels = new Set();
 // Con trỏ round-robin: mỗi lệnh gọi bắt đầu từ một key khác nhau để TRẢI ĐỀU tải thay vì lần nào
 // cũng dồn vào key #1 rồi mới rớt dần sang #2, #3 — cách cũ khiến key #1 luôn cạn quota trước
 // trong khi key #2/#3 gần như không được dùng.
+//
+// LƯU Ý: vòng xoay này giờ CHỈ áp dụng cho các key từ #2 trở đi — xem resolveKeyIndex().
 let roundRobinCursor = 0;
+
+/**
+ * Thứ tự thử key trong một lượt quét: KEY #1 LUÔN ĐI ĐẦU, các key còn lại mới xoay vòng.
+ *
+ * Vì sao phải phá vòng xoay đều: các key không còn ngang hàng nhau nữa. Một key trả phí có hạn mức
+ * cao gấp nhiều lần key free, nên đáng được dùng trước; trải đều sang key free chỉ tổ làm chúng cạn
+ * quota sớm trong khi key mạnh nhất vẫn còn nguyên. Quy ước: key đứng ĐẦU trong ô cài đặt là key
+ * ưu tiên.
+ *
+ * Vẫn giữ round-robin cho phần đuôi vì lý do cũ vẫn đúng với nhóm key free ngang hàng: không xoay
+ * thì key #2 luôn cạn trước trong khi #3 gần như không được đụng tới.
+ *
+ * Nếu key ưu tiên đang nghỉ (429) thì buildAttemptPlan tự xếp nó xuống nhóm `cooling`, các key khác
+ * vẫn được dùng ngay — ưu tiên không có nghĩa là đứng chờ nó.
+ */
+function resolveKeyIndex(n, keyCount, offset) {
+  if (n === 0 || keyCount < 2) return 0;
+  return 1 + ((offset + n - 1) % (keyCount - 1));
+}
 
 // Trần thời gian NGỦ mỗi lần chờ. Tách bạch với `cooldownUntil`: cooldown có thể đặt xa cả tiếng
 // (quota theo ngày) vì ta chỉ cần BỎ QUA cặp đó, còn ngủ thì không bao giờ được ngủ quá lâu kẻo
@@ -251,7 +272,7 @@ function buildAttemptPlan(models, keys) {
   for (const model of models) {
     if (deadModels.has(model)) continue;
     for (let n = 0; n < keys.length; n++) {
-      const keyIndex = (offset + n) % keys.length;
+      const keyIndex = resolveKeyIndex(n, keys.length, offset);
       const key = keys[keyIndex];
       if (deadKeys.has(key)) continue;
 

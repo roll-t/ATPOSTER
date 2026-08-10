@@ -8,6 +8,7 @@ import StickFigureLongFormModal from './StickFigureLongFormModal.js';
 import { STICK_FIGURE_LONGFORM_GROUPS, STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
 import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
+import { getMoralSyllabusCount } from '@/lib/prompts/moralSyllabus.js';
 import LevelPicker from './LevelPicker.js';
 import MoralThemePicker from './MoralThemePicker.js';
 import StickFigureThemePicker from './StickFigureThemePicker.js';
@@ -386,7 +387,7 @@ export default function ContentForm({
                   >
                     {activeCategory === 'reading_practice'
                       ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                      : `📚 Lộ trình 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                      : `📚 Lộ trình ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
                     }
                   </button>
                 )}

@@ -59,9 +59,9 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
     else if (durationRange === '8_10m') targetSlides = '56 đến 68';
 
     pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic, listing specific items/points.
-- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. One slide for introduction, one slide for each list point, and one slide for the conclusion.
+- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides — one HOOK slide, one PROMISE slide, one slide for each list point, and one slide for the conclusion.
 - NARRATION LENGTH PER SLIDE: Each slide should have about 6 to 10 seconds of speech (equivalent to 18 to 30 words), allowing enough explanation for each point.
-- The INTRODUCTION slide's narration must state the exact NUMBER of points the list has, leading with the number itself — e.g. "5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." or "Top 5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." — NEVER opening with "Có" (e.g. NOT "Có 5 nguyên tắc..."). That number must equal exactly how many list-point slides you actually write, so the viewer knows upfront how long the list is and can follow along.`;
+- The opening is TWO SEPARATE SLIDES, never one (see the TWO-BEAT OPENING rule in the style section): slide 1 is the hook alone with NO count in it; slide 2 is the promise, whose narration states the exact NUMBER of points, leading with the number itself — e.g. "5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." or "Top 5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." — NEVER opening with "Có" (e.g. NOT "Có 5 nguyên tắc..."). That number must equal exactly how many list-point slides you actually write, so the viewer knows upfront how long the list is and can follow along.`;
   }
 
   // Khung 16:9 (video dài YouTube) trước đây chỉ được gợi ý "you may..." (tuỳ chọn) để tận dụng

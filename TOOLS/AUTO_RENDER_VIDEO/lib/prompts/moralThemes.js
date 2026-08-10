@@ -117,6 +117,55 @@ export const MORAL_THEMES = [
     icon: '🌀',
     voice: 'reflective',
     styleLabel: 'Overthinking / Anxiety / Finding Mental Stillness — soothing, grounding, helps quiet a restless mind'
+  },
+  // -----------------------------------------------------------------------------------------------
+  // 5 nhóm dưới đây đều dùng văn phong 'list'. Ba nhóm đầu cố ý là bản SONG SINH THỰC CHIẾN của ba
+  // nhóm phản tư đã có: 'Ứng Xử Với Sếp' cạnh 'Quy Tắc Ứng Xử', 'Gỡ Rối Suy Nghĩ' cạnh 'Suy Nghĩ
+  // Quá Nhiều', 'Kỷ Luật & Thói Quen' cạnh 'Self-Help'.
+  //
+  // Vì sao phải tách nhóm riêng chứ không nhét thêm chủ đề vào nhóm cũ: `voice` gắn với CẢ NHÓM,
+  // không gắn với từng chủ đề. Nhét một chủ đề dạng "7 cách làm X" vào nhóm reflective thì nó vẫn
+  // bị đọc bằng giọng phản tư tâm tình — sai hẳn với nội dung liệt kê từng bước.
+  // -----------------------------------------------------------------------------------------------
+  {
+    key: 'boss_etiquette',
+    label: 'Ứng Xử Với Sếp',
+    sub: 'Công sở & Cấp trên',
+    icon: '🎯',
+    voice: 'list',
+    styleLabel: 'Workplace Etiquette with Bosses & Authority — how to speak up, push back, report work and be seen by the people who decide your career'
+  },
+  {
+    key: 'stop_overthinking',
+    label: 'Gỡ Rối Suy Nghĩ',
+    sub: 'Cách thoát nghĩ nhiều',
+    icon: '🧩',
+    voice: 'list',
+    styleLabel: 'Actionable Techniques to Stop Overthinking — concrete steps and rules, not comfort; the practical counterpart to the reflective Overthinking theme'
+  },
+  {
+    key: 'discipline_habits',
+    label: 'Kỷ Luật & Thói Quen',
+    sub: 'Cách duy trì đều đặn',
+    icon: '🔁',
+    voice: 'list',
+    styleLabel: 'Building & Sustaining Discipline / Habit Systems — what to actually do when motivation is gone; environment design over willpower'
+  },
+  {
+    key: 'university_life',
+    label: 'Đời Sinh Viên',
+    sub: 'Đại học & Định hướng',
+    icon: '🎓',
+    voice: 'list',
+    styleLabel: 'University Life for Vietnamese Students — choosing a major, internships, part-time work, dorm life, campus mistakes that cost four years'
+  },
+  {
+    key: 'after_graduation',
+    label: 'Ra Trường & Tìm Việc',
+    sub: 'Xin việc & Năm đầu',
+    icon: '💼',
+    voice: 'list',
+    styleLabel: 'Post-Graduation & Job Hunting — CV writing, interviews, salary talk, rejection, surviving the first job'
   }
 ];
 

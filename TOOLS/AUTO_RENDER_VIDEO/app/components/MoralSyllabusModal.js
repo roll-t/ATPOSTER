@@ -140,7 +140,7 @@ export default function MoralSyllabusModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>📚</span> Danh sách 50 Chủ đề Video Đạo lý
+                <span>📚</span> Danh sách {themeTopics.length} Chủ đề Video Đạo lý
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -157,7 +157,7 @@ export default function MoralSyllabusModal({
                 </span>
               </h2>
               <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                50 bài học thực tế cho chủ đề đang chọn ở form. Đổi chủ đề ở ngoài form để xem lộ trình khác.
+                {themeTopics.length} bài học thực tế cho chủ đề đang chọn ở form. Đổi chủ đề ở ngoài form để xem lộ trình khác.
                 Chủ đề đã tạo video sẽ được đánh dấu tích xanh ✓.
               </p>
             </div>
@@ -198,7 +198,7 @@ export default function MoralSyllabusModal({
               }} />
             </div>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#4ade80', whiteSpace: 'nowrap' }}>
-              ✓ Đã làm {completedCount}/50 bài ({progressPercent}%)
+              ✓ Đã làm {completedCount}/{themeTopics.length} bài ({progressPercent}%)
             </span>
           </div>
 

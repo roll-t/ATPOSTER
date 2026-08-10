@@ -539,5 +539,139 @@ export const MORAL_SYLLABUS = {
     { id: 18, text: "Học cách quan sát suy nghĩ mà không bị chúng cuốn vào", desc: "Trở thành người xem thay vì người trong câu chuyện" },
     { id: 19, text: "Khi bạn mệt vì suy nghĩ nhiều hơn vì làm việc nhiều", desc: "Chi phí năng lượng thật sự của việc để tâm trí chạy không tải" },
     { id: 20, text: "Học cách thở và trở về hiện tại khi đầu óc đang chạy về tương lai", desc: "Kỹ thuật đơn giản để neo mình vào khoảnh khắc này" }
+  ],
+  // ---------------------------------------------------------------------------------------------
+  // 5 nhóm dưới đây đều là văn phong 'list' (xem moralThemes.js): mỗi chủ đề phải hứa một danh sách
+  // ĐẾM ĐƯỢC và nêu đúng một tình huống người xem đang sống trong đó. Tránh châm ngôn trừu tượng —
+  // đó là phần việc của các nhóm reflective.
+  // ---------------------------------------------------------------------------------------------
+  boss_etiquette: [
+    { id: 1, text: "7 cách trả lời khi sếp hỏi \"em thấy sao\" giữa cuộc họp", desc: "Có ý kiến riêng mà không giẫm chân ai" },
+    { id: 2, text: "6 kiểu sếp bạn sẽ gặp và cách sống sót với từng kiểu", desc: "Nhận diện để chọn cách làm việc phù hợp" },
+    { id: 3, text: "5 cách từ chối việc sếp giao khi bạn đã quá tải", desc: "Nói không mà vẫn giữ được sự tin cậy" },
+    { id: 4, text: "7 câu không bao giờ nên nói với sếp dù đang ức chế", desc: "Một câu lỡ miệng xoá sạch nhiều tháng cố gắng" },
+    { id: 5, text: "6 cách báo tin xấu cho sếp mà không bị quy trách nhiệm", desc: "Báo sớm kèm phương án luôn hơn giấu kỹ" },
+    { id: 6, text: "5 cách mở lời xin tăng lương mà không làm sếp khó xử", desc: "Chọn đúng thời điểm và đúng dữ liệu" },
+    { id: 7, text: "7 dấu hiệu sếp đang đánh giá cao bạn nhưng không nói ra", desc: "Việc được giao nói nhiều hơn lời khen" },
+    { id: 8, text: "6 cách phản bác ý sếp mà vẫn giữ được thiện cảm", desc: "Chống lại ý tưởng, không chống lại con người" },
+    { id: 9, text: "5 điều nên làm trong 30 ngày đầu dưới quyền sếp mới", desc: "Ấn tượng đầu định hình cả năm sau đó" },
+    { id: 10, text: "7 cách khiến sếp nhớ tới bạn khi có cơ hội thăng tiến", desc: "Làm tốt thôi chưa đủ, phải được nhìn thấy" },
+    { id: 11, text: "6 lỗi khiến sếp mất niềm tin chỉ sau một lần", desc: "Niềm tin mất nhanh hơn nhiều so với lúc xây" },
+    { id: 12, text: "5 câu nên hỏi khi sếp giao việc mập mờ, không rõ yêu cầu", desc: "Hỏi kỹ đầu việc rẻ hơn làm lại từ đầu" },
+    { id: 13, text: "7 điều nên chuẩn bị trước buổi họp riêng với sếp", desc: "Mười lăm phút đó quyết định nhiều thứ" },
+    { id: 14, text: "6 cách ứng xử khi sếp phê bình bạn trước mặt cả phòng", desc: "Giữ mặt lúc đó, nói lại lúc riêng tư" },
+    { id: 15, text: "5 cách nhận lỗi với sếp mà vẫn giữ được uy tín", desc: "Nhận trách nhiệm kèm cách khắc phục cụ thể" },
+    { id: 16, text: "7 dấu hiệu bạn đang làm việc dưới quyền một người sếp độc hại", desc: "Phân biệt sếp khó tính và sếp có vấn đề" },
+    { id: 17, text: "6 cách giữ ranh giới khi sếp nhắn việc ngoài giờ", desc: "Thiết lập kỳ vọng sớm thay vì chịu đựng dần" },
+    { id: 18, text: "5 cách trả lời khi sếp hỏi bạn có định gắn bó lâu dài không", desc: "Thành thật mà không tự đóng cửa cơ hội" },
+    { id: 19, text: "7 cách báo cáo công việc để sếp thấy rõ giá trị của bạn", desc: "Kể kết quả chứ đừng kể công sức" },
+    { id: 20, text: "6 điều nên làm trước khi nộp đơn xin nghỉ việc", desc: "Ra đi tử tế giữ lại cả quan hệ lẫn thư giới thiệu" }
+  ],
+  stop_overthinking: [
+    { id: 1, text: "7 cách cắt vòng lặp suy nghĩ lúc hai giờ sáng", desc: "Việc cần làm ngay khi đầu không chịu tắt" },
+    { id: 2, text: "5 câu hỏi giúp bạn gỡ mớ bòng bong trong đầu", desc: "Hỏi đúng câu là nửa đường ra khỏi mê cung" },
+    { id: 3, text: "6 cách chốt quyết định khi bạn cứ cân đo mãi không xong", desc: "Đặt hạn chót cho việc chọn lựa" },
+    { id: 4, text: "7 mẹo dừng việc tua lại cuộc trò chuyện đã qua", desc: "Chuyện đã xong rồi, chỉ đầu bạn chưa xong" },
+    { id: 5, text: "5 cách phân biệt lo lắng có ích và lo lắng vô ích", desc: "Chỉ giữ lại thứ dẫn tới hành động" },
+    { id: 6, text: "6 việc nên làm khi đầu quá tải mà vẫn phải làm việc", desc: "Hạ tải tạm thời để đi tiếp trong hôm nay" },
+    { id: 7, text: "7 cách làm dịu đầu óc trước khi ngủ mà không cần điện thoại", desc: "Điện thoại làm bạn tỉnh chứ không làm bạn dịu" },
+    { id: 8, text: "5 quy tắc đặt hạn giờ cho suy nghĩ để khỏi nghĩ mãi", desc: "Cho phép nghĩ, nhưng có điểm dừng" },
+    { id: 9, text: "6 cách xử lý khi bạn cứ đoán người khác nghĩ gì về mình", desc: "Phần lớn kịch bản đó chưa từng xảy ra" },
+    { id: 10, text: "7 dấu hiệu bạn đang phân tích quá mức thay vì bắt tay làm", desc: "Chuẩn bị mãi cũng là một kiểu trì hoãn" },
+    { id: 11, text: "5 cách viết ra giấy để đầu nhẹ đi trong mười phút", desc: "Chữ trên giấy chiếm ít chỗ hơn trong đầu" },
+    { id: 12, text: "6 mẹo cắt bớt lựa chọn để khỏi tê liệt vì quá nhiều đường", desc: "Ít cửa hơn thì đi nhanh hơn" },
+    { id: 13, text: "7 cách kéo mình về hiện tại khi tâm trí chạy tới tương lai", desc: "Neo vào thứ đang có thật trước mặt" },
+    { id: 14, text: "5 câu tự nhắc khi bạn bắt đầu nghĩ tới điều tệ nhất", desc: "Chặn kịch bản xấu ngay từ câu đầu tiên" },
+    { id: 15, text: "6 cách xử lý nỗi sợ sai khiến bạn đứng yên tại chỗ", desc: "Sai một bước rẻ hơn đứng yên một năm" },
+    { id: 16, text: "7 thói quen nhỏ giúp đầu óc bớt ồn mỗi ngày", desc: "Giảm tiếng ồn nền thay vì chờ tĩnh lặng hoàn toàn" },
+    { id: 17, text: "5 cách ngừng đòi hỏi sự chắc chắn tuyệt đối trước khi bắt đầu", desc: "Không có đủ dữ kiện nào là đủ cả" },
+    { id: 18, text: "6 mẹo giữ bình tĩnh trong lúc chờ một kết quả quan trọng", desc: "Lấp khoảng chờ bằng việc trong tầm tay" },
+    { id: 19, text: "7 dấu hiệu bạn đang nghĩ hộ phần việc của người khác", desc: "Trả lại lo lắng cho đúng người sở hữu nó" },
+    { id: 20, text: "5 bước xử lý dứt điểm một chuyện cứ lởn vởn trong đầu", desc: "Giải quyết, lên lịch, hoặc buông hẳn" }
+  ],
+  discipline_habits: [
+    { id: 1, text: "7 cách giữ kỷ luật khi không còn chút động lực nào", desc: "Động lực đến rồi đi, hệ thống thì ở lại" },
+    { id: 2, text: "6 lý do bạn bỏ cuộc đúng tuần thứ ba và cách vượt qua", desc: "Chỗ gãy quen thuộc của mọi kế hoạch" },
+    { id: 3, text: "5 cách bắt đầu lại sau khi đã đứt chuỗi nhiều ngày", desc: "Đứt một hôm không đồng nghĩa hỏng cả tháng" },
+    { id: 4, text: "7 thói quen nhỏ đến mức không thể viện cớ bỏ qua", desc: "Nhỏ tới mức làm còn nhanh hơn nghĩ cớ" },
+    { id: 5, text: "6 cách sắp xếp môi trường để khỏi phải dùng tới ý chí", desc: "Dọn đường dễ hơn gồng mình mỗi ngày" },
+    { id: 6, text: "5 khung giờ nên dành cho việc khó nhất trong ngày", desc: "Làm việc nặng lúc đầu còn tỉnh táo" },
+    { id: 7, text: "7 cách dậy sớm mà không phải báo thức tới lần thứ năm", desc: "Việc quyết định buổi sáng nằm ở tối hôm trước" },
+    { id: 8, text: "6 mẹo giữ đều đặn khi lịch sinh hoạt thay đổi liên tục", desc: "Bản rút gọn cho những ngày bận nhất" },
+    { id: 9, text: "5 cách đo tiến bộ để bạn thấy mình đang đi tới", desc: "Thấy được tiến độ mới có sức đi tiếp" },
+    { id: 10, text: "7 cái bẫy của việc đặt mục tiêu quá lớn ngay từ đầu", desc: "Tham quá thì gãy ngay tuần đầu" },
+    { id: 11, text: "6 cách cắt cơn lướt điện thoại trước giờ làm việc", desc: "Mười phút lướt đủ phá hỏng cả buổi tập trung" },
+    { id: 12, text: "5 cách vận dụng quy tắc hai phút để bắt đầu ngay lập tức", desc: "Khởi động nhỏ phá được sức ì lớn" },
+    { id: 13, text: "7 cách giữ kỷ luật khi không có ai giám sát bạn", desc: "Tự chịu trách nhiệm khi làm việc một mình" },
+    { id: 14, text: "6 dấu hiệu bạn đang bận rộn giả tạo chứ không hề kỷ luật", desc: "Bận không đồng nghĩa với hiệu quả" },
+    { id: 15, text: "5 cách nghỉ ngơi đúng để không kiệt sức giữa chừng", desc: "Nghỉ có kế hoạch là một phần của kỷ luật" },
+    { id: 16, text: "7 câu tự nhủ khiến bạn phá vỡ kỷ luật mà không nhận ra", desc: "Những lời bào chữa nghe rất hợp lý" },
+    { id: 17, text: "6 cách biến việc khó thành thói quen sau ba mươi ngày", desc: "Lộ trình tăng dần thay vì nhảy cóc" },
+    { id: 18, text: "5 cách chọn đúng một việc để tập trung thay vì ôm hết", desc: "Làm xong một thứ hơn dở dang năm thứ" },
+    { id: 19, text: "7 thói quen buổi tối quyết định chất lượng ngày hôm sau", desc: "Ngày mai bắt đầu từ đêm nay" },
+    { id: 20, text: "6 cách giữ kỷ luật khi người xung quanh bạn thì không", desc: "Đi ngược đám đông mà không thấy lạc lõng" }
+  ],
+  university_life: [
+    { id: 1, text: "7 điều sinh viên năm nhất nên biết trước khi quá muộn", desc: "Biết sớm một năm hơn hối tiếc bốn năm" },
+    { id: 2, text: "6 sai lầm khiến bốn năm đại học trôi qua vô nghĩa", desc: "Ra trường tay trắng dù chưa từng trốn học" },
+    { id: 3, text: "5 cách xoay xở khi bạn nhận ra mình học nhầm ngành", desc: "Đổi hướng sớm rẻ hơn cố cho xong" },
+    { id: 4, text: "7 kỹ năng nên có trước khi ra trường, quan trọng hơn điểm số", desc: "Thứ nhà tuyển dụng hỏi mà bảng điểm không trả lời" },
+    { id: 5, text: "6 cách kiếm tiền khi đi học mà không hỏng việc học", desc: "Chọn việc có tích luỹ cho hồ sơ sau này" },
+    { id: 6, text: "5 lý do đi làm thêm sớm giúp bạn hơn hẳn bạn cùng lớp", desc: "Va chạm thật dạy nhanh hơn giáo trình" },
+    { id: 7, text: "7 cách chọn câu lạc bộ để không phí mất một năm", desc: "Vào để học được gì, không phải cho vui" },
+    { id: 8, text: "6 điều nên làm trong kỳ thực tập để được giữ lại", desc: "Thực tập là buổi phỏng vấn kéo dài ba tháng" },
+    { id: 9, text: "5 cách sống chung với bạn cùng phòng mà không xích mích", desc: "Thoả thuận trước tránh cãi nhau sau" },
+    { id: 10, text: "7 sai lầm tiêu tiền điển hình của sinh viên năm nhất", desc: "Tự do tài chính đầu đời rất dễ trượt" },
+    { id: 11, text: "6 cách nhờ thầy cô viết thư giới thiệu đúng cách", desc: "Hỏi sớm, hỏi đúng người, kèm đủ thông tin" },
+    { id: 12, text: "5 thứ nên chuẩn bị từ năm hai cho hồ sơ xin việc", desc: "Hồ sơ đẹp được xây dần chứ không làm gấp" },
+    { id: 13, text: "7 cách học hiệu quả hơn mà không cần thức khuya", desc: "Học đúng cách tiết kiệm cả sức lẫn giờ" },
+    { id: 14, text: "6 dấu hiệu bạn đang học chỉ để qua môn", desc: "Qua môn nhưng không đọng lại gì" },
+    { id: 15, text: "5 cách xây quan hệ ở đại học có ích cho sau này", desc: "Bạn cùng lớp hôm nay là đồng nghiệp mai sau" },
+    { id: 16, text: "7 điều nên trải nghiệm trước khi tốt nghiệp", desc: "Có những việc chỉ làm được lúc còn là sinh viên" },
+    { id: 17, text: "6 cách vượt qua cảm giác lạc lõng khi lên thành phố học", desc: "Năm đầu xa nhà khó hơn mọi người tưởng" },
+    { id: 18, text: "5 lý do điểm cao vẫn không xin được việc", desc: "Bảng điểm chỉ mở cửa, không giữ chỗ" },
+    { id: 19, text: "7 tài nguyên miễn phí của trường mà bạn đang bỏ phí", desc: "Đã đóng học phí rồi thì dùng cho hết" },
+    { id: 20, text: "6 cách nói chuyện với bố mẹ khi bạn muốn đổi hướng", desc: "Thuyết phục bằng kế hoạch, không bằng cảm xúc" }
+  ],
+  after_graduation: [
+    { id: 1, text: "7 điều không ai nói trước về sáu tháng đầu sau tốt nghiệp", desc: "Khoảng trống giữa lễ ra trường và ngày đi làm" },
+    { id: 2, text: "6 cách viết hồ sơ xin việc khi bạn chưa có kinh nghiệm", desc: "Chưa đi làm không có nghĩa là không có gì để kể" },
+    { id: 3, text: "5 câu phỏng vấn ai cũng gặp và cách trả lời cho thật", desc: "Trả lời thẳng hơn hẳn học thuộc văn mẫu" },
+    { id: 4, text: "7 lỗi khiến hồ sơ của bạn bị loại trong mười giây", desc: "Người sàng lọc không đọc kỹ như bạn nghĩ" },
+    { id: 5, text: "6 cách trả lời khi được hỏi mức lương mong muốn", desc: "Nói số sớm quá hay muộn quá đều thiệt" },
+    { id: 6, text: "5 dấu hiệu nên tránh một công ty ngay từ vòng phỏng vấn", desc: "Buổi phỏng vấn là lúc bạn cũng đang chấm họ" },
+    { id: 7, text: "7 cách tìm việc khi bạn không quen ai trong ngành", desc: "Bắt đầu từ con số không về quan hệ" },
+    { id: 8, text: "6 điều nên làm trong tháng đầu tiên đi làm", desc: "Ba mươi ngày đầu định hình cách người ta nhìn bạn" },
+    { id: 9, text: "5 cách vượt qua cảm giác vô dụng khi rải hồ sơ mãi không ai gọi", desc: "Im lặng của nhà tuyển dụng không phải phán quyết về bạn" },
+    { id: 10, text: "7 câu nên hỏi ngược nhà tuyển dụng ở cuối buổi phỏng vấn", desc: "Câu hỏi của bạn cũng đang được chấm điểm" },
+    { id: 11, text: "6 lý do nên nhận công việc đầu tiên dù chưa thật ưng ý", desc: "Bước đầu tiên tạo ra những bước sau" },
+    { id: 12, text: "5 cách thương lượng lương lần đầu mà không mất cơ hội", desc: "Hỏi thêm đúng cách hiếm khi bị rút lời mời" },
+    { id: 13, text: "7 điều nên chuẩn bị trước buổi phỏng vấn trực tuyến", desc: "Mạng, ánh sáng và tiếng động quyết định ấn tượng" },
+    { id: 14, text: "6 dấu hiệu cho thấy đã đến lúc rời công việc đầu tiên", desc: "Ở lại quá lâu cũng tốn kém như nhảy quá sớm" },
+    { id: 15, text: "5 cách giải thích khoảng trống trong hồ sơ xin việc", desc: "Thành thật kèm những gì bạn đã làm trong thời gian đó" },
+    { id: 16, text: "7 kỹ năng nhà tuyển dụng cần mà nhà trường không dạy", desc: "Phần chênh giữa giảng đường và công sở" },
+    { id: 17, text: "6 cách xây hồ sơ năng lực khi chưa đi làm ngày nào", desc: "Tự tạo sản phẩm để có thứ đưa người ta xem" },
+    { id: 18, text: "5 cái giá phải trả khi nhảy việc quá sớm", desc: "Hồ sơ nhảy liên tục kể một câu chuyện không hay" },
+    { id: 19, text: "7 cách vượt qua áp lực khi bạn bè có việc trước bạn", desc: "Mỗi người một tốc độ, kể cả khi mạng xã hội nói khác" },
+    { id: 20, text: "6 điều nên làm sau khi bị từ chối ở vòng cuối", desc: "Đến vòng cuối nghĩa là bạn đã rất gần" }
   ]
 };
+
+/**
+ * Danh sách chủ đề của một nhóm. Rơi về self_help nếu nhóm chưa có lộ trình riêng — khớp đúng
+ * cách MoralSyllabusModal vẫn làm, để không nơi nào phải tự xử lý trường hợp thiếu key.
+ */
+export function getMoralSyllabus(themeKey) {
+  return MORAL_SYLLABUS[themeKey] || MORAL_SYLLABUS.self_help;
+}
+
+/**
+ * Số chủ đề THẬT của một nhóm.
+ *
+ * Con số 50 từng được viết cứng ở nhãn nút và trong modal, từ thời mọi nhóm đều đủ 50 chủ đề. Các
+ * nhóm thêm về sau chỉ có 20, nên màn hình hiện ra những dòng tự mâu thuẫn kiểu "Đã làm 20/50 bài
+ * (100%)" — phần trăm tính theo số thật, còn mẫu số thì vẫn là 50 cứng.
+ */
+export function getMoralSyllabusCount(themeKey) {
+  return getMoralSyllabus(themeKey).length;
+}

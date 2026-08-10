@@ -19,7 +19,9 @@ import {
 } from './SegmentedResultView/constants.js';
 import {
   stripEmotionTagsForDisplay, countWords, estimateSpeechSeconds, formatDuration,
-  optionLabel, detectActiveCharacters, getFlowQueueStatus
+  optionLabel, detectActiveCharacters, getFlowQueueStatus,
+  buildFullNarrationText, splitNarrationForTts, buildTtsScriptText,
+  countCharacters, TTS_CHUNK_CHAR_LIMIT
 } from './SegmentedResultView/utils.js';
 
 // Map moralTheme key → DANH SÁCH từ khoá tìm video nền (tiếng Anh, vì Pexels tìm chuẩn hơn).
@@ -3777,69 +3779,95 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         padding: '16px',
         marginBottom: '24px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-          <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-            <span>🎙️</span>
-            <span>Toàn bộ lời thuyết minh</span>
-          </strong>
-          {(() => {
-            const speechText = result.segments
-              .filter(s => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail'))
-              .map(s => stripEmotionTagsForDisplay((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim()))
-              .join(' ');
-            return (
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto', whiteSpace: 'nowrap' }}>
-                {countWords(speechText)} chữ · đọc khoảng {formatDuration(estimateSpeechSeconds(speechText))}
-              </span>
-            );
-          })()}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-            onClick={() => setShowFullNarration(v => !v)}
-          >
-            {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-            onClick={() => {
-              const fullSpeech = result.segments
-                .filter(s => !s.isThumbnail && !s.dialogueOrNarration.includes('Thumbnail'))
-                .map(s => {
-                  // Loại bỏ tiền tố tên nhân vật (như Alex:, Mia:) nếu có để đọc liền mạch, và
-                  // [tag cảm xúc] (không có tác dụng gì với giọng đọc, xem stripEmotionTagsForDisplay)
-                  return stripEmotionTagsForDisplay(s.dialogueOrNarration.replace(/^[A-Za-z0-9\s]+:\s*/, '').trim());
-                })
-                .join(' ');
-              onCopy(fullSpeech, 'full_speech_only');
-            }}
-          >
-            {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
-          </button>
-        </div>
-        {showFullNarration && (
-          <>
-            <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Bản dự phòng để dán tay vào công cụ TTS khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
-            </p>
-            <p style={{
-              margin: 0,
-              fontSize: '0.85rem',
-              lineHeight: 1.6,
-              color: 'rgba(255, 255, 255, 0.85)',
-              whiteSpace: 'pre-wrap',
-              background: 'rgba(0, 0, 0, 0.2)',
-              padding: '12px',
-              borderRadius: '8px',
-              fontStyle: 'italic'
-            }}>
-              {result.segments.filter(s => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail')).map(s => stripEmotionTagsForDisplay((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim())).join(' ')}
-            </p>
-          </>
-        )}
+        {(() => {
+          // Một nguồn duy nhất cho cả dòng đếm, khối hiển thị và các nút copy — xem
+          // buildFullNarrationText() để biết vì sao không nối chuỗi tại chỗ nữa.
+          const speechText = buildFullNarrationText(result.segments);
+          const ttsParts = splitNarrationForTts(speechText);
+          const totalChars = countCharacters(speechText);
+          const isMultiPart = ttsParts.length > 1;
+
+          return (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                  <span>🎙️</span>
+                  <span>Toàn bộ lời thuyết minh</span>
+                </strong>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
+                  {countWords(speechText)} chữ · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSpeechSeconds(speechText))}
+                  {isMultiPart && (
+                    <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
+                      {' '}· chia {ttsParts.length} lần render TTS
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+                  onClick={() => setShowFullNarration(v => !v)}
+                >
+                  {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+                  onClick={() => onCopy(buildTtsScriptText(result.segments), 'full_speech_only')}
+                >
+                  {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
+                </button>
+              </div>
+              {showFullNarration && (
+                <>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
+                    để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
+                  </p>
+                  {ttsParts.map((part, i) => (
+                    <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
+                      {isMultiPart && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          marginBottom: '6px', flexWrap: 'wrap'
+                        }}>
+                          <strong style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
+                            ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
+                          </strong>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {countCharacters(part).toLocaleString('vi-VN')} / {TTS_CHUNK_CHAR_LIMIT.toLocaleString('vi-VN')} ký tự
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '5px', fontWeight: 700 }}
+                            onClick={() => onCopy(part, `tts_part_${i}`)}
+                          >
+                            {copiedKey === `tts_part_${i}` ? '✓ Đã chép!' : `📋 Copy phần ${i + 1}`}
+                          </button>
+                        </div>
+                      )}
+                      <p style={{
+                        margin: 0,
+                        fontSize: '0.85rem',
+                        lineHeight: 1.7,
+                        color: 'rgba(255, 255, 255, 0.85)',
+                        whiteSpace: 'pre-wrap',
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        fontStyle: 'italic'
+                      }}>
+                        {part}
+                      </p>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {activeTab === 'script' && (
