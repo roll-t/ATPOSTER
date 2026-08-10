@@ -1,4 +1,4 @@
-import { parseGeminiJson } from './parseGeminiJson.js';
+import { parseGeminiJson, salvageTruncatedJson } from './parseGeminiJson.js';
 
 // Dùng alias "-latest" của Google thay vì tên model có version/ngày tháng cứng — Google liên tục
 // deprecate model cũ (vd gemini-2.0-flash, gemini-2.0-flash-lite đều đã bị đánh dấu ngừng phục vụ
@@ -81,6 +81,11 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
 // JSON hỏng thường do bản thân prompt/nội dung, không phải do key — xoay hết 5 model × 3 key để
 // gặp lại đúng lỗi đó là phí. Chặn ở vài lần.
 const MAX_BAD_JSON_ATTEMPTS = 3;
+// Trần token đầu ra tối đa mà các model Gemini hiện tại chấp nhận. Khi model bị cắt ngang vì chạm
+// trần, engine tự NỚI trần rồi thử lại — nhưng không được vượt mốc này kẻo Google trả 400.
+const MAX_OUTPUT_TOKENS_CEILING = 65_536;
+// Số lần cho phép tự nới trần token. Nới 2 lần (×2 mỗi lần) là đủ gấp 4 lần trần ban đầu.
+const MAX_TRUNCATION_RETRIES = 2;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -133,17 +138,51 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+  const finishReason = candidate?.finishReason;
+  // Các model "biết suy nghĩ" (Gemini 2.5 trở lên) trả về NHIỀU part: phần suy nghĩ (thought)
+  // và phần nội dung thật. Chỉ lấy part[0] như bản cũ là có lúc vớ đúng part rỗng/part suy nghĩ,
+  // rồi báo "không trả về nội dung" dù model đã viết xong kịch bản.
+  const text = (candidate?.content?.parts || [])
+    .filter((part) => typeof part?.text === 'string' && !part.thought)
+    .map((part) => part.text)
+    .join('');
+
+  // Bị cắt ngang vì chạm trần token. PHẢI nhận diện trước khi parse: JSON dở dang sẽ ném
+  // SyntaxError "Unterminated string", bị xếp nhầm là "model trả JSON hỏng" rồi thử lại y hệt
+  // với đúng trần token đó — lần nào cũng chết ở đúng chỗ đó, người dùng thấy "lỗi liên tục".
+  //
+  // Lưu ý quan trọng: token SUY NGHĨ của model cũng bị TRỪ VÀO maxOutputTokens. Một trần 8192
+  // nghe thì rộng, nhưng nếu model tiêu 5000 token để suy nghĩ thì phần kịch bản chỉ còn ~3000.
+  if (finishReason === 'MAX_TOKENS') {
+    const usage = data.usageMetadata || {};
+    const spent = [
+      usage.candidatesTokenCount ? `${usage.candidatesTokenCount} token nội dung` : null,
+      usage.thoughtsTokenCount ? `${usage.thoughtsTokenCount} token suy nghĩ` : null,
+    ].filter(Boolean).join(' + ');
+    const error = new Error(
+      `Gemini viết dở thì chạm trần ${maxOutputTokens || 'mặc định'} token đầu ra`
+      + `${spent ? ` (đã dùng ${spent})` : ''} nên kịch bản bị cắt ngang.`
+    );
+    error.kind = 'truncated';
+    error.rawText = text;
+    throw error;
+  }
+
   if (!text) {
-    // Thiếu nội dung thường là do bộ lọc an toàn chặn, hoặc model cắt ngang vì hết token —
-    // nói rõ lý do Google trả về thay vì chỉ báo chung chung "không có nội dung".
-    const finishReason = data.candidates?.[0]?.finishReason;
+    // Thiếu nội dung thường là do bộ lọc an toàn chặn — nói rõ lý do Google trả về thay vì chỉ
+    // báo chung chung "không có nội dung".
     const blockReason = data.promptFeedback?.blockReason;
     const detail = blockReason || finishReason;
     throw new Error(`Gemini API không trả về nội dung kịch bản${detail ? ` (lý do: ${detail})` : ''}.`);
   }
 
-  return parseGeminiJson(text);
+  try {
+    return parseGeminiJson(text);
+  } catch (err) {
+    err.rawText = text;
+    throw err;
+  }
 }
 
 /**
@@ -156,10 +195,12 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
  *  - 'quota'      : hết hạn mức -> cho cặp (model, key) này nghỉ, ưu tiên cặp khác còn tươi.
  *  - 'overloaded' : Google quá tải/lỗi tạm -> chờ ngắn rồi thử tiếp.
  *  - 'bad-json'   : model trả JSON hỏng -> thử lại có giới hạn.
+ *  - 'truncated'  : model bị cắt ngang vì chạm trần token -> nới trần rồi thử lại.
  *  - 'timeout'    : request treo quá lâu -> thử cặp khác ngay.
  *  - 'fatal'      : prompt/tham số sai -> dừng ngay, đổi key hay model đều vô ích.
  */
 function classifyError(error) {
+  if (error?.kind === 'truncated') return 'truncated';
   if (error?.name === 'AbortError') return 'timeout';
   if (error instanceof SyntaxError) return 'bad-json';
 
@@ -265,6 +306,11 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
   let lastError;
   let badJsonCount = 0;
+  // Trần token có thể được NỚI DẦN trong lúc chạy khi model bị cắt ngang giữa chừng.
+  let currentMaxTokens = maxOutputTokens;
+  let truncationCount = 0;
+  // Phần JSON dở dang của lượt bị cắt gần nhất — dùng để cứu vớt nếu nới trần vẫn không đủ.
+  let lastTruncatedText = '';
 
   for (const attempt of attempts) {
     const { model, key, keyIndex, readyAt } = attempt;
@@ -286,7 +332,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
     const keyLabel = keys.length > 1 ? ` (key #${keyIndex + 1}/${keys.length})` : '';
     try {
-      const result = await requestGeminiOnce(promptText, key, model, timeoutMs, maxOutputTokens);
+      const result = await requestGeminiOnce(promptText, key, model, timeoutMs, currentMaxTokens);
       // Thành công nghĩa là cặp này đã hồi phục — xoá dấu nghỉ để lệnh gọi sau dùng lại ngay.
       cooldownUntil.delete(`${model}::${key}`);
       return result;
@@ -329,8 +375,27 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
         continue;
       }
 
+      if (kind === 'truncated') {
+        truncationCount++;
+        if (error.rawText) lastTruncatedText = error.rawText;
+
+        const bumped = Math.min(MAX_OUTPUT_TOKENS_CEILING, (currentMaxTokens || 8192) * 2);
+        if (truncationCount > MAX_TRUNCATION_RETRIES || bumped <= (currentMaxTokens || 0)) {
+          // Đã kịch trần token mà vẫn không đủ chỗ — thoát vòng lặp để đi tới bước cứu vớt
+          // phần kịch bản đã nhận được, thay vì đốt tiếp mọi cặp key/model cũng sẽ cắt y hệt.
+          console.error(`${tag} ${error.message} Đã nới trần token tối đa mà vẫn không đủ.`);
+          break;
+        }
+        console.warn(`${tag} ${error.message} Nới trần ${currentMaxTokens} -> ${bumped} token rồi thử lại.`);
+        currentMaxTokens = bumped;
+        continue;
+      }
+
       if (kind === 'bad-json') {
         badJsonCount++;
+        if (error.rawText) {
+          console.error(`${tag} Phản hồi thô lỗi JSON (lượt ${badJsonCount}):\n=== BẮT ĐẦU PHẢN HỒI THÔ ===\n${error.rawText}\n=== KẾT THÚC PHẢN HỒI THÔ ===`);
+        }
         if (badJsonCount >= MAX_BAD_JSON_ATTEMPTS) {
           console.error(`${tag} Gemini trả JSON hỏng ${badJsonCount} lần liên tiếp — dừng lại.`);
           throw error;
@@ -344,6 +409,17 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
       cooldownUntil.set(`${model}::${key}`, Date.now() + withJitter(2000));
       const reason = error.status ? `Google báo lỗi ${error.status}` : `lỗi mạng: ${error.message}`;
       console.warn(`${tag} ${model}${keyLabel} tạm thời không dùng được (${reason}) — chuyển sang lượt thử kế tiếp.`);
+    }
+  }
+
+  // Phương án cuối khi mọi lượt đều bị cắt ngang: cứu lấy các đoạn đã viết XONG trong phần JSON
+  // dở dang. Kịch bản ngắn hơn mong muốn nhưng vẫn dựng được, hơn hẳn việc trả về lỗi trắng tay.
+  if (lastTruncatedText) {
+    const salvaged = salvageTruncatedJson(lastTruncatedText);
+    if (salvaged) {
+      const segmentCount = Array.isArray(salvaged.segments) ? salvaged.segments.length : 0;
+      console.warn(`${tag} Không tránh được việc bị cắt ngang — dùng tạm ${segmentCount} đoạn đã viết xong. Hãy chọn thời lượng ngắn hơn nếu kịch bản bị hụt.`);
+      return salvaged;
     }
   }
 

@@ -32,9 +32,18 @@ function countScriptWords(segments) {
  * Không đặt trần thì model dùng mặc định của nó; kịch bản 8-10 phút (thoại + phụ đề song ngữ +
  * khung JSON) chạm trần đó là bị cắt ngang, JSON hỏng, và người dùng chỉ nhận được lỗi chung
  * chung "Gemini không trả về nội dung".
+ *
+ * Con số 20 token/giây của bản cũ quá chật, vì bỏ sót HAI khoản ăn token lớn:
+ *  1. Token SUY NGHĨ của model (Gemini 2.5 trở lên bật mặc định) cũng bị trừ vào chính trần này —
+ *     một prompt bắt "đếm đủ số từ, dựng theo 4 act, tránh lặp ý" khiến model nghĩ vài nghìn token
+ *     trước khi viết chữ đầu tiên.
+ *  2. Tiếng Việt có dấu tốn khoảng 2 token mỗi 3 ký tự, chưa kể mỗi đoạn còn kèm phụ đề SONG NGỮ.
+ * Hệ quả: mốc 4-6 phút bị kẹp ở trần sàn 8192 và gần như lần nào cũng bị cắt ngang giữa chừng
+ * (lỗi "Unterminated string in JSON at position ..."). Nới rộng hẳn — trần token chỉ là mức CHẶN
+ * TRÊN, đặt cao không hề làm tốn thêm token hay tiền nếu model viết ngắn hơn.
  */
 function resolveMaxOutputTokens(targetSeconds) {
-  return Math.min(32768, Math.max(8192, Math.round(targetSeconds * 20)));
+  return Math.min(65536, Math.max(16384, Math.round(targetSeconds * 48)));
 }
 
 /**

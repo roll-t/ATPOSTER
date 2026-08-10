@@ -162,6 +162,108 @@ function extractFirstJsonValue(text) {
 }
 
 /**
+ * Có được phép cắt tại ranh giới ứng với ngăn xếp ngoặc này không?
+ *
+ * Chỉ nhận đúng 2 chỗ:
+ *  - đang ở GIỮA CÁC PHẦN TỬ của mảng NGOÀI CÙNG (thường là "segments");
+ *  - hoặc chưa vào mảng nào, đang ở ranh giới thuộc tính của object gốc.
+ *
+ * Vì sao không chỉ cần "ngoặc trong cùng là mảng": mỗi segment còn chứa mảng con của riêng nó
+ * (`elements` của video người que), nên dấu } của một phần tử trong `elements` cũng thoả điều kiện
+ * đó. Cắt tại đấy vẫn ra JSON hợp lệ, nhưng đẻ ra một segment CHỈ CÓ `elements`, mất sạch
+ * `dialogueOrNarration` lẫn `subtitle` — lọt hết mọi kiểm tra rồi vỡ tận khâu lồng tiếng/phụ đề,
+ * rất khó lần ngược nguyên nhân. Thà bỏ trọn segment dở dang đó.
+ */
+function isSafeBoundary(stack) {
+  const outermostArray = stack.indexOf(']');
+  if (outermostArray === -1) return stack.length === 1;
+  return stack.length === outermostArray + 1;
+}
+
+/**
+ * Cứu vớt một JSON bị CẮT CỤT giữa chừng — model chạm trần token đầu ra nên dừng ngay giữa một
+ * chuỗi, để lại phần đuôi dở dang (lỗi "Unterminated string in JSON at position ...").
+ *
+ * Cách làm: đi dọc văn bản, ghi nhớ vị trí ngay sau PHẦN TỬ CON HOÀN CHỈNH cuối cùng (dấu } hoặc
+ * ] đóng lại một phần tử mà vẫn còn ngoặc cha đang mở), cắt tại đó rồi đóng nốt các ngoặc còn mở.
+ * Kết quả là một kịch bản thiếu vài đoạn cuối nhưng dùng được, thay vì mất trắng cả lượt gọi.
+ *
+ * Trả về null nếu văn bản không hề bị cắt cụt (ngoặc đã cân bằng) hoặc không cứu nổi.
+ */
+export function salvageTruncatedJson(rawText) {
+  const text = stripCodeFences(rawText);
+  const start = text.search(/[{[]/);
+  if (start === -1) return null;
+
+  const stack = [];
+  let inString = false;
+  let escapeNext = false;
+  let lastSafeEnd = -1;
+  let lastSafeStack = null;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === '{' || ch === '[') {
+      stack.push(ch === '{' ? '}' : ']');
+    } else if (ch === '}' || ch === ']') {
+      stack.pop();
+      if (stack.length === 0) {
+        // Ngoặc ngoài cùng đã đóng: model kịp viết trọn JSON rồi mới chạm trần token. Vẫn phải
+        // parse và trả về — trả null ở đây khiến cả lượt gọi thất bại trắng tay dù JSON hoàn toàn
+        // dùng được, sau khi đã đốt thêm 2 lượt nới trần token vô ích.
+        const whole = tryParseWithRepairs(text.slice(start, i + 1));
+        return whole.ok && whole.value && typeof whole.value === 'object' ? whole.value : null;
+      }
+      if (isSafeBoundary(stack)) {
+        lastSafeEnd = i + 1;
+        lastSafeStack = [...stack];
+      }
+    }
+  }
+
+  if (lastSafeEnd === -1 || !lastSafeStack) return null;
+
+  const closers = lastSafeStack.reverse().join('');
+  const result = tryParseWithRepairs(text.slice(start, lastSafeEnd) + closers);
+  return result.ok && result.value && typeof result.value === 'object' ? result.value : null;
+}
+
+/** Thử parse 1 chuỗi qua đủ các bước sửa lỗi phổ biến. Không ném lỗi — trả về kết quả có cờ ok. */
+function tryParseWithRepairs(text) {
+  const attempts = [
+    text,
+    escapeStrayControlChars(text),
+    stripTrailingCommas(text),
+    stripTrailingCommas(escapeStrayControlChars(text)),
+  ];
+
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      return { ok: true, value: JSON.parse(attempt) };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  return { ok: false, error: lastError };
+}
+
+/**
  * Cố gắng parse JSON từ phản hồi thô của Gemini, thử lần lượt các bước sửa lỗi phổ biến
  * trước khi từ bỏ. Ném lại lỗi gốc (đã parse thất bại) nếu không cách nào sửa được.
  */
@@ -178,24 +280,11 @@ export function parseGeminiJson(rawText) {
   const quotesFixedRaw = escapeUnescapedQuotes(fenceStripped);
   const quotesFixedText = extractFirstJsonValue(quotesFixedRaw) || quotesFixedRaw;
 
-  const attempts = [
-    text,
-    escapeStrayControlChars(text),
-    stripTrailingCommas(text),
-    stripTrailingCommas(escapeStrayControlChars(text)),
-    quotesFixedText,
-    escapeStrayControlChars(quotesFixedText),
-    stripTrailingCommas(quotesFixedText),
-    stripTrailingCommas(escapeStrayControlChars(quotesFixedText))
-  ];
+  const plain = tryParseWithRepairs(text);
+  if (plain.ok) return plain.value;
 
-  let lastError = null;
-  for (const attempt of attempts) {
-    try {
-      return JSON.parse(attempt);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError;
+  const quotesFixed = tryParseWithRepairs(quotesFixedText);
+  if (quotesFixed.ok) return quotesFixed.value;
+
+  throw quotesFixed.error || plain.error;
 }

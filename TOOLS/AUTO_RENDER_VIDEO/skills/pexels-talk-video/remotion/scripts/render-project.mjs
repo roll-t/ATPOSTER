@@ -260,7 +260,47 @@ const cores = os.cpus().length;
 const defaultConcurrency = Math.max(1, Math.floor(cores / 2));
 const concurrency = process.env.REMOTION_CONCURRENCY ? parseInt(process.env.REMOTION_CONCURRENCY, 10) : defaultConcurrency;
 
-console.log(`\nRendering → ${outputPath} (concurrency: ${concurrency}/${cores})`);
+// --- Các cờ giảm tải CPU (nguồn gốc của việc render lâu + máy nóng) -------------------------
+//
+// LƯU Ý: thư mục skill này KHÔNG có remotion.config.ts riêng, mà lệnh render chạy với cwd là chính
+// nó — nên file remotion.config.ts ở gốc AUTO_RENDER_VIDEO không hề được áp dụng ở đây. Mọi tuỳ
+// chọn phải truyền thẳng bằng cờ dòng lệnh thì mới có tác dụng.
+//
+// hardware-acceleration: Remotion mặc định 'disable', tức toàn bộ khâu mã hoá H.264 chạy bằng CPU
+// (x264) — đây là phần sinh nhiệt lớn nhất trong lúc render. 'if-possible' đẩy việc đó sang bộ mã
+// hoá phần cứng của GPU.
+//
+// CẢNH BÁO — 'if-possible' KHÔNG tự lùi về CPU như tên gọi gợi ý. Nó chỉ xét bộ mã hoá có được
+// biên dịch sẵn trong ffmpeg hay không, chứ không kiểm tra driver có nạp nổi hay không. Mà bản
+// ffmpeg Remotion đóng gói chỉ có encoder NVIDIA (h264_nvenc/hevc_nvenc), KHÔNG hề có h264_amf của
+// AMD hay qsv của Intel. Nên trên máy AMD/Intel, ffmpeg vẫn nhận -c:v h264_nvenc rồi chết ngay với
+// "Cannot load nvcuda.dll" (gặp thật trên máy Radeon RX 6500 XT).
+//
+// Tệ nhất là nó chết ở khâu GHÉP FRAME — tức SAU KHI đã dựng xong sạch sẽ toàn bộ frame. Một video
+// 6 phút là hơn 10.000 frame render xong rồi vứt đi, mất trắng hàng chục phút CPU. Vì vậy phải tự
+// dò runtime CUDA trước; không thấy thì lùi hẳn về CPU ngay từ đầu.
+function hasNvidiaRuntime() {
+  // macOS không dùng NVENC mà dùng VideoToolbox — luôn có sẵn trong hệ điều hành.
+  if (process.platform === 'darwin') return true;
+  const candidates = process.platform === 'win32'
+    ? [path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'nvcuda.dll')]
+    : ['/usr/lib/x86_64-linux-gnu/libcuda.so.1', '/usr/lib64/libcuda.so.1', '/usr/lib/libcuda.so.1'];
+  return candidates.some((candidate) => fs.existsSync(candidate));
+}
+
+// Đặt REMOTION_HW_ACCEL=if-possible để ép bật lại nếu sau này lắp card NVIDIA mà máy dò chưa ra.
+const hardwareAcceleration =
+  process.env.REMOTION_HW_ACCEL || (hasNvidiaRuntime() ? 'if-possible' : 'disable');
+
+// gl: bộ dựng đồ hoạ cho Chrome headless. Mặc định của Remotion dùng đường phần mềm (swangle) nên
+// mọi hiệu ứng nặng (blur, gradient, bóng đổ) đều do CPU tính. 'angle' đẩy sang GPU thật.
+// Đặt REMOTION_GL=swangle để quay lại đường cũ nếu máy nào đó dựng hình lỗi.
+const glRenderer = process.env.REMOTION_GL || 'angle';
+
+console.log(
+  `\nRendering → ${outputPath}`
+  + `\n  concurrency: ${concurrency}/${cores} · gl: ${glRenderer} · hardware-acceleration: ${hardwareAcceleration}`
+);
 execFileSync(
   process.execPath,
   [
@@ -270,7 +310,9 @@ execFileSync(
     'PexelsTalkVideo',
     outputPath,
     `--props=${configPath}`,
-    `--concurrency=${concurrency}`
+    `--concurrency=${concurrency}`,
+    `--gl=${glRenderer}`,
+    `--hardware-acceleration=${hardwareAcceleration}`,
   ],
   { cwd: root, stdio: 'inherit' }
 );

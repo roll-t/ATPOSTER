@@ -2,7 +2,55 @@
 
 import { useState, useEffect } from 'react';
 
-function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit, onBackupToDrive, backingUpVideoId, isDriveLinked }) {
+// Bốn nút hành động ở chân thẻ đều là ô vuông chỉ chứa icon, chia đều bề ngang thẻ. Trước đây mỗi
+// nút một bề rộng khác nhau vì kèm chữ dài ngắn khác nhau, khiến hàng nút so le giữa các thẻ.
+const ACTION_BTN_STYLE = {
+  flex: 1,
+  padding: '7px 0',
+  fontSize: '0.95rem',
+  lineHeight: 1,
+  borderRadius: '6px',
+  fontWeight: 700,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
+
+// Tooltip tự vẽ cho các nút chỉ-có-icon. Đặt một lần cho cả lưới thay vì nhét vào từng thẻ — 39
+// thẻ là 39 khối <style> giống hệt nhau nếu để trong VideoCard.
+const ACTION_TOOLTIP_CSS = `
+.vc-act { position: relative; }
+.vc-act::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: rgba(10, 9, 18, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f4f4f7;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 30;
+}
+.vc-act:hover::after,
+.vc-act:focus-visible::after { opacity: 1; }
+
+/* Tooltip rộng hơn hẳn nút (chữ mô tả ~135px trên nút ~59px). Canh giữa thì hai nút ngoài cùng sẽ
+   thò tooltip ra khỏi mép thẻ và đè sang thẻ bên cạnh — neo theo mép cho hai nút đó. */
+.vc-act:first-child::after { left: 0; transform: none; }
+.vc-act:last-child::after { left: auto; right: 0; transform: none; }
+`;
+
+function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit, onBackupToDrive, backingUpVideoId, isDriveLinked, onRequestDelete, isDeleting }) {
   const isLandscape = video.aspectRatio === '16:9';
 
   return (
@@ -250,62 +298,67 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
         paddingTop: '8px',
         borderTop: '1px solid rgba(255,255,255,0.05)'
       }}>
+        {/* Chỉ hiện icon; chữ mô tả nổi lên khi rê chuột (xem .vc-act ở khối <style> bên dưới).
+            Dùng aria-label thay cho title: title sẽ đẻ thêm tooltip mặc định của trình duyệt chồng
+            lên tooltip tự vẽ, mà lại chậm cả giây mới hiện. aria-label vẫn cho trình đọc màn hình
+            đọc đúng, vì nút chỉ còn mỗi emoji thì tự nó không nói lên điều gì. */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (onEdit) onEdit(video);
           }}
-          className="btn btn-secondary"
-          style={{
-            padding: '6px 10px',
-            fontSize: '0.73rem',
-            borderRadius: '6px',
-            fontWeight: 700,
-            whiteSpace: 'nowrap'
-          }}
-          title="Sửa lại kịch bản/cấu hình video này (mở Quy trình & Review)"
+          className="btn btn-secondary vc-act"
+          style={ACTION_BTN_STYLE}
+          data-tip="Sửa kịch bản / cấu hình"
+          aria-label="Sửa kịch bản / cấu hình"
         >
-          ✏️ Sửa
+          ✏️
         </button>
 
         <button
           type="button"
           onClick={(e) => onOpenFolder(video.folderPath, e)}
           disabled={openingFolderId === video.folderPath}
-          className="btn btn-secondary"
-          style={{
-            flex: 1,
-            padding: '6px 8px',
-            fontSize: '0.73rem',
-            borderRadius: '6px',
-            fontWeight: 700,
-            whiteSpace: 'nowrap'
-          }}
-          title="Mở thư mục trên máy tính"
+          className="btn btn-secondary vc-act"
+          style={ACTION_BTN_STYLE}
+          data-tip="Mở thư mục trên máy"
+          aria-label="Mở thư mục trên máy"
         >
-          {openingFolderId === video.folderPath ? '⏳...' : '📂 Mở Thư Mục'}
+          {openingFolderId === video.folderPath ? '⏳' : '📂'}
         </button>
 
         <a
           href={video.videoUrl}
           download={`${video.folderPath}-video.mp4`}
-          className="btn btn-primary"
-          style={{
-            padding: '6px 10px',
-            fontSize: '0.73rem',
-            borderRadius: '6px',
-            fontWeight: 700,
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '4px'
-          }}
-          title="Tải tệp MP4 về máy"
+          className="btn btn-primary vc-act"
+          style={{ ...ACTION_BTN_STYLE, textDecoration: 'none' }}
+          data-tip="Tải tệp MP4 về máy"
+          aria-label="Tải tệp MP4 về máy"
         >
-          ⬇️ Tải
+          ⬇️
         </a>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestDelete(video);
+          }}
+          disabled={isDeleting}
+          className="btn vc-act"
+          style={{
+            ...ACTION_BTN_STYLE,
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            background: 'rgba(239, 68, 68, 0.1)',
+            color: '#ff8080',
+            cursor: isDeleting ? 'wait' : 'pointer'
+          }}
+          data-tip="Xoá video hoặc cả dự án"
+          aria-label="Xoá video hoặc cả dự án"
+        >
+          {isDeleting ? '⏳' : '🗑️'}
+        </button>
       </div>
     </div>
   );
@@ -319,6 +372,10 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
   const [selectedLevel, setSelectedLevel] = useState('all'); // 'all', 'a1', 'a2', 'b1', 'b2', 'c1', 'c2'
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [openingFolderId, setOpeningFolderId] = useState(null);
+  // Video đang chờ xác nhận xoá (null = không có hộp thoại nào mở).
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
   const [backingUpVideoId, setBackingUpVideoId] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -395,6 +452,39 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
     }
   };
 
+  /**
+   * Xoá video (mode 'video') hoặc xoá trọn dự án (mode 'project').
+   *
+   * Cố ý KHÔNG dùng window.confirm: hai lựa chọn này khác nhau một trời một vực — xoá dự án là mất
+   * luôn ảnh đã sinh và giọng đọc đã lồng, không lấy lại được — nên phải bày rõ hậu quả từng cái
+   * cho người dùng chọn, thay vì một câu "Bạn có chắc không?" chung chung.
+   */
+  const handleDelete = async (video, mode) => {
+    setDeletingId(video.folderPath);
+    setDeleteError('');
+    try {
+      const res = await fetch('/api/prompts/created-videos/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: video.folderPath, category: video.category, mode })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setDeleteError(data.error || 'Không xoá được.');
+        return;
+      }
+      // Bỏ khỏi danh sách ngay để giao diện phản hồi tức thì, rồi vẫn tải lại từ server để chắc
+      // chắn khớp với đĩa (vd tệp đã bị xoá tay từ trước).
+      setVideos((prev) => prev.filter((v) => v.folderPath !== video.folderPath));
+      setPendingDelete(null);
+      fetchVideos();
+    } catch (err) {
+      setDeleteError('Lỗi kết nối máy chủ khi xoá.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // Chỉ hiện video của đúng chủ đề/skill đang mở — mỗi trang chủ đề chỉ nên thấy video
   // do chính chủ đề đó tạo ra, hoặc lọc theo dropdown ở trang video tổng hợp.
   const categoryVideos = category
@@ -433,6 +523,8 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <style>{ACTION_TOOLTIP_CSS}</style>
+
       {/* Header & Filter Bar */}
       <div style={{
         display: 'flex',
@@ -647,6 +739,8 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       onBackupToDrive={handleBackupToDrive}
                       backingUpVideoId={backingUpVideoId}
                       isDriveLinked={isDriveLinked}
+                      onRequestDelete={setPendingDelete}
+                      isDeleting={deletingId === video.folderPath}
                     />
                   ))}
                 </div>
@@ -681,6 +775,8 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                       onBackupToDrive={handleBackupToDrive}
                       backingUpVideoId={backingUpVideoId}
                       isDriveLinked={isDriveLinked}
+                      onRequestDelete={setPendingDelete}
+                      isDeleting={deletingId === video.folderPath}
                     />
                   ))}
                 </div>
@@ -689,6 +785,90 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
           </div>
         )}
       </div>
+
+      {pendingDelete && (
+        <div
+          onClick={() => { if (!deletingId) { setPendingDelete(null); setDeleteError(''); } }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 460,
+              background: 'rgba(20, 18, 30, 0.98)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 16, padding: 22,
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <h4 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 800, color: '#f4f4f7' }}>
+              🗑️ Xoá video
+            </h4>
+            <p style={{ margin: '0 0 18px', fontSize: '0.82rem', color: '#8e8d9f', wordBreak: 'break-word' }}>
+              {pendingDelete.title}
+              <span style={{ opacity: 0.6 }}> · {pendingDelete.sizeMB}</span>
+            </p>
+
+            <button
+              type="button"
+              onClick={() => handleDelete(pendingDelete, 'video')}
+              disabled={!!deletingId}
+              style={{
+                width: '100%', textAlign: 'left', padding: '12px 14px', marginBottom: 10,
+                borderRadius: 10, cursor: deletingId ? 'wait' : 'pointer',
+                border: '1px solid rgba(37, 244, 238, 0.3)',
+                background: 'rgba(37, 244, 238, 0.08)', color: '#f4f4f7',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 3 }}>Chỉ xoá video</div>
+              <div style={{ fontSize: '0.75rem', color: '#8e8d9f', lineHeight: 1.5 }}>
+                Xoá tệp MP4. Kịch bản, ảnh và giọng đọc vẫn còn — render lại được ngay, không phải tạo lại từ đầu.
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDelete(pendingDelete, 'project')}
+              disabled={!!deletingId}
+              style={{
+                width: '100%', textAlign: 'left', padding: '12px 14px',
+                borderRadius: 10, cursor: deletingId ? 'wait' : 'pointer',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: 'rgba(239, 68, 68, 0.08)', color: '#f4f4f7',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: 3, color: '#ff8080' }}>
+                Xoá cả dự án
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#8e8d9f', lineHeight: 1.5 }}>
+                Xoá luôn ảnh đã sinh và giọng đọc đã lồng. Lấy lại toàn bộ dung lượng, nhưng <strong style={{ color: '#ff8080' }}>không khôi phục được</strong>.
+              </div>
+            </button>
+
+            {deleteError && (
+              <div style={{ marginTop: 12, fontSize: '0.78rem', color: '#ff8080' }}>{deleteError}</div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setPendingDelete(null); setDeleteError(''); }}
+              disabled={!!deletingId}
+              style={{
+                width: '100%', marginTop: 14, padding: '9px', borderRadius: 8,
+                border: '1px solid rgba(255, 255, 255, 0.12)', background: 'transparent',
+                color: '#8e8d9f', fontSize: '0.8rem', fontWeight: 600,
+                cursor: deletingId ? 'wait' : 'pointer',
+              }}
+            >
+              {deletingId ? 'Đang xoá…' : 'Huỷ'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

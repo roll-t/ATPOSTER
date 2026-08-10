@@ -137,7 +137,12 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs) {
     throw new Error(`Gemini API không trả về nội dung kịch bản${detail ? ` (lý do: ${detail})` : ''}.`);
   }
 
-  return parseGeminiJson(text);
+  try {
+    return parseGeminiJson(text);
+  } catch (err) {
+    err.rawText = text;
+    throw err;
+  }
 }
 
 /**
@@ -324,6 +329,9 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
       if (kind === 'bad-json') {
         badJsonCount++;
+        if (error.rawText) {
+          console.error(`${tag} Phản hồi thô lỗi JSON (lượt ${badJsonCount}):\n=== BẮT ĐẦU PHẢN HỒI THÔ ===\n${error.rawText}\n=== KẾT THÚC PHẢN HỒI THÔ ===`);
+        }
         if (badJsonCount >= MAX_BAD_JSON_ATTEMPTS) {
           console.error(`${tag} Gemini trả JSON hỏng ${badJsonCount} lần liên tiếp — dừng lại.`);
           throw error;
