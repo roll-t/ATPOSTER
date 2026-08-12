@@ -171,6 +171,13 @@ function render() {
     } else if (seg.status === 'completed') {
       statusText = t.statusCompleted;
       statusColor = '#10b981';
+    } else if (seg.status === 'error') {
+      // Không để rơi về nhánh mặc định "Chờ": phân đoạn lỗi mà hiện là đang chờ thì người dùng
+      // ngồi đợi mãi một việc đã hỏng. Kèm luôn lý do để biết đường xử lý.
+      statusText = seg.errorReason
+        ? `⚠️ ${seg.errorReason}`
+        : (currentLang === 'vi' ? '⚠️ Lỗi' : '⚠️ Failed');
+      statusColor = '#ef4444';
     }
 
     const isProcessing = seg.status === 'processing';

@@ -208,6 +208,10 @@ export const Scene: React.FC<{
         topOffsetPercent={captionStyle === "hook" ? HOOK_IMAGE_OFFSET_PERCENT : 0}
         imageScale={imageScale}
         imageTranslateY={imageTranslateY}
+        // Chỉ bật ở skill này (xem CORNER_PATCH trong SceneImage.tsx). Nền ảnh của dòng video này
+        // là đen tuyền nên ô che trùng màu nền, không để lại vệt.
+        patchBottomRightCorner
+        cornerPatchColor="#000000"
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
       <Sfx cues={scene.sfx} />

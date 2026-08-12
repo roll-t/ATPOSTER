@@ -5,21 +5,17 @@
     "customUploadsDir": "",
     "geminiApiKey": "",
     "voiceMappings": {},
-    "ttsProvider": "vieneu",
-    "edgeVoiceMappings": {
-      "narrator": "BV560_streaming"
-    },
+    "ttsProvider": "edge",
+    "edgeVoiceMappings": {},
     "vieneuServerUrl": "http://127.0.0.1:8001",
-    "vieneuVoiceMappings": {
-      "narrator": "Minh Quân"
-    },
+    "vieneuVoiceMappings": {},
     "favoriteEdgeVoiceIds": [],
     "favoriteVieneuVoiceIds": [],
     "defaultCaptionStyle": "page",
     "defaultTransitionStyle": "crossfade",
     "defaultBilingual": true,
     "defaultBgMusicEnabled": true,
-    "defaultBgMusicVolume": "20",
+    "defaultBgMusicVolume": "35",
     "defaultBgMusicTrackId": "lib_1785374327050_f5qh2",
     "readingPracticeConfig": {
       "captionStyle": "page",

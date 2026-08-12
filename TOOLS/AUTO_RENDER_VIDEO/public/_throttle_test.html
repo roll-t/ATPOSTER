@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiting Visualizer - Throttle & Debounce</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    /* CSS Variables for Premium Design System */
+    :root {
+      --bg-dark: #0f111a;
+      --card-bg: rgba(22, 28, 45, 0.45);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      
+      /* Vibrant Accents */
+      --color-regular: #3b82f6; /* Blue */
+      --color-throttle: #10b981; /* Emerald */
+      --color-debounce: #f59e0b; /* Amber */
+      
+      --color-regular-glow: rgba(59, 130, 246, 0.15);
+      --color-throttle-glow: rgba(16, 185, 129, 0.15);
+      --color-debounce-glow: rgba(245, 158, 11, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(245, 158, 11, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+      width: 100%;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      font-weight: 300;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Layout Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 900px) {
+      .main-grid {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    /* Premium Glassmorphic Card */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #ffffff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Control Panel Styles */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    /* Sliders */
+    .range-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #818cf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .range-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      min-width: 60px;
+      text-align: right;
+      color: #818cf8;
+      font-weight: 500;
+    }
+
+    /* Radio Tabs for Event Type */
+    .radio-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .radio-tab {
+      position: relative;
+      text-align: center;
+    }
+
+    .radio-tab input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .radio-label {
+      display: block;
+      padding: 0.5rem 0;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .radio-tab input[type="radio"]:checked + .radio-label {
+      background: #818cf8;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(129, 140, 248, 0.3);
+    }
+
+    /* Trigger Area */
+    .trigger-area {
+      height: 160px;
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .trigger-area:hover {
+      border-color: #818cf8;
+      background: rgba(129, 140, 248, 0.03);
+    }
+
+    .trigger-area:active {
+      transform: scale(0.99);
+    }
+
+    .trigger-text {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      text-align: center;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(0);
+      animation: ripple-effect 0.6s linear;
+      pointer-events: none;
+    }
+
+    @keyframes ripple-effect {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    /* Reset Button */
+    .btn-reset {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      padding: 0.6rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-reset:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 0.75rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .stat-regular { color: var(--color-regular); }
+    .stat-throttle { color: var(--color-throttle); }
+    .stat-debounce { color: var(--color-debounce); }
+
+    /* Visualizer Timelines */
+    .visualizer-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      flex-grow: 1;
+    }
+
+    .timeline-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timeline-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-regular {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--color-regular);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .badge-throttle {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--color-throttle);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .badge-debounce {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--color-debounce);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .timeline-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .timeline-track-outer {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      height: 70px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .timeline-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Event Markers on Timelines */
+    .event-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      margin-left: -2px;
+      border-radius: 2px;
+      opacity: 0;
+      animation: fade-in-pulse 1.2s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+    }
+
+    .marker-regular {
+      background: var(--color-regular);
+      box-shadow: 0 0 10px var(--color-regular);
+    }
+
+    .marker-throttle {
+      background: var(--color-throttle);
+      box-shadow: 0 0 10px var(--color-throttle);
+    }
+
+    .marker-debounce {
+      background: var(--color-debounce);
+      box-shadow: 0 0 10px var(--color-debounce);
+    }
+
+    @keyframes fade-in-pulse {
+      0% {
+        opacity: 1;
+        transform: scaleY(0.4);
+      }
+      15% {
+        transform: scaleY(1);
+      }
+      100% {
+        opacity: 0.25;
+        transform: scaleY(0.9);
+      }
+    }
+
+    /* Current Indicator Line */
+    .time-cursor {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 20px;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.25);
+      z-index: 10;
+    }
+
+    .time-cursor::after {
+      content: 'NOW';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.05em;
+    }
+
+    /* Instructions & Explanations Card */
+    .info-section {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .info-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .info-card h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .info-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .info-regular h3 { color: var(--color-regular); }
+    .info-throttle h3 { color: var(--color-throttle); }
+    .info-debounce h3 { color: var(--color-debounce); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 1.5rem 0;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.2);
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Rate Limiting Visualizer</h1>
+      <p>Compare Regular Execution, Throttling, and Debouncing side-by-side in real-time as you trigger events.</p>
+    </header>
+
+    <div class="main-grid">
+      <!-- Left Column: Controls -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-8M9 15l3-3 3 3M4 4h16v16H4z"/></svg>
+          Configuration
+        </div>
+
+        <!-- Event Source Select -->
+        <div class="control-group">
+          <label>1. Select Event Type</label>
+          <div class="radio-tabs">
+            <div class="radio-tab">
+              <input type="radio" name="eventType" value="mousemove" checked id="type-mouse">
+              <span class="radio-label">Mouse Hover</span>
+            </div>
+            <div class="radio-tab">
+              <input type="radio" name="eventType" value="click" id="type-click">
+              <span class="radio-label">Click</span>
+            </div>
+            <div class="radio-tab">
+              <input type="radio" name="eventType" value="scroll" id="type-scroll">
+              <span class="radio-label">Scroll Area</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delay Slider -->
+        <div class="control-group">
+          <label>2. Limit Duration (ms)</label>
+          <div class="range-container">
+            <input type="range" id="delaySlider" min="100" max="1500" value="400" step="50">
+            <span class="range-value" id="delayValue">400ms</span>
+          </div>
+        </div>
+
+        <!-- Trigger Area -->
+        <div class="control-group">
+          <label>3. Trigger Event Below</label>
+          <div class="trigger-area" id="triggerArea">
+            <div class="trigger-text" id="triggerText">
+              Move your cursor here<br>to fire events
+            </div>
+          </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="control-group">
+          <label>Trigger Counter</label>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Regular</span>
+              <span class="stat-val stat-regular" id="countRegular">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Throttled</span>
+              <span class="stat-val stat-throttle" id="countThrottle">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Debounced</span>
+              <span class="stat-val stat-debounce" id="countDebounce">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset Button -->
+        <button class="btn-reset" id="resetBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0 0V3m0 5h5"/></svg>
+          Reset Logs & Counters
+        </button>
+      </div>
+
+      <!-- Right Column: Visualizer Timelines -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8m4 4v8H8m4-8h8m-8 8h8M4 16h4"/></svg>
+          Live Timelines
+        </div>
+
+        <div class="visualizer-container">
+          <!-- Regular Timeline -->
+          <div class="timeline-section">
+            <div class="timeline-header">
+              <div class="timeline-title">
+                <span class="badge badge-regular">Regular</span>
+                Unfiltered Events
+              </div>
+              <div class="timeline-desc">Fires immediately and on every event instance</div>
+            </div>
+            <div class="timeline-track-outer">
+              <div class="time-cursor"></div>
+              <div class="timeline-track" id="trackRegular"></div>
+            </div>
+          </div>
+
+          <!-- Throttled Timeline -->
+          <div class="timeline-section">
+            <div class="timeline-header">
+              <div class="timeline-title">
+                <span class="badge badge-throttle">Throttled</span>
+                Paced Intervals
+              </div>
+              <div class="timeline-desc">Fires at most once every limit window (e.g. 400ms)</div>
+            </div>
+            <div class="timeline-track-outer">
+              <div class="time-cursor"></div>
+              <div class="timeline-track" id="trackThrottle"></div>
+            </div>
+          </div>
+
+          <!-- Debounced Timeline -->
+          <div class="timeline-section">
+            <div class="timeline-header">
+              <div class="timeline-title">
+                <span class="badge badge-debounce">Debounced</span>
+                Delayed Endpoints
+              </div>
+              <div class="timeline-desc">Fires only after the trigger activity has paused for limit window</div>
+            </div>
+            <div class="timeline-track-outer">
+              <div class="time-cursor"></div>
+              <div class="timeline-track" id="trackDebounce"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Explanations bottom row -->
+    <div class="info-section">
+      <div class="info-card info-regular">
+        <h3>Standard Execution</h3>
+        <p>No pacing mechanism is used. Event callbacks are fired 1:1 on every trigger. If you drag, scroll, or resize, this can happen dozens of times per second, overloading JavaScript CPU cycles and causing DOM rendering bottlenecks (layout thrashing).</p>
+      </div>
+      <div class="info-card info-throttle">
+        <h3>Throttling (Bóp băng thông)</h3>
+        <p>Limits execution frequency by locking execution for a certain delay after a trigger. It ensures periodic execution (e.g. at most once every 400ms). Perfect for scroll loading, game loops, or progressive UI updates during animations.</p>
+      </div>
+      <div class="info-card info-debounce">
+        <h3>Debouncing (Chống rung)</h3>
+        <p>Groups multiple sequential triggers into a single call. It resets the timer on every incoming event and only executes once the event stream quietens down for the full delay duration. Excellent for search autocomplete input or window resizing.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Designed & Built with Pure CSS & Vanilla JavaScript. Rate Limit Visualizer &copy; 2026.
+  </footer>
+
+  <script>
+    // State Variables
+    let delay = 400; // ms
+    let counts = { regular: 0, throttle: 0, debounce: 0 };
+    let eventType = 'mousemove';
+    
+    // Tracking & Timeline constants
+    const TRACK_DURATION_MS = 6000; // Shows 6 seconds window
+    const FPS = 60;
+    const UPDATE_INTERVAL = 1000 / FPS;
+    
+    // Arrays containing active markers with timestamp
+    let markers = { regular: [], throttle: [], debounce: [] };
+    
+    // Throttling State
+    let isThrottled = false;
+    
+    // Debouncing State
+    let debounceTimer = null;
+
+    // DOM Elements
+    const triggerArea = document.getElementById('triggerArea');
+    const triggerText = document.getElementById('triggerText');
+    const delaySlider = document.getElementById('delaySlider');
+    const delayValue = document.getElementById('delayValue');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    const countRegularEl = document.getElementById('countRegular');
+    const countThrottleEl = document.getElementById('countThrottle');
+    const countDebounceEl = document.getElementById('countDebounce');
+    
+    const trackRegular = document.getElementById('trackRegular');
+    const trackThrottle = document.getElementById('trackThrottle');
+    const trackDebounce = document.getElementById('trackDebounce');
+    
+    const radioM = document.getElementById('type-mouse');
+    const radioC = document.getElementById('type-click');
+    const radioS = document.getElementById('type-scroll');
+
+    // Initialize Event Type texts
+    function updateTriggerText() {
+      if (eventType === 'mousemove') {
+        triggerText.innerHTML = "Hover and wave your mouse cursor here<br><span style='font-size:0.75rem;opacity:0.6;font-family:monospace;'>event: mousemove</span>";
+      } else if (eventType === 'click') {
+        triggerText.innerHTML = "Click repeatedly inside this box<br><span style='font-size:0.75rem;opacity:0.6;font-family:monospace;'>event: click</span>";
+      } else if (eventType === 'scroll') {
+        triggerText.innerHTML = "Scroll inside this box (use scroll wheel/swipe)<br><span style='font-size:0.75rem;opacity:0.6;font-family:monospace;'>event: scroll</span>";
+        // Enable scrolling inside the box
+        triggerArea.style.overflow = "scroll";
+        // Create an inner tall child for scroll simulation
+        if (!document.getElementById('scroll-helper')) {
+          const helper = document.createElement('div');
+          helper.id = 'scroll-helper';
+          helper.style.height = '1000px';
+          helper.style.width = '100%';
+          triggerArea.appendChild(helper);
+        }
+      }
+      
+      if (eventType !== 'scroll') {
+        triggerArea.style.overflow = "hidden";
+        const helper = document.getElementById('scroll-helper');
+        if (helper) helper.remove();
+      }
+    }
+
+    // Handlers configuration
+    function setupEventListeners() {
+      // Remove all active listeners first to clean up
+      triggerArea.removeEventListener('mousemove', onTriggered);
+      triggerArea.removeEventListener('click', onTriggered);
+      triggerArea.removeEventListener('scroll', onTriggered);
+      
+      // Add active listener
+      if (eventType === 'mousemove') {
+        triggerArea.addEventListener('mousemove', onTriggered);
+      } else if (eventType === 'click') {
+        triggerArea.addEventListener('click', onTriggered);
+      } else if (eventType === 'scroll') {
+        triggerArea.addEventListener('scroll', onTriggered);
+      }
+    }
+
+    // Trigger handler
+    function onTriggered(e) {
+      // Create ripple on clicks/hovers
+      if (eventType !== 'scroll') {
+        const rect = triggerArea.getBoundingClientRect();
+        const x = (e.clientX || rect.left + rect.width / 2) - rect.left;
+        const y = (e.clientY || rect.top + rect.height / 2) - rect.top;
+        
+        const ripple = document.createElement('span');
+        ripple.classList.add('ripple');
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        triggerArea.appendChild(ripple);
+        
+        // Remove ripple after anim completes
+        setTimeout(() => ripple.remove(), 600);
+      }
+
+      const now = Date.now();
+      
+      // 1. Regular
+      triggerRegular(now);
+      
+      // 2. Throttle
+      triggerThrottle(now);
+      
+      // 3. Debounce
+      triggerDebounce(now);
+    }
+
+    // Execute implementations
+    function triggerRegular(timestamp) {
+      counts.regular++;
+      countRegularEl.innerText = counts.regular;
+      addMarker('regular', timestamp);
+    }
+
+    function triggerThrottle(timestamp) {
+      if (!isThrottled) {
+        counts.throttle++;
+        countThrottleEl.innerText = counts.throttle;
+        addMarker('throttle', timestamp);
+        
+        isThrottled = true;
+        setTimeout(() => {
+          isThrottled = false;
+        }, delay);
+      }
+    }
+
+    function triggerDebounce(timestamp) {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      debounceTimer = setTimeout(() => {
+        counts.debounce++;
+        countDebounceEl.innerText = counts.debounce;
+        addMarker('debounce', Date.now());
+      }, delay);
+    }
+
+    // Timeline Marker Logic
+    function addMarker(type, timestamp) {
+      markers[type].push(timestamp);
+    }
+
+    // Loop to animate markers sliding right (simulating timeline movement)
+    function updateTimelines() {
+      const now = Date.now();
+      const cutoffTime = now - TRACK_DURATION_MS;
+      
+      // Clear tracks
+      trackRegular.innerHTML = '';
+      trackThrottle.innerHTML = '';
+      trackDebounce.innerHTML = '';
+      
+      // Update markers for each track
+      ['regular', 'throttle', 'debounce'].forEach(type => {
+        // Filter out markers that fell off the track leftwards (older than 6s)
+        markers[type] = markers[type].filter(time => time > cutoffTime);
+        
+        // Render current markers
+        markers[type].forEach(time => {
+          // Calculate percentage from right edge (now is right, offset by 20px)
+          const timeElapsed = now - time;
+          const pctFromRight = (timeElapsed / TRACK_DURATION_MS) * 100;
+          
+          // Render visual marker
+          const marker = document.createElement('div');
+          marker.className = `event-marker marker-${type}`;
+          // Position relative to right side (now)
+          marker.style.right = `calc(${pctFromRight}% + 20px)`;
+          
+          if (type === 'regular') trackRegular.appendChild(marker);
+          if (type === 'throttle') trackThrottle.appendChild(marker);
+          if (type === 'debounce') trackDebounce.appendChild(marker);
+        });
+      });
+      
+      requestAnimationFrame(updateTimelines);
+    }
+
+    // Event type listeners
+    [radioM, radioC, radioS].forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        eventType = e.target.value;
+        updateTriggerText();
+        setupEventListeners();
+      });
+    });
+
+    // Delay slider change handler
+    delaySlider.addEventListener('input', (e) => {
+      delay = parseInt(e.target.value);
+      delayValue.innerText = `${delay}ms`;
+    });
+
+    // Reset button handler
+    resetBtn.addEventListener('click', () => {
+      counts = { regular: 0, throttle: 0, debounce: 0 };
+      countRegularEl.innerText = '0';
+      countThrottleEl.innerText = '0';
+      countDebounceEl.innerText = '0';
+      markers = { regular: [], throttle: [], debounce: [] };
+      if (debounceTimer) clearTimeout(debounceTimer);
+      isThrottled = false;
+    });
+
+    // Initial setup
+    updateTriggerText();
+    setupEventListeners();
+    
+    // Start timeline anim loop
+    requestAnimationFrame(updateTimelines);
+  </script>
+</body>
+</html>

@@ -79,20 +79,56 @@ function sendCmd(tabId, method, params) {
   });
 }
 
-async function ensureAttached(tabId) {
-  if (attachedTab === tabId) return;
-  if (attachedTab !== null) {
-    try {
-      await chrome.debugger.detach({ tabId: attachedTab });
-    } catch (_) {}
-    attachedTab = null;
+/**
+ * Hỏi CHÍNH Chrome xem tab này đã bị extension gắn debugger chưa.
+ *
+ * KHÔNG được tin biến `attachedTab` trong bộ nhớ: đây là service worker Manifest V3, Chrome tự
+ * TẮT nó sau ~30 giây không có việc. Một lượt sinh ảnh của Flow kéo dài vài phút, nên service
+ * worker gần như chắc chắn bị tắt giữa chừng. Khi nó khởi động lại, `attachedTab` về null trong
+ * khi phiên debugger CŨ vẫn còn gắn trên tab — lần gửi kế tiếp gọi attach lần nữa và Chrome trả
+ * "Another debugger is already attached", lệnh gõ prompt không bao giờ chạy, còn giao diện thì cứ
+ * quay vòng chờ. Đây là nguyên nhân trực tiếp của hiện tượng "lâu lâu không tạo được, loading mãi".
+ */
+async function isDebuggerAttached(tabId) {
+  try {
+    const targets = await chrome.debugger.getTargets();
+    return (targets || []).some((t) => t.tabId === tabId && t.attached);
+  } catch (_) {
+    return false;
   }
-  await new Promise((resolve, reject) => {
-    chrome.debugger.attach({ tabId }, "1.3", () => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve();
+}
+
+async function ensureAttached(tabId) {
+  if (attachedTab === tabId && await isDebuggerAttached(tabId)) return;
+
+  // Gỡ phiên cũ trên tab KHÁC (nếu có) để không giữ thanh "đang gỡ lỗi" thừa.
+  if (attachedTab !== null && attachedTab !== tabId) {
+    try { await chrome.debugger.detach({ tabId: attachedTab }); } catch (_) {}
+  }
+  attachedTab = null;
+
+  try {
+    await new Promise((resolve, reject) => {
+      chrome.debugger.attach({ tabId }, '1.3', () => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve();
+      });
     });
-  });
+  } catch (err) {
+    const msg = String(err.message || err);
+    // Phiên cũ còn sót lại sau khi service worker bị tắt: gỡ ra rồi gắn lại đúng một lần.
+    if (/already attached/i.test(msg)) {
+      try { await chrome.debugger.detach({ tabId }); } catch (_) {}
+      await new Promise((resolve, reject) => {
+        chrome.debugger.attach({ tabId }, '1.3', () => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve();
+        });
+      });
+    } else {
+      throw err;
+    }
+  }
   attachedTab = tabId;
 }
 
@@ -230,26 +266,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SAVE_IMAGE_LOCAL') {
     const { folderPath, filename, srcUrl, dataUrl, category, origin } = message.payload;
 
-    // Hàm chuyển đổi Uint8Array sang Base64 an toàn cho Service Worker
+    /**
+     * Đổi Uint8Array sang Base64 trong Service Worker.
+     *
+     * Bản cũ tự cài thuật toán base64 bằng JavaScript và nối chuỗi từng 4 ký tự một: với ảnh 2MB
+     * là hơn 700 nghìn lần nối chuỗi, chạy đồng bộ ngay trong service worker. Dùng btoa() theo
+     * từng khối để phần mã hoá chạy ở tầng C++ của trình duyệt, chỉ còn vài chục lần nối chuỗi.
+     *
+     * Phải chia khối: String.fromCharCode.apply với mảng vài triệu phần tử sẽ tràn ngăn xếp lời
+     * gọi. FileReader không dùng được ở đây — Service Worker không có API đó.
+     */
     const bufferToBase64 = (bytes) => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      let base64 = '';
-      const len = bytes.length;
-      for (let i = 0; i < len; i += 3) {
-        const b1 = bytes[i];
-        const b2 = i + 1 < len ? bytes[i + 1] : 0;
-        const b3 = i + 2 < len ? bytes[i + 2] : 0;
-
-        const c1 = b1 >> 2;
-        const c2 = ((b1 & 3) << 4) | (b2 >> 4);
-        const c3 = i + 1 < len ? (((b2 & 15) << 2) | (b3 >> 6)) : 64;
-        const c4 = i + 2 < len ? (b3 & 63) : 64;
-
-        base64 += chars.charAt(c1) + chars.charAt(c2) +
-                  (c3 === 64 ? '=' : chars.charAt(c3)) +
-                  (c4 === 64 ? '=' : chars.charAt(c4));
+      const CHUNK = 0x8000; // 32KB mỗi lượt, đủ nhỏ để không tràn ngăn xếp
+      const parts = [];
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK)));
       }
-      return base64;
+      return btoa(parts.join(''));
     };
 
     const sendToApi = (base64Url) => {
