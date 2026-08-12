@@ -545,26 +545,26 @@
 
         <!-- Event Source Select -->
         <div class="control-group">
-          <label>1. Select Event Type</label>
+          <label for="type-mouse">1. Select Event Type</label>
           <div class="radio-tabs">
             <div class="radio-tab">
               <input type="radio" name="eventType" value="mousemove" checked id="type-mouse">
-              <span class="radio-label">Mouse Hover</span>
+              <label class="radio-label" for="type-mouse">Mouse Hover</label>
             </div>
             <div class="radio-tab">
               <input type="radio" name="eventType" value="click" id="type-click">
-              <span class="radio-label">Click</span>
+              <label class="radio-label" for="type-click">Click</label>
             </div>
             <div class="radio-tab">
               <input type="radio" name="eventType" value="scroll" id="type-scroll">
-              <span class="radio-label">Scroll Area</span>
+              <label class="radio-label" for="type-scroll">Scroll Area</label>
             </div>
           </div>
         </div>
 
         <!-- Delay Slider -->
         <div class="control-group">
-          <label>2. Limit Duration (ms)</label>
+          <label for="delaySlider">2. Limit Duration (ms)</label>
           <div class="range-container">
             <input type="range" id="delaySlider" min="100" max="1500" value="400" step="50">
             <span class="range-value" id="delayValue">400ms</span>
