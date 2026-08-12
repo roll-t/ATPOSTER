@@ -5,10 +5,12 @@
     "customUploadsDir": "",
     "geminiApiKey": "",
     "voiceMappings": {},
-    "ttsProvider": "edge",
+    "ttsProvider": "vieneu",
     "edgeVoiceMappings": {},
     "vieneuServerUrl": "http://127.0.0.1:8001",
-    "vieneuVoiceMappings": {},
+    "vieneuVoiceMappings": {
+      "narrator": "Minh Quân"
+    },
     "favoriteEdgeVoiceIds": [],
     "favoriteVieneuVoiceIds": [],
     "defaultCaptionStyle": "page",

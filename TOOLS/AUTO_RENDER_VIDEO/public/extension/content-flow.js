@@ -220,8 +220,24 @@ function getClickableParent(node, maxHops = 5) {
   return node;
 }
 
-// Chuyển chế độ (Ảnh / Video) và Tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3) trên Google Flow
-function selectFlowMode(isImage, targetRatioInput) {
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Chuyển chế độ (Ảnh/Video) và tỉ lệ khung hình trên Google Flow.
+ *
+ * TRẢ VỀ PROMISE, chỉ resolve khi đã đóng xong menu popover. Bản cũ `return true` ngay lập tức
+ * trong khi chuỗi thao tác bên trong còn cần 350+250+250ms nữa mới xong, còn nơi gọi thì chờ khơi
+ * khơi 1200ms rồi gõ prompt. Hai bên không hề đồng bộ với nhau:
+ *
+ *   - Ở tab đang mở, 1200ms thường vừa đủ nên phần lớn thời gian không lộ ra.
+ *   - Ở TAB NỀN, Chrome bóp mạnh nhất đúng loại timer lồng nhau ngắn như 350/250/250 này. Hai chuỗi
+ *     trôi lệch nhau, nơi gọi gõ prompt trong khi popover VẪN CÒN MỞ — cú click toạ độ của CDP rơi
+ *     trúng lớp menu phủ bên trên thay vì ô nhập. Prompt không được gõ, Flow không tạo gì, còn
+ *     extension thì ngồi chờ một tấm ảnh không bao giờ tới. Đây chính là kiểu "loading mãi".
+ *
+ * Await được thì mọi thứ tự đúng, không phụ thuộc timer có bị bóp hay không.
+ */
+async function selectFlowMode(isImage, targetRatioInput) {
   const targetRatio = targetRatioInput || (queue ? (queue.aspectRatio || (queue.orientation === 'landscape' ? '16:9' : '9:16')) : '9:16');
   console.log(`[Flow Helper] Đang tự động kiểm tra & cài đặt cấu hình Flow -> Chế độ: ${isImage ? 'ẢNH' : 'VIDEO'}, Tỉ lệ: ${targetRatio}`);
 
@@ -237,7 +253,7 @@ function selectFlowMode(isImage, targetRatioInput) {
 
   if (!currentPillLeaf) {
     console.log('[Flow Helper] Không tìm thấy nút chọn chế độ (Pill).');
-    return false;
+    return { ok: false, ratioApplied: false };
   }
 
   const currentPill = getClickableParent(currentPillLeaf);
@@ -245,53 +261,72 @@ function selectFlowMode(isImage, targetRatioInput) {
   simulateClick(currentPill);
 
   // 2. Chờ menu popover xuất hiện
-  setTimeout(() => {
-    // A. Chọn chế độ Ảnh / Video nếu chưa đúng
-    const targetModeText = isImage ? 'ảnh' : 'video';
-    const modeLeaf = findLeafElementInShadows(document.body, (el) => {
-      const text = (el.textContent || el.innerText || '').trim().toLowerCase();
-      const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-      if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
+  await sleep(350);
 
-      return text === targetModeText || text === 'hình ảnh' || (text.includes(targetModeText) && (text.includes('hình ảnh') || text.includes('video') || text.includes('image')) && text.length < 15);
-    });
+  // A. Chọn chế độ Ảnh / Video nếu chưa đúng
+  const targetModeText = isImage ? 'ảnh' : 'video';
+  const modeLeaf = findLeafElementInShadows(document.body, (el) => {
+    const text = (el.textContent || el.innerText || '').trim().toLowerCase();
+    const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
+    if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
 
-    if (modeLeaf) {
-      const modeBtn = getClickableParent(modeLeaf);
-      console.log('[Flow Helper] Click chọn chế độ:', modeBtn.textContent.trim(), modeBtn);
-      simulateClick(modeBtn);
-    }
+    return text === targetModeText || text === 'hình ảnh' || (text.includes(targetModeText) && (text.includes('hình ảnh') || text.includes('video') || text.includes('image')) && text.length < 15);
+  });
 
-    // B. Chọn tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3)
-    setTimeout(() => {
-      const ratioLeaf = findLeafElementInShadows(document.body, (el) => {
-        const text = (el.textContent || el.innerText || '').trim();
-        const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-        if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
+  if (modeLeaf) {
+    const modeBtn = getClickableParent(modeLeaf);
+    console.log('[Flow Helper] Click chọn chế độ:', modeBtn.textContent.trim(), modeBtn);
+    simulateClick(modeBtn);
+  }
 
-        return text === targetRatio || (text.includes(targetRatio) && text.length < 10);
-      });
+  // B. Chọn tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3)
+  await sleep(250);
 
-      if (ratioLeaf) {
-        const ratioBtn = getClickableParent(ratioLeaf);
-        console.log('[Flow Helper] Đã tìm thấy nút chọn tỉ lệ:', targetRatio, ratioBtn);
-        simulateClick(ratioBtn);
-      } else {
-        console.warn('[Flow Helper] Không tìm thấy nút chọn tỉ lệ trên menu:', targetRatio);
-      }
+  // Nới rộng cách dò so với bản cũ (chỉ so text `=== '9:16'` hoặc chứa nó và dài dưới 10 ký tự).
+  // Flow đã đổi cách hiển thị nên điều kiện cũ trượt sạch — đúng lỗi "Không tìm thấy nút chọn tỉ
+  // lệ trên menu: 9:16" đang thấy trong trang Errors của extension. Giờ chấp nhận cả nhãn có chữ
+  // kèm theo ("Dọc 9:16", "Portrait 9:16") lẫn tỉ lệ nằm trong aria-label/title thay vì trong text.
+  const ratioNeedle = String(targetRatio).replace(/\s+/g, '');
+  const matchesRatio = (raw) => {
+    if (!raw) return false;
+    const normalized = raw.replace(/\s+/g, '');
+    return normalized === ratioNeedle || (normalized.includes(ratioNeedle) && normalized.length <= 24);
+  };
 
-      // Đóng menu popover bằng cách click/focus lại ô nhập prompt
-      setTimeout(() => {
-        const inputEl = findInputField();
-        if (inputEl) {
-          inputEl.focus();
-          simulateClick(inputEl);
-        }
-      }, 250);
-    }, 250);
-  }, 350);
+  const ratioLeaf = findLeafElementInShadows(document.body, (el) => {
+    const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
+    if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
 
-  return true;
+    const text = (el.textContent || el.innerText || '').trim();
+    if (matchesRatio(text)) return true;
+    if (!el.getAttribute) return false;
+    return matchesRatio(el.getAttribute('aria-label')) || matchesRatio(el.getAttribute('title'));
+  });
+
+  let ratioApplied = false;
+  if (ratioLeaf) {
+    const ratioBtn = getClickableParent(ratioLeaf);
+    console.log('[Flow Helper] Đã tìm thấy nút chọn tỉ lệ:', targetRatio, ratioBtn);
+    simulateClick(ratioBtn);
+    ratioApplied = true;
+  } else {
+    console.warn('[Flow Helper] Không tìm thấy nút chọn tỉ lệ trên menu:', targetRatio);
+  }
+
+  // C. Đóng menu popover bằng cách click/focus lại ô nhập prompt.
+  //
+  // Bước này BẮT BUỘC phải xong trước khi nơi gọi gõ prompt: popover còn mở là nó phủ lên ô nhập,
+  // cú click theo toạ độ của CDP sẽ trúng menu chứ không trúng ô nhập.
+  await sleep(250);
+  const inputEl = findInputField();
+  if (inputEl) {
+    inputEl.focus();
+    simulateClick(inputEl);
+  }
+  // Cho popover kịp biến mất khỏi DOM trước khi trả quyền cho nơi gọi.
+  await sleep(200);
+
+  return { ok: true, ratioApplied };
 }
 
 // Tải hàng đợi từ storage khi load trang
@@ -324,7 +359,14 @@ function init() {
       renderSidebar();
 
       // Đảm bảo ở đúng chế độ Ảnh/Video của Google Flow
-      setTimeout(() => selectFlowMode(queue.isImage), 1000);
+      // Lần đặt chế độ lúc mở trang: chạy rồi thôi, không ai chờ kết quả. Vẫn phải bắt lỗi —
+      // selectFlowMode giờ là async, để promise reject trần sẽ đẻ ra "Unhandled promise rejection"
+      // trong trang Errors của extension, lẫn với những lỗi thật cần đọc.
+      setTimeout(() => {
+        selectFlowMode(queue.isImage).catch((e) => {
+          console.warn('[Flow Helper] Lỗi đặt chế độ lúc khởi tạo:', e);
+        });
+      }, 1000);
 
       if (autoRun) {
         // Chỉ khởi chạy phiên mới nếu chưa có phiên nào hoặc trạng thái chuyển từ false sang true
@@ -341,7 +383,7 @@ function init() {
   });
 }
 
-function runSegmentViaDebugger(segment, callback) {
+async function runSegmentViaDebugger(segment, callback) {
   const inputEl = findInputField();
   if (!inputEl) {
     console.error('[Flow Helper] Không tìm thấy ô prompt.');
@@ -351,11 +393,18 @@ function runSegmentViaDebugger(segment, callback) {
 
   // Đảm bảo ở đúng chế độ trước khi điền - segment.aspectRatio (nếu có) ghi đè tỉ lệ
   // chung queue.aspectRatio cho riêng segment này (vd hero image của reading_practice có
-  // thể cần tỉ lệ khác tỉ lệ chung của cả video, xem buildSegmentedPrompts.js)
-  const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
-  const delay = isSwitching ? 1200 : 0;
+  // thể cần tỉ lệ khác tỉ lệ chung của cả video, xem buildSegmentedPrompts.js).
+  //
+  // AWAIT chứ không còn đoán bằng `setTimeout(..., 1200)`: chỉ khi selectFlowMode resolve thì
+  // popover cấu hình mới thật sự đóng. Chờ mò 1200ms là canh may rủi — ở tab nền timer bị bóp,
+  // menu chưa kịp đóng mà đã gõ prompt thì cú click rơi vào menu, prompt mất trắng.
+  try {
+    await selectFlowMode(queue.isImage, segment.aspectRatio);
+  } catch (e) {
+    console.warn('[Flow Helper] Lỗi khi đặt chế độ/tỉ lệ, vẫn thử gõ prompt:', e);
+  }
 
-  setTimeout(() => {
+  {
     // Tìm lại inputEl đề phòng DOM thay đổi sau khi chuyển chế độ
     const freshInput = findInputField() || inputEl;
     freshInput.focus();
@@ -405,7 +454,7 @@ function runSegmentViaDebugger(segment, callback) {
         finish({ ...res, baselineSrcs, baselineErrorCount });
       }
     });
-  }, delay);
+  }
 }
 
 // Theo dõi tiến trình sinh ảnh/video của Flow rồi tự động tải kết quả về khi xong
@@ -1197,10 +1246,12 @@ function runAutoLoop(runId) {
     console.log('[Flow Helper] Bắt đầu tự động điền & tạo phân đoạn:', nextPendingIdx + 1);
     const segment = queue.segments[nextPendingIdx];
 
-    // Đảm bảo ở đúng chế độ trước khi điền (segment.aspectRatio ghi đè tỉ lệ chung nếu có)
-    const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
-    const delay = isSwitching ? 1200 : 0;
-
+    // KHÔNG gọi selectFlowMode ở đây nữa — runSegmentViaDebugger đã tự gọi (và await) nó.
+    //
+    // Bản cũ gọi ở CẢ HAI CHỖ, nên mỗi phân đoạn mở menu cấu hình Flow hai lần bằng hai chuỗi bất
+    // đồng bộ chạy đè lên nhau trên cùng một popover: chuỗi này đang chọn tỉ lệ thì chuỗi kia đã
+    // bấm đóng menu, hoặc ngược lại — bấm mở lại đúng lúc chuỗi trước vừa đóng, để menu treo mở
+    // đè lên ô nhập prompt. Biến `delay` tính ra ở đây thì lại KHÔNG hề được dùng ở đâu cả.
     updateSegmentStatus(segment.segmentNumber, 'processing');
 
     runSegmentViaDebugger(segment, (res) => {
