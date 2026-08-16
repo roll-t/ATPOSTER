@@ -147,18 +147,23 @@ export async function GET() {
         }
       }
 
-      // Tìm ảnh xem trước (thumbnail) từ thư mục images/
+      // Tìm ảnh xem trước (thumbnail) từ thư mục images/. Ưu tiên "cover.*" — ảnh bìa có sẵn chữ
+      // tiêu đề, do render-project.mjs tự render sau khi video xong (chỉ moral_talk_slideshow, xem
+      // MoralTalkCover.tsx) — đẹp và rõ nội dung hơn hẳn so với ảnh pictogram slide 1 trần trụi.
+      // Dự án cũ render TRƯỚC khi có bước này (hoặc thuộc skill khác không có cover) thì không có
+      // file "cover.*", tự rơi xuống nhánh scene-01 như trước — không phá bất kỳ video cũ nào.
       let thumbnailFile = null;
       const imagesDir = path.join(projectDir, 'images');
       if (fs.existsSync(imagesDir)) {
         try {
-          const imgFiles = fs.readdirSync(imagesDir)
+          const allFiles = fs.readdirSync(imagesDir);
+          const coverFile = allFiles.find(f => /^cover\.(jpg|jpeg|png|webp)$/i.test(f));
+          const imgFiles = allFiles
             .filter(f => f.startsWith('scene-') && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp') || f.endsWith('.jpeg')))
             .sort();
-          if (imgFiles.length > 0) {
-            thumbnailFile = imgFiles[0];
-            if (scenesCount === 0) scenesCount = imgFiles.length;
-          }
+          if (coverFile) thumbnailFile = coverFile;
+          else if (imgFiles.length > 0) thumbnailFile = imgFiles[0];
+          if (scenesCount === 0) scenesCount = imgFiles.length;
         } catch (e) {
           // Bỏ qua
         }

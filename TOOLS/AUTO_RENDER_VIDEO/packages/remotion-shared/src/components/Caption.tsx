@@ -46,6 +46,27 @@ function stripListNumber(text: string): string {
   return text.replace(/^\s*\d+[.):]\s*/, "").trim();
 }
 
+/**
+ * Video's own "title" (used verbatim as the scene-0 headline text, see HookCaption below) is plain
+ * text with no "**" markup — unlike per-slide "subtitle" lines, which Gemini writes WITH explicit
+ * "**word**" markers per the script-generation prompt (see moralTalkSlideshow.js rule 5). Without
+ * this, the opening title card renders entirely in one flat color, no accent word at all — exactly
+ * the "why did the color I picked never show up" gap a real user hit. Only kicks in when the text
+ * has no markers of its own (never overrides an explicit "**...**" someone already wrote), and only
+ * ever wraps the TAIL of the sentence — matches how Vietnamese titles for this genre are phrased
+ * (general framing first, punchy specific phrase last), verified against real generated titles.
+ */
+function autoHighlightTail(text: string): string {
+  if (text.includes("**")) return text;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return text;
+  const highlightCount = Math.max(2, Math.min(4, Math.round(words.length * 0.4)));
+  const splitAt = Math.max(1, words.length - highlightCount);
+  const plain = words.slice(0, splitAt).join(" ");
+  const highlighted = words.slice(splitAt).join(" ");
+  return `${plain} **${highlighted}**`;
+}
+
 function chunkIntoCount(text: string, count: number): string[] {
   const words = splitWords(text);
   if (count <= 0) return [""];
@@ -383,12 +404,32 @@ const HookCaption: React.FC<{
   const rawText = isFirstScene && videoTitle ? videoTitle : text;
   if (!rawText) return null;
 
-  const [primaryTextRaw, secondaryTextRaw] = rawText.split("\n").map((s) => stripEmotionTags(s));
-  const primaryText = isFirstScene ? primaryTextRaw.toUpperCase() : stripListNumber(primaryTextRaw);
+  // The title (scene 0) has no bilingual-translation concept — a "\n" typed into it is the user
+  // manually choosing WHERE to break the line, not a primary/translation split. Splitting it the
+  // same way as regular captions (see the `else` path below) would silently swallow everything
+  // after the first "\n": hasSecondary is unconditionally false for scene 0, so that text would
+  // never render anywhere. Keep the whole title as one string here; line breaks are honored at
+  // render time below (each "\n"-separated piece becomes its own row, still auto-wrapping within
+  // itself if it's still too long for the frame).
+  // Highlight is applied at render time below (per rendered line, not here) — see primaryLines.
+  // MUST split on "\n" before calling stripEmotionTags: that helper collapses ALL whitespace
+  // (including "\n") since its other call sites always run it on an already-split single line —
+  // calling it on the whole multi-line title first would silently eat every manual line break.
+  const primaryText = isFirstScene
+    ? rawText.split("\n").map((line) => stripEmotionTags(line)).join("\n").toUpperCase()
+    : stripListNumber(stripEmotionTags(rawText.split("\n")[0] || ""));
+  const secondaryTextRaw = isFirstScene ? "" : stripEmotionTags(rawText.split("\n")[1] || "");
   const hasSecondary = !isFirstScene && showBilingual && Boolean(secondaryTextRaw);
   const secondaryText = hasSecondary ? stripHighlightMarkers(stripListNumber(secondaryTextRaw)) : "";
 
   if (!stripHighlightMarkers(primaryText)) return null;
+
+  // Each user-typed "\n" in the title becomes its own rendered row (still auto-wrapping within
+  // itself via normal text flow if that row alone is too long for the frame). Only the LAST row
+  // gets the tail-highlight treatment when nothing is explicitly marked with "**" — matches how a
+  // single-line title already worked before manual breaks were supported, and reads better than
+  // highlighting the tail of every row independently.
+  const primaryLines = primaryText.split("\n");
 
   const resolvedHighlightColor = highlightColor || "#FE2C55";
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
@@ -439,7 +480,11 @@ const HookCaption: React.FC<{
             letterSpacing: isFirstScene ? "0.5px" : "normal",
           }}
         >
-          {renderWithHighlights(primaryText, resolvedHighlightColor)}
+          {primaryLines.map((line, i) => {
+            const isLast = i === primaryLines.length - 1;
+            const displayLine = isFirstScene && isLast ? autoHighlightTail(line) : line;
+            return <div key={i}>{renderWithHighlights(displayLine, resolvedHighlightColor)}</div>;
+          })}
         </div>
         {hasSecondary && (
           <div

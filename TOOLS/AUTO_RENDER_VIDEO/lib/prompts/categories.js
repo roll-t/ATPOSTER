@@ -337,7 +337,7 @@ export const PROMPT_CATEGORIES = {
     type: 'slideshow',
     label: 'Video Nói Chuyện Đạo Lý',
     icon: '🗣️',
-    description: 'Kể một tình huống đời thường rút ra bài học sống (đạo lý), minh hoạ bằng pictogram trắng phát sáng trên nền đen, hỗ trợ lồng tiếng & phụ đề song ngữ Việt-Anh, linh hoạt chọn ngôn ngữ đọc chính.',
+    description: 'Kể một tình huống đời thường rút ra bài học sống (đạo lý), minh hoạ bằng pictogram trắng phẳng trên nền đen, hỗ trợ lồng tiếng & phụ đề song ngữ Việt-Anh, linh hoạt chọn ngôn ngữ đọc chính.',
     fields: [
       {
         key: 'aspectRatio',

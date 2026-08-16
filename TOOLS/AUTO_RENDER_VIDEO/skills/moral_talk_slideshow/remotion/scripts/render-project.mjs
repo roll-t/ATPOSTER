@@ -188,6 +188,25 @@ if (fs.existsSync(audioDir)) {
   if (match) bgMusicPath = `${projectFolder}/audio/${match}`;
 }
 
+/**
+ * Logo thương hiệu đóng mờ góc phải dưới (tuỳ chọn).
+ *
+ * Tự dò file trong public/brand/ và CHỈ đưa vào config khi thật sự tồn tại — giống hệt cách xử lý
+ * nhạc nền ngay bên trên. Lý do bắt buộc phải dò ở đây (Node) chứ không để component tự xoay xở:
+ * <Img> của Remotion coi ảnh tải lỗi là lỗi nghiêm trọng và làm HỎNG CẢ LƯỢT RENDER. Chưa bỏ logo
+ * vào mà cứ trỏ tới nó thì mọi video đều render fail, trong khi đúng ra chỉ nên là "không có logo".
+ *
+ * Đặt REMOTION_BRAND_LOGO=0 để tắt hẳn dù file có tồn tại.
+ */
+let brandLogoPath = null;
+if (process.env.REMOTION_BRAND_LOGO !== "0") {
+  const brandDir = path.join(root, "public", "brand");
+  if (fs.existsSync(brandDir)) {
+    const logo = fs.readdirSync(brandDir).find((f) => /^logo\.(png|webp|svg|jpg|jpeg)$/i.test(f));
+    if (logo) brandLogoPath = `brand/${logo}`;
+  }
+}
+
 const bgMusicEnabled = flags.bgMusicEnabled === undefined ? true : flags.bgMusicEnabled !== "false";
 const parsedBgMusicVolume = flags.bgMusicVolume !== undefined ? Number(flags.bgMusicVolume) : NaN;
 const bgMusicVolume = Number.isFinite(parsedBgMusicVolume) && parsedBgMusicVolume >= 0 && parsedBgMusicVolume <= 1
@@ -241,6 +260,7 @@ const remotionConfig = {
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh
   ...(bgMusicPath && bgMusicEnabled ? { bgMusic: bgMusicPath, bgMusicVolume } : {}),
+  ...(brandLogoPath ? { brandLogo: brandLogoPath } : {}),
 };
 
 // Ensure output final directory exists
@@ -286,3 +306,44 @@ execFileSync(
 );
 
 console.log(`\nSuccess! The final video is ready: public/${projectFolder}/final/video.mp4`);
+
+// Ảnh bìa (thumbnail) — render riêng bằng composition MoralTalkCover (xem MoralTalkCover.tsx),
+// tái dùng ĐÚNG kiểu chữ "Tiêu đề mở đầu" (hook) nên luôn khớp phong cách chữ to/viết hoa/1 cụm tô
+// màu nhấn dù video này có đang chọn kiểu phụ đề nào khác đi nữa — bìa là một sản phẩm cố định,
+// không phụ thuộc captionStyle của video. Lưu vào images/ (không phải final/) vì
+// app/api/prompts/created-videos/route.js đọc thumbnail preview từ đúng thư mục đó.
+//
+// Truyền THẲNG manifest.title (không tự tách cụm tô màu ở đây nữa) — Caption.tsx/HookCaption giờ
+// tự chọn cụm cuối câu để tô màu khi title chưa có sẵn "**...**" (xem autoHighlightTail trong
+// Caption.tsx), dùng CHUNG đúng 1 logic cho cả ảnh bìa lẫn slide 1 thật của video khi phát — trước
+// đây có 2 bản logic riêng (1 bản JS ở đây, video thật thì KHÔNG có bản nào cả) nên ảnh bìa có màu
+// nhấn còn khung hình đầu của video lúc phát lại toàn chữ trắng, không khớp nhau.
+if (scenes.length > 0 && scenes[0].image) {
+  const coverOutPath = path.join(imageDir, "cover.jpg");
+  console.log(`\nRendering cover image -> public/${projectFolder}/images/cover.jpg`);
+  try {
+    execFileSync(
+      process.execPath,
+      [
+        remotionCliEntry,
+        "still",
+        "src/index.ts",
+        "MoralTalkCover",
+        coverOutPath,
+        `--props=${JSON.stringify({
+          image: scenes[0].image,
+          headline: manifest.title || "slideshow-video",
+          highlightColor: "#d9a620",
+          orientation: remotionConfig.orientation,
+        })}`,
+        "--frame=20",
+      ],
+      { cwd: root, stdio: "inherit" }
+    );
+    console.log(`Cover image ready: public/${projectFolder}/images/cover.jpg`);
+  } catch (coverErr) {
+    // Ảnh bìa chỉ là tiện ích hiển thị ở lưới "Video Đã Tạo" — lỗi ở bước này không nên làm
+    // hỏng cả lượt render (video chính đã render xong và lưu thành công ở trên).
+    console.error(`Không tạo được ảnh bìa (bỏ qua, video chính vẫn dùng được):`, coverErr.message);
+  }
+}

@@ -13,7 +13,7 @@
  * ngắn, thẳng, mỗi điểm là 1 câu tương phản "A, không phải B" dẫn bằng số thứ tự trần trụi
  * ("Một, Hai, Ba..." — KHÔNG kèm "là", KHÔNG lặp lại 1 cụm danh từ như "Nguyên tắc của...").
  */
-import { isReflectiveMoralTheme } from '../../moralThemes.js';
+import { isReflectiveMoralTheme, getMoralThemeVoice } from '../../moralThemes.js';
 
 /**
  * Quy tắc MỞ BÀI HAI NHỊP, dùng chung cho cả 2 văn phong.
@@ -31,12 +31,13 @@ import { isReflectiveMoralTheme } from '../../moralThemes.js';
  * ở phần kỹ thuật bên trên, viết đè lại sẽ mâu thuẫn với chính nó.
  */
 const ENUMERATED_OPENING_RULE = `
-TWO-BEAT OPENING (MANDATORY whenever the script enumerates points — i.e. the topic promises a count such as "7 điều...", "5 cách...", "6 dấu hiệu...", or you are writing points led by a sequence word):
-- BEAT 1 — THE HOOK: the scroll-stopping opening line(s), following the 3-SECOND HOOK rules above. Do NOT put the count inside this beat; the hook's job is to shock/intrigue, not to announce an agenda.
-- BEAT 2 — THE PROMISE: immediately after the hook and BEFORE the first numbered point, write ONE short standalone sentence that names the exact count and what the list will deliver. Vietnamese examples: "Bảy điều sau đây, không ai nói với bạn trước khi ra trường." / "Sau đây là 5 dấu hiệu bạn nên rời đi sớm." English example: "Here are the 7 things nobody warns you about."
-- The number in BEAT 2 MUST equal exactly how many numbered points actually follow.
-- NEVER merge BEAT 2 into the hook sentence, and NEVER jump straight from the hook into the first point — the listener has to know how many points are coming before point one starts, otherwise they have no reason to stay to the end.
-- BEAT 2 is its own narration beat: when the output is split into slides/segments, it gets its own slide, separate from the hook slide and separate from point one.
+TWO-BEAT OPENING (MANDATORY whenever the script enumerates points — i.e. the topic promises a count such as "7 điều...", "5 cách...", "6 dấu hiệu...", "5 lý do...", or you are writing points led by a sequence word):
+- BEAT 1 — THE COUNT, FIRST WORDS OF THE SCRIPT: the very first line MUST OPEN WITH THE NUMBER ITSELF. Vietnamese: "6 cách để hết trì hoãn mà không cần ép bản thân." / "5 lý do người giỏi vẫn mãi không được cất nhắc." English: "6 ways to stop procrastinating without forcing yourself."
+- ABSOLUTELY NO lead-in before that number. Do not warm up with a rhetorical question, a scene, a greeting, or any framing sentence and only then reveal the count — the viewer decides whether to keep watching in the first second, and the number is the single strongest reason to stay. Reject openings like "Bạn có bao giờ thấy mình cứ trì hoãn mãi không? Sau đây là 6 cách..." and write "6 cách để hết trì hoãn..." instead. Also never start with "Có" ("Có 6 cách..." — start on the digit).
+- The number in BEAT 1 MUST equal exactly how many numbered points actually follow.
+- BEAT 2 — THE REASON TO STAY: immediately after, ONE short standalone line that makes the viewer sit through the whole list — the sharpest point teased, the cost of not knowing, or who this is for. Vietnamese examples: "Cách thứ tư gần như không ai nghĩ tới." / "Điều cuối cùng là điều khiến nhiều người trả giá đắt nhất." Do NOT repeat the count here; it was already said in BEAT 1.
+- Never jump straight from BEAT 1 into the first point — BEAT 2 is what converts a viewer who now knows the length into one who wants the content.
+- BEAT 2 is its own narration beat: when the output is split into slides/segments, it gets its own slide, separate from the opening slide and separate from point one.
 - Number the points using whichever sequence-word convention this voice's techniques above specify — do not invent a different one here.`;
 
 export function getMoralTalkStyleReference(theme) {
@@ -75,6 +76,35 @@ ${ENUMERATED_OPENING_RULE}`;
     return { isReflectiveTheme, narrationModeLine, styleReferenceBlock };
   }
 
+  if (getMoralThemeVoice(theme) === 'satire') {
+    const narrationModeLine = `- Write as a witty, self-aware Gen Z Vietnamese creator riffing on ONE trending slang term — playful, teasing, a little dramatic, the tone of a friend roasting a familiar type of person over iced tea. Speak to "bạn" directly. Never preachy, never a dictionary entry read out loud.`;
+
+    const styleReferenceBlock = `VOICE & STYLE — TRENDING SLANG SATIRE:
+
+TERM LOCK (the anchor of this theme, tuned for a natural SPOKEN rhythm — a real script came out repeating the term as the subject of nearly every single sentence, which read stiff and keyword-stuffed rather than like someone actually talking; the fix below keeps the term as the anchor without forcing it into every line):
+- The topic names a Vietnamese trending slang term (e.g. "Sĩ Vương", "Lốp Trưởng", "Lọ Vương"). That exact term is the SUBJECT and the running joke of the whole video, and it MUST appear — spelled, capitalised, exactly as given, never translated, never respelled — in the OPENING line (together with the count, see the two-beat opening rule below) and again in the CLOSING callback line. Those two anchors are non-negotiable: a viewer who only catches the first and last seconds must still clearly hear which trend this is.
+- Inside the BODY (the numbered situations), do NOT force the exact term to be the subject of every single point — that is what read unnatural. Write the way a Vietnamese speaker actually talks about a recognisable type of person: drop the subject entirely wherever the sentence flows fine without it (Vietnamese naturally omits the subject in a follow-up clause — e.g. "Đi ăn lúc nào cũng tranh trả tiền... Nhưng cả tháng sau đó chỉ dám ăn mì tôm." needs no restated name in the second clause), or lean on a light connector/filler ("vậy mà", "ấy vậy", "kiểu", "thế mà") instead of restating the full term.
+- As a natural rhythm (not a strict count), bring the exact term back once every 2 to 3 points — never in literally every single point — so a viewer landing mid-video still hears it from time to time, without every sentence starting with the same name.
+- What NEVER changes: when you DO say the term, say it VERBATIM — same words, same spelling, same capitalisation. Never swap in a "proper" synonym or invent a different nickname FOR the term itself (e.g. if the term is "Lốp Trưởng", never write "người thích ra vẻ" or "anh chàng ấy" AS A STAND-IN for the term — that replaces the joke). The relaxation above is about how OFTEN the term is said, never about respelling or paraphrasing the term when it is said.
+- Do not explain the term as a definition ("X là từ dùng để chỉ..."). Show it through situations the viewer recognises instead.
+
+Techniques:
+1. Open with the term in the FIRST few words — no build-up. e.g. "Lốp Trưởng — kiểu người ai trong nhóm bạn cũng gặp một lần."
+2. Then a line that promises recognition: the viewer should think "ủa, quen quá". e.g. "Nghe xong bạn sẽ nghĩ ngay ra một đứa."
+3. Body = a run of short, punchy SITUATIONS, not abstract traits. Each one is a tiny scene the viewer has actually lived through (đi ăn, đi nhậu, group chat, đi làm, deadline, chia tiền), ending on a punchline beat. Keep sentences short — this voice lives on rhythm and timing.
+4. Exaggerate the situation, never the insult. Roast the BEHAVIOUR, and keep it recognisable-funny rather than cruel.
+5. Sprinkle natural spoken Gen Z Vietnamese ("đỉnh nóc", "chốt đơn", "mất điện", "flex", "chill", "khum") ONLY where it lands naturally — forced slang in every sentence reads like an adult imitating teenagers, which kills the joke faster than no slang at all.
+6. Close with a short callback that turns the term back on the viewer, in a friendly way. e.g. "Tag ngay đứa Lốp Trưởng trong nhóm đi."
+
+HARD LIMITS:
+- Satirise a TYPE of behaviour, never a real, named, identifiable person. No real names, no "con nhỏ lớp bên", no references that point at one specific human being.
+- Nothing that mocks appearance, body, disability, ethnicity, region of origin, gender identity, sexual orientation, family circumstances or poverty. Those are not the joke — the behaviour is.
+${ENUMERATED_OPENING_RULE}
+- FOR THIS THEME ONLY, reconciling the two rules above: when the topic promises a count ("5 dấu hiệu bạn là Lốp Trưởng"), the opening line carries BOTH the number and the term together — "5 dấu hiệu bạn chính là Lốp Trưởng." When the topic has no count at all ("Lốp Trưởng là ai"), ignore the counting rule entirely and just open with the term.`;
+
+    return { isReflectiveTheme: false, narrationModeLine, styleReferenceBlock };
+  }
+
   const listSample = `10 quy tắc ngầm trong xã hội mà ai cũng nên biết.
 
 Một. Đám cưới không mời thì không đến, đám tang biết chuyện thì phải đến.
@@ -106,7 +136,7 @@ Bạn biết được bao nhiêu điều trong số này?`;
 ${listSample}
 """
 Techniques to reproduce from this reference, applied to whatever topic is given:
-1. Open with TWO separate beats, never one merged line (see the TWO-BEAT OPENING block below for the full rule). First a short, blunt hook that frames the whole list as hard-won truths learned through real life, not textbook advice — at most ~14 words, no warm-up clause, and no count in it. Then, as its own line, the promise stating the exact count, leading with the number itself, e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." NEVER start that promise line with "Có" (e.g. NOT "Có 10 quy tắc..." — start straight with the number instead). The count MUST equal exactly how many list-point slides/lines follow, so the viewer knows upfront how long the list is and can follow along.
+1. Open with TWO separate beats (see the TWO-BEAT OPENING block below for the full rule). The FIRST line leads with the number itself and frames the list as hard-won truths learned through real life, not textbook advice — e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." At most ~14 words, no warm-up clause in front of the number, and never starting with "Có". The count MUST equal exactly how many list-point slides/lines follow. The SECOND line is a short reason to stay to the end, without repeating the count.
 2. Each list point states the rule/fact DIRECTLY and PLAINLY, as its own complete statement — this is the DEFAULT for every point, straight to the point, no framing, no hedging. DO NOT force an artificial "[điều đúng], không phải [điều người ta thường lầm tưởng]" contrast onto every single point — repeated point after point across 5-10 points, that template becomes wordy and roundabout ("vòng vo") instead of sounding decisive. A contrast structure (e.g. "X, không phải Y" or "X thay vì Y") is fine ONLY where the content itself genuinely calls for correcting a common misconception — most points should just state the rule outright with zero contrast framing, exactly like "Hai. Có mượn thì phải trả." or "Năm. Được mời đi tiệc thì mang theo quà." in the reference sample.
 3. Lead each point with a plain sequential counting word FOLLOWED BY A PERIOD (not a comma, not the word "là") — "Một. Hai. Ba. Bốn. Năm. Sáu...." (NOT "Một, Hai," and NOT "Một là, Hai là...") — or in English mode: "First. Second. Third. Fourth...." The period after the number is a deliberate full stop, giving the voice a clear beat/pause before each point begins.
 4. Keep each point SHORT — usually just ONE sentence (occasionally two short clauses joined by a comma when the rule naturally has two related parts, like point Bốn/Chín in the sample). Do not pad with an extra justification/explanation sentence after the rule — state it and move on. Real hard-won-wisdom lists don't explain themselves; explaining every point is exactly the "lòng vòng" (roundabout) feeling to avoid.

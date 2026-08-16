@@ -45,7 +45,21 @@ export default function MoralSyllabusModal({
   }, [currentTheme]);
   const activeTheme = activeThemeTab.key;
 
-  // Tổng hợp tất cả tên/tiêu đề từ lịch sử và video đã tạo
+  // Tập hợp NGUYÊN VĂN chủ đề đã chọn (trường 'syllabusTopic', xem ContentForm.js) — so khớp
+  // CHÍNH XÁC bằng tập này TRƯỚC, vì đây là bản sao chưa hề bị Gemini viết lại nên đáng tin tuyệt
+  // đối. 'scenario'/'title' bị bước dịch (translateAndExpandInputs) diễn giải lại thành dạng
+  // "English // Vietnamese diễn giải", nên so khớp mờ trên chúng có lúc trúng có lúc trật tuỳ theo
+  // Gemini diễn giải gần hay xa bản gốc — đúng lỗi "cái đánh dấu được, cái không" đã gặp.
+  const exactSyllabusTopics = useMemo(() => {
+    const set = new Set();
+    (history || []).forEach(item => {
+      if (item.input?.syllabusTopic) set.add(item.input.syllabusTopic.trim().toLowerCase());
+    });
+    return set;
+  }, [history]);
+
+  // Dự phòng bằng so khớp mờ (chuỗi con) cho các video đã tạo TRƯỚC KHI có trường syllabusTopic —
+  // không hoàn hảo như trước giờ, nhưng vẫn hơn là để trắng hoàn toàn.
   const allHistoryTexts = useMemo(() => {
     const texts = [];
     (history || []).forEach(item => {
@@ -63,7 +77,9 @@ export default function MoralSyllabusModal({
   const checkIsCompleted = (topicText) => {
     if (!topicText) return false;
     const target = topicText.trim().toLowerCase();
-    
+
+    if (exactSyllabusTopics.has(target)) return true;
+
     for (const hText of allHistoryTexts) {
       if (!hText) continue;
       // Khớp chính xác hoặc chứa toàn bộ cụm từ
@@ -77,7 +93,7 @@ export default function MoralSyllabusModal({
   // Tính số bài đã tạo video ở theme này
   const completedCount = useMemo(() => {
     return themeTopics.filter(t => checkIsCompleted(t.text)).length;
-  }, [themeTopics, allHistoryTexts]);
+  }, [themeTopics, allHistoryTexts, exactSyllabusTopics]);
 
   const progressPercent = Math.round((completedCount / themeTopics.length) * 100);
 

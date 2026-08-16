@@ -15,5 +15,8 @@ export async function regenerateNarrationScript({ category, input, segments, api
   }
 
   const promptText = buildRegenerateNarrationPrompt(category, input || {}, segments);
-  return callGeminiApi(promptText, keys, { tier: 'quality', timeoutMs: 90_000, deadlineMs: 180_000, label: 'Viết lại lời kể' });
+  // Cùng hạng nặng với khâu viết kịch bản (sinh lại lời kể cho TOÀN BỘ slide) nên dùng chung mức
+  // hạn giờ rộng — xem lý do ở SCRIPT_REQUEST_TIMEOUT_MS trong generateSegmentedScript.js. Để 90s
+  // như cũ thì lượt gọi bị CHÍNH MÌNH bỏ ngang trước khi Gemini kịp trả lời.
+  return callGeminiApi(promptText, keys, { tier: 'quality', timeoutMs: 210_000, deadlineMs: 480_000, label: 'Viết lại lời kể' });
 }

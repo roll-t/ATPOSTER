@@ -17,6 +17,8 @@
  *                  tu từ. Ít slide hơn, mỗi slide dài hơn (8-15 giây).
  *   'list'       — văn liệt kê "sự thật trải đời": ngắn, thẳng, dẫn bằng số thứ tự trần trụi
  *                  ("Một. Hai. Ba."). Nhiều slide hơn, mỗi slide ngắn hơn (6-10 giây).
+ *   'satire'     — văn châm biếm hài, giọng Gen Z: xoáy vào MỘT từ lóng đang trend, lặp lại đúng
+ *                  từ đó xuyên suốt, nhịp punchline. Nhịp slide bám theo 'list' (ngắn, nhiều).
  *
  * styleLabel là mô tả tiếng Anh đưa thẳng vào prompt Gemini (THEME CHARACTERISTIC) — viết bằng
  * tiếng Anh vì phần còn lại của prompt cũng vậy.
@@ -166,6 +168,14 @@ export const MORAL_THEMES = [
     icon: '💼',
     voice: 'list',
     styleLabel: 'Post-Graduation & Job Hunting — CV writing, interviews, salary talk, rejection, surviving the first job'
+  },
+  {
+    key: 'trending_slang',
+    label: 'Từ Lóng Trending',
+    sub: 'Châm biếm & Bắt trend',
+    icon: '🔥',
+    voice: 'satire',
+    styleLabel: 'Vietnamese Internet Slang Explainer — comedic, satirical Gen Z voice built around ONE trending term (e.g. "Sĩ Vương", "Lốp Trưởng"); the term itself is the punchline and must be repeated verbatim'
   }
 ];
 
@@ -185,4 +195,15 @@ export function getMoralThemeLabel(themeKey) {
 // Nguồn sự thật DUY NHẤT cho việc chọn văn phong — thay cho phép so sánh chuỗi rải rác.
 export function isReflectiveMoralTheme(themeKey) {
   return getMoralTheme(themeKey).voice === 'reflective';
+}
+
+/**
+ * Giọng văn thô ('reflective' | 'list' | 'satire').
+ *
+ * Dùng hàm này khi cần phân biệt ĐỦ BA giọng. isReflectiveMoralTheme() chỉ trả nhị phân, nên nếu
+ * chỉ dựa vào nó thì 'satire' im lặng bị gộp chung với 'list' — đúng cái bẫy mà docblock đầu file
+ * cảnh báo, và cũng không có lỗi nào được báo ra, chỉ là video xuất ra sai giọng.
+ */
+export function getMoralThemeVoice(themeKey) {
+  return getMoralTheme(themeKey).voice;
 }

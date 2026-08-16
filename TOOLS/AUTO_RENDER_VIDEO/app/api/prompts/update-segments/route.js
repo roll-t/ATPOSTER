@@ -66,12 +66,18 @@ function applyEdits(oldSeg, edit) {
 
 export async function POST(request) {
   try {
-    const { id, folderPath, category, segments: edits } = await request.json();
+    const { id, folderPath, category, segments: edits, title } = await request.json();
+
+    // Tiêu đề sửa tay. Chỉ coi là có sửa khi client gửi lên một chuỗi — gửi chuỗi rỗng nghĩa là cố
+    // ý xoá trắng, khác hẳn với việc không gửi trường này (chỉ sửa lời thoại, đừng đụng tiêu đề).
+    const hasTitleEdit = typeof title === 'string';
+    const cleanTitle = hasTitleEdit ? title.trim() : null;
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu mã kịch bản (id) — không xác định được bản ghi cần lưu.' }, { status: 400 });
     }
-    if (!Array.isArray(edits) || edits.length === 0) {
+    const hasSegmentEdits = Array.isArray(edits) && edits.length > 0;
+    if (!hasSegmentEdits && !hasTitleEdit) {
       return NextResponse.json({ error: 'Không có nội dung chỉnh sửa nào để lưu.' }, { status: 400 });
     }
 
@@ -81,8 +87,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Không tìm thấy kịch bản này trong lịch sử (có thể đã bị xoá).' }, { status: 404 });
     }
 
-    const editByNumber = new Map(edits.map((e) => [e.segmentNumber, e]));
+    const editByNumber = new Map((edits || []).map((e) => [e.segmentNumber, e]));
     let changedCount = 0;
+    const titleChanged = hasTitleEdit && cleanTitle !== (record.title || '');
 
     const updatedSegments = (record.segments || []).map((seg) => {
       const edit = editByNumber.get(seg.segmentNumber);
@@ -94,24 +101,32 @@ export async function POST(request) {
       return next;
     });
 
-    if (changedCount === 0) {
-      return NextResponse.json({ success: true, segments: record.segments, changedCount: 0, manifestUpdated: false });
+    if (changedCount === 0 && !titleChanged) {
+      return NextResponse.json({ success: true, segments: record.segments, title: record.title, changedCount: 0, manifestUpdated: false });
     }
 
     const update = { segments: updatedSegments, updatedAt: Date.now() };
+    if (titleChanged) update.title = cleanTitle;
 
     // Phụ đề đốt vào video nằm ở remotionConfig.scenes, khớp theo THỨ TỰ với segments (không phải
     // theo segmentNumber) — bám đúng cách regenerate-narration đang làm để 2 đường ghi không lệch nhau.
-    if (record.remotionConfig?.scenes) {
-      const captionByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s.subtitle]));
-      update.remotionConfig = {
-        ...record.remotionConfig,
-        scenes: record.remotionConfig.scenes.map((scene, idx) => {
+    if (record.remotionConfig) {
+      const nextConfig = { ...record.remotionConfig };
+
+      // Tiêu đề phải vào remotionConfig chứ không chỉ vào bản ghi lịch sử: kiểu phụ đề "Tiêu đề mở
+      // đầu" đốt thẳng tiêu đề này lên video, đọc từ đây chứ không đọc DB.
+      if (titleChanged) nextConfig.title = cleanTitle;
+
+      if (record.remotionConfig.scenes) {
+        const captionByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s.subtitle]));
+        nextConfig.scenes = record.remotionConfig.scenes.map((scene, idx) => {
           const seg = record.segments?.[idx];
           const newCaption = seg ? captionByNumber.get(seg.segmentNumber) : undefined;
           return newCaption !== undefined ? { ...scene, caption: newCaption } : scene;
-        })
-      };
+        });
+      }
+
+      update.remotionConfig = nextConfig;
     }
 
     await db.collection('promptHistory').updateOne({ id }, { $set: update });
@@ -139,6 +154,9 @@ export async function POST(request) {
           if (Array.isArray(fresh.elements)) patched.elements = fresh.elements;
           return patched;
         });
+        // render-project.mjs và khâu lồng tiếng đọc manifest.json chứ không đọc DB — không ghi
+        // tiêu đề vào đây thì video render ra vẫn mang tiêu đề cũ dù giao diện đã hiện tên mới.
+        if (titleChanged) manifest.title = cleanTitle;
         manifest.updatedAt = Date.now();
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
         manifestUpdated = true;
@@ -148,8 +166,10 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       segments: updatedSegments,
+      title: titleChanged ? cleanTitle : record.title,
       remotionConfig: update.remotionConfig ?? record.remotionConfig,
       changedCount,
+      titleChanged,
       manifestUpdated
     });
   } catch (error) {

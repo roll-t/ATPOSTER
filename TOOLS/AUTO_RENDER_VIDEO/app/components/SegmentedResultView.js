@@ -13,9 +13,9 @@ import CaptionStylePreview from './SegmentedResultView/CaptionStylePreview.js';
 import TransitionStylePreview from './SegmentedResultView/TransitionStylePreview.js';
 import ReadingPageLivePreview from './SegmentedResultView/ReadingPageLivePreview.js';
 import {
-  BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
+  BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
-  CATEGORY_STYLE_FONT_SIZE_OVERRIDES, SYSTEM_READING_PRESETS
+  CATEGORY_STYLE_OVERRIDES, SYSTEM_READING_PRESETS
 } from './SegmentedResultView/constants.js';
 import {
   stripEmotionTagsForDisplay, countWords, estimateSpeechSeconds, formatDuration,
@@ -142,6 +142,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // và bấm "Huỷ" chỉ cần xoá rỗng object này là quay về nguyên trạng.
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [scriptEdits, setScriptEdits] = useState({});
+  // Tiêu đề đang sửa tay. null = chưa đụng tới — phân biệt với chuỗi rỗng (cố ý xoá trắng), để lúc
+  // lưu biết có nên gửi trường title lên hay không.
+  const [titleDraft, setTitleDraft] = useState(null);
   const [isSavingScript, setIsSavingScript] = useState(false);
   // Segment đang mở trong canvas editor (null = đóng)
   const [canvasEditorSeg, setCanvasEditorSeg] = useState(null);
@@ -213,15 +216,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     : (() => {
       const styleDefault = CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box;
-      const categoryFontSizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[initialStyle];
+      const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[initialStyle];
       const rc = result.remotionConfig || {};
       return {
         font: rc.font || styleDefault.font,
-        fontSize: rc.fontSize || categoryFontSizeOverride || styleDefault.fontSize,
+        fontSize: rc.fontSize || categoryOverride?.fontSize || styleDefault.fontSize,
         textColor: rc.textColor || styleDefault.textColor,
         bgColor: rc.bgColor || styleDefault.bgColor,
         bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : styleDefault.bgTransparent,
-        highlightColor: rc.highlightColor || styleDefault.highlightColor
+        highlightColor: rc.highlightColor || categoryOverride?.highlightColor || styleDefault.highlightColor
       };
     })();
 
@@ -292,9 +295,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (result.remotionConfig?.bgMusicVolume !== undefined && result.remotionConfig?.bgMusicVolume !== null) {
       const v = Number(result.remotionConfig.bgMusicVolume);
       const percent = v <= 1 ? Math.round(v * 100) : v;
-      return percent === 6 ? '10' : String(percent);
+      return percent === 6 ? DEFAULT_BG_MUSIC_VOLUME_PERCENT : String(percent);
     }
-    return '10';
+    return DEFAULT_BG_MUSIC_VOLUME_PERCENT;
   });
   const [defaultBgMusicTrackId, setDefaultBgMusicTrackId] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -307,9 +310,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // chế Preset đầy đủ (xem chú thích ở fetchSettings bên dưới).
   const [defaultBgMusicVolume, setDefaultBgMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('default_bg_music_volume') || '10';
+      const saved = localStorage.getItem('default_bg_music_volume');
+      // Bản lưu đúng bằng mặc định CŨ coi như "chưa từng chỉnh tay" — migrate 1 lần sang mặc định
+      // mới thay vì kẹt ở mức cũ mãi mãi dù DEFAULT_BG_MUSIC_VOLUME_PERCENT đã đổi trong code.
+      if (saved && saved !== LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT) return saved;
     }
-    return '10';
+    return DEFAULT_BG_MUSIC_VOLUME_PERCENT;
   });
   const [selectedBgMusicTrackId, setSelectedBgMusicTrackId] = useState(() => {
     if (result.remotionConfig?.bgMusicTrackId) return result.remotionConfig.bgMusicTrackId;
@@ -976,7 +982,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setSelectedBgMusicTrackId(activeTrack);
       setDefaultBgMusicTrackId(savedTrack);
 
-      const savedVolume = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null) || settings?.defaultBgMusicVolume || '10';
+      let savedVolume = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null) || settings?.defaultBgMusicVolume || DEFAULT_BG_MUSIC_VOLUME_PERCENT;
+      // Cùng migrate 1 lần như initializer ở trên: bản lưu đúng bằng mặc định CŨ coi như chưa
+      // từng bị chỉnh tay.
+      if (String(savedVolume) === LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT) savedVolume = DEFAULT_BG_MUSIC_VOLUME_PERCENT;
       setDefaultBgMusicVolume(savedVolume);
 
       // Công tắc bật/tắt cũng phải theo kịch bản đang mở, cùng lý do với giá trị khởi tạo ở trên —
@@ -990,7 +999,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (result?.remotionConfig?.bgMusicVolume !== undefined && result?.remotionConfig?.bgMusicVolume !== null) {
         const v = Number(result.remotionConfig.bgMusicVolume);
         const percent = v <= 1 ? Math.round(v * 100) : v;
-        setRenderBgMusicVolume(percent === 6 ? '10' : String(percent));
+        setRenderBgMusicVolume(percent === 6 ? DEFAULT_BG_MUSIC_VOLUME_PERCENT : String(percent));
       } else {
         setRenderBgMusicVolume(savedVolume);
       }
@@ -1037,6 +1046,31 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // Ghim RIÊNG mức âm lượng đang chỉnh làm mặc định — tách khỏi handlePinDefaultTrack (hàm đó ghim
+  // CẢ bản nhạc lẫn âm lượng, tự chạy ngầm mỗi khi đóng modal). Nút này để người dùng chủ động chốt
+  // "âm lượng này là mặc định của tôi" ngay lúc đang chỉnh, không phải đoán rằng đóng modal ra là nó
+  // đã tự lưu — và không đụng tới bản nhạc đang ghim mặc định (có thể họ chỉ đang thử âm lượng, chưa
+  // muốn đổi bản nhạc mặc định).
+  const [defaultVolumeJustSaved, setDefaultVolumeJustSaved] = useState(false);
+  const handleSetDefaultVolume = async () => {
+    setDefaultBgMusicVolume(renderBgMusicVolume);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
+    }
+    setDefaultVolumeJustSaved(true);
+    setTimeout(() => setDefaultVolumeJustSaved(false), 2200);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...settings, defaultBgMusicVolume: renderBgMusicVolume })
+      });
+      await fetchSettings();
+    } catch (err) {
+      console.warn('Lỗi lưu âm lượng nhạc nền mặc định:', err);
+    }
+  };
+
   // Tự động sao chép file nhạc nền mặc định (bg-music.mp3) vào dự án mới nếu nhạc BẬT nhưng chưa có file trên đĩa
   useEffect(() => {
     if (renderBgMusicEnabled && !assetCounts.hasBgMusic && result.input?.folderPath) {
@@ -1064,6 +1098,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bgColor: renderCaptionBgColor,
       bgOpacity: renderCaptionBgOpacity,
       isBgTransparent: renderCaptionBgTransparent,
+      highlightColor: renderHighlightColor,
       heroPercent: renderHeroHeightPercent,
       titlePercent: renderTitleHeightPercent,
       bodyPercent: renderBodyHeightPercent,
@@ -1191,6 +1226,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.bgColor !== undefined) setRenderCaptionBgColor(c.bgColor);
     if (c.bgOpacity !== undefined) setRenderCaptionBgOpacity(c.bgOpacity);
     if (c.isBgTransparent !== undefined) setRenderCaptionBgTransparent(c.isBgTransparent);
+    // Thiếu dòng này trước đây khiến Format lưu từ kiểu "Karaoke"/"Tiêu đề mở đầu" với màu nhấn tự
+    // chỉnh không bao giờ khôi phục lại đúng màu đó khi áp dụng lại preset — luôn rơi về mặc định.
+    if (c.highlightColor !== undefined) setRenderHighlightColor(c.highlightColor);
     if (c.heroPercent !== undefined) setRenderHeroHeightPercent(c.heroPercent);
     if (c.titlePercent !== undefined) setRenderTitleHeightPercent(c.titlePercent);
     if (c.bodyPercent !== undefined) setRenderBodyHeightPercent(c.bodyPercent);
@@ -1224,6 +1262,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       [c.bgColor, renderCaptionBgColor],
       [c.bgOpacity, renderCaptionBgOpacity],
       [c.isBgTransparent, renderCaptionBgTransparent],
+      [c.highlightColor, renderHighlightColor],
       [c.heroPercent, renderHeroHeightPercent],
       [c.titlePercent, renderTitleHeightPercent],
       [c.bodyPercent, renderBodyHeightPercent],
@@ -1265,14 +1304,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const defaults = isReadingPractice
       ? CAPTION_STYLE_DEFAULTS.readingPage
       : (CAPTION_STYLE_DEFAULTS[styleType] || CAPTION_STYLE_DEFAULTS.box);
-    const categoryFontSizeOverride = !isReadingPractice ? CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[styleType] : undefined;
+    const categoryOverride = !isReadingPractice ? CATEGORY_STYLE_OVERRIDES[result.category]?.[styleType] : undefined;
     setRenderCaptionFont(defaults.font);
-    setRenderCaptionFontSize(categoryFontSizeOverride || defaults.fontSize);
+    setRenderCaptionFontSize(categoryOverride?.fontSize || defaults.fontSize);
     setRenderCaptionSecondaryFontSize('');
     setRenderCaptionTextColor(defaults.textColor);
     setRenderCaptionBgColor(defaults.bgColor);
     setRenderCaptionBgTransparent(defaults.bgTransparent);
-    setRenderHighlightColor(defaults.highlightColor || '#FE2C55');
+    setRenderHighlightColor(categoryOverride?.highlightColor || defaults.highlightColor || '#FE2C55');
   };
   const capcutPanelRef = useRef(null);
   const [mounted, setMounted] = useState(false);
@@ -1464,13 +1503,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           const styleDefaults = CAPTION_STYLE_DEFAULTS[pinnedCaptionStyle];
           if (styleDefaults) {
             const rc = result.remotionConfig || {};
-            const sizeOverride = CATEGORY_STYLE_FONT_SIZE_OVERRIDES[result.category]?.[pinnedCaptionStyle];
+            const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[pinnedCaptionStyle];
             if (!rc.font) setRenderCaptionFont(styleDefaults.font);
-            if (!rc.fontSize) setRenderCaptionFontSize(sizeOverride || styleDefaults.fontSize);
+            if (!rc.fontSize) setRenderCaptionFontSize(categoryOverride?.fontSize || styleDefaults.fontSize);
             if (!rc.textColor) setRenderCaptionTextColor(styleDefaults.textColor);
             if (!rc.bgColor) setRenderCaptionBgColor(styleDefaults.bgColor);
             if (rc.isBgTransparent === undefined) setRenderCaptionBgTransparent(styleDefaults.bgTransparent);
-            if (!rc.highlightColor) setRenderHighlightColor(styleDefaults.highlightColor || '#FE2C55');
+            if (!rc.highlightColor) setRenderHighlightColor(categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55');
           }
         }
         const pinnedTransitionStyle = s[settingsKey('defaultTransitionStyle')];
@@ -1933,7 +1972,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           captionSecondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
           captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
-          highlightColor: (!isReadingPractice && renderCaptionStyle === 'karaoke') ? (renderHighlightColor || undefined) : undefined,
+          // "karaoke" (tô màu từ đang đọc) VÀ "hook" (tô màu cụm từ nhấn trong "Tiêu đề mở đầu")
+          // đều thực sự dùng highlightColor lúc render (xem Caption.tsx/HookCaption) — trước đây
+          // chỉ gửi cho karaoke, nên đổi màu ở Studio cho kiểu "hook" không bao giờ vào được tới
+          // video, render-project.mjs luôn nhận undefined và rơi về màu đỏ hồng #FE2C55 mặc định.
+          highlightColor: (!isReadingPractice && (renderCaptionStyle === 'karaoke' || renderCaptionStyle === 'hook')) ? (renderHighlightColor || undefined) : undefined,
           captionBgOpacity: isReadingPractice && renderCaptionBgOpacity ? Number(renderCaptionBgOpacity) : undefined,
           heroHeightPercent: isReadingPractice && renderHeroHeightPercent ? Number(renderHeroHeightPercent) : undefined,
           titleHeightPercent: isReadingPractice && renderTitleHeightPercent ? Number(renderTitleHeightPercent) : undefined,
@@ -2271,6 +2314,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bgColor: renderCaptionBgColor,
       bgOpacity: renderCaptionBgOpacity,
       isBgTransparent: renderCaptionBgTransparent,
+      highlightColor: renderHighlightColor,
       heroPercent: renderHeroHeightPercent,
       titlePercent: renderTitleHeightPercent,
       bodyPercent: renderBodyHeightPercent,
@@ -2461,11 +2505,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (!edit) return false;
     return Object.entries(edit).some(([field, value]) => value !== (seg[field] ?? ''));
   });
-  const hasUnsavedEdits = dirtySegments.length > 0;
+  // Tiêu đề cũng tính là "có sửa chưa lưu": không thì đổi mỗi tiêu đề rồi bấm Lưu sẽ rơi vào nhánh
+  // "không có gì để lưu", thoát chế độ sửa và âm thầm vứt mất thay đổi.
+  const isTitleDirty = titleDraft !== null && titleDraft.trim() !== (result.title || '');
+  const hasUnsavedEdits = dirtySegments.length > 0 || isTitleDirty;
 
   const handleCancelEdits = () => {
-    if (hasUnsavedEdits && !window.confirm(`Bỏ toàn bộ chỉnh sửa chưa lưu ở ${dirtySegments.length} slide?`)) return;
+    // Nêu đúng thứ sắp mất: đổi mỗi tiêu đề mà hỏi "bỏ chỉnh sửa ở 0 slide?" thì người dùng bấm
+    // đồng ý mà không biết mình vừa vứt cái gì.
+    const parts = [];
+    if (dirtySegments.length > 0) parts.push(`${dirtySegments.length} slide`);
+    if (isTitleDirty) parts.push('tiêu đề');
+    if (hasUnsavedEdits && !window.confirm(`Bỏ toàn bộ chỉnh sửa chưa lưu ở ${parts.join(' và ')}?`)) return;
     setScriptEdits({});
+    setTitleDraft(null);
     setIsEditingScript(false);
     setSaveScriptMsg('');
   };
@@ -2616,16 +2669,25 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           segments: dirtySegments.map((seg) => ({
             segmentNumber: seg.segmentNumber,
             ...scriptEdits[seg.segmentNumber]
-          }))
+          })),
+          // Chỉ gửi khi thật sự có sửa — gửi kèm mọi lần lưu sẽ ghi đè tiêu đề một cách thừa thãi.
+          ...(isTitleDirty ? { title: titleDraft.trim() } : {})
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        onResult?.({ ...result, segments: data.segments, remotionConfig: data.remotionConfig ?? result.remotionConfig });
+        onResult?.({
+          ...result,
+          segments: data.segments,
+          title: data.title ?? result.title,
+          remotionConfig: data.remotionConfig ?? result.remotionConfig
+        });
         onHistoryRefresh?.();
         setScriptEdits({});
+        setTitleDraft(null);
 
-        const savedMsg = `✓ Đã lưu ${data.changedCount} slide${data.manifestUpdated ? ' (đã cập nhật cả manifest.json của project)' : ''}.`;
+        const titleNote = data.titleChanged ? ' Đã đổi tiêu đề.' : '';
+        const savedMsg = `✓ Đã lưu ${data.changedCount} slide${data.manifestUpdated ? ' (đã cập nhật cả manifest.json của project)' : ''}.${titleNote}`;
 
         // Slide nào đã có giọng đọc thì đọc lại NGAY tại chỗ bằng đúng giọng cũ, thay vì bắt người
         // dùng nhớ chạy lại toàn bộ Bước 1. Chế độ sửa chỉ tắt sau khi việc đó xong, để người dùng
@@ -2777,9 +2839,37 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '12px', flexWrap: 'wrap' }}>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', flex: isEditingScript ? 1 : 'unset', minWidth: 0 }}>
           <span>🎬</span>
-          <span>Kịch bản: {result.title}</span>
+          {isEditingScript ? (
+            <>
+              <span style={{ whiteSpace: 'nowrap' }}>Kịch bản:</span>
+              <textarea
+                value={titleDraft ?? result.title ?? ''}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                placeholder="Tiêu đề video"
+                title="Nhấn Enter để tự chọn chỗ xuống dòng trên khung hình mở đầu (kiểu phụ đề 'Tiêu đề mở đầu') — không xuống dòng thì tự động ngắt dòng theo bề rộng khung hình."
+                rows={(titleDraft ?? result.title ?? '').split('\n').length || 1}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '6px 10px',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                  color: '#fff',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: `1px solid ${titleDraft !== null && titleDraft.trim() !== (result.title || '') ? 'var(--warning)' : 'rgba(255, 255, 255, 0.18)'}`,
+                  borderRadius: '8px',
+                  outline: 'none',
+                  resize: 'none',
+                  lineHeight: 1.35,
+                }}
+              />
+            </>
+          ) : (
+            <span style={{ whiteSpace: 'pre-line' }}>Kịch bản: {result.title}</span>
+          )}
         </h3>
         {!isSlideshowPipeline && (
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -5534,6 +5624,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     </div>
                   )}
 
+                  {/* Trước đây thẻ ở đây chỉ sáng khi KHÔNG có Format nào đang khớp toàn bộ cấu hình
+                      (selected={!activePreset && ...}) — cố ý để tránh 2 chỗ cùng sáng ✓ một lúc,
+                      nhưng lại khiến người dùng chọn 1 Format rồi cuộn xuống thấy mục này như "chưa
+                      chọn gì", trông như 2 nơi chọn tách rời nhau. Bỏ điều kiện đó: renderCaptionStyle
+                      là NGUỒN SỰ THẬT DUY NHẤT, thẻ ở đây luôn sáng đúng theo giá trị đang áp dụng —
+                      dù giá trị đó đến từ việc bấm Format hay bấm thẳng thẻ này. */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu phụ đề</span>
@@ -5550,7 +5646,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           <PickerCard
                             key={opt.value}
                             isLandscape={isLandscape}
-                            selected={!activePreset && renderCaptionStyle === opt.value}
+                            selected={renderCaptionStyle === opt.value}
                             showCustomizeBtn={true}
                             onClick={() => handleSelectCaptionStyle(opt.value)}
                             onCustomize={() => {
@@ -5586,7 +5682,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             key={opt.value}
                             isLandscape={isLandscape}
                             width={isLandscape ? 116 : 88}
-                            selected={!activePreset && renderTransitionStyle === opt.value}
+                            selected={renderTransitionStyle === opt.value}
                             onClick={() => setRenderTransitionStyle(opt.value)}
                             label={isPinned ? `${opt.label} 📌` : opt.label}
                           >
@@ -5784,11 +5880,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
             {/* Modal Body */}
             <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Kho Nhạc Nền Mặc Định Hệ Thống (3 bản nhạc) */}
+              {/* Kho nhạc nền — MỘT danh sách DUY NHẤT gộp cả 3 bản nhạc hệ thống lẫn mọi bản người
+                  dùng tự tải lên. Trước đây tách làm 2 khối riêng ("Kho nhạc nền mặc định hệ thống"
+                  / "Nhạc đã từng tải lên ở dưới") khiến nhạc mới tải lên trông như nằm ở một nơi
+                  khác, tách biệt khỏi "kho nhạc nền" — giờ gộp làm một, nhạc tải lên mới
+                  (handleUploadBgMusic) tự thêm thẳng vào đúng danh sách này, không còn khối riêng. */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    ⚡ Kho nhạc nền mặc định hệ thống (3 bản nhạc nhẹ)
+                    ⚡ Kho nhạc nền ({BG_MUSIC_TRACKS.length + bgMusicLibrary.length} bản)
                   </span>
                 </div>
 
@@ -5913,23 +6013,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                     );
                   })}
-                </div>
-              </div>
 
-              {/* Thư viện Nhạc đã từng tải lên — dùng CHUNG mọi project, tự tích luỹ mỗi lần tải
-                  nhạc mới lên ở dưới (xem handleUploadBgMusic), để lần sau vào dự án khác vẫn chọn
-                  lại được ngay, không cần tìm lại file gốc trên máy. */}
-              {bgMusicLibrary.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    🗂️ Nhạc đã từng tải lên ({bgMusicLibrary.length})
-                  </span>
-                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)' }}>
-                    Bấm vào một bản để dùng lại cho video này — không cần tải lại từ máy.
-                  </span>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                    {bgMusicLibrary.map(item => {
+                  {/* Nhạc người dùng tự tải lên — cùng một kho, cùng một lưới với 3 bản hệ thống ở
+                      trên (xem handleUploadBgMusic để biết chỗ 1 bản mới được thêm vào bgMusicLibrary). */}
+                  {bgMusicLibrary.map(item => {
                       const isSelected = selectedBgMusicTrackId === item.id && assetCounts.hasBgMusic;
                       const isPlaying = playingPreviewTrackId === item.id;
                       const isDefaultTrack = item.id === defaultBgMusicTrackId;
@@ -6057,9 +6144,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         </div>
                       );
                     })}
-                  </div>
                 </div>
-              )}
+              </div>
 
               {/* Trình nghe thử & Âm lượng nhạc nền hiện tại */}
               {assetCounts.hasBgMusic && (
@@ -6105,26 +6191,58 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         </span>
                       </div>
 
-                      {String(renderBgMusicVolume) !== DEFAULT_BG_MUSIC_VOLUME_PERCENT && (
-                        <button
-                          type="button"
-                          onClick={() => setRenderBgMusicVolume(DEFAULT_BG_MUSIC_VOLUME_PERCENT)}
-                          disabled={!renderBgMusicEnabled}
-                          title={`Đưa âm lượng về mức tiêu chuẩn ${DEFAULT_BG_MUSIC_VOLUME_PERCENT}%`}
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            color: 'rgba(255,255,255,0.7)',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed'
-                          }}
-                        >
-                          ↺ Về {DEFAULT_BG_MUSIC_VOLUME_PERCENT}%
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {defaultVolumeJustSaved && (
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#4ade80' }}>
+                            ✓ Đã đặt {renderBgMusicVolume}% làm mặc định
+                          </span>
+                        )}
+
+                        {/* Ghim mức đang chỉnh làm mặc định cho MỌI dự án mới sau này — chỉ hiện khi
+                            còn khác với mặc định hiện tại, đỡ người dùng bấm nhầm khi chẳng có gì để
+                            lưu. Không đụng tới bản nhạc mặc định đang ghim (xem handleSetDefaultVolume). */}
+                        {!defaultVolumeJustSaved && String(renderBgMusicVolume) !== String(defaultBgMusicVolume) && (
+                          <button
+                            type="button"
+                            onClick={handleSetDefaultVolume}
+                            disabled={!renderBgMusicEnabled}
+                            title="Dùng mức âm lượng này làm mặc định cho các dự án mới sau này — lần sau vào không cần kéo lại"
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              color: '#FFCB4D',
+                              background: 'rgba(255, 203, 77, 0.12)',
+                              border: '1px solid rgba(255, 203, 77, 0.4)',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed'
+                            }}
+                          >
+                            📌 Đặt làm mặc định
+                          </button>
+                        )}
+
+                        {String(renderBgMusicVolume) !== DEFAULT_BG_MUSIC_VOLUME_PERCENT && (
+                          <button
+                            type="button"
+                            onClick={() => setRenderBgMusicVolume(DEFAULT_BG_MUSIC_VOLUME_PERCENT)}
+                            disabled={!renderBgMusicEnabled}
+                            title={`Đưa âm lượng về mức tiêu chuẩn ${DEFAULT_BG_MUSIC_VOLUME_PERCENT}%`}
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              color: 'rgba(255,255,255,0.7)',
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              cursor: renderBgMusicEnabled ? 'pointer' : 'not-allowed'
+                            }}
+                          >
+                            ↺ Về {DEFAULT_BG_MUSIC_VOLUME_PERCENT}%
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -6186,7 +6304,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </label>
               </div>
               <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)' }}>
-                Nhạc tải lên sẽ tự động lưu vào mục &quot;🗂️ Nhạc đã từng tải lên&quot; ở trên để dùng lại cho các dự án sau.
+                Nhạc tải lên sẽ tự động thêm vào &quot;⚡ Kho nhạc nền&quot; ở trên để dùng lại cho các dự án sau.
               </span>
             </div>
 
@@ -7006,14 +7124,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         )}
                       </div>
 
-                      {/* Màu tô sáng từ đang đọc — chỉ có tác dụng thấy được với Kiểu phụ đề
-                          "Karaoke tô màu từ" trên skill slideshow (narrated-slideshow-video);
-                          trước đây bị khoá cứng màu đỏ hồng trong Caption.tsx, giờ chỉnh được. Ẩn
-                          cho reading_practice vì skill đó (reading-page-video) là 1 pipeline hoàn
-                          toàn riêng, chưa nối field này. */}
-                      {!isReadingPractice && renderCaptionStyle === 'karaoke' && (
+                      {/* Màu tô sáng/nhấn mạnh — có tác dụng thấy được với Kiểu phụ đề "Karaoke tô
+                          màu từ" (từ đang đọc) VÀ "Tiêu đề mở đầu" (cụm từ nhấn trong tiêu đề, xem
+                          HookCaption trong Caption.tsx). Trước đây control này chỉ hiện cho karaoke
+                          nên kiểu "hook" không có cách nào chỉnh màu, luôn dùng cứng #FE2C55. Ẩn cho
+                          reading_practice vì skill đó (reading-page-video) là 1 pipeline hoàn toàn
+                          riêng, chưa nối field này. */}
+                      {!isReadingPractice && (renderCaptionStyle === 'karaoke' || renderCaptionStyle === 'hook') && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Màu tô sáng từ đang đọc (Karaoke)</label>
+                          <label style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>
+                            {renderCaptionStyle === 'hook' ? 'Màu nhấn mạnh cụm từ trong tiêu đề' : 'Màu tô sáng từ đang đọc (Karaoke)'}
+                          </label>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <input
                               type="color"

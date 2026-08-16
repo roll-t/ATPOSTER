@@ -230,6 +230,14 @@ export const slideshowVideoSchema = z.object({
   // captions-only video) there's a voice to keep intelligible.
   bgMusic: z.string().optional(),
   bgMusicVolume: z.number().min(0).max(1).default(0.12),
+  /**
+   * Logo thương hiệu đóng mờ góc phải dưới. Đường dẫn tương đối trong public/ (vd "brand/logo.png").
+   * Bỏ trống = không đóng logo.
+   *
+   * render-project.mjs chỉ điền trường này khi file CÓ THẬT trên đĩa — đừng tự đặt tay một đường
+   * dẫn không tồn tại, vì <Img> tải lỗi sẽ làm hỏng cả lượt render chứ không âm thầm bỏ qua.
+   */
+  brandLogo: z.string().optional(),
 });
 
 export type SlideshowVideoProps = z.infer<typeof slideshowVideoSchema>;

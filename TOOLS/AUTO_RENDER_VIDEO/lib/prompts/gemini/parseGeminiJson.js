@@ -227,7 +227,16 @@ export function salvageTruncatedJson(rawText) {
         // parse và trả về — trả null ở đây khiến cả lượt gọi thất bại trắng tay dù JSON hoàn toàn
         // dùng được, sau khi đã đốt thêm 2 lượt nới trần token vô ích.
         const whole = tryParseWithRepairs(text.slice(start, i + 1));
-        return whole.ok && whole.value && typeof whole.value === 'object' ? whole.value : null;
+        if (whole.ok && whole.value && typeof whole.value === 'object') return whole.value;
+
+        // Ngoặc CÂN BẰNG nhưng vẫn không parse được — không phải cắt ngang, mà có 1 token lạ chen
+        // vào đâu đó (quan sát thật: Gemini trả JSON gần như hoàn chỉnh, đủ segments + title +
+        // thumbnail, nhưng lỗi "Expected ',' or '}' after property value" ngay sát cuối). Trước
+        // đây `return null` thẳng ở đây, bỏ qua luôn phần ranh giới an toàn đã ghi nhận được TRƯỚC
+        // đó trong lúc quét (vd ngay sau khi mảng "segments" đóng xong) — mất trắng cả phần lớn nội
+        // dung tốt chỉ vì lỗi nằm ở đúng đoạn cuối. Dừng quét tại đây, để rơi xuống nhánh cứu vớt
+        // theo ranh giới an toàn gần nhất bên dưới, giống hệt cách xử lý khi bị cắt ngang thật.
+        break;
       }
       if (isSafeBoundary(stack)) {
         lastSafeEnd = i + 1;
@@ -243,11 +252,49 @@ export function salvageTruncatedJson(rawText) {
   return result.ok && result.value && typeof result.value === 'object' ? result.value : null;
 }
 
+// Một giá trị JSON hợp lệ chỉ có thể mở đầu bằng các ký tự này.
+const VALID_VALUE_START = /["{[\dtfn-]/;
+
+/**
+ * Vá lại giá trị chuỗi bị THIẾU DẤU NHÁY MỞ ĐẦU.
+ *
+ * Gemini thỉnh thoảng viết ra:  "subtitle": Có những bài học...\nThere are..."
+ * — có nháy đóng ở cuối nhưng mất nháy mở, nên JSON.parse chết ngay tại chữ cái đầu tiên của giá
+ * trị ("Unexpected token 'C'"). Quan sát thật: đúng một lượt sinh kịch bản, slide 1 có nháy đủ còn
+ * slide 2 đến 9 mất sạch nháy mở — hỏng cả lượt gọi dù nội dung viết ra hoàn toàn dùng được.
+ *
+ * Các bước sửa sẵn có không cứu được ca này: chúng xử lý nháy THỪA, dấu phẩy thừa và xuống dòng
+ * thô, chứ không xử lý nháy THIẾU.
+ *
+ * Làm theo TỪNG DÒNG cho an toàn: chỉ đụng vào dòng có dạng `"khoá": <giá trị>` mà giá trị mở đầu
+ * bằng ký tự KHÔNG THỂ bắt đầu một giá trị JSON, và kết thúc bằng dấu nháy (có thể kèm dấu phẩy).
+ * Dòng JSON hợp lệ luôn mở đầu bằng một trong các ký tự ở VALID_VALUE_START nên không bao giờ lọt
+ * vào đây — không có rủi ro làm hỏng một JSON vốn đã đúng.
+ */
+function fixMissingOpeningQuote(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^(\s*"[^"]+"\s*:\s*)(\S.*?)(\s*,?\s*)$/);
+      if (!m) return line;
+      const [, head, rawValue, tail] = m;
+      if (VALID_VALUE_START.test(rawValue[0])) return line;
+      if (!rawValue.endsWith('"')) return line;
+      // Giá trị đã có nháy đóng ở cuối -> chỉ cần trả lại nháy mở.
+      return `${head}"${rawValue}${tail}`;
+    })
+    .join('\n');
+}
+
 /** Thử parse 1 chuỗi qua đủ các bước sửa lỗi phổ biến. Không ném lỗi — trả về kết quả có cờ ok. */
 function tryParseWithRepairs(text) {
+  const quoteFixed = fixMissingOpeningQuote(text);
   const attempts = [
     text,
     escapeStrayControlChars(text),
+    quoteFixed,
+    escapeStrayControlChars(quoteFixed),
+    stripTrailingCommas(quoteFixed),
     stripTrailingCommas(text),
     stripTrailingCommas(escapeStrayControlChars(text)),
   ];

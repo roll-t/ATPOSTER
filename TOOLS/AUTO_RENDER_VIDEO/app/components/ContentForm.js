@@ -651,7 +651,13 @@ export default function ContentForm({
           isOpen={isSyllabusModalOpen}
           onClose={() => setIsSyllabusModalOpen(false)}
           currentTheme={currentInput.moralTheme || 'self_help'}
-          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          onSelectTopic={(topicText) => {
+            onFieldChange('scenario', topicText);
+            // Bản NGUYÊN VĂN, tách riêng khỏi 'scenario' — 'scenario' sẽ bị Gemini viết lại thành
+            // "English // Vietnamese diễn giải" ở bước dịch trước khi lưu, nên không dùng lại được
+            // để đối chiếu "đã làm ✓" sau này. Xem SKIP_KEYS trong lib/prompts/gemini/translate.js.
+            onFieldChange('syllabusTopic', topicText);
+          }}
           history={history}
         />
       )}
@@ -661,7 +667,10 @@ export default function ContentForm({
         <StickFigureLongFormModal
           isOpen={isLongFormTopicsOpen}
           onClose={() => setIsLongFormTopicsOpen(false)}
-          onSelectTopic={(topicText) => onFieldChange('scenario', topicText)}
+          onSelectTopic={(topicText) => {
+            onFieldChange('scenario', topicText);
+            onFieldChange('syllabusTopic', topicText);
+          }}
           history={history}
         />
       )}

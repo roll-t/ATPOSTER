@@ -37,6 +37,18 @@ export default function StickFigureLongFormModal({ isOpen, onClose, onSelectTopi
       .catch((err) => console.warn('Lỗi fetch created-videos trong StickFigureLongFormModal:', err));
   }, [isOpen]);
 
+  // Bản NGUYÊN VĂN chủ đề đã chọn (trường 'syllabusTopic', xem ContentForm.js) — so khớp CHÍNH XÁC
+  // trước, vì 'scenario'/'title' còn lại bị bước dịch (translateAndExpandInputs) diễn giải lại,
+  // nên so khớp mờ trên chúng có lúc trúng có lúc trật tuỳ mức Gemini diễn giải xa hay gần bản gốc.
+  const exactSyllabusTopics = useMemo(() => {
+    const set = new Set();
+    (history || []).forEach((item) => {
+      if (item.input?.syllabusTopic) set.add(item.input.syllabusTopic.trim().toLowerCase());
+    });
+    return set;
+  }, [history]);
+
+  // Dự phòng bằng so khớp mờ cho các video đã tạo TRƯỚC KHI có trường syllabusTopic.
   const allHistoryTexts = useMemo(() => {
     const texts = [];
     (history || []).forEach((item) => {
@@ -52,6 +64,9 @@ export default function StickFigureLongFormModal({ isOpen, onClose, onSelectTopi
   const checkIsCompleted = (topicText) => {
     if (!topicText) return false;
     const target = topicText.trim().toLowerCase();
+
+    if (exactSyllabusTopics.has(target)) return true;
+
     for (const h of allHistoryTexts) {
       if (!h) continue;
       if (h.includes(target) || target.includes(h)) return true;
@@ -64,7 +79,7 @@ export default function StickFigureLongFormModal({ isOpen, onClose, onSelectTopi
 
   const completedCount = useMemo(
     () => groupTopics.filter((t) => checkIsCompleted(t.text)).length,
-    [groupTopics, allHistoryTexts]
+    [groupTopics, allHistoryTexts, exactSyllabusTopics]
   );
   const progressPercent = groupTopics.length > 0 ? Math.round((completedCount / groupTopics.length) * 100) : 0;
 

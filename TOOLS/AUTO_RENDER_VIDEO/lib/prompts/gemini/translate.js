@@ -11,7 +11,13 @@ export async function translateAndExpandInputs({ category, input, apiKey }) {
   }
 
   // Lọc ra các trường có giá trị là chuỗi không rỗng (bỏ qua các trường cấu hình/lựa chọn)
-  const SKIP_KEYS = ['imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category', 'ageGroup', 'height', 'hairLength', 'hairColor', 'personality', 'level', 'readingSpeed'];
+  //
+  // 'syllabusTopic': KHÔNG được đưa qua bước dịch/diễn giải lại này. Đây là bản sao NGUYÊN VĂN của
+  // chủ đề người dùng chọn từ modal "Lộ trình chủ đề" (ContentForm.js), tách riêng khỏi 'scenario'
+  // đúng lúc chọn — 'scenario' vẫn bị viết lại thành "English // Vietnamese diễn giải" như trước
+  // (cần cho pipeline sinh ảnh/kịch bản), nhưng như vậy thì không còn cách nào so khớp lại đúng
+  // topic gốc để đánh dấu "đã làm ✓". Xem MoralSyllabusModal.js / StickFigureLongFormModal.js.
+  const SKIP_KEYS = ['imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category', 'ageGroup', 'height', 'hairLength', 'hairColor', 'personality', 'level', 'readingSpeed', 'syllabusTopic'];
   const fieldsToTranslate = {};
   for (const [key, val] of Object.entries(input)) {
     if (SKIP_KEYS.includes(key)) continue;

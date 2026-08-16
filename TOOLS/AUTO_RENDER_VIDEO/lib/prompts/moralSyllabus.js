@@ -654,6 +654,24 @@ export const MORAL_SYLLABUS = {
     { id: 18, text: "5 cái giá phải trả khi nhảy việc quá sớm", desc: "Hồ sơ nhảy liên tục kể một câu chuyện không hay" },
     { id: 19, text: "7 cách vượt qua áp lực khi bạn bè có việc trước bạn", desc: "Mỗi người một tốc độ, kể cả khi mạng xã hội nói khác" },
     { id: 20, text: "6 điều nên làm sau khi bị từ chối ở vòng cuối", desc: "Đến vòng cuối nghĩa là bạn đã rất gần" }
+  ],
+  // ---------------------------------------------------------------------------------------------
+  // Từ lóng trending. Khác mọi nhóm trên ở một điểm: TỪ LÓNG chính là chủ thể của video, phải giữ
+  // NGUYÊN VĂN xuyên suốt kịch bản (xem TERM LOCK trong moralTalkVoiceStyle.js) — nên mỗi chủ đề ở
+  // đây xoay quanh đúng MỘT từ, viết thẳng từ đó vào tiêu đề.
+  //
+  // Đây là nhóm CÓ HẠN SỬ DỤNG: từ lóng hết trend rất nhanh. Cứ thêm/bớt thoải mái, chỉ cần giữ
+  // đúng khuôn "từ lóng nằm trong text" là prompt hoạt động đúng.
+  // ---------------------------------------------------------------------------------------------
+  trending_slang: [
+    { id: 1, text: "Sĩ Vương là ai mà nhóm bạn nào cũng có một người", desc: "Chân dung châm biếm kiểu người sống vì cái sĩ" },
+    { id: 2, text: "5 dấu hiệu bạn đang ngồi cạnh một Sĩ Vương chính hiệu", desc: "Nhận diện qua những tình huống ai cũng từng gặp" },
+    { id: 3, text: "Lốp Trưởng — kiểu người khiến cả nhóm im lặng vài giây", desc: "Chân dung châm biếm, đầy tình huống quen thuộc" },
+    { id: 4, text: "6 khoảnh khắc lộ nguyên hình một Lốp Trưởng", desc: "Đi ăn, group chat, chia tiền, đi làm" },
+    { id: 5, text: "Lọ Vương và những pha xử lý khiến ai cũng đứng hình", desc: "Chân dung châm biếm nhẹ nhàng, không cay nghiệt" },
+    { id: 6, text: "7 câu nói kinh điển của một Lọ Vương", desc: "Nghe xong là nghĩ ngay ra một đứa" },
+    { id: 7, text: "Khi trong một nhóm có cả Sĩ Vương lẫn Lốp Trưởng", desc: "Hai kiểu người gặp nhau thì chuyện gì xảy ra" },
+    { id: 8, text: "5 dấu hiệu chính bạn mới là Sĩ Vương mà không hay", desc: "Cú quay xe: soi lại chính mình" }
   ]
 };
 

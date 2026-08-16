@@ -12,7 +12,12 @@ export const CUSTOM_BG_MUSIC_ID = 'custom';
 
 // Âm lượng nhạc nền mặc định (%) — hiển thị dưới dạng % ở giao diện, gửi xuống render dưới dạng
 // 0..1. Đặt tên hằng để nhãn "Tiêu chuẩn" trên thanh trượt và giá trị khởi tạo không lệch nhau.
-export const DEFAULT_BG_MUSIC_VOLUME_PERCENT = '10';
+export const DEFAULT_BG_MUSIC_VOLUME_PERCENT = '35';
+
+// Giá trị mặc định CŨ (trước khi đổi sang 35%) — dùng để nhận diện các bản lưu (localStorage /
+// settings server) vẫn còn đang ở đúng mức mặc định gốc, chưa từng bị người dùng bấm "Đặt làm mặc
+// định" để chỉnh tay, nhằm migrate 1 lần sang mức mặc định mới thay vì kẹt ở 10% mãi dù code đã đổi.
+export const LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT = '10';
 
 export function bgMusicTrackLabel(trackId, { short = false, library = [] } = {}) {
   const track = BG_MUSIC_TRACKS.find((t) => t.id === trackId);
@@ -98,12 +103,14 @@ export const TRANSITION_STYLE_OPTIONS = [
 ];
 
 // "hook" là Kiểu phụ đề DÙNG CHUNG cho nhiều category (không riêng gì moral_talk_slideshow), nên
-// không thể sửa thẳng CAPTION_STYLE_DEFAULTS.hook.fontSize — sẽ đổi luôn mặc định của MỌI category
-// khác cũng có thể chọn kiểu "hook". Map này cho phép ghi đè cỡ chữ mặc định riêng theo TỪNG
-// category + style, chỉ áp dụng khi kịch bản CHƯA từng lưu fontSize riêng (dự án hoàn toàn mới,
-// hoặc bấm "↺ Mặc định gốc") — xem initialDefaults/handleSelectCaptionStyle bên dưới.
-export const CATEGORY_STYLE_FONT_SIZE_OVERRIDES = {
-  moral_talk_slideshow: { hook: '50' }
+// không thể sửa thẳng CAPTION_STYLE_DEFAULTS.hook.{fontSize,highlightColor} — sẽ đổi luôn mặc định
+// của MỌI category khác cũng có thể chọn kiểu "hook". Map này cho phép ghi đè cỡ chữ/màu nhấn mặc
+// định riêng theo TỪNG category + style, chỉ áp dụng khi kịch bản CHƯA từng lưu giá trị riêng (dự
+// án hoàn toàn mới, hoặc bấm "↺ Mặc định gốc") — xem initialDefaults/handleSelectCaptionStyle bên
+// dưới. Màu #d9a620 khớp đúng màu nhấn của ảnh bìa (xem MoralTalkCover.tsx) — video Nói Chuyện Đạo
+// Lý dùng thống nhất 1 màu nhấn ở cả ảnh bìa lẫn phụ đề "Tiêu đề mở đầu" trong video.
+export const CATEGORY_STYLE_OVERRIDES = {
+  moral_talk_slideshow: { hook: { fontSize: '50', highlightColor: '#d9a620' } }
 };
 
 // Mẫu Video Preset Mặc Định Hệ Thống cho kịch bản Đọc Giấy Karaoke

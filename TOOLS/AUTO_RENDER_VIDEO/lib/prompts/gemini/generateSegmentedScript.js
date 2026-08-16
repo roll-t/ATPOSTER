@@ -27,6 +27,22 @@ function countScriptWords(segments) {
 }
 
 /**
+ * Hạn giờ riêng cho khâu VIẾT KỊCH BẢN — rộng hơn hẳn mặc định của engine (45s/90s) vì đây là lượt
+ * gọi nặng nhất: prompt dài, trần token lớn, và model còn tốn thời gian "suy nghĩ" trước khi viết.
+ *
+ * Vì sao phải nới: mốc 90s được đặt từ hồi trần token mới có 8192. Sau khi nâng trần lên
+ * 16384-25920 để kịch bản không bị cắt ngang, thời gian sinh vượt hẳn 90s — nên MỌI lượt gọi đều
+ * bị CHÍNH MÌNH bỏ ngang đúng lúc 90s, rồi xoay hết 15 tổ hợp model/key, tốn 4,5 phút và không ra
+ * được gì. Trong khi chỉ cần chờ thêm là Gemini vẫn trả lời bình thường (đã đo: đúng prompt đó
+ * chạy xong ở mức 180s).
+ *
+ * Đặt timeout mỗi lượt (210s) LỚN HƠN thời gian quan sát được để còn biên cho lúc mạng chậm, và
+ * hạn chót tổng (480s) đủ cho 2 lượt thử thật sự thay vì 15 lượt bị cắt ngang vô ích.
+ */
+const SCRIPT_REQUEST_TIMEOUT_MS = 210_000;
+const SCRIPT_DEADLINE_MS = 480_000;
+
+/**
  * Trần token đầu ra theo thời lượng mục tiêu.
  *
  * Không đặt trần thì model dùng mặc định của nó; kịch bản 8-10 phút (thoại + phụ đề song ngữ +
@@ -92,7 +108,7 @@ export async function generateSegmentedScript({ category, durationRange, input, 
   // Viết kịch bản là khâu sáng tạo quan trọng nhất -> tier "quality" (model thông minh nhất), và
   // nới hạn chót vì prompt dài, model hay cần nhiều thời gian suy nghĩ hơn các tác vụ khác.
   const script = await callGeminiApi(promptText, keys, {
-    tier: 'quality', timeoutMs: 90_000, deadlineMs: 180_000, label: 'Viết kịch bản', maxOutputTokens,
+    tier: 'quality', timeoutMs: SCRIPT_REQUEST_TIMEOUT_MS, deadlineMs: SCRIPT_DEADLINE_MS, label: 'Viết kịch bản', maxOutputTokens,
   });
 
   if (!AUTO_EXTEND_CATEGORIES.includes(category)) return script;
@@ -113,7 +129,7 @@ export async function generateSegmentedScript({ category, durationRange, input, 
     const extended = await callGeminiApi(
       buildExtendPrompt(script, actualWords, targetWords, durationInfo, isVietnamese),
       keys,
-      { tier: 'quality', timeoutMs: 90_000, deadlineMs: 180_000, label: 'Viết bù kịch bản', maxOutputTokens },
+      { tier: 'quality', timeoutMs: SCRIPT_REQUEST_TIMEOUT_MS, deadlineMs: SCRIPT_DEADLINE_MS, label: 'Viết bù kịch bản', maxOutputTokens },
     );
     const extendedWords = countScriptWords(extended.segments);
     // Chỉ nhận bản mới nếu nó THỰC SỰ dài hơn — có lần model trả về bản ngắn hơn cả bản gốc, lấy

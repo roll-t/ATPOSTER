@@ -96,7 +96,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     });
   }
 
-  // --- Nếu là Video Nói Chuyện Đạo Lý (pictogram trắng phát sáng trên nền đen) ---
+  // --- Nếu là Video Nói Chuyện Đạo Lý (pictogram trắng phẳng, không glow, trên nền đen) ---
   // Nhánh RIÊNG, tách biệt hoàn toàn khỏi stick_figure_slideshow ở trên — không dùng chung
   // IMAGE_STYLES.stick_figure (đó là nét vẽ tay đen trên nền trắng), và KHÔNG có khái niệm
   // nhân vật cố định xuyên suốt — mỗi slide là 1 nhóm pictogram tượng trưng riêng cho khoảnh
@@ -104,11 +104,11 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
   if (categoryKey === 'moral_talk_slideshow') {
     const selectedAspectRatio = input.aspectRatio || '9:16';
     const isLandscape = selectedAspectRatio === '16:9';
-    const visualStyle = 'Minimalist glowing white pictogram icon style on a solid pure black background. Simple flat white human-silhouette figures (no facial detail, no outline stroke, solid white fill) with a soft white outer glow/bloom, exactly like professional pictogram icon sets used in presentations. Include simple symbolic prop icons in the same white-glow style when needed (question marks, exclamation marks, speech bubbles, hearts, arrows, luggage, flags) to reinforce the moment being narrated. No text, no color, no shading detail, no background scenery — pure black background with only the glowing white silhouette figures and props, centered composition, generous negative space.';
-    const background = 'Solid pure black background, no scenery, no props other than simple white-glow symbolic icons that directly support the moment.';
-    const colorPalette = ['#000000 (background)', '#FFFFFF (glowing pictogram figures/icons)'];
+    const visualStyle = 'Minimalist flat white pictogram icon style on a solid pure black background. Simple flat white human-silhouette figures (no facial detail, no outline stroke, solid flat white fill, crisp sharp edges, NO glow, NO blur, NO bloom, NO light/halo effect of any kind), exactly like professional pictogram icon sets used in presentations. Include simple symbolic prop icons in the same flat white style when needed (question marks, exclamation marks, speech bubbles, hearts, arrows, luggage, flags) to reinforce the moment being narrated. No text, no color, no shading detail, no background scenery — pure black background with only the flat white silhouette figures and props, centered composition, generous negative space. SIZE LIMIT: the main figure/grouping (including any prop/icon floating above or beside it, e.g. a speech bubble or a lightbulb over the head) must occupy AT MOST about two-thirds (65%) of the frame\'s height and width combined — scale it down and leave real black margin on every side (top, bottom, left, right); never let the figure touch or nearly fill the frame edges.';
+    const background = 'Solid pure black background, no scenery, no props other than simple flat white symbolic icons (no glow) that directly support the moment.';
+    const colorPalette = ['#000000 (background)', '#FFFFFF (flat pictogram figures/icons, no glow)'];
     const paletteList = colorPalette.join(', ');
-    const sceneRenderNote = 'This is a single static symbolic pictogram frame (NOT a character reference sheet, NOT a hand-drawn illustration) — depict only simple glowing white silhouette figures/icons on solid black, exactly like a professional pictogram icon set, with no labeled callouts, no arrows-as-annotations, no text of any kind anywhere in the image.';
+    const sceneRenderNote = 'This is a single static symbolic pictogram frame (NOT a character reference sheet, NOT a hand-drawn illustration) — depict only simple flat white silhouette figures/icons on solid black with crisp sharp edges and NO glow/blur/bloom/light effect of any kind, exactly like a professional pictogram icon set, with no labeled callouts, no arrows-as-annotations, no text of any kind anywhere in the image. Keep the figure SMALL relative to the frame — about two-thirds (65%) of the frame height/width at most, comfortably inset with visible black margin all around, not cropped or touching any edge.';
 
     // Chỉ dẫn bố cục cho khung 16:9 (video dài) được ghim THẲNG vào prompt ảnh cuối cùng, không chỉ
     // nằm trong prompt sinh kịch bản gửi Gemini (xem moralTalkSlideshow.js) — vì visualDescription
@@ -117,14 +117,14 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     // lúc nào. Ghim ở đây đảm bảo MỌI lần lấy prompt ảnh (mới lẫn cũ) đều đủ giàu bố cục, không phụ
     // thuộc việc visualDescription cụ thể của slide có được viết chi tiết hay không.
     const landscapeCompositionNote = isLandscape
-      ? 'IMPORTANT composition note for this WIDE 16:9 frame: do not render a single small figure floating alone in mostly-empty space — that looks thin and unfinished on a wide frame. Anchor the main pictogram figure/grouping to one side of the frame, and add a second symbolic element on the opposite side (a supporting figure, or a simple glowing-outline environmental prop in the exact same white monoline style, e.g. a doorway, bench, staircase, signpost, or horizon line) that relates directly to the scene, to fill the width with a balanced, narrative composition — while keeping the total look sparse (2-3 symbolic elements max) with generous negative space, never cluttered.'
+      ? 'IMPORTANT composition note for this WIDE 16:9 frame: do not render a single small figure floating alone in mostly-empty space — that looks thin and unfinished on a wide frame. Anchor the main pictogram figure/grouping to one side of the frame, and add a second symbolic element on the opposite side (a supporting figure, or a simple flat-white-outline environmental prop, no glow, in the exact same white monoline style, e.g. a doorway, bench, staircase, signpost, or horizon line) that relates directly to the scene, to fill the width with a balanced, narrative composition — while keeping the total look sparse (2-3 symbolic elements max) with generous negative space, never cluttered.'
       : '';
 
     return segments.map(seg => {
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
         category: 'Moral Talk Pictogram Slideshow',
-        image_style: 'Glowing White Pictogram (Black Background)',
+        image_style: 'Flat White Pictogram (Black Background)',
         aspect_ratio: selectedAspectRatio,
         style: {
           visual_style: visualStyle,

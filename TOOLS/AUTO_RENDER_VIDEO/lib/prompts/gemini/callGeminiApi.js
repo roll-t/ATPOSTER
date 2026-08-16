@@ -1,4 +1,5 @@
 import { parseGeminiJson, salvageTruncatedJson } from './parseGeminiJson.js';
+import { recordAttempt, recordDailyLimitObserved, isExhaustedToday } from './usageTracker.js';
 
 // Dùng alias "-latest" của Google thay vì tên model có version/ngày tháng cứng — Google liên tục
 // deprecate model cũ (vd gemini-2.0-flash, gemini-2.0-flash-lite đều đã bị đánh dấu ngừng phục vụ
@@ -15,21 +16,32 @@ const MODEL_TIERS = {
   // gemini-pro-latest xếp gần cuối vì tier "pro" thường có quota free-tier = 0 (limit: 0, khác với
   // "đã dùng hết quota trong ngày") trên nhiều key/project — không phải lỗi tự phục hồi được bằng
   // cách đổi key hay đợi, mà là gói quota chưa hề được cấp cho tier đó.
+  //
+  // THỨ TỰ ĐƯỢC ĐO THẬT, KHÔNG PHẢI ĐOÁN (đo trên cả 3 key, cùng một prompt 3 chữ):
+  //   gemini-3.5-flash          1,7-2,3s   ✔
+  //   gemini-flash-lite-latest  ~0,95s     ✔ (nhanh nhất nhưng là bản "lite", để dự phòng)
+  //   gemini-2.5-flash          ~1,1s      ✔ nhưng 404 ở 2/3 key
+  //   gemini-flash-latest       HẾT GIỜ 45s trên CẢ BA KEY
+  //
+  // gemini-flash-latest bị đẩy xuống CUỐI: nó từng đứng đầu danh sách nên mọi lượt gọi đều mở màn
+  // bằng một model đang treo, đốt trọn timeout nhân với số key rồi mới tới model chạy được —
+  // thường là đã quá hạn chót trước khi tới đó. Không xoá hẳn vì "-latest" là alias, Google sửa
+  // xong thì nó lại dùng tốt; để cuối thì lúc nào cũng an toàn.
   quality: [
-    'gemini-flash-latest',
     'gemini-3.5-flash',
     'gemini-2.5-flash',
     'gemini-flash-lite-latest',
     'gemini-pro-latest',
+    'gemini-flash-latest',
   ],
   // Việc CƠ KHÍ (dịch, phiên âm, chuẩn hoá chuỗi): flash-lite thừa sức làm đúng, rẻ và nhanh hơn
   // hẳn. Quan trọng nhất: nó KHÔNG ăn vào hạn mức của model "quality" — nhờ vậy một mẻ lồng tiếng
   // 25 slide không còn ngốn sạch 20 request/phút của model dùng để viết kịch bản.
   fast: [
     'gemini-flash-lite-latest',
+    'gemini-3.5-flash',
     'gemini-2.5-flash-lite',
     'gemini-flash-latest',
-    'gemini-3.5-flash',
   ],
 };
 
@@ -59,6 +71,14 @@ const cooldownUntil = new Map();
 const deadKeys = new Set();
 // Model không tồn tại / đã bị Google gỡ (404) — loại hẳn, vì mọi key đều sẽ gặp y hệt.
 const deadModels = new Set();
+// Model đang TREO (hết giờ chờ) -> mốc thời gian được phép dùng lại. Tách riêng khỏi `cooldownUntil`
+// (vốn tính theo cặp model+key) vì hết giờ chờ là vấn đề của MODEL, không phải của key: đo thật cho
+// thấy gemini-flash-latest treo giống hệt nhau trên cả 3 key. Bản cũ coi đây như lỗi của từng cặp
+// nên thử lại đúng model treo đó với lần lượt từng key, đốt gấp ba thời gian mới chịu đổi model.
+const modelSlowUntil = new Map();
+// Cho model treo nghỉ hẳn vài phút. Sự cố kiểu này ở phía Google thường kéo dài, thử lại sau 30
+// giây chỉ tổ mất thêm một timeout nữa.
+const MODEL_TIMEOUT_COOLDOWN_MS = 5 * 60_000;
 // Con trỏ round-robin: mỗi lệnh gọi bắt đầu từ một key khác nhau để TRẢI ĐỀU tải thay vì lần nào
 // cũng dồn vào key #1 rồi mới rớt dần sang #2, #3 — cách cũ khiến key #1 luôn cạn quota trước
 // trong khi key #2/#3 gần như không được dùng.
@@ -99,6 +119,9 @@ const DEFAULT_DEADLINE_MS = 90_000;
 // Trần thời gian cho MỘT request HTTP đơn lẻ. Không có nó, một kết nối bị treo phía Google sẽ
 // giữ `fetch` chờ vĩnh viễn (bản cũ không hề đặt timeout).
 const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
+// Quãng thời gian tối thiểu còn lại thì mới đáng khởi động thêm một lượt gọi. Ít hơn mức này thì
+// lượt đó cầm chắc hết giờ giữa chừng — thà báo lỗi ngay còn hơn đốt thêm một request chết.
+const MIN_ATTEMPT_BUDGET_MS = 8_000;
 // JSON hỏng thường do bản thân prompt/nội dung, không phải do key — xoay hết 5 model × 3 key để
 // gặp lại đúng lỗi đó là phí. Chặn ở vài lần.
 const MAX_BAD_JSON_ATTEMPTS = 3;
@@ -116,6 +139,46 @@ function sleep(ms) {
  *  ập vào Google cùng lúc và cùng dính 429 lần nữa (thundering herd). */
 function withJitter(ms) {
   return Math.round(ms * (0.75 + Math.random() * 0.5));
+}
+
+/**
+ * Rút hạn mức THEO NGÀY thật từ body lỗi 429 của Google, nếu có — dùng để tự học (xem
+ * usageTracker.js), không phải để hiển thị.
+ *
+ * Trả về null bất cứ khi nào không CHẮC CHẮN đây là quota theo ngày (chứ không phải theo phút):
+ * false negative (bỏ lỡ 1 lần học) chỉ tốn thêm vài request dò như trước giờ vẫn vậy; false
+ * positive (nhận nhầm quota-phút thành quota-ngày) sẽ khoá oan 1 key/model cả ngày dù nó vẫn
+ * dùng được sau vài chục giây — thiệt hại nặng hơn hẳn.
+ *
+ * Ưu tiên đọc cấu trúc có sẵn trong error.details (QuotaFailure.violations[], mỗi violation có
+ * quotaId + quotaValue) — đây là dữ liệu CÓ CẤU TRÚC do Google trả về, đáng tin hơn hẳn regex trên
+ * câu message tự do. Dự phòng bằng regex trên message CHỈ khi message có tín hiệu rõ ràng là theo
+ * ngày (chứa "PerDay") — không suy luận từ mỗi cụm "limit: N" trơ trọi, vì cụm đó xuất hiện y hệt
+ * cho cả quota theo phút.
+ *
+ * LƯU Ý: chưa có 1 lỗi 429 thật nào để đối chiếu tại thời điểm viết — cấu trúc QuotaFailure dựa
+ * theo định dạng chuẩn của Google Cloud APIs (google.rpc.QuotaFailure), có thể cần chỉnh lại khi
+ * gặp lỗi 429 thật đầu tiên. Vì luôn ưu tiên trả null khi không chắc, sai ở đây chỉ khiến hệ thống
+ * BỎ LỠ cơ hội học — không bao giờ tự khoá oan một key còn dùng được.
+ */
+function parseDailyQuotaLimit(errorData) {
+  const quotaFailure = errorData?.error?.details?.find((d) => d['@type']?.includes('QuotaFailure'));
+  const dayViolation = quotaFailure?.violations?.find((v) => {
+    const id = String(v?.quotaId || '');
+    return /day/i.test(id) && !/minute|second/i.test(id);
+  });
+  if (dayViolation?.quotaValue !== undefined) {
+    const n = Number(dayViolation.quotaValue);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+
+  const message = String(errorData?.error?.message || '');
+  if (/PerDay/i.test(message)) {
+    const m = message.match(/limit:\s*(\d+)/i);
+    if (m) return Number(m[1]);
+  }
+
+  return null;
 }
 
 async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOutputTokens) {
@@ -144,6 +207,12 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
     clearTimeout(timer);
   }
 
+  // Round-trip mạng đã hoàn tất (dù Google trả OK hay lỗi) -> quota chắc chắn đã bị trừ, ghi nhận
+  // NGAY tại đây bất kể nhánh xử lý bên dưới đi đâu. Cố ý KHÔNG ghi nhận nếu fetch() tự ném lỗi
+  // (timeout của chính ta, đứt mạng) — những trường hợp đó có thể chưa từng chạm tới Google, ghi
+  // nhận nhầm sẽ đếm dư và khoá oan một key vẫn còn quota thật.
+  recordAttempt(apiKey, modelName);
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const error = new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
@@ -154,6 +223,11 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
     if (retryInfo?.retryDelay) {
       const parsed = parseFloat(retryInfo.retryDelay);
       if (Number.isFinite(parsed)) error.retryDelayMs = Math.round(parsed * 1000);
+    }
+    // Học hạn mức NGÀY thật nếu 429 này đúng là do quota theo ngày — xem parseDailyQuotaLimit().
+    if (response.status === 429) {
+      const dailyLimit = parseDailyQuotaLimit(errorData);
+      if (dailyLimit !== null) error.dailyQuotaLimit = dailyLimit;
     }
     throw error;
   }
@@ -266,6 +340,9 @@ function buildAttemptPlan(models, keys) {
   const now = Date.now();
   const ready = [];
   const cooling = [];
+  // Cặp (model,key) đã học được là CẠN QUOTA HÔM NAY (xem usageTracker.js) — xếp riêng, chỉ dùng
+  // tới khi ready/cooling rỗng sạch.
+  const exhaustedToday = [];
   // Xoay điểm bắt đầu theo từng lệnh gọi để trải đều tải giữa các key.
   const offset = roundRobinCursor++;
 
@@ -276,6 +353,11 @@ function buildAttemptPlan(models, keys) {
       const key = keys[keyIndex];
       if (deadKeys.has(key)) continue;
 
+      if (isExhaustedToday(key, model)) {
+        exhaustedToday.push({ model, key, keyIndex, readyAt: 0 });
+        continue;
+      }
+
       const readyAt = cooldownUntil.get(`${model}::${key}`) || 0;
       if (readyAt > now) cooling.push({ model, key, keyIndex, readyAt });
       else ready.push({ model, key, keyIndex, readyAt: 0 });
@@ -283,6 +365,14 @@ function buildAttemptPlan(models, keys) {
   }
 
   cooling.sort((a, b) => a.readyAt - b.readyAt);
+
+  // LƯỚI AN TOÀN: nếu ready+cooling rỗng sạch (mọi cặp đều bị đánh dấu cạn), vẫn cho thử — con số
+  // đã học có thể sai (Google âm thầm nâng hạn mức, hoặc lỗi phân loại lúc học), và một request
+  // "thừa" còn hơn hẳn việc app đứng im báo lỗi trong khi vẫn còn key thật sự dùng được. Nói cách
+  // khác: bộ nhớ đã học chỉ dùng để GIẢM ƯU TIÊN, không bao giờ dùng để KHOÁ CỨNG hoàn toàn.
+  if (ready.length === 0 && cooling.length === 0 && exhaustedToday.length > 0) {
+    return exhaustedToday;
+  }
   return [...ready, ...cooling];
 }
 
@@ -327,11 +417,17 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
   let lastError;
   let badJsonCount = 0;
+  // Số lượt ĐÃ THỰC SỰ gọi Gemini — dùng để bảo đảm lượt đầu luôn được chạy (xem chỗ kẹp timeout).
+  let attemptsMade = 0;
   // Trần token có thể được NỚI DẦN trong lúc chạy khi model bị cắt ngang giữa chừng.
   let currentMaxTokens = maxOutputTokens;
   let truncationCount = 0;
   // Phần JSON dở dang của lượt bị cắt gần nhất — dùng để cứu vớt nếu nới trần vẫn không đủ.
   let lastTruncatedText = '';
+  // Phản hồi DÀI NHẤT (không phải mới nhất — 2 lượt bad-json không có quan hệ tăng dần với nhau
+  // như truncated, nên "dài hơn" mới là tín hiệu "gần hoàn chỉnh hơn") trong số các lượt bị coi là
+  // JSON hỏng — dùng để cứu vớt nếu Gemini hỏng liên tiếp đủ số lần cho phép.
+  let bestBadJsonText = '';
 
   for (const attempt of attempts) {
     const { model, key, keyIndex, readyAt } = attempt;
@@ -340,6 +436,8 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
     const freshReadyAt = cooldownUntil.get(`${model}::${key}`) || 0;
     if (freshReadyAt > Date.now() && freshReadyAt !== readyAt) continue;
     if (deadKeys.has(key) || deadModels.has(model)) continue;
+    // Bỏ qua model vừa treo — kể cả khi đang xét một key khác (xem modelSlowUntil).
+    if ((modelSlowUntil.get(model) || 0) > Date.now()) continue;
 
     // Cặp này đang nghỉ: chỉ chờ nếu quãng chờ đủ ngắn và còn nằm trong hạn chót của lệnh gọi.
     if (freshReadyAt > Date.now()) {
@@ -351,9 +449,26 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
     if (Date.now() > giveUpAt) break;
 
+    // Kẹp timeout của lượt này theo phần thời gian CÒN LẠI của hạn chót.
+    //
+    // Trước đây hạn chót chỉ được kiểm tra TRƯỚC mỗi lượt, còn lượt đã khởi động thì cứ chạy trọn
+    // timeoutMs của nó. Một lượt bắt đầu ngay sát hạn chót vì thế vượt qua hạn thêm cả timeoutMs —
+    // quan sát thật: hạn chót 180s nhưng lệnh gọi kéo dài 4,5 phút (180s + 90s của lượt cuối), gấp
+    // rưỡi cái trần mà người gọi tưởng mình đã đặt ra.
+    //
+    // Bỏ qua luôn nếu quãng còn lại quá ngắn: một lượt gọi Gemini chỉ được vài giây thì chắc chắn
+    // hết giờ giữa chừng, đốt thêm một request chết mà không đổi lấy được gì.
+    // Ngưỡng tối thiểu chỉ áp dụng từ lượt THỨ HAI trở đi: lượt đầu luôn được chạy, dù hạn chót
+    // ngắn tới đâu. Không chừa ngoại lệ này thì một deadlineMs nhỏ hơn 8s sẽ khiến hàm không gọi
+    // Gemini lấy một lần nào rồi báo lỗi ngay — im lặng vô hiệu hoá cả lệnh gọi.
+    const msLeft = giveUpAt - Date.now();
+    if (attemptsMade > 0 && msLeft < MIN_ATTEMPT_BUDGET_MS) break;
+    const attemptTimeoutMs = Math.max(1, Math.min(timeoutMs, msLeft));
+    attemptsMade++;
+
     const keyLabel = keys.length > 1 ? ` (key #${keyIndex + 1}/${keys.length})` : '';
     try {
-      const result = await requestGeminiOnce(promptText, key, model, timeoutMs, currentMaxTokens);
+      const result = await requestGeminiOnce(promptText, key, model, attemptTimeoutMs, currentMaxTokens);
       // Thành công nghĩa là cặp này đã hồi phục — xoá dấu nghỉ để lệnh gọi sau dùng lại ngay.
       cooldownUntil.delete(`${model}::${key}`);
       return result;
@@ -387,12 +502,28 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
           ? ZERO_QUOTA_COOLDOWN_MS
           : Math.max(error.retryDelayMs || DEFAULT_QUOTA_COOLDOWN_MS, 1000);
         cooldownUntil.set(`${model}::${key}`, Date.now() + cooldown);
+
+        // Học được hạn mức THEO NGÀY thật -> ghi xuống đĩa (usageTracker.js). Từ lượt gọi KẾ TIẾP
+        // (kể cả sau khi restart server), buildAttemptPlan tự bỏ qua cặp này cho tới hết ngày
+        // Pacific thay vì phải đốt một request chết mới phát hiện lại điều đã biết.
+        if (error.dailyQuotaLimit !== undefined) {
+          recordDailyLimitObserved(key, model, error.dailyQuotaLimit);
+          console.warn(`${tag} ${model}${keyLabel} đã học được hạn mức ${error.dailyQuotaLimit} lượt/ngày — sẽ tự bỏ qua cặp này cho tới hết ngày.`);
+        }
+
         console.warn(`${tag} ${model}${keyLabel} hết hạn mức — cho nghỉ ${Math.round(cooldown / 1000)}s, chuyển sang key/model còn trống.`);
         continue;
       }
 
       if (kind === 'timeout') {
-        console.warn(`${tag} ${model}${keyLabel} quá ${timeoutMs}ms không phản hồi — chuyển sang lượt thử kế tiếp.`);
+        // Cho cả MODEL nghỉ, không phải chỉ cặp model+key này: một model treo thì treo với mọi key.
+        // Bản cũ chỉ `continue`, nên nó lại thử đúng model đó với key #2 rồi key #3, mỗi lần đốt
+        // trọn timeout — hết sạch hạn chót trước khi kịp chạm tới model thật sự chạy được.
+        modelSlowUntil.set(model, Date.now() + MODEL_TIMEOUT_COOLDOWN_MS);
+        console.warn(
+          `${tag} ${model}${keyLabel} quá ${attemptTimeoutMs}ms không phản hồi — cho model này nghỉ `
+          + `${Math.round(MODEL_TIMEOUT_COOLDOWN_MS / 60000)} phút, chuyển sang MODEL khác.`
+        );
         continue;
       }
 
@@ -414,12 +545,20 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
       if (kind === 'bad-json') {
         badJsonCount++;
+        if (error.rawText && error.rawText.length > bestBadJsonText.length) bestBadJsonText = error.rawText;
         if (error.rawText) {
           console.error(`${tag} Phản hồi thô lỗi JSON (lượt ${badJsonCount}):\n=== BẮT ĐẦU PHẢN HỒI THÔ ===\n${error.rawText}\n=== KẾT THÚC PHẢN HỒI THÔ ===`);
         }
         if (badJsonCount >= MAX_BAD_JSON_ATTEMPTS) {
-          console.error(`${tag} Gemini trả JSON hỏng ${badJsonCount} lần liên tiếp — dừng lại.`);
-          throw error;
+          // KHÔNG throw ngay — thoát vòng lặp để đi tới bước cứu vớt bên dưới trước. Một JSON
+          // "hỏng" theo SyntaxError không có nghĩa là VÔ DỤNG: quan sát thật — Gemini trả JSON gần
+          // như hoàn chỉnh (đủ 8/8 đoạn + tiêu đề + thumbnail), lỗi cú pháp chỉ nằm ở đúng vài ký
+          // tự cuối cùng — mà tự retry lại từ đầu (đổi key/model) thì vứt bỏ hết phần đã viết đúng
+          // đó, dù salvageTruncatedJson (vốn chỉ dùng cho trường hợp cắt ngang vì hết token) hoàn
+          // toàn cứu được: nó không quan tâm JSON dở dang VÌ SAO, chỉ cần tìm ranh giới an toàn gần
+          // nhất rồi đóng lại.
+          console.error(`${tag} Gemini trả JSON hỏng ${badJsonCount} lần liên tiếp — dừng lại để thử cứu vớt phần còn dùng được.`);
+          break;
         }
         console.warn(`${tag} ${model}${keyLabel} trả JSON hỏng (${error.message}) — thử lại lượt kế tiếp.`);
         continue;
@@ -444,8 +583,26 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
     }
   }
 
+  // Tương tự cho JSON hỏng liên tiếp KHÔNG PHẢI do cắt ngang — cùng một máy quét, chỉ khác nguồn
+  // dữ liệu đưa vào. Chỉ tới đây khi bad-json đã chạm MAX_BAD_JSON_ATTEMPTS (xem nhánh 'bad-json'
+  // ở trên) mà chưa lượt nào khác thành công.
+  if (bestBadJsonText) {
+    const salvaged = salvageTruncatedJson(bestBadJsonText);
+    if (salvaged) {
+      const segmentCount = Array.isArray(salvaged.segments) ? salvaged.segments.length : 0;
+      console.warn(`${tag} JSON hỏng liên tiếp — cứu được ${segmentCount} đoạn từ phản hồi gần đúng nhất thay vì bỏ trắng.`);
+      return salvaged;
+    }
+  }
+
+  // Báo số lượt THẬT SỰ đã gọi, không phải độ dài kế hoạch. Bản cũ luôn in ra "đã thử hết 15 tổ
+  // hợp" kể cả khi hạn chót cắt ngang sau lượt thứ 2 — đọc log tưởng đã vét cạn mọi model/key nên
+  // đi tìm nguyên nhân ở phía mạng/quota, trong khi sự thật là chưa hề chạm tới các model còn lại.
   const elapsed = Math.round((Date.now() - startedAt) / 1000);
-  console.error(`${tag} Đã thử hết ${attempts.length} tổ hợp model/key trong ${elapsed}s mà không thành công.`);
+  console.error(
+    `${tag} Thất bại sau ${attemptsMade}/${attempts.length} lượt gọi trong ${elapsed}s.`
+    + (attemptsMade < attempts.length ? ' (hết hạn chót trước khi thử hết model/key còn lại)' : '')
+  );
   throw lastError || new Error('Không gọi được Gemini API sau khi đã thử mọi key và model dự phòng.');
 }
 

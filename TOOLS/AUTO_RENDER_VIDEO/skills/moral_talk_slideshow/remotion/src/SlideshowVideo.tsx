@@ -1,9 +1,45 @@
 import React from "react";
-import { AbsoluteFill, Audio, Sequence, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, useVideoConfig } from "remotion";
 import { SlideshowVideoProps } from "./schema";
 import { Background } from "@atposter/remotion-shared";
 import { Scene } from "./components/Scene";
 import { resolveSrc, sceneSeconds } from "@atposter/remotion-shared";
+
+/**
+ * Logo thương hiệu đóng mờ ở góc phải dưới.
+ *
+ * Các con số dưới đây tính theo PHẦN TRĂM CHIỀU RỘNG khung hình, không phải pixel — cùng một bộ
+ * số cho ra cùng một tỉ lệ trên cả khung dọc 9:16 lẫn khung ngang 16:9, và không phải sửa lại khi
+ * đổi độ phân giải xuất.
+ *
+ * Độ mờ 0.38: đủ nhận ra thương hiệu khi người xem để ý, nhưng không tranh mắt với nội dung. Logo
+ * đậm quá trên nền đen tuyền của dòng video này sẽ chói và kéo hết sự chú ý xuống góc.
+ */
+const BRAND_LOGO = {
+  widthPercent: 22,
+  rightPercent: 4,
+  bottomPercent: 2.6,
+  opacity: 0.38,
+};
+
+const BrandLogo: React.FC<{ src: string }> = ({ src }) => (
+  <AbsoluteFill style={{ pointerEvents: "none" }}>
+    <Img
+      src={resolveSrc(src)}
+      style={{
+        position: "absolute",
+        right: `${BRAND_LOGO.rightPercent}%`,
+        bottom: `${BRAND_LOGO.bottomPercent}%`,
+        width: `${BRAND_LOGO.widthPercent}%`,
+        // height auto + objectFit contain: logo giữ đúng tỉ lệ gốc dù file là vuông hay chữ nhật,
+        // không bị bóp méo — thứ dễ thấy nhất khi một logo bị làm sai.
+        height: "auto",
+        objectFit: "contain",
+        opacity: BRAND_LOGO.opacity,
+      }}
+    />
+  </AbsoluteFill>
+);
 
 export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
   const { fps } = useVideoConfig();
@@ -34,6 +70,7 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     showBilingual,
     bgMusic,
     bgMusicVolume,
+    brandLogo,
   } = props;
 
   const transitionFrames = Math.round(transitionSeconds * fps);
@@ -93,6 +130,10 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
       })}
 
       {bgMusic ? <Audio src={resolveSrc(bgMusic)} volume={bgMusicVolume} loop /> : null}
+
+      {/* Logo thương hiệu — lớp TRÊN CÙNG, nằm ngoài mọi <Sequence> nên hiện xuyên suốt video và
+          không dính hiệu ứng chuyển cảnh của từng slide. */}
+      {brandLogo ? <BrandLogo src={brandLogo} /> : null}
     </AbsoluteFill>
   );
 };

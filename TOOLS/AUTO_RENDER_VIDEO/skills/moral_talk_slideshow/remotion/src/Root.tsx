@@ -1,8 +1,10 @@
 import React from "react";
 import { Composition } from "remotion";
+import { z } from "zod";
 import { getAudioDurationInSeconds } from "@remotion/media-utils";
 import { SlideshowVideo } from "./SlideshowVideo";
 import { slideshowVideoSchema, SlideshowVideoProps, Scene } from "./schema";
+import { MoralTalkCover } from "./MoralTalkCover";
 import { resolveSrc } from "@atposter/remotion-shared";
 import exampleProps from "../configs/example.json";
 
@@ -76,6 +78,35 @@ export const RemotionRoot: React.FC = () => {
             durationInFrames: Math.max(1, Math.round(totalSeconds * FPS)),
             props: resolvedProps,
           };
+        }}
+      />
+
+      {/* Ảnh bìa (thumbnail) — render riêng bằng `remotion still`, xem MoralTalkCover.tsx và
+          render-project.mjs. Kích thước khớp đúng orientation của video chính (portrait/landscape),
+          cùng cặp số LANDSCAPE/PORTRAIT ở trên để không lệch tỉ lệ giữa bìa và video thật. */}
+      <Composition
+        id="MoralTalkCover"
+        component={MoralTalkCover}
+        fps={FPS}
+        width={PORTRAIT.width}
+        height={PORTRAIT.height}
+        durationInFrames={300}
+        schema={z.object({
+          image: z.string(),
+          headline: z.string(),
+          highlightColor: z.string().optional(),
+          orientation: z.enum(["portrait", "landscape"]).default("portrait"),
+        })}
+        defaultProps={{
+          image: exampleProps.scenes[0]?.image ?? "",
+          headline: (exampleProps as SlideshowVideoProps).title ?? "",
+          highlightColor: "#d9a620",
+          orientation: "portrait" as const,
+        }}
+        calculateMetadata={async ({ props }) => {
+          const { width, height } =
+            (props as any).orientation === "landscape" ? LANDSCAPE : PORTRAIT;
+          return { width, height };
         }}
       />
     </>
