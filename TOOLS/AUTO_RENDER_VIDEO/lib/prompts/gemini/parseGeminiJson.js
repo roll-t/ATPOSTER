@@ -318,6 +318,13 @@ export function parseGeminiJson(rawText) {
   const fenceStripped = stripCodeFences(rawText);
   const text = extractFirstJsonValue(fenceStripped) || fenceStripped;
 
+  // Sửa nháy mở bị thiếu TRƯỚC KHI chạy extractFirstJsonValue — tránh trường hợp
+  // extractFirstJsonValue đọc sai ranh giới chuỗi khi nháy mở vắng mặt, trả về
+  // đoạn cắt sai làm fixMissingOpeningQuote bên trong tryParseWithRepairs không còn
+  // đủ ngữ cảnh để sửa.
+  const openQuoteFixed = fixMissingOpeningQuote(fenceStripped);
+  const openQuoteText = extractFirstJsonValue(openQuoteFixed) || openQuoteFixed;
+
   // Phương án dự phòng: escape trước các dấu " lạc nằm trong chuỗi (vd Gemini quên
   // dùng dấu nháy đơn khi trích dẫn trong 1 câu mô tả), RỒI mới dò khối JSON đầu tiên
   // — nếu dấu " lạc còn nguyên, việc dò ranh giới chuỗi/độ sâu ngoặc ở
@@ -330,8 +337,11 @@ export function parseGeminiJson(rawText) {
   const plain = tryParseWithRepairs(text);
   if (plain.ok) return plain.value;
 
+  const openFixed = tryParseWithRepairs(openQuoteText);
+  if (openFixed.ok) return openFixed.value;
+
   const quotesFixed = tryParseWithRepairs(quotesFixedText);
   if (quotesFixed.ok) return quotesFixed.value;
 
-  throw quotesFixed.error || plain.error;
+  throw quotesFixed.error || openFixed.error || plain.error;
 }

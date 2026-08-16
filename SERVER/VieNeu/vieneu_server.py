@@ -71,20 +71,21 @@ REF_PEAK_DBFS = -3.0        # chừa headroom, không bao giờ để mẫu ch�
 
 
 def _resolve_ffmpeg() -> Optional[str]:
-    """Tìm ffmpeg mà KHÔNG phụ thuộc vào PATH hệ thống.
-
-    Trước đây code gọi thẳng lệnh "ffmpeg"; trên máy này ffmpeg không nằm trong PATH nên lệnh ném
-    FileNotFoundError, rơi vào nhánh dự phòng "copy nguyên file rồi đổi đuôi thành .wav" — tức là
-    file .mp3/.opus được đưa thẳng cho bộ nhân bản dưới cái tên .wav, KHÔNG hề được chuyển đổi hay
-    chuẩn hoá gì. Đây là lý do khâu tiền xử lý xem như chưa từng chạy.
-    """
+    """Tìm ffmpeg mà KHÔNG phụ thuộc vào PATH hệ thống."""
     env = os.environ.get("VIENEU_FFMPEG")
     if env and Path(env).exists():
         return env
+    try:
+        import imageio_ffmpeg  # pyrefly: ignore[missing-import]
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and Path(exe).exists():
+            return exe
+    except Exception:
+        pass
     found = shutil.which("ffmpeg")
     if found:
         return found
-    # ffmpeg đóng gói sẵn theo Remotion (RENDER/node_modules) — luôn có mặt trong repo này.
+    # ffmpeg đóng gói sẵn theo Remotion (RENDER/node_modules)
     repo_root = Path(__file__).resolve().parent.parent.parent
     for pattern in (
         "RENDER/node_modules/@remotion/compositor-*/ffmpeg.exe",
@@ -92,12 +93,13 @@ def _resolve_ffmpeg() -> Optional[str]:
     ):
         hits = glob.glob(str(repo_root / pattern))
         if hits:
-            return hits[0]
-    try:
-        import imageio_ffmpeg  # pyrefly: ignore[missing-import]
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        return None
+            # Kiểm tra xem binary có chạy được không (tránh lỗi dyld thiếu dynamic library trên macOS)
+            try:
+                subprocess.run([hits[0], "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                return hits[0]
+            except Exception:
+                pass
+    return None
 
 
 def _frame_rms(y: np.ndarray, frame: int = 2048, hop: int = 512) -> np.ndarray:
@@ -314,12 +316,13 @@ class RemoveVoiceRequest(BaseModel):
 
 def load_model():
     global tts
-    print("⏳ Loading VieNeu-TTS v3 Turbo ONNX/CPU (int8)...")
+    print("⏳ Loading VieNeu-TTS v3 Turbo ONNX/CPU (fp32)...")
     try:
         from vieneu import Vieneu
-        # Force ONNX/CPU path which is torch-free, extremely fast on CPU, and supports v3 Turbo default voices
-        tts = Vieneu(backend="onnx")
-        print("✅ VieNeu-TTS Server ready!")
+        # fp32: backbone đầy đủ (onnx_update), chất lượng tốt hơn int8; chậm hơn ~3x nhưng
+        # trên CPU dùng cho lồng tiếng video thì latency không phải vấn đề.
+        tts = Vieneu(backend="onnx", precision="fp32")
+        print("✅ VieNeu-TTS Server ready (fp32)!")
     except Exception as e:
         print(f"❌ Failed to load VieNeu-TTS model: {e}")
         sys.exit(1)
@@ -443,8 +446,18 @@ def synthesize(req: SynthesizeRequest):
     try:
         print(f"🎙️ Synthesizing: '{req.text[:40]}...' using voice '{req.voice}' (style: {req.style})")
 
-        # tts.infer returns numpy array @ 48kHz
-        audio = tts.infer(text=req.text, voice=req.voice, style=req.style)
+        # tts.infer returns numpy array @ 48kHz.
+        # temperature=0.65: ít ngẫu nhiên hơn mặc định 0.8 → ít artifact robot hơn.
+        # crossfade_p=0.12: làm mượt điểm nối giữa các chunk (thay vì nối cứng mặc định 0.0).
+        # apply_watermark=False: bỏ watermark ẩn, tránh can thiệp nhỏ vào sóng âm đầu ra.
+        # style bị deprecated trên v3 Turbo (bị bỏ qua), không cần truyền vào.
+        audio = tts.infer(
+            text=req.text,
+            voice=req.voice,
+            temperature=0.65,
+            crossfade_p=0.12,
+            apply_watermark=False,
+        )
 
         # Convert numpy float32 audio to a WAV format in memory
         wav_buf = io.BytesIO()

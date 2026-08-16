@@ -40,8 +40,11 @@ next-env.d.ts
 # Coverage
 coverage/
 
-# AGENT_TOOL local runtime data (MongoDB binaries/db files, uploads, sessions, cookies)
+# Local runtime data & uploads (MongoDB binaries/db files, json state, uploads, audio samples)
 /AGENT_TOOL/data/
+/TOOLS/AUTO_RENDER_VIDEO/data/
+/TOOLS/AUTO_POST_VIDEO/data/
+/SERVER/data/
 
 # TOOLS generated video/image/audio project outputs (keep source assets & README)
 /TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion/public/*

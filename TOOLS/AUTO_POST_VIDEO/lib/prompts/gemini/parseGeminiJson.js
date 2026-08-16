@@ -103,6 +103,31 @@ function escapeUnescapedQuotes(text) {
   return result;
 }
 
+// Một giá trị JSON hợp lệ chỉ có thể mở đầu bằng các ký tự này.
+const VALID_VALUE_START = /["{[\dtfn-]/;
+
+/**
+ * Vá lại giá trị chuỗi bị THIẾU DẤU NHÁY MỞ ĐẦU.
+ *
+ * Gemini thỉnh thoảng viết:  "subtitle": Có những bài học..."\n
+ * — có nháy đóng ở cuối nhưng mất nháy mở. Làm theo từng dòng; chỉ đụng vào dòng có
+ * dạng "khoá": <giá trị> mà giá trị mở đầu bằng ký tự KHÔNG THỂ bắt đầu một giá trị
+ * JSON và kết thúc bằng dấu nháy.
+ */
+function fixMissingOpeningQuote(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => {
+      const m = line.match(/^(\s*"[^"]+"\s*:\s*)(\S.*?)(\s*,?\s*)$/);
+      if (!m) return line;
+      const [, head, rawValue, tail] = m;
+      if (VALID_VALUE_START.test(rawValue[0])) return line;
+      if (!rawValue.endsWith('"')) return line;
+      return `${head}"${rawValue}${tail}`;
+    })
+    .join('\n');
+}
+
 function stripCodeFences(rawText) {
   const text = (rawText || '').trim();
   if (!text.startsWith('```')) {
@@ -178,15 +203,24 @@ export function parseGeminiJson(rawText) {
   const quotesFixedRaw = escapeUnescapedQuotes(fenceStripped);
   const quotesFixedText = extractFirstJsonValue(quotesFixedRaw) || quotesFixedRaw;
 
+  // Sửa nháy mở bị thiếu TRƯỚC KHI chạy extractFirstJsonValue — tránh trường hợp
+  // extractFirstJsonValue đọc sai ranh giới chuỗi khi nháy mở vắng mặt.
+  const openQuoteFixed = fixMissingOpeningQuote(fenceStripped);
+  const openQuoteText = extractFirstJsonValue(openQuoteFixed) || openQuoteFixed;
+
   const attempts = [
     text,
     escapeStrayControlChars(text),
     stripTrailingCommas(text),
     stripTrailingCommas(escapeStrayControlChars(text)),
+    openQuoteText,
+    escapeStrayControlChars(openQuoteText),
+    stripTrailingCommas(openQuoteText),
+    stripTrailingCommas(escapeStrayControlChars(openQuoteText)),
     quotesFixedText,
     escapeStrayControlChars(quotesFixedText),
     stripTrailingCommas(quotesFixedText),
-    stripTrailingCommas(escapeStrayControlChars(quotesFixedText))
+    stripTrailingCommas(escapeStrayControlChars(quotesFixedText)),
   ];
 
   let lastError = null;

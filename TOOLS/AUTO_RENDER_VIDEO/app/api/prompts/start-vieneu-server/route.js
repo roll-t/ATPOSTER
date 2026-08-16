@@ -43,7 +43,7 @@ export async function POST(req) {
     if (!fs.existsSync(scriptPath)) {
       scriptPath = path.join(cwd, 'AUTO_POST_VIDEO', 'scripts', 'vieneu_server.py');
     }
-    const agentToolDir = path.dirname(path.dirname(scriptPath));
+    const scriptDir = path.dirname(scriptPath);
 
     if (process.platform === 'win32') {
       if (fs.existsSync(batPath)) {
@@ -52,7 +52,7 @@ export async function POST(req) {
           if (err) console.error('[Start VieNeu] Win exec error:', err);
         });
       } else {
-        exec(`start "" python "${scriptPath}"`, { cwd: agentToolDir }, (err) => {
+        exec(`start "" python "${scriptPath}"`, { cwd: scriptDir }, (err) => {
           if (err) console.error('[Start VieNeu] Win python exec error:', err);
         });
       }
@@ -65,7 +65,7 @@ export async function POST(req) {
       //   • numba>=0.57 dùng llvmlite>=0.40 — hỗ trợ Python 3.11 đầy đủ
       //
       // Lệnh bash chứa dấu " nên phải escape TOÀN BỘ thành \" trước khi nhét vào AppleScript.
-      const bashCommand = `cd "${agentToolDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.11 --with vieneu --with "numba>=0.57.0" --with fastapi --with uvicorn --with soundfile python vieneu_server.py; else (python3 -c "import uvicorn, vieneu" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile) && python3 vieneu_server.py; fi`;
+      const bashCommand = `cd "${scriptDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.11 --with vieneu --with "numba>=0.57.0" --with fastapi --with uvicorn --with soundfile --with imageio-ffmpeg --with torch python vieneu_server.py; else (python3 -c "import uvicorn, vieneu, imageio_ffmpeg, torch" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile imageio-ffmpeg torch) && python3 vieneu_server.py; fi`;
       const appleScriptEscaped = bashCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const macScript = `tell application "Terminal" to do script "${appleScriptEscaped}"`;
       const macCmd = `osascript -e '${macScript}'`;
@@ -74,9 +74,9 @@ export async function POST(req) {
           console.warn('[Start VieNeu] Terminal osascript error, fallback detached spawn:', err);
           // Ưu tiên 'uv' ở fallback này luôn (không có cửa sổ Terminal để thấy log cài đặt, nhưng
           // ít nhất tránh spawn thẳng python3 hệ thống nếu nó là bản quá cũ không có vieneu).
-          const child = spawn('uv', ['run', '--python', '3.11', '--with', 'vieneu', '--with', 'numba>=0.57.0', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'soundfile', 'python', scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
+          const child = spawn('uv', ['run', '--python', '3.11', '--with', 'vieneu', '--with', 'numba>=0.57.0', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'soundfile', '--with', 'imageio-ffmpeg', '--with', 'torch', 'python', scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
           child.on('error', () => {
-            const fallbackChild = spawn('python3', [scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
+            const fallbackChild = spawn('python3', [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
             fallbackChild.unref();
           });
           child.unref();
@@ -84,7 +84,7 @@ export async function POST(req) {
       });
     } else {
       // Linux
-      const child = spawn('python3', [scriptPath], { cwd: agentToolDir, detached: true, stdio: 'ignore' });
+      const child = spawn('python3', [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
       child.unref();
     }
 
