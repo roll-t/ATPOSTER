@@ -1,3 +1,5 @@
+import { loadFont as loadPaytoneOne } from "@remotion/google-fonts/PaytoneOne";
+import { loadFont as loadItim } from "@remotion/google-fonts/Itim";
 import { loadFont as loadBeVietnamPro } from "@remotion/google-fonts/BeVietnamPro";
 import { loadFont as loadRoboto } from "@remotion/google-fonts/Roboto";
 import { loadFont as loadMontserrat } from "@remotion/google-fonts/Montserrat";
@@ -8,6 +10,8 @@ import { loadFont as loadPoppins } from "@remotion/google-fonts/Poppins";
 import type { CaptionFont } from "./types";
 
 export const CAPTION_FONT_OPTIONS = [
+  { key: "paytone-one", label: "Paytone One (đậm nét, tròn trịa, bắt mắt)" },
+  { key: "itim", label: "Itim (dễ thương, năng động)" },
   { key: "be-vietnam-pro", label: "Be Vietnam Pro" },
   { key: "roboto", label: "Roboto" },
   { key: "montserrat", label: "Montserrat" },
@@ -22,6 +26,16 @@ const beVietnamProFamily = loadBeVietnamPro("normal", {
   subsets: ["latin", "vietnamese"],
 }).fontFamily;
 
+const paytoneOneFamily = loadPaytoneOne("normal", {
+  weights: ["400"],
+  subsets: ["latin", "vietnamese"],
+}).fontFamily;
+
+const itimFamily = loadItim("normal", {
+  weights: ["400"],
+  subsets: ["latin", "vietnamese"],
+}).fontFamily;
+
 // Poppins has no "vietnamese" subset — appended Be Vietnam Pro as fallback
 // so Latin glyphs render as Poppins but Vietnamese diacritics fall back per-glyph.
 const poppinsFamily = loadPoppins("normal", {
@@ -30,6 +44,8 @@ const poppinsFamily = loadPoppins("normal", {
 }).fontFamily;
 
 const CAPTION_FONT_FAMILIES: Record<CaptionFont, string> = {
+  "paytone-one": `'${paytoneOneFamily}', '${beVietnamProFamily}', sans-serif`,
+  itim: `'${itimFamily}', '${beVietnamProFamily}', sans-serif`,
   "be-vietnam-pro": beVietnamProFamily,
   roboto: loadRoboto("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,
   montserrat: loadMontserrat("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,

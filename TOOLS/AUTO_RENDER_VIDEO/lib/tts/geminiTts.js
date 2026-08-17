@@ -1,4 +1,5 @@
 import { DEFAULT_GEMINI_FEMALE_VOICE } from './geminiVoices.js';
+import { AI_CONFIG } from '../../config/ai.config.js';
 
 function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
   const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
@@ -55,7 +56,7 @@ export async function synthesizeGeminiTts({ text, apiKey, voice = DEFAULT_GEMINI
 
       while (attempts < maxAttempts) {
         attempts++;
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
+        const url = `${AI_CONFIG.BASE_URL}/models/${modelName}:generateContent?key=${key}`;
         try {
           const res = await fetch(url, {
             method: 'POST',

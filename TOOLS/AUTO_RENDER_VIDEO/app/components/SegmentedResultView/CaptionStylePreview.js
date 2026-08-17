@@ -15,6 +15,7 @@ export default function CaptionStylePreview({
   highlightColor,
   isFullLiveScreen = false,
   showSafeZone = false,
+  showBilingual = true,
   imageUrl = '',
   imageScale = 1,
   imageTranslateY = 0,
@@ -50,7 +51,19 @@ export default function CaptionStylePreview({
   const padding = isLandscape ? '6px 12px' : '5px 8px';
   const isTransparentBg = bgColor === 'transparent';
 
-  const fontFamily = 'inherit';
+  const FONT_FAMILY_MAP = {
+    'paytone-one': "'Paytone One', 'Be Vietnam Pro', sans-serif",
+    'itim': "'Itim', cursive, sans-serif",
+    'be-vietnam-pro': "'Be Vietnam Pro', sans-serif",
+    'montserrat': "'Montserrat', sans-serif",
+    'roboto': "'Roboto', sans-serif",
+    'nunito': "'Nunito', sans-serif",
+    'inter': "'Inter', sans-serif",
+    'oswald': "'Oswald', sans-serif",
+    'poppins': "'Poppins', sans-serif"
+  };
+
+  const resolvedFontFamily = (font && FONT_FAMILY_MAP[font]) ? FONT_FAMILY_MAP[font] : "'Paytone One', 'Be Vietnam Pro', sans-serif";
 
   // Tỉ lệ scale dịch chuyển phụ đề trong preview so với thực tế (1080x1920)
   const scaleFactor = isFullLiveScreen ? 0.25 : 0.1;
@@ -66,7 +79,7 @@ export default function CaptionStylePreview({
       padding: style === 'hook'
         ? (isFullLiveScreen ? (isLandscape ? '14px 12px 0' : '16px 10px 0') : (isLandscape ? '6px 8px 0' : '8px 8px 0'))
         : (isFullLiveScreen ? (isLandscape ? '0 12px 14px' : '0 10px 16px') : (isLandscape ? '0 8px 6px' : '0 8px 10px')),
-      fontFamily,
+      fontFamily: resolvedFontFamily,
       overflow: 'hidden'
     }}>
       {imageUrl && !imageFailed && (
@@ -156,45 +169,83 @@ export default function CaptionStylePreview({
         transform: `translateY(${-visualMarginY}px)`
       }}>
         {style === 'tiktok' ? (
-          <div style={{ textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto' }}>
-            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', textShadow: strokeShadow, letterSpacing: '0.3px' }}>DON&apos;T</div>
-            <div style={{ fontSize: subFontSize, fontWeight: 600, color: '#FFE14D', textShadow: strokeShadow, marginTop: '2px' }}>Đừng bỏ cuộc</div>
+          <div style={{ textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', fontFamily: resolvedFontFamily }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', textShadow: strokeShadow, letterSpacing: '0.3px', fontFamily: resolvedFontFamily }}>DON&apos;T</div>
+            {showBilingual && (
+              <div style={{ fontSize: subFontSize, fontWeight: 600, color: highlightColor || '#FFE14D', textShadow: strokeShadow, marginTop: '2px', fontFamily: resolvedFontFamily }}>Đừng bỏ cuộc</div>
+            )}
           </div>
         ) : style === 'karaoke' ? (
-          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
-            <div style={{ fontSize: mainFontSize, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              <span style={{ background: '#FE2C55', color: '#fff', borderRadius: '3px', padding: '0 4px' }}>Don&apos;t</span>{' '}
-              <span style={{ color: textColor || '#fff' }}>give up</span>
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%', fontFamily: resolvedFontFamily }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, whiteSpace: 'nowrap', fontFamily: resolvedFontFamily }}>
+              <span style={{ background: highlightColor || '#FE2C55', color: '#fff', borderRadius: '3px', padding: '0 4px', fontFamily: resolvedFontFamily }}>Don&apos;t</span>{' '}
+              <span style={{ color: textColor || '#fff', fontFamily: resolvedFontFamily }}>give up</span>
             </div>
-            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
+            {showBilingual && (
+              <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap', fontFamily: resolvedFontFamily }}>Đừng bỏ cuộc</div>
+            )}
           </div>
         ) : style === 'page' ? (
-          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || '#FBF3E3'), border: isTransparentBg ? 'none' : '1px solid rgba(42,33,24,0.08)', borderRadius: '8px', padding, textAlign: 'center', width: isFullLiveScreen ? '88%' : 'auto', maxWidth: '92%' }}>
-            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#2A2118', lineHeight: 1.4 }}>
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || '#FBF3E3'), border: isTransparentBg ? 'none' : '1px solid rgba(42,33,24,0.08)', borderRadius: '8px', padding, textAlign: 'center', width: isFullLiveScreen ? '88%' : 'auto', maxWidth: '92%', fontFamily: resolvedFontFamily }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#2A2118', lineHeight: 1.4, fontFamily: resolvedFontFamily }}>
               Don&apos;t{' '}
-              <span style={{ background: '#FFCB4D', color: '#2A2118', borderRadius: '3px', padding: '0 4px' }}>give</span>{' '}
+              <span style={{ background: highlightColor || '#FFCB4D', color: '#2A2118', borderRadius: '3px', padding: '0 4px', fontFamily: resolvedFontFamily }}>give</span>{' '}
               up.
             </div>
-            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(42,33,24,0.65)', marginTop: '2px' }}>Đừng bỏ cuộc.</div>
+            {showBilingual && (
+              <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(42,33,24,0.65)', marginTop: '2px', fontFamily: resolvedFontFamily }}>Đừng bỏ cuộc.</div>
+            )}
           </div>
         ) : style === 'hook' ? (
-          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(8,8,11,0.88)'), borderRadius: '10px', padding: isLandscape ? '18px 24px' : '16px 20px', textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', maxWidth: '95%' }}>
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(8,8,11,0.88)'), borderRadius: '10px', padding: isLandscape ? '18px 24px' : '16px 20px', textAlign: 'center', width: isFullLiveScreen ? '92%' : 'auto', maxWidth: '95%', fontFamily: resolvedFontFamily }}>
             {/* Chữ hoa gõ SẴN trong text, không dùng CSS text-transform: uppercase — Chromium
                 (engine Remotion dùng để render) không luôn ghép đúng dấu thanh tiếng Việt khi
                 transform bằng CSS (vd "ừ" -> "Ừ" bị vỡ dấu), trong khi gõ hoa sẵn thì luôn đúng. */}
-            <div style={{ fontSize: mainFontSize, fontWeight: 800, color: textColor || '#fff', lineHeight: 1.3, letterSpacing: '0.3px' }}>
-              ĐỪNG <span style={{ color: highlightColor || '#FE2C55' }}>BỎ CUỘC</span>
+            <div style={{ fontSize: mainFontSize, fontWeight: 800, color: textColor || '#fff', lineHeight: 1.3, letterSpacing: '0.3px', fontFamily: resolvedFontFamily }}>
+              ĐỪNG <span style={{ color: highlightColor || '#d9a620', fontFamily: resolvedFontFamily }}>BỎ CUỘC</span>
             </div>
-            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '4px' }}>
-              Don&apos;t give up
-            </div>
+            {showBilingual && (
+              <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.75)', marginTop: '4px', fontFamily: resolvedFontFamily }}>
+                Don&apos;t give up
+              </div>
+            )}
           </div>
         ) : (
-          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%' }}>
-            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', whiteSpace: 'nowrap' }}>Don&apos;t give up</div>
-            <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap' }}>Đừng bỏ cuộc</div>
+          <div style={{ background: isTransparentBg ? 'transparent' : (bgColor || 'rgba(10,10,14,0.85)'), borderRadius: '6px', padding, textAlign: 'center', width: isFullLiveScreen ? '90%' : 'auto', maxWidth: '95%', fontFamily: resolvedFontFamily }}>
+            <div style={{ fontSize: mainFontSize, fontWeight: 700, color: textColor || '#fff', whiteSpace: 'nowrap', fontFamily: resolvedFontFamily }}>Don&apos;t give up</div>
+            {showBilingual && (
+              <div style={{ fontSize: subFontSize, fontWeight: 500, color: 'rgba(255,255,255,0.85)', marginTop: '2px', whiteSpace: 'nowrap', fontFamily: resolvedFontFamily }}>Đừng bỏ cuộc</div>
+            )}
           </div>
         )}
+      </div>
+
+      {/* Watermark Logo tinh tế phía dưới ảnh */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: isFullLiveScreen ? (isLandscape ? '16%' : '14%') : (isLandscape ? '8px' : '6px'),
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          pointerEvents: 'none',
+          zIndex: 1,
+          opacity: 0.45,
+        }}
+      >
+        <img
+          src="/logo/the-mind-logo.png"
+          alt="Watermark"
+          style={{
+            width: isFullLiveScreen ? (isLandscape ? 130 : 96) : (isLandscape ? 50 : 38),
+            height: 'auto',
+            objectFit: 'contain',
+            mixBlendMode: 'screen',
+            filter: 'brightness(0.98)',
+          }}
+        />
       </div>
     </div>
   );

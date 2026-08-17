@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, Img, staticFile } from "remotion";
 import { SceneImage, Caption } from "@atposter/remotion-shared";
 
 /**
@@ -44,17 +44,44 @@ export const MoralTalkCover: React.FC<{
         videoTitle={headline}
         position="top"
         captionMarginY={0}
-        fontFamily="'Be Vietnam Pro','Noto Sans',Arial,sans-serif"
+        fontFamily="'Paytone One','Be Vietnam Pro',Arial,sans-serif"
+        captionFont="paytone-one"
         mode="full"
         wordsPerChunk={999}
         style="hook"
         captionFontSize={58}
         captionBgColor="transparent"
-        highlightColor={highlightColor}
+        highlightColor={highlightColor || "#d9a620"}
         showBilingual={false}
         durationInFrames={300}
         opacity={1}
       />
+      {/* Watermark Logo tinh tế phía dưới ảnh */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 130,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          pointerEvents: "none",
+          zIndex: 4,
+          opacity: 0.45,
+        }}
+      >
+        <Img
+          src={staticFile("logo/the-mind-logo.png")}
+          style={{
+            width: 260,
+            height: "auto",
+            objectFit: "contain",
+            mixBlendMode: "screen",
+            filter: "brightness(0.98)",
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };

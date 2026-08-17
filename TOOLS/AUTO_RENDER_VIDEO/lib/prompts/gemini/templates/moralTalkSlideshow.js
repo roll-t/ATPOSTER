@@ -29,39 +29,33 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
   let pacingGuidance = '';
 
   if (isReflectiveTheme) {
-    // Requires deeper explanation, so fewer slides but longer duration per slide. Bumped up
-    // from an earlier, thinner ladder (4-6/8-12/12-18/18-25) after a real under_1m generation
-    // came out at only ~25s total — too short for a 45s target — because 4-6 slides at the low
-    // end of the narration-length range undershoots badly. Keeping fewer slides than "top_lists"
-    // below (each slide still carries more narration weight), just no longer at the thin end.
-    let targetSlides = '6 đến 9';
-    if (durationRange === '1_2m') targetSlides = '10 đến 14';
-    else if (durationRange === '2_3m') targetSlides = '16 đến 20';
-    else if (durationRange === '3_4m') targetSlides = '20 đến 26';
-    // "Video dài" (16:9, đăng YouTube dài hơi) — tiếp tục đúng nhịp tăng của thang trên (mỗi mốc
-    // +60-120s cộng thêm ~10-12 slide), không nhảy vọt hay chững lại đột ngột ở đúng chỗ ranh giới
-    // "short" (dưới 4 phút) chuyển sang "long" (trên 4 phút).
-    else if (durationRange === '4_6m') targetSlides = '28 đến 34';
-    else if (durationRange === '6_8m') targetSlides = '38 đến 46';
-    else if (durationRange === '8_10m') targetSlides = '48 đến 58';
+    let targetSlides = '10 đến 14';
+    if (durationRange === '1_2m') targetSlides = '16 đến 24';
+    else if (durationRange === '2_3m') targetSlides = '26 đến 35';
+    else if (durationRange === '3_4m') targetSlides = '36 đến 48';
+    else if (durationRange === '4_6m') targetSlides = '48 đến 60';
+    else if (durationRange === '6_8m') targetSlides = '62 đến 78';
+    else if (durationRange === '8_10m') targetSlides = '80 đến 98';
 
-    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic. This theme requires deep explanation and rich narration context per slide.
-- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides. Treat this as a firm floor, not a suggestion — a shorter script that undershoots this count reads as thin and rushed, never as "concise".
-- NARRATION LENGTH PER SLIDE: Each slide's narration (dialogueOrNarration) should be around 8 to 15 seconds of speech (roughly 25 to 45 words). Write descriptive, meaningful, and warm narration that fully explains the concept or context for the slide's image, rather than having short 3-second segments.`;
+    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic.
+- REQUIRED SLIDE COUNT (INCREASED VISUAL PACE): Split the video into exactly ${targetSlides} segments/slides.
+- NARRATION LENGTH PER SLIDE: Keep each slide fast-paced, about 3 to 6 seconds of speech (roughly 10 to 18 words).
+- CRITICAL 2-IMAGE SPLIT RULE FOR LONG SENTENCES: Whenever an idea or sentence has two clauses, contrast ("A nhưng B", "Nếu A thì B"), or is longer than 12-15 words, SPLIT IT INTO TWO CONSECUTIVE SLIDES (Slide 1 for the first clause with Visual 1; Slide 2 for the second clause with Visual 2). This ensures visuals change continuously every 3-5 seconds and keeps the video engaging!`;
   } else {
-    // top_lists: lists points, can have slightly more slides but still reasonable
-    let targetSlides = '5 đến 8';
-    if (durationRange === '1_2m') targetSlides = '10 đến 15';
-    else if (durationRange === '2_3m') targetSlides = '15 đến 22';
-    else if (durationRange === '3_4m') targetSlides = '22 đến 30';
-    else if (durationRange === '4_6m') targetSlides = '32 đến 40';
-    else if (durationRange === '6_8m') targetSlides = '44 đến 54';
-    else if (durationRange === '8_10m') targetSlides = '56 đến 68';
+    // top_lists: lists points, enhanced with 2-image split for longer points
+    let targetSlides = '12 đến 16';
+    if (durationRange === '1_2m') targetSlides = '18 đến 26';
+    else if (durationRange === '2_3m') targetSlides = '28 đến 38';
+    else if (durationRange === '3_4m') targetSlides = '40 đến 52';
+    else if (durationRange === '4_6m') targetSlides = '52 đến 68';
+    else if (durationRange === '6_8m') targetSlides = '70 đến 88';
+    else if (durationRange === '8_10m') targetSlides = '90 đến 110';
 
-    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic, listing specific items/points.
-- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides — one OPENING slide, one REASON-TO-STAY slide, one slide for each list point, and one slide for the conclusion.
-- NARRATION LENGTH PER SLIDE: Each slide should have about 6 to 10 seconds of speech (equivalent to 18 to 30 words), allowing enough explanation for each point.
-- The opening is TWO SEPARATE SLIDES, never one (see the TWO-BEAT OPENING rule in the style section). If the topic does NOT promise a count (possible for the trending-slang satire theme), skip the counting requirement below and just follow that theme's own opening rule — otherwise slide 1's narration OPENS WITH THE NUMBER as its very first words — e.g. "5 nguyên tắc giao tiếp mà trải đời rồi mới hiểu." — with no framing sentence in front of it and never starting with "Có". That number must equal exactly how many list-point slides you actually write. Slide 2 is a short line giving the viewer a reason to watch to the end, and must NOT repeat the count.`;
+    pacingGuidance = `- THEME CHARACTERISTIC: This is a "${getMoralTheme(theme).styleLabel}" topic, listing specific items/points with rich visual pacing.
+- REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides.
+- The opening is TWO SEPARATE SLIDES, never one (see the TWO-BEAT OPENING rule in the style section). Slide 1 opens with the count (e.g. "5 nguyên tắc..."), Slide 2 gives a reason to stay.
+- CRITICAL 2-IMAGE SPLIT RULE FOR LIST POINTS: For longer list points or points with two contrasting/cause-and-effect clauses, SPLIT THAT POINT ACROSS TWO CONSECUTIVE SLIDES with two distinct pictogram images (e.g. Point 1 Part A: "Đi ăn nhóm luôn giành trả tiền," showing figure paying with wallet; Point 1 Part B: "về nhà lại ăn mì gói cả tuần." showing figure eating noodles alone).
+- NARRATION LENGTH PER SLIDE: Each slide should have about 3 to 6 seconds of speech (equivalent to 8 to 16 words), keeping visual transitions snappy and engaging.`;
   }
 
   // Khung 16:9 (video dài YouTube) trước đây chỉ được gợi ý "you may..." (tuỳ chọn) để tận dụng
@@ -100,7 +94,7 @@ ${narrationLanguageBlock}
 
 ${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
 
-${buildHookGuidance({ isVietnamese: isVietnamesePrimary })}
+${buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
 
 ${styleReferenceBlock}
 
@@ -129,7 +123,10 @@ NARRATION SCRIPT GUIDELINES:
 2. The narration (dialogueOrNarration) must follow the narration mode described above, spoken in a natural, calm voice — never a scripted conversation between named characters.
 3. Do NOT include bracketed tags like "[pause]", "[softly]", "[warmly]", "[gently]" anywhere in the narration — the voice engine does not read them and does not act on them, they have zero effect on the spoken audio and only show up as clutter in the text. Express emotion/pacing through word choice and punctuation instead (see below), never through bracket tags.
 4. ${buildPunctuationRhythmGuidance()}
-5. On-screen emphasis markup: in the "subtitle" field's PRIMARY line only (never the translation line, and NEVER inside "dialogueOrNarration"), wrap 1 to 3 short key words/phrases per line in double asterisks so they render in a highlight color on screen — e.g. "Hai. Có **mượn** thì phải **trả**." For a "top_lists" point that happens to be a contrast ("A, không phải B"), highlight the core word/phrase in BOTH the A and B halves. For a reflective line, highlight whichever single word or short phrase carries the emotional weight of that sentence. Keep it sparse — only the words that truly deserve visual punch, never whole clauses.
+5. MANDATORY ON-SCREEN SUBTITLE RULES (CONCISE, MAX 2 LINES):
+   - In the "subtitle" field, keep the primary text EXTREMELY concise and punchy (about 8 to 14 words at most, designed to fit cleanly in at most 2 lines on a mobile phone screen). NEVER write long, wordy paragraphs in "subtitle".
+   - Do NOT include numbering prefixes like "Một.", "Hai.", "Ba.", "1.", "2." inside the "subtitle" field — start directly on the core statement (e.g. "Có **mượn** thì phải **trả**, đừng để nhắc.").
+   - Wrap 1 to 2 key phrases per line in double asterisks **...** so they render with a bold gold highlight on screen. Keep the translation line below simple and accurate.
 
 Return the result as a JSON object matching exactly this schema:
 {
@@ -138,10 +135,10 @@ Return the result as a JSON object matching exactly this schema:
     {
       "segmentNumber": 1,
       "visualDescription": "Detailed visual description in English of the flat white pictogram slide image, focusing on which symbolic figure(s)/props best depict this exact narration moment, their pose/positioning, and the flat white silhouettes (no glow) on pure black background. No text/labels in the image. Figure sized small relative to the frame (about two-thirds at most, clear black margin all around). (e.g. A single small flat white pictogram figure sits alone on the ground in the lower half of the frame, comfortably inset with black margin on every side, head resting on knees, a small flat white question-mark icon above their head, pure black background, crisp sharp edges with no glow, generous negative space, minimalist symbolic composition.)",
-      "dialogueOrNarration": "Full narration line following the VOICE & STYLE REFERENCE above, in the primary language specified above.",
+      "dialogueOrNarration": "Full spoken narration line following the VOICE & STYLE REFERENCE above, in the primary language specified above.",
       "subtitle": "${isVietnamesePrimary
-        ? 'Một hành động **tử tế** nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life.'
-        : 'A small act of **kindness** can change an entire life.\\nMột hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.'}"
+        ? 'Một hành động **tử tế** có thể thay đổi cả cuộc đời.\\nA small act of kindness can change a life.'
+        : 'A small act of **kindness** can change a life.\\nMột hành động tử tế có thể thay đổi cả cuộc đời.'}"
     }
   ]
 }

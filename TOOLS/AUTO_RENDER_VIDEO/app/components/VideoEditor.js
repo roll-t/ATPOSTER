@@ -17,6 +17,8 @@ const TRANSITION_STYLES = [
   { value: 'zoom', label: '🔍 Zoom' },
 ];
 const CAPTION_FONTS = [
+  { value: 'paytone-one', label: 'Paytone One' },
+  { value: 'itim', label: 'Itim' },
   { value: 'be-vietnam-pro', label: 'Be Vietnam Pro' },
   { value: 'roboto', label: 'Roboto' },
   { value: 'montserrat', label: 'Montserrat' },
@@ -25,6 +27,8 @@ const CAPTION_FONTS = [
   { value: 'oswald', label: 'Oswald' },
 ];
 const FONT_CSS = {
+  'paytone-one': '"Paytone One", "Be Vietnam Pro", sans-serif',
+  itim: '"Itim", "Be Vietnam Pro", cursive, sans-serif',
   'be-vietnam-pro': '"Be Vietnam Pro", sans-serif',
   roboto: '"Roboto", sans-serif',
   montserrat: '"Montserrat", sans-serif',

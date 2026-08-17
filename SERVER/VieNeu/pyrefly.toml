@@ -1,2 +1,2 @@
 # Trỏ Pyrefly tới virtualenv của SERVER/VieNeu trên máy hiện tại
-python-interpreter-path = "VieNeu/.venv/Scripts/python.exe"
+python-interpreter-path = ".venv/Scripts/python.exe"

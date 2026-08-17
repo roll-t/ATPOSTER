@@ -85,20 +85,39 @@ def _resolve_ffmpeg() -> Optional[str]:
     found = shutil.which("ffmpeg")
     if found:
         return found
-    # ffmpeg đóng gói sẵn theo Remotion (RENDER/node_modules)
+    # ffmpeg đóng gói sẵn theo Remotion hoặc các công cụ có sẵn trong hệ thống
     repo_root = Path(__file__).resolve().parent.parent.parent
-    for pattern in (
+    patterns = [
+        "TOOLS/AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg.exe",
+        "TOOLS/AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg",
+        "node_modules/@remotion/compositor-*/ffmpeg.exe",
+        "node_modules/@remotion/compositor-*/ffmpeg",
         "RENDER/node_modules/@remotion/compositor-*/ffmpeg.exe",
         "RENDER/node_modules/@remotion/compositor-*/ffmpeg",
-    ):
+    ]
+    for pattern in patterns:
         hits = glob.glob(str(repo_root / pattern))
-        if hits:
-            # Kiểm tra xem binary có chạy được không (tránh lỗi dyld thiếu dynamic library trên macOS)
+        for hit in hits:
             try:
-                subprocess.run([hits[0], "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                return hits[0]
+                subprocess.run([hit, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                return hit
             except Exception:
                 pass
+
+    fallback_paths = [
+        r"D:\code\wed\ATPOSTER\TOOLS\AUTO_RENDER_VIDEO\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe",
+        r"D:\tiktok_agent\data\ffmpeg.exe",
+        r"D:\agent\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe",
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+    ]
+    for p in fallback_paths:
+        if Path(p).exists():
+            try:
+                subprocess.run([p, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                return p
+            except Exception:
+                pass
+
     return None
 
 

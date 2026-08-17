@@ -191,6 +191,28 @@ function isSafeBoundary(stack) {
  * Trả về null nếu văn bản không hề bị cắt cụt (ngoặc đã cân bằng) hoặc không cứu nổi.
  */
 export function salvageTruncatedJson(rawText) {
+  return salvage(rawText, { requireNothingDropped: false });
+}
+
+/**
+ * Biến thể AN TOÀN TUYỆT ĐỐI của salvageTruncatedJson: chỉ nhận khi phần bị bỏ đi CHỈ LÀ khoảng
+ * trắng — tức là model đã viết xong xuôi mọi thứ, chỉ thiếu đúng (các) dấu ngoặc đóng cuối cùng.
+ *
+ * Vì sao cần tách riêng: quan sát thật với gemini-3.5-flash — nó trả về JSON đủ title + đủ 13/13
+ * đoạn, chỉ thiếu duy nhất dấu `}` cuối cùng, và Google KHÔNG báo finishReason MAX_TOKENS nên
+ * engine xếp vào loại "JSON hỏng" rồi gọi lại Gemini từ đầu. Mỗi lượt gọi lại tốn 15-30 giây +
+ * 1 lượt quota, và vứt bỏ nguyên một kịch bản vốn dùng được 100%.
+ *
+ * Không dùng thẳng salvageTruncatedJson cho ca này được: nó sẵn sàng CẮT BỎ phần đuôi dở dang để
+ * cứu lấy phần đầu, nên nếu JSON hỏng thật ở giữa thì nó trả về kịch bản thiếu đoạn — chấp nhận
+ * được khi đã hết đường (đó là lý do nó vẫn được gọi ở bước cuối), nhưng KHÔNG được phép nhận ngay
+ * từ lượt hỏng đầu tiên trong khi gọi lại Gemini vẫn còn cơ hội ra bản đầy đủ.
+ */
+export function salvageUnclosedJson(rawText) {
+  return salvage(rawText, { requireNothingDropped: true });
+}
+
+function salvage(rawText, { requireNothingDropped }) {
   const text = stripCodeFences(rawText);
   const start = text.search(/[{[]/);
   if (start === -1) return null;
@@ -246,6 +268,9 @@ export function salvageTruncatedJson(rawText) {
   }
 
   if (lastSafeEnd === -1 || !lastSafeStack) return null;
+  // Chỉ thiếu ngoặc đóng thì phần sau ranh giới an toàn không còn gì ngoài khoảng trắng. Còn chữ
+  // nghĩa nào ở đó nghĩa là ta đang cắt bỏ nội dung thật — người gọi ở chế độ này không cho phép.
+  if (requireNothingDropped && text.slice(lastSafeEnd).trim() !== '') return null;
 
   const closers = lastSafeStack.reverse().join('');
   const result = tryParseWithRepairs(text.slice(start, lastSafeEnd) + closers);

@@ -7,6 +7,13 @@
  *     hay mở bằng câu dẫn nhập trừu tượng dài lê thê ("Trong cuộc sống hiện đại ngày nay...") —
  *     hết 3 giây vàng mà người nghe vẫn chưa biết video nói về cái gì.
  *
+ *     BỔ SUNG (TOPIC LOCK): chỉ ràng buộc độ dài + cấm sáo ngữ VẪN CHƯA ĐỦ. Thực tế Gemini viết ra
+ *     câu mở đúng 14 chữ, đúng "có tension", nhưng KHÔNG hề nhắc tới chủ đề — kiểu "Có những gánh
+ *     nặng không ai nhìn thấy." cho chủ đề "áp lực của đàn ông" — rồi mới vào đề ở câu 2-3. Người
+ *     dùng phải tự viết thêm câu dặn "vào đề ngay từ câu đầu, đừng mở bài" vào ô chủ đề thì kịch
+ *     bản mới đúng. Nên buộc thẳng: từ khoá lõi của chủ đề PHẢI nằm trong câu đầu tiên, kèm phép
+ *     thử "đổi chủ đề khác mà câu vẫn dùng được thì là câu sáo, viết lại".
+ *
  *  2. CHỐNG VĂN AI / DỊCH MÁY — đây là lỗ hổng lớn nhất. Không có bất kỳ ràng buộc nào, nên Gemini
  *     mặc định viết tiếng Việt theo đúng khuôn văn nghị luận dịch từ tiếng Anh: danh từ hoá ("sự
  *     thành công", "việc rèn luyện"), liên từ văn viết ("Tuy nhiên", "Bên cạnh đó"), sáo ngữ
@@ -20,24 +27,65 @@
 
 /**
  * Ràng buộc cho CÂU ĐẦU TIÊN của toàn bộ kịch bản (slide 1).
- * @param {{ isVietnamese?: boolean }} [opts]
+ *
+ * `topic` là chủ đề người dùng nhập (input.scenario) — truyền vào để trích từ khoá lõi và ép nó
+ * xuất hiện ngay câu đầu. Vẫn để optional: chủ đề luôn được nhắc lại ở phần dưới của prompt, nên
+ * khi không truyền thì chỉ mất phần trích dẫn tại chỗ, luật TOPIC LOCK vẫn còn hiệu lực.
+ *
+ * @param {{ isVietnamese?: boolean, topic?: string }} [opts]
  */
-export function buildHookGuidance({ isVietnamese = true } = {}) {
+export function buildHookGuidance({ isVietnamese = true, topic = '' } = {}) {
+  // Chủ đề người dùng nhập có thể dài cả đoạn (họ hay viết kèm luôn lời dặn) và có xuống dòng —
+  // gấp về 1 dòng, cắt ngắn để không nuốt mất phần luật phía sau trong ngữ cảnh của model.
+  const topicClean = String(topic || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+
+  const topicLockLine = topicClean
+    ? `- THIS VIDEO'S TOPIC (as the user wrote it): "${topicClean}"
+  Extract its 2 to 4 CORE KEYWORDS ${isVietnamese
+    ? 'và bắt buộc chúng phải nằm TRONG câu đầu tiên (ví dụ chủ đề "Áp lực của đàn ông" -> từ khoá lõi "áp lực", "đàn ông" -> câu đầu phải chứa cả hai)'
+    : 'and they MUST appear INSIDE the first sentence (e.g. topic "The pressure men live under" -> core keywords "pressure", "men" -> the first sentence must carry both)'} — the exact words, or an everyday equivalent so obvious that nobody could mistake the subject.`
+    : `- Extract the 2 to 4 CORE KEYWORDS from the user's topic given further down in this prompt, and make sure they appear INSIDE the first sentence — the exact words, or an everyday equivalent so obvious that nobody could mistake the subject.`;
+
+  const swapTestExample = isVietnamese
+    ? `SAI (14 chữ, nghe có vẻ hay, nhưng hết 3 giây rồi vẫn chưa biết đang nói về ai): "Có những gánh nặng không ai nhìn thấy, và cũng chẳng ai hỏi tới."
+  ĐÚNG (từ khoá nằm ngay 3 chữ đầu): "Đàn ông không được phép mệt — đó là luật ngầm không ai viết ra."`
+    : `BAD (14 words, sounds nice, but 3 seconds are gone and the viewer still doesn't know the subject): "There are burdens nobody sees, and nobody ever asks about."
+  GOOD (keywords land in the first 3 words): "Men aren't allowed to be tired — that's the rule nobody wrote down."`;
+
+  const topicLockBlock = `TOPIC LOCK — NAME THE SUBJECT IN THE FIRST SENTENCE (read this before anything else; this is the #1 failure of this genre):
+- The FIRST sentence must already say WHAT THIS VIDEO IS ABOUT. Someone who hears ONLY that one sentence, and nothing after it, must be able to state the topic out loud.
+${topicLockLine}
+- Put those keywords as EARLY in the sentence as the grammar allows — ideally within the first 5 to 7 words, not trailing at the end.
+- ZERO WARM-UP, ZERO RAMP-UP: no scene-setting, no general observation about life/society/people, no greeting, no "context sentence" to set up the topic. The script starts ON the subject — first sentence, first words. ${isVietnamese ? 'Người xem chỉ cho bạn khoảng 1 giây để biết video này nói về cái gì; nói vòng vo 2-3 giây là họ lướt qua rồi.' : 'The viewer gives you about one second to learn what this video is about; ramble for 2-3 seconds and they have already swiped away.'}
+- If the topic's keywords only show up in your sentence 2 or 3, DELETE every sentence before that one and START there. That deleted warm-up is exactly what makes people swipe away — it is never "necessary setup".
+- SWAP TEST (mandatory): read your first sentence while imagining a completely different topic behind it. If it still fits, it is generic filler — rewrite it until the sentence can only belong to THIS topic.
+  ${swapTestExample}
+- Whatever hook shape you pick below, it must satisfy this topic lock — a hook that is punchy but subject-less has failed.
+- Segment 1's narration must BEGIN with this sentence. Nothing may precede it: no title line, no greeting, no framing clause.`;
+
+
   const banned = isVietnamese
     ? `"Trong cuộc sống hiện đại ngày nay...", "Trong xã hội ngày nay...", "Ai trong chúng ta cũng từng...", "Có thể bạn chưa biết...", "Hôm nay chúng ta sẽ cùng tìm hiểu...", "Hãy cùng nhau khám phá...", "Cuộc sống là một hành trình...", "Xin chào các bạn..."`
     : `"In today's modern world...", "We all know that...", "Have you ever wondered...", "In this video, we'll explore...", "Life is a journey...", "Hello everyone..."`;
 
+  // Mỗi ví dụ kèm luôn chủ đề tương ứng để thấy rõ: từ khoá của chủ đề nằm ngay trong câu, chứ
+  // không phải câu hay chung chung rồi mới vào đề ở câu sau.
   const goodExamples = isVietnamese
-    ? `   - Sự thật ngược đời, nói thẳng: "Người càng cố làm hài lòng tất cả, càng bị coi thường."
-   - Chạm đúng nỗi đau CỤ THỂ: "Bạn trả lời tin nhắn sếp lúc 11 giờ đêm, và vẫn thấy mình chưa đủ cố gắng."
-   - Con số + lời hứa rõ ràng: "10 quy tắc ngầm trong xã hội mà ai cũng nên biết."
-   - Câu hỏi buộc người nghe tự soi lại mình: "Lần cuối bạn làm gì đó chỉ vì bản thân thích là khi nào?"`
-    : `   - A blunt counter-intuitive truth: "The harder you try to please everyone, the less they respect you."
-   - A concrete pain point: "You answer your boss at 11 p.m., and still feel like you're not doing enough."
-   - A number plus a clear promise: "10 unspoken social rules everyone should know."
-   - A question that forces self-reflection: "When was the last time you did something just because you wanted to?"`;
+    ? `   - Sự thật ngược đời, nói thẳng — chủ đề "làm hài lòng người khác": "Người càng cố làm hài lòng tất cả, càng bị coi thường."
+   - Chạm đúng nỗi đau CỤ THỂ — chủ đề "áp lực công việc": "Bạn trả lời tin nhắn sếp lúc 11 giờ đêm, mà vẫn thấy mình chưa đủ cố gắng."
+   - Con số + lời hứa rõ ràng — chủ đề "quy tắc ngầm trong xã hội": "10 quy tắc ngầm trong xã hội mà ai cũng nên biết."
+   - Câu hỏi buộc người nghe tự soi lại mình — chủ đề "sống cho bản thân": "Lần cuối bạn làm gì đó chỉ vì bản thân thích là khi nào?"
+   Để ý: cả 4 câu đều CÓ từ khoá của chủ đề ngay trong câu đầu — không câu nào phải chờ tới câu thứ hai mới lộ ra đang nói về cái gì.`
+    : `   - A blunt counter-intuitive truth — topic "people-pleasing": "The harder you try to please everyone, the less they respect you."
+   - A concrete pain point — topic "work pressure": "You answer your boss at 11 p.m., and still feel like you're not doing enough."
+   - A number plus a clear promise — topic "unspoken social rules": "10 unspoken social rules everyone should know."
+   - A question that forces self-reflection — topic "living for yourself": "When was the last time you did something just because you wanted to?"
+   Note: all four carry the topic's own keywords inside the very first sentence — none of them make the viewer wait until sentence two to find out what this is about.`;
 
   return `OPENING HOOK — THE FIRST 3 SECONDS (CRITICAL, THIS DECIDES WHETHER ANYONE WATCHES):
+
+${topicLockBlock}
+
 - Short-form viewers decide within ~3 seconds whether to keep watching. The FIRST sentence of segment 1 is the single most important line in the entire script — write it last, after you know the payoff, then put it first.
 - HARD LIMIT: that first sentence must be at most ~14 words (${isVietnamese ? 'tiếng Việt: tối đa khoảng 14 chữ' : 'about 3 seconds when spoken aloud'}). If it does not fit, it is not a hook — rewrite it shorter.
 - It must land the CORE TENSION of the topic immediately. After hearing only that one sentence, the viewer should already know what this video is about and feel a reason to stay.
@@ -108,5 +156,6 @@ Sau khi viết xong toàn bộ lời kể, rà lại một lượt và ĐẾM:
    c. Có đoạn nào chỉ toàn khái niệm trừu tượng, không có lấy một chi tiết cụ thể (giờ giấc, đồ vật, con số, hành động nhìn thấy được) không? -> Có thì thêm chi tiết vào.
    d. Có 3 câu liên tiếp dài xấp xỉ nhau không? -> Có thì cắt ngắn một câu xuống còn 2-4 chữ.
    e. Câu đầu tiên của slide 1 có quá 14 chữ, hoặc có nằm trong danh sách mở bài bị cấm không? -> Có thì viết lại cho tới khi đạt.
-Chỉ xuất JSON sau khi cả 5 mục trên đều đạt.`;
+   f. QUAN TRỌNG NHẤT — đọc riêng câu đầu tiên của slide 1, không đọc gì thêm: chỉ nghe câu đó thôi thì đã biết video nói về chủ đề gì chưa? Từ khoá lõi của chủ đề có nằm ngay trong câu đó không? -> Nếu chưa, tìm câu đầu tiên trong kịch bản có nhắc tới chủ đề, XOÁ HẾT các câu đứng trước nó, và bắt đầu từ đó.
+Chỉ xuất JSON sau khi cả 6 mục trên đều đạt.`;
 }

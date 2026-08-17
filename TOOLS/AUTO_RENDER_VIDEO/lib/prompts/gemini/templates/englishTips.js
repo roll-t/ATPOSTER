@@ -24,7 +24,7 @@ DURATION & PACING REQUIREMENTS (IMPORTANT — READ CAREFULLY):
 
 ${buildHumanVoiceGuidance({ isVietnamese: false })}
 
-${buildHookGuidance({ isVietnamese: false })}
+${buildHookGuidance({ isVietnamese: false, topic: input.ruleTitle })}
 
 MANDATORY STRUCTURE (in this order):
 1. HOOK segment(s): open with the attention-grabbing question/problem statement, spoken directly to the viewer, obeying the 3-second hook rules above. The user's supplied hook line below is raw material, not a finished line — if it warms up, hedges, or runs past ~14 words, tighten it until it lands in 3 seconds while keeping its meaning.

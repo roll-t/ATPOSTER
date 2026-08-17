@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
 import { Caption } from "@atposter/remotion-shared";
 import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "@atposter/remotion-shared";
@@ -232,28 +232,54 @@ export const Scene: React.FC<{
           showBilingual={showBilingual}
         />
       ) : layout === "image-only" ? null : (
-      <Caption
-        text={scene.caption}
-        sceneIndex={sceneIndex}
-        videoTitle={videoTitle}
-        position={captionPosition}
-        captionMarginY={captionMarginY}
-        fontFamily={fontFamily}
-        mode={captionMode}
-        wordsPerChunk={captionWordsPerChunk}
-        style={captionStyle}
-        captionFont={captionFont}
-        captionFontSize={captionFontSize}
-        captionSecondaryFontSize={captionSecondaryFontSize}
-        captionTextColor={captionTextColor}
-        captionBgColor={captionBgColor}
-        highlightColor={highlightColor}
-        showBilingual={showBilingual}
-        durationInFrames={sceneDurationInFrames}
-        wordTimings={scene.wordTimings}
-        opacity={1}
-      />
+        <Caption
+          text={scene.caption}
+          sceneIndex={sceneIndex}
+          videoTitle={videoTitle}
+          position={captionPosition}
+          captionMarginY={captionMarginY}
+          fontFamily={fontFamily}
+          mode={captionMode}
+          wordsPerChunk={captionWordsPerChunk}
+          style={captionStyle}
+          captionFont={captionFont}
+          captionFontSize={captionFontSize}
+          captionSecondaryFontSize={captionSecondaryFontSize}
+          captionTextColor={captionTextColor}
+          captionBgColor={captionBgColor}
+          highlightColor={highlightColor}
+          showBilingual={showBilingual}
+          durationInFrames={sceneDurationInFrames}
+          wordTimings={scene.wordTimings}
+          opacity={1}
+        />
       )}
+      {/* Watermark Logo tinh tế phía dưới ảnh */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 130,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          pointerEvents: "none",
+          zIndex: 4,
+          opacity: 0.45,
+        }}
+      >
+        <Img
+          src={staticFile("logo/the-mind-logo.png")}
+          style={{
+            width: 260,
+            height: "auto",
+            objectFit: "contain",
+            mixBlendMode: "screen",
+            filter: "brightness(0.98)",
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };

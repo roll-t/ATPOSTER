@@ -1,51 +1,9 @@
-import { parseGeminiJson, salvageTruncatedJson } from './parseGeminiJson.js';
+import { parseGeminiJson, salvageTruncatedJson, salvageUnclosedJson } from './parseGeminiJson.js';
 import { recordAttempt, recordDailyLimitObserved, isExhaustedToday } from './usageTracker.js';
+import { AI_CONFIG } from '../../../config/ai.config.js';
 
-// Dùng alias "-latest" của Google thay vì tên model có version/ngày tháng cứng — Google liên tục
-// deprecate model cũ (vd gemini-2.0-flash, gemini-2.0-flash-lite đều đã bị đánh dấu ngừng phục vụ
-// tại thời điểm viết dòng này), khiến danh sách cứng cũ liên tục lỗi thời. Alias "-latest" tự trỏ
-// sang model mới nhất Google đang phục vụ, không cần cập nhật tay mỗi khi có model mới.
-//
-// QUAN TRỌNG — hạn mức free tier tính theo MODEL ĐÃ RESOLVE, không phải theo tên alias: gọi
-// `gemini-flash-latest` bị trừ vào quota của `gemini-3.6-flash` (thấy rõ trong thông báo lỗi 429:
-// "limit: 20, model: gemini-3-6-flash"). Nên danh sách dự phòng bên dưới chỉ liệt kê các model
-// KHÁC NHAU THẬT SỰ — thêm cả alias lẫn model đích của nó vào cùng 1 danh sách là thừa, chỉ tổ
-// đốt thêm 1 lượt gọi chắc chắn cũng dính 429 y hệt.
-const MODEL_TIERS = {
-  // Việc SÁNG TẠO (viết kịch bản, sinh ý tưởng): cần model thông minh nhất, chấp nhận chậm hơn.
-  // gemini-pro-latest xếp gần cuối vì tier "pro" thường có quota free-tier = 0 (limit: 0, khác với
-  // "đã dùng hết quota trong ngày") trên nhiều key/project — không phải lỗi tự phục hồi được bằng
-  // cách đổi key hay đợi, mà là gói quota chưa hề được cấp cho tier đó.
-  //
-  // THỨ TỰ ĐƯỢC ĐO THẬT, KHÔNG PHẢI ĐOÁN (đo trên cả 3 key, cùng một prompt 3 chữ):
-  //   gemini-3.5-flash          1,7-2,3s   ✔
-  //   gemini-flash-lite-latest  ~0,95s     ✔ (nhanh nhất nhưng là bản "lite", để dự phòng)
-  //   gemini-2.5-flash          ~1,1s      ✔ nhưng 404 ở 2/3 key
-  //   gemini-flash-latest       HẾT GIỜ 45s trên CẢ BA KEY
-  //
-  // gemini-flash-latest bị đẩy xuống CUỐI: nó từng đứng đầu danh sách nên mọi lượt gọi đều mở màn
-  // bằng một model đang treo, đốt trọn timeout nhân với số key rồi mới tới model chạy được —
-  // thường là đã quá hạn chót trước khi tới đó. Không xoá hẳn vì "-latest" là alias, Google sửa
-  // xong thì nó lại dùng tốt; để cuối thì lúc nào cũng an toàn.
-  quality: [
-    'gemini-3.5-flash',
-    'gemini-2.5-flash',
-    'gemini-flash-lite-latest',
-    'gemini-pro-latest',
-    'gemini-flash-latest',
-  ],
-  // Việc CƠ KHÍ (dịch, phiên âm, chuẩn hoá chuỗi): flash-lite thừa sức làm đúng, rẻ và nhanh hơn
-  // hẳn. Quan trọng nhất: nó KHÔNG ăn vào hạn mức của model "quality" — nhờ vậy một mẻ lồng tiếng
-  // 25 slide không còn ngốn sạch 20 request/phút của model dùng để viết kịch bản.
-  fast: [
-    'gemini-flash-lite-latest',
-    'gemini-3.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-flash-latest',
-  ],
-};
-
-const DEFAULT_TIER = 'quality';
+const MODEL_TIERS = AI_CONFIG.MODEL_TIERS;
+const DEFAULT_TIER = AI_CONFIG.DEFAULT_TIER;
 
 // Nhắc thêm về định dạng JSON an toàn, gắn vào MỌI prompt gửi Gemini để giảm khả năng
 // model trả JSON hỏng (ví dụ chèn dấu " chưa escape bên trong 1 chuỗi mô tả).
@@ -546,6 +504,25 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
       if (kind === 'bad-json') {
         badJsonCount++;
         if (error.rawText && error.rawText.length > bestBadJsonText.length) bestBadJsonText = error.rawText;
+
+        // Ca hỏng phổ biến nhất KHÔNG đáng gọi lại Gemini: model viết xong xuôi hết rồi mà thiếu
+        // đúng dấu ngoặc đóng cuối cùng (đo được với gemini-3.5-flash: đủ title + 13/13 đoạn, chỉ
+        // thiếu 1 ký tự `}`, và Google không hề báo finishReason MAX_TOKENS nên không rơi vào nhánh
+        // 'truncated'). Trước đây phải hỏng đủ 3 lượt mới chịu thử cứu vớt — mỗi lượt đốt 15-30
+        // giây + 1 lượt quota để rồi vứt bỏ nguyên một kịch bản dùng được 100%.
+        // salvageUnclosedJson chỉ nhận khi KHÔNG mất chữ nào (xem docblock của nó), nên dùng ngay
+        // từ lượt đầu vẫn an toàn: JSON hỏng thật ở giữa sẽ trả null và rơi về đúng luồng thử lại cũ.
+        const rescued = error.rawText ? salvageUnclosedJson(error.rawText) : null;
+        if (rescued) {
+          const segmentCount = Array.isArray(rescued.segments) ? rescued.segments.length : 0;
+          console.warn(
+            `${tag} ${model}${keyLabel} trả JSON thiếu ngoặc đóng cuối (${error.message}) — nội dung còn nguyên vẹn, `
+            + `vá lại và dùng luôn ${segmentCount} đoạn thay vì gọi lại từ đầu.`
+          );
+          cooldownUntil.delete(`${model}::${key}`);
+          return rescued;
+        }
+
         if (error.rawText) {
           console.error(`${tag} Phản hồi thô lỗi JSON (lượt ${badJsonCount}):\n=== BẮT ĐẦU PHẢN HỒI THÔ ===\n${error.rawText}\n=== KẾT THÚC PHẢN HỒI THÔ ===`);
         }

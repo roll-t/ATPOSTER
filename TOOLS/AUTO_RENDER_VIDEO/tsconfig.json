@@ -36,6 +36,7 @@
     "app",
     "components",
     "lib",
+    "packages",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

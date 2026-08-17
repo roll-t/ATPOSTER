@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Fragment } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { CaptionStyle, CaptionFont, WordTiming } from "../types";
 import { resolveCaptionFontFamily } from "../captionFonts";
@@ -38,12 +38,14 @@ function renderWithHighlights(text: string, highlightColor: string): React.React
         </span>
       );
     }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
+    return <Fragment key={i}>{part}</Fragment>;
   });
 }
 
 function stripListNumber(text: string): string {
-  return text.replace(/^\s*\d+[.):]\s*/, "").trim();
+  return text
+    .replace(/^\s*(\d+|Một|Hai|Ba|Bốn|Năm|Sáu|Bảy|Tám|Chín|Mười|Thứ nhất|Thứ hai|Thứ ba|Thứ tư|Thứ năm|Thứ sáu|Thứ bảy|Thứ tám|Thứ chín|Thứ mười|First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth)[.):,\s-]+\s*/i, "")
+    .trim();
 }
 
 /**
@@ -424,14 +426,10 @@ const HookCaption: React.FC<{
 
   if (!stripHighlightMarkers(primaryText)) return null;
 
-  // Each user-typed "\n" in the title becomes its own rendered row (still auto-wrapping within
-  // itself via normal text flow if that row alone is too long for the frame). Only the LAST row
-  // gets the tail-highlight treatment when nothing is explicitly marked with "**" — matches how a
-  // single-line title already worked before manual breaks were supported, and reads better than
-  // highlighting the tail of every row independently.
+  // Hỗ trợ cấu trúc nhiều dòng hoặc số thứ tự trên đỉnh
   const primaryLines = primaryText.split("\n");
 
-  const resolvedHighlightColor = highlightColor || "#FE2C55";
+  const resolvedHighlightColor = highlightColor || "#d9a620";
   const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
   const basePrimaryFontSize = isFirstScene ? 52 : 46;
   const primaryFontSize = captionFontSize
@@ -461,7 +459,7 @@ const HookCaption: React.FC<{
       <div
         style={{
           marginTop: (isFirstScene ? 48 : 96) - captionMarginY,
-          maxWidth: "90%",
+          maxWidth: "92%",
           background: isTransparentBg ? "transparent" : boxBgColor,
           borderRadius: 24,
           padding: isFirstScene ? "32px 40px" : "20px 32px",
@@ -482,6 +480,24 @@ const HookCaption: React.FC<{
         >
           {primaryLines.map((line, i) => {
             const isLast = i === primaryLines.length - 1;
+            const isStandaloneNumber = !isFirstScene && primaryLines.length > 1 && i === 0 && /^\s*(\d+|[Một|Hai|Ba|Bốn|Năm|Sáu|Bảy|Tám|Chín|Mười]+)[.]?\s*$/i.test(line);
+            
+            if (isStandaloneNumber) {
+              return (
+                <div
+                  key={i}
+                  style={{
+                    fontSize: Math.round(primaryFontSize * 1.3),
+                    fontWeight: 900,
+                    color: resolvedHighlightColor,
+                    marginBottom: 4,
+                  }}
+                >
+                  {line}
+                </div>
+              );
+            }
+
             const displayLine = isFirstScene && isLast ? autoHighlightTail(line) : line;
             return <div key={i}>{renderWithHighlights(displayLine, resolvedHighlightColor)}</div>;
           })}

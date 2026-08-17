@@ -76,8 +76,8 @@ ${languageAndToneBlock}
 
 ${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
 
-${buildHookGuidance({ isVietnamese: isVietnamesePrimary })}
-- Applied to this rewrite: slide 1's new narration must open with that hook sentence. If the current slide-1 narration warms up before getting to the point, that warm-up is exactly what you must delete.
+${buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
+- Applied to this rewrite: slide 1's new narration must open with that hook sentence. If the current slide-1 narration warms up before naming the topic, that warm-up is exactly what you must delete — slide 1 keeps its image, but its words start on the subject.
 ${styleReferenceBlock}${listCountNote}
 EXISTING SLIDES (in order — write new narration for each, keep the same segmentNumber, same count, same order):
 ${segmentsList}

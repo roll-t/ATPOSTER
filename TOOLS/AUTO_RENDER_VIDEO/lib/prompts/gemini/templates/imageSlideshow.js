@@ -51,7 +51,7 @@ NARRATION STYLE:
 ${buildHumanVoiceGuidance({ isVietnamese })}
 ${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
-${buildHookGuidance({ isVietnamese })}
+${buildHookGuidance({ isVietnamese, topic: input.scenario })}
 
 ═══════════════════════════════════════════════════════
 PNG ASSET LIBRARY — use ONLY these exact IDs, no others

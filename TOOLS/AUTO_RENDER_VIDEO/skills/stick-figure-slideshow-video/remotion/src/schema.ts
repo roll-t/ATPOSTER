@@ -176,7 +176,7 @@ export const slideshowVideoSchema = z.object({
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   imageScale: z.number().min(0.2).max(2).default(1),
   imageTranslateY: z.number().min(-100).max(100).default(0),
-  captionMarginY: z.number().min(-500).max(500).default(0),
+  captionMarginY: z.number().min(-800).max(800).default(0),
   kenBurns: z.boolean().default(true),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
@@ -243,7 +243,7 @@ export const slideshowVideoSchema = z.object({
   // `fontFamily` field above, which silently falls back to a system font if
   // the named one isn't installed. Omit to keep using `fontFamily`.
   captionFont: z
-    .enum(["be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald"])
+    .enum(["paytone-one", "itim", "be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald", "poppins"])
     .optional(),
   // Overrides the caption's base font size (the style's own default is 40px,
   // or 32px for captionStyle: "page"). The active/highlighted word in

@@ -85,7 +85,7 @@ ${narrationLanguageBlock}
 
 ${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
 
-${buildHookGuidance({ isVietnamese: isVietnamesePrimary })}
+${buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
 
 ${styleReferenceBlock}
 

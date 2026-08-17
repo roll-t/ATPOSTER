@@ -60,7 +60,7 @@ export function buildSlideshowRemotionConfig(record, processedInput, bgColor) {
     captionWordsPerChunk: 4,
     captionStyle: 'box',
     audioPaddingSeconds: 0.4,
-    bgMusicVolume: 0.12,
+    bgMusicVolume: 0.35,
     scenes: record.segments
       .filter((seg) => !seg.isThumbnail)
       .map((seg) => {

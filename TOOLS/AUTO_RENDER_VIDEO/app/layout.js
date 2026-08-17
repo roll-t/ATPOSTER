@@ -13,13 +13,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "YouTube Shorts AutoPoster - Quản Lý Kênh & Đăng Clip Tự Động",
-  description: "Hệ thống quản lý và tự động đăng video YouTube Shorts chuyên nghiệp.",
+  title: "AI Video Studio & Auto Render Video - ATPOSTER",
+  description: "Hệ thống tự động biên soạn kịch bản AI, lồng tiếng TTS và render video Remotion chuyên nghiệp.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="vi" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Itim&family=Paytone+One&display=swap" rel="stylesheet" />
+      </head>
       <body suppressHydrationWarning>
         <Heartbeat />
         {children}

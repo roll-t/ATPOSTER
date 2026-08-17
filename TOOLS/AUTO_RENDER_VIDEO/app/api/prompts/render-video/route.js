@@ -11,7 +11,7 @@ import { getSkill } from '@/lib/skills/index.js';
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook'];
 const TRANSITION_STYLES = ['crossfade', 'slide-left', 'slide-right', 'slide-up', 'zoom'];
-const CAPTION_FONTS = ['be-vietnam-pro', 'roboto', 'montserrat', 'nunito', 'inter', 'oswald'];
+const CAPTION_FONTS = ['paytone-one', 'itim', 'be-vietnam-pro', 'roboto', 'montserrat', 'nunito', 'inter', 'oswald', 'poppins'];
 // Loose allowlist for freeform CapCut-style color overrides (hex, rgb()/rgba(),
 // "transparent", CSS named colors) — rejects obviously malformed input before
 // it's forwarded as a CLI arg; execFile (no shell, array argv) already rules

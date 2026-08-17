@@ -65,7 +65,10 @@ Vậy nên, nếu một ngày gặp lại chính mình của lúc nhỏ, hy vọ
 ${reflectiveSample}
 """
 Techniques to reproduce from this reference, applied to whatever topic is given:
-1. Open with a reflective, rhetorical QUESTION addressed directly to "bạn" that draws the listener into the emotional premise of the topic — never open with a plain flat statement. This opening question must also satisfy the 3-SECOND HOOK rules given above: at most ~14 words, containing a concrete image/number/detail, no warm-up clause before it. A long, abstract opening question is NOT a hook — e.g. reject "Bạn có bao giờ tự hỏi rằng liệu cuộc sống hiện tại của mình có thực sự là điều mình mong muốn hay không?" and write something like "Nếu gặp lại mình năm 10 tuổi, bạn có dám nhìn thẳng vào mắt nó không?" instead.
+1. Open on the topic itself, in ONE line addressed directly to "bạn" — either a reflective rhetorical QUESTION (the default for this warm register) or a blunt declarative statement when that names the subject faster. Whichever you pick, it MUST obey the TOPIC LOCK and 3-SECOND HOOK rules given above: the topic's own keywords inside that first line (ideally in the first 5-7 words), at most ~14 words total, a concrete image/number/detail, and NO warm-up clause in front of it.
+   - A long, abstract opening question is NOT a hook: reject "Bạn có bao giờ tự hỏi rằng liệu cuộc sống hiện tại của mình có thực sự là điều mình mong muốn hay không?" and write "Nếu gặp lại mình năm 10 tuổi, bạn có dám nhìn thẳng vào mắt nó không?" instead.
+   - A question that hides the subject is ALSO not a hook, even when it is short and pretty. For the topic "áp lực của đàn ông": reject "Đã bao giờ bạn thấy mệt mà không dám nói ra chưa?" (nothing in it says who this is about) and write "Đàn ông có được phép mệt không?" or "Đàn ông không được phép mệt — ai quy định vậy?" instead.
+   - Do not spend a line "setting the mood" before the question. The reflective, image-rich texture of this voice belongs in the BODY of the script; the first line's only job is to make the viewer know the subject and stay.
 2. Use repetition / parallel sentence structure at least once (e.g. "Chúng ta từng... Chúng ta từng...", "vẫn... vẫn... vẫn...") to build rhythmic, almost lyrical momentum.
 3. Use a clear BEFORE/AFTER or contrast structure — what we once believed, hoped for, or felt as a child/beginner, versus what life actually taught us or how things really turned out.
 4. Use elevated, image-rich, literary spoken language (metaphor, emotionally specific word choices like "giấu nước mắt sau một nụ cười") while still sounding natural when read aloud — not stiff, not academic, not a list of vague generalities.
@@ -107,25 +110,25 @@ ${ENUMERATED_OPENING_RULE}
 
   const listSample = `10 quy tắc ngầm trong xã hội mà ai cũng nên biết.
 
-Một. Đám cưới không mời thì không đến, đám tang biết chuyện thì phải đến.
+Một. Đi ăn nhóm luôn **giành trả tiền**, nhưng về nhà lại ăn mì gói cả tuần.
 
-Hai. Có mượn thì phải trả.
+Hai. Có **mượn** thì phải **trả**, đừng để người ta đòi.
 
-Ba. Kính rượu người lớn hơn thì cụng ly thấp hơn.
+Ba. Kính rượu người lớn hơn thì **cụng ly thấp hơn**.
 
-Bốn. Đi cùng sếp thì đi sau, chếch bên phải. Nếu đi ô tô thì mình ngồi ghế phụ, sếp ngồi ghế sau.
+Bốn. Đi cùng sếp thì đi sau, **chếch bên phải**.
 
-Năm. Được mời đi tiệc thì mang theo quà.
+Năm. Được mời đi tiệc thì **mang theo quà**.
 
-Sáu. Ăn uống không bới lộn xộn đĩa thức ăn, ăn miếng nào gắp miếng đấy.
+Sáu. Ăn uống không bới lộn xộn đĩa thức ăn, **gắp miếng nào ăn miếng đấy**.
 
-Bảy. Muốn làm ăn phát thì phải biết kìm cái tôi, biết ơn người dẫn dắt mình.
+Bảy. Muốn làm ăn phát thì phải biết **kìm cái tôi**, biết ơn người dẫn dắt mình.
 
-Tám. Làm ăn kinh doanh thì đừng ngoại tình.
+Tám. Làm ăn kinh doanh thì tuyệt đối **đừng ngoại tình**.
 
-Chín. Đến sớm là đúng giờ, đến đúng giờ là trễ, đến trễ là không chấp nhận được.
+Chín. Đến sớm là đúng giờ, đến đúng giờ là trễ, **đến trễ là không chấp nhận được**.
 
-Mười. Không được mời thì coi như không biết đến sự tồn tại của sự kiện đó, đừng hỏi tại sao không mời.
+Mười. Không được mời thì coi như không biết, **đừng bao giờ hỏi tại sao**.
 
 Bạn biết được bao nhiêu điều trong số này?`;
 
@@ -139,9 +142,10 @@ Techniques to reproduce from this reference, applied to whatever topic is given:
 1. Open with TWO separate beats (see the TWO-BEAT OPENING block below for the full rule). The FIRST line leads with the number itself and frames the list as hard-won truths learned through real life, not textbook advice — e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." At most ~14 words, no warm-up clause in front of the number, and never starting with "Có". The count MUST equal exactly how many list-point slides/lines follow. The SECOND line is a short reason to stay to the end, without repeating the count.
 2. Each list point states the rule/fact DIRECTLY and PLAINLY, as its own complete statement — this is the DEFAULT for every point, straight to the point, no framing, no hedging. DO NOT force an artificial "[điều đúng], không phải [điều người ta thường lầm tưởng]" contrast onto every single point — repeated point after point across 5-10 points, that template becomes wordy and roundabout ("vòng vo") instead of sounding decisive. A contrast structure (e.g. "X, không phải Y" or "X thay vì Y") is fine ONLY where the content itself genuinely calls for correcting a common misconception — most points should just state the rule outright with zero contrast framing, exactly like "Hai. Có mượn thì phải trả." or "Năm. Được mời đi tiệc thì mang theo quà." in the reference sample.
 3. Lead each point with a plain sequential counting word FOLLOWED BY A PERIOD (not a comma, not the word "là") — "Một. Hai. Ba. Bốn. Năm. Sáu...." (NOT "Một, Hai," and NOT "Một là, Hai là...") — or in English mode: "First. Second. Third. Fourth...." The period after the number is a deliberate full stop, giving the voice a clear beat/pause before each point begins.
-4. Keep each point SHORT — usually just ONE sentence (occasionally two short clauses joined by a comma when the rule naturally has two related parts, like point Bốn/Chín in the sample). Do not pad with an extra justification/explanation sentence after the rule — state it and move on. Real hard-won-wisdom lists don't explain themselves; explaining every point is exactly the "lòng vòng" (roundabout) feeling to avoid.
-5. Optionally close with ONE short, punchy line that invites the viewer to self-check against the list, e.g. "Bạn biết được bao nhiêu điều trong số này?" — this works well as a scroll-stopping, comment-bait closer for this genre.
-6. Tone across the whole list: direct, confident, unsentimental, slightly blunt — never preachy, never flowery. This is the opposite register from a warm bedtime-story voice.
+4. Subtitle on-screen format (MANDATORY — MAX 2 LINES): In each segment's "subtitle" field, DO NOT include numbering prefixes like "Một.", "Hai.", "Ba.", "1.", "2.". Write ONLY the punchy statement itself (at most 8 to 14 words, exactly 1 to 2 lines on a phone screen), and wrap 1 to 2 key phrases in double asterisks **...** so they render in gold highlight on screen (e.g. "Đi ăn nhóm luôn **giành trả tiền**, về nhà ăn mì gói.").
+5. Spoken narration vs subtitle: The spoken voiceover ("dialogueOrNarration") can include the counting word ("Một.", "Hai.") to give natural voice pacing, but the "subtitle" on screen must remain strictly short and clean without numbers and at most 2 lines.
+6. Optionally close with ONE short, punchy line that invites the viewer to self-check against the list, e.g. "Bạn biết được bao nhiêu điều trong số này?" — this works well as a scroll-stopping, comment-bait closer for this genre.
+7. Tone across the whole list: direct, confident, unsentimental, slightly blunt — never preachy, never flowery. This is the opposite register from a warm bedtime-story voice.
 ${ENUMERATED_OPENING_RULE}`;
 
   return { isReflectiveTheme, narrationModeLine, styleReferenceBlock };

@@ -319,15 +319,15 @@ export default function ContentForm({
                   </>
                 ) : (
                   <>
-                    <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '8 - 12 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
-                    <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '15 - 25 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
-                    <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 45 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
-                    <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                    <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '12 - 16 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                    <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '20 - 30 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                    <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '35 - 55 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                    <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '55 - 75 slide pictogram' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
                     {supportsLongForm && (
                       <optgroup label="🎬 Video dài">
-                        <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '28 - 40 slide pictogram' : activeCategory === 'pexels_talk_video' ? '14 - 17 đoạn kể' : '35 - 48 slide'})</option>
-                        <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '38 - 54 slide pictogram' : activeCategory === 'pexels_talk_video' ? '20 - 24 đoạn kể' : '48 - 65 slide'})</option>
-                        <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '48 - 68 slide pictogram' : activeCategory === 'pexels_talk_video' ? '26 - 31 đoạn kể' : '60 - 82 slide'})</option>
+                        <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '45 - 60 slide pictogram' : activeCategory === 'pexels_talk_video' ? '14 - 17 đoạn kể' : '35 - 48 slide'})</option>
+                        <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '60 - 80 slide pictogram' : activeCategory === 'pexels_talk_video' ? '20 - 24 đoạn kể' : '48 - 65 slide'})</option>
+                        <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '80 - 100 slide pictogram' : activeCategory === 'pexels_talk_video' ? '26 - 31 đoạn kể' : '60 - 82 slide'})</option>
                       </optgroup>
                     )}
                   </>

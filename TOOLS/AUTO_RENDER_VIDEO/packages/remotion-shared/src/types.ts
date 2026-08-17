@@ -6,6 +6,8 @@ export type CaptionStyle = "box" | "tiktok" | "karaoke" | "page" | "hook";
 
 // All fonts across all skills (narrated: 6 fonts; stick-figure: adds poppins)
 export type CaptionFont =
+  | "paytone-one"
+  | "itim"
   | "be-vietnam-pro"
   | "roboto"
   | "montserrat"

@@ -18,7 +18,7 @@ export const RemotionRoot: React.FC = () => {
     <Composition
       id="MainVideo"
       component={MainVideo}
-      durationInFrames={totalDurationInFrames}
+      durationInFrames={Math.max(1, totalDurationInFrames)}
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}

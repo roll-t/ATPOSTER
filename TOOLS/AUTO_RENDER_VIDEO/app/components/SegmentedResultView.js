@@ -218,9 +218,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const styleDefault = CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box;
       const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[initialStyle];
       const rc = result.remotionConfig || {};
+      const savedLocalFontSize = typeof window !== 'undefined'
+        ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size'))
+        : null;
       return {
         font: rc.font || styleDefault.font,
-        fontSize: rc.fontSize || categoryOverride?.fontSize || styleDefault.fontSize,
+        fontSize: rc.fontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
         textColor: rc.textColor || styleDefault.textColor,
         bgColor: rc.bgColor || styleDefault.bgColor,
         bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : styleDefault.bgTransparent,
@@ -257,6 +260,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Hiện lớp phủ vùng an toàn của nền tảng short lên khung xem trước — chỉ là lớp hướng dẫn
   // trên giao diện, KHÔNG ảnh hưởng gì tới video render ra.
   const [showSafeZone, setShowSafeZone] = useState(false);
+  const [showSocialUI, setShowSocialUI] = useState(true); // Mô phỏng giao diện TikTok / Shorts
   const [customScreenBg, setCustomScreenBg] = useState('#252538');
   const [customTab, setCustomTab] = useState('style'); // 'style' | 'layout' | 'typography'
 
@@ -277,7 +281,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     return result.remotionConfig?.imageTranslateY !== undefined ? String(result.remotionConfig.imageTranslateY) : '0';
   });
   const [renderCaptionMarginY, setRenderCaptionMarginY] = useState(() => {
-    return result.remotionConfig?.captionMarginY !== undefined ? String(result.remotionConfig.captionMarginY) : '0';
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_caption_margin_y_${result.category}`) || localStorage.getItem('default_caption_margin_y'))
+      : null;
+    if (result.remotionConfig?.captionMarginY !== undefined && result.remotionConfig?.captionMarginY !== null) {
+      return String(result.remotionConfig.captionMarginY);
+    }
+    return savedLocal !== null ? savedLocal : (result.category === 'moral_talk_slideshow' ? '-215' : '0');
   });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
@@ -292,12 +302,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     () => (result.remotionConfig?.bgMusicEnabled !== undefined ? Boolean(result.remotionConfig.bgMusicEnabled) : true)
   );
   const [renderBgMusicVolume, setRenderBgMusicVolume] = useState(() => {
+    const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null;
+    const defaultVol = savedLocal && savedLocal !== '10' && savedLocal !== '12' && savedLocal !== '6'
+      ? savedLocal
+      : DEFAULT_BG_MUSIC_VOLUME_PERCENT;
+
     if (result.remotionConfig?.bgMusicVolume !== undefined && result.remotionConfig?.bgMusicVolume !== null) {
       const v = Number(result.remotionConfig.bgMusicVolume);
       const percent = v <= 1 ? Math.round(v * 100) : v;
-      return percent === 6 ? DEFAULT_BG_MUSIC_VOLUME_PERCENT : String(percent);
+      if (percent === 6 || percent === 12 || percent === 10) {
+        return defaultVol;
+      }
+      return String(percent);
     }
-    return DEFAULT_BG_MUSIC_VOLUME_PERCENT;
+    return defaultVol;
   });
   const [defaultBgMusicTrackId, setDefaultBgMusicTrackId] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -311,9 +329,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [defaultBgMusicVolume, setDefaultBgMusicVolume] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('default_bg_music_volume');
-      // Bản lưu đúng bằng mặc định CŨ coi như "chưa từng chỉnh tay" — migrate 1 lần sang mặc định
-      // mới thay vì kẹt ở mức cũ mãi mãi dù DEFAULT_BG_MUSIC_VOLUME_PERCENT đã đổi trong code.
-      if (saved && saved !== LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT) return saved;
+      if (saved && saved !== '10' && saved !== '12' && saved !== '6') return saved;
     }
     return DEFAULT_BG_MUSIC_VOLUME_PERCENT;
   });
@@ -983,9 +999,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       setDefaultBgMusicTrackId(savedTrack);
 
       let savedVolume = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_volume') : null) || settings?.defaultBgMusicVolume || DEFAULT_BG_MUSIC_VOLUME_PERCENT;
-      // Cùng migrate 1 lần như initializer ở trên: bản lưu đúng bằng mặc định CŨ coi như chưa
-      // từng bị chỉnh tay.
-      if (String(savedVolume) === LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT) savedVolume = DEFAULT_BG_MUSIC_VOLUME_PERCENT;
+      if (String(savedVolume) === '10' || String(savedVolume) === '12' || String(savedVolume) === '6') {
+        savedVolume = DEFAULT_BG_MUSIC_VOLUME_PERCENT;
+      }
       setDefaultBgMusicVolume(savedVolume);
 
       // Công tắc bật/tắt cũng phải theo kịch bản đang mở, cùng lý do với giá trị khởi tạo ở trên —
@@ -999,9 +1015,22 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (result?.remotionConfig?.bgMusicVolume !== undefined && result?.remotionConfig?.bgMusicVolume !== null) {
         const v = Number(result.remotionConfig.bgMusicVolume);
         const percent = v <= 1 ? Math.round(v * 100) : v;
-        setRenderBgMusicVolume(percent === 6 ? DEFAULT_BG_MUSIC_VOLUME_PERCENT : String(percent));
+        if (percent === 6 || percent === 12 || percent === 10) {
+          setRenderBgMusicVolume(savedVolume);
+        } else {
+          setRenderBgMusicVolume(String(percent));
+        }
       } else {
         setRenderBgMusicVolume(savedVolume);
+      }
+
+      const savedMarginY = (typeof window !== 'undefined'
+        ? (localStorage.getItem(`default_caption_margin_y_${result?.category}`) || localStorage.getItem('default_caption_margin_y'))
+        : null) || settings?.[settingsKey('defaultCaptionMarginY')];
+      if (result?.remotionConfig?.captionMarginY !== undefined && result?.remotionConfig?.captionMarginY !== null) {
+        setRenderCaptionMarginY(String(result.remotionConfig.captionMarginY));
+      } else if (savedMarginY !== undefined && savedMarginY !== null) {
+        setRenderCaptionMarginY(String(savedMarginY));
       }
     }
     fetchPresets();
@@ -1305,8 +1334,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       ? CAPTION_STYLE_DEFAULTS.readingPage
       : (CAPTION_STYLE_DEFAULTS[styleType] || CAPTION_STYLE_DEFAULTS.box);
     const categoryOverride = !isReadingPractice ? CATEGORY_STYLE_OVERRIDES[result.category]?.[styleType] : undefined;
+    const savedFontSize = settings?.[settingsKey('defaultCaptionFontSize')]
+      || settings?.[settingsKey('defaultStyleConfig')]?.fontSize
+      || (typeof window !== 'undefined' ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size')) : null);
     setRenderCaptionFont(defaults.font);
-    setRenderCaptionFontSize(categoryOverride?.fontSize || defaults.fontSize);
+    setRenderCaptionFontSize(savedFontSize || categoryOverride?.fontSize || defaults.fontSize);
     setRenderCaptionSecondaryFontSize('');
     setRenderCaptionTextColor(defaults.textColor);
     setRenderCaptionBgColor(defaults.bgColor);
@@ -1504,12 +1536,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           if (styleDefaults) {
             const rc = result.remotionConfig || {};
             const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[pinnedCaptionStyle];
-            if (!rc.font) setRenderCaptionFont(styleDefaults.font);
-            if (!rc.fontSize) setRenderCaptionFontSize(categoryOverride?.fontSize || styleDefaults.fontSize);
-            if (!rc.textColor) setRenderCaptionTextColor(styleDefaults.textColor);
-            if (!rc.bgColor) setRenderCaptionBgColor(styleDefaults.bgColor);
+            const savedFontSize = s[settingsKey('defaultCaptionFontSize')]
+              || s[settingsKey('defaultStyleConfig')]?.fontSize
+              || (typeof window !== 'undefined' ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size')) : null);
+            const savedFont = s[settingsKey('defaultCaptionFont')] || s[settingsKey('defaultStyleConfig')]?.font;
+            const savedTextColor = s[settingsKey('defaultCaptionTextColor')] || s[settingsKey('defaultStyleConfig')]?.textColor;
+            const savedBgColor = s[settingsKey('defaultCaptionBgColor')] || s[settingsKey('defaultStyleConfig')]?.bgColor;
+            const savedHighlightColor = s[settingsKey('defaultHighlightColor')] || s[settingsKey('defaultStyleConfig')]?.highlightColor;
+
+            if (!rc.font) setRenderCaptionFont(savedFont || styleDefaults.font);
+            if (!rc.fontSize) setRenderCaptionFontSize(savedFontSize || categoryOverride?.fontSize || styleDefaults.fontSize);
+            if (!rc.textColor) setRenderCaptionTextColor(savedTextColor || styleDefaults.textColor);
+            if (!rc.bgColor) setRenderCaptionBgColor(savedBgColor || styleDefaults.bgColor);
             if (rc.isBgTransparent === undefined) setRenderCaptionBgTransparent(styleDefaults.bgTransparent);
-            if (!rc.highlightColor) setRenderHighlightColor(categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55');
+            if (!rc.highlightColor) setRenderHighlightColor(savedHighlightColor || categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55');
           }
         }
         const pinnedTransitionStyle = s[settingsKey('defaultTransitionStyle')];
@@ -1520,13 +1560,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         if (pinnedBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
           setRenderBilingual(pinnedBilingual);
         }
-        // ĐÃ BỎ: khối tự áp "mặc định nhạc nền" từ settings.readingPracticeConfig/defaultBgMusicVolume
-        // từng nằm ở đây. Đây là 1 cơ chế "mặc định" THỨ HAI, độc lập và chồng lấn với việc ghim
-        // preset (fetchPresets ở trên) — cả 2 cùng ghi vào renderBgMusicVolume/renderBgMusicEnabled/
-        // selectedBgMusicTrackId cho cùng điều kiện "kịch bản chưa tuỳ chỉnh", nên tuỳ effect nào
-        // resolve sau sẽ ghi đè effect kia, khiến preset đang ghim (📌 Mặc định) không tự active
-        // đúng như hiển thị — đây chính là bug đã gặp. Giờ preset đang ghim (qua fetchPresets/
-        // applyPreset) là NGUỒN SỰ THẬT DUY NHẤT cho nhạc nền mặc định của kịch bản mới.
       }
     } catch (err) {
       console.error('Error loading settings:', err);
@@ -1542,16 +1575,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...settings,
-          // reading_practice không có lựa chọn Kiểu phụ đề — renderCaptionStyle ở đó LUÔN là
-          // 'page' (kiểu trang giấy riêng của skill reading-page-video). Ghim từ màn đó sẽ đặt
-          // defaultCaptionStyle = 'page', rồi giá trị này lại được áp cho các kịch bản slideshow
-          // (moral_talk/stick_figure) — nơi 'page' không phải một lựa chọn hợp lệ, dẫn tới ô
-          // "📌 Đang ghim" hiện chữ "page" và kịch bản mới bị đặt sai kiểu. Giữ nguyên giá trị cũ.
           ...(isReadingPractice ? {} : { [settingsKey('defaultCaptionStyle')]: renderCaptionStyle }),
+          [settingsKey('defaultCaptionFontSize')]: renderCaptionFontSize,
+          [settingsKey('defaultCaptionFont')]: renderCaptionFont,
+          [settingsKey('defaultCaptionTextColor')]: renderCaptionTextColor,
+          [settingsKey('defaultCaptionBgColor')]: renderCaptionBgColor,
+          [settingsKey('defaultHighlightColor')]: renderHighlightColor,
           [settingsKey('defaultTransitionStyle')]: renderTransitionStyle,
           [settingsKey('defaultBilingual')]: renderBilingual
         })
       });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`default_caption_font_size_${result.category}`, renderCaptionFontSize);
+        localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
+      }
       if (res.ok) {
         setPinRenderMsg('Đã ghim cấu hình mặc định thành công!');
         setTimeout(() => setPinRenderMsg(''), 3500);
@@ -2373,15 +2410,28 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         body: JSON.stringify({
           ...settings,
           [settingsKey('defaultBilingual')]: renderBilingual,
+          [settingsKey('defaultCaptionStyle')]: renderCaptionStyle,
+          [settingsKey('defaultCaptionFontSize')]: renderCaptionFontSize,
+          [settingsKey('defaultCaptionFont')]: renderCaptionFont,
+          [settingsKey('defaultCaptionTextColor')]: renderCaptionTextColor,
+          [settingsKey('defaultCaptionBgColor')]: renderCaptionBgColor,
+          [settingsKey('defaultHighlightColor')]: renderHighlightColor,
+          [settingsKey('defaultCaptionMarginY')]: renderCaptionMarginY,
+          [settingsKey('defaultImageScale')]: renderImageScale,
+          [settingsKey('defaultImageTranslateY')]: renderImageTranslateY,
+          [settingsKey('defaultStyleConfig')]: configObj,
           defaultBgMusicEnabled: renderBgMusicEnabled,
           defaultBgMusicVolume: renderBgMusicVolume,
-          readingPracticeConfig: configObj
+          readingPracticeConfig: isReadingPractice ? configObj : (settings.readingPracticeConfig || null)
         })
       });
-      // Mức âm lượng mặc định được đọc lại ưu tiên từ localStorage (xem effect theo result.id), nên
-      // chỉ ghi vào settings là hai nguồn lệch nhau — đồng bộ cả hai ngay tại đây.
+      // Lưu vào localStorage để đồng bộ ngay lập tức cho các lần mở kịch bản sau
       setDefaultBgMusicVolume(renderBgMusicVolume);
       if (typeof window !== 'undefined') {
+        localStorage.setItem(`default_caption_font_size_${result.category}`, renderCaptionFontSize);
+        localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
+        localStorage.setItem(`default_caption_margin_y_${result.category}`, renderCaptionMarginY);
+        localStorage.setItem('default_caption_margin_y', renderCaptionMarginY);
         localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
       }
     } catch (err) {
@@ -5199,6 +5249,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 bgColor={c.bgColor}
                                 font={c.font}
                                 fontSize={c.fontSize}
+                                highlightColor={c.highlightColor || (active ? renderHighlightColor : undefined) || '#FFCB4D'}
                               />
                               {active && (
                                 <div style={{
@@ -5397,6 +5448,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                 bgColor={c.isBgTransparent ? 'transparent' : (c.bgColor || undefined)}
                                 font={c.font || undefined}
                                 fontSize={c.fontSize || undefined}
+                                highlightColor={c.highlightColor || (active ? renderHighlightColor : undefined) || '#FFCB4D'}
                               />
 
                               {active && (
@@ -5506,147 +5558,170 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 </div>
               ) : (
                 <>
-                  {/* Format đã lưu — trước đây CHỈ nhánh reading_practice mới render danh sách
-                      preset, nên với video slideshow người dùng lưu được format nhưng không có
-                      chỗ nào nhìn thấy hay chọn lại nó (preset vẫn nằm trong DB và vẫn tự áp dụng
-                      ngầm nếu được đặt mặc định — càng khó hiểu vì không thấy gì trên giao diện). */}
-                  {userPresets.filter((p) => !p.isSystemClone).length > 0 && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🎞️ Format đã lưu</span>
-                        <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
-                          Bấm để áp dụng toàn bộ cấu hình · 📌 đặt làm mặc định cho kịch bản mới
-                        </span>
+                  {/* Mục STYLE hợp nhất (gồm cả Format đã lưu của người dùng và Kiểu phụ đề hệ thống) */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>🎨 Style</span>
+                        {CAPTION_STYLE_OPTIONS.some((o) => o.value === settings?.[settingsKey('defaultCaptionStyle')]) && (
+                          <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
+                            📌 Đang ghim: {optionLabel(CAPTION_STYLE_OPTIONS, settings[settingsKey('defaultCaptionStyle')])}
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {userPresets.filter((p) => !p.isSystemClone).map((p) => {
-                          const c = p.config || {};
-                          const active = isPresetActive(p);
-                          const summary = [
-                            c.captionStyle ? optionLabel(CAPTION_STYLE_OPTIONS, c.captionStyle) : null,
-                            c.transitionStyle ? optionLabel(TRANSITION_STYLE_OPTIONS, c.transitionStyle) : null,
-                            c.bilingual === false ? 'Một ngữ' : c.bilingual === true ? 'Song ngữ' : null
-                          ].filter(Boolean).join(' · ');
-                          return (
-                            <div key={p.id} style={{ width: isLandscape ? 130 : 92, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <div
-                                onClick={() => applyPreset(p)}
-                                title={summary ? `Áp dụng "${p.name}" — ${summary}` : `Áp dụng "${p.name}"`}
+                      <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.4)' }}>
+                        Bấm để áp dụng Style · 📌 đặt làm mặc định cho kịch bản mới
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {/* 1. Format Style đã lưu của người dùng (nếu có) */}
+                      {userPresets.filter((p) => !p.isSystemClone).map((p) => {
+                        const c = p.config || {};
+                        const active = isPresetActive(p);
+                        const summary = [
+                          c.captionStyle ? optionLabel(CAPTION_STYLE_OPTIONS, c.captionStyle) : null,
+                          c.transitionStyle ? optionLabel(TRANSITION_STYLE_OPTIONS, c.transitionStyle) : null,
+                          c.bilingual === false ? 'Một ngữ' : c.bilingual === true ? 'Song ngữ' : null
+                        ].filter(Boolean).join(' · ');
+                        const presetStyle = c.captionStyle || 'box';
+                        const presetDefaults = CAPTION_STYLE_DEFAULTS[presetStyle] || CAPTION_STYLE_DEFAULTS.box;
+                        const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[presetStyle];
+                        const effectiveHighlight = c.highlightColor
+                          || (active ? renderHighlightColor : undefined)
+                          || categoryOverride?.highlightColor
+                          || presetDefaults.highlightColor;
+                        const effectiveTextColor = c.textColor
+                          || (active ? renderCaptionTextColor : undefined)
+                          || presetDefaults.textColor;
+                        const effectiveBgColor = c.isBgTransparent
+                          ? 'transparent'
+                          : (c.bgColor || (active ? (renderCaptionBgTransparent ? 'transparent' : renderCaptionBgColor) : undefined) || presetDefaults.bgColor);
+                        const effectiveFont = c.font || (active ? renderCaptionFont : undefined) || presetDefaults.font;
+                        const effectiveFontSize = c.fontSize || (active ? renderCaptionFontSize : undefined) || categoryOverride?.fontSize || presetDefaults.fontSize;
+
+                        return (
+                          <div key={p.id} style={{ width: isLandscape ? 130 : 92, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div
+                              onClick={() => applyPreset(p)}
+                              title={summary ? `Áp dụng "${p.name}" — ${summary}` : `Áp dụng "${p.name}"`}
+                              style={{
+                                width: '100%',
+                                aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
+                                borderRadius: '10px',
+                                overflow: 'hidden',
+                                background: '#141419',
+                                border: active ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.12)',
+                                boxShadow: active ? '0 0 14px rgba(254, 44, 85, 0.4)' : 'none',
+                                position: 'relative',
+                                boxSizing: 'border-box',
+                                cursor: 'pointer',
+                                transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                              }}
+                            >
+                              <CaptionStylePreview
+                                style={presetStyle}
+                                isLandscape={isLandscape}
+                                textColor={effectiveTextColor}
+                                bgColor={effectiveBgColor}
+                                font={effectiveFont}
+                                fontSize={effectiveFontSize}
+                                highlightColor={effectiveHighlight}
+                              />
+                              {p.isDefault && (
+                                <div style={{
+                                  position: 'absolute', top: '4px', left: '4px', padding: '1px 5px', borderRadius: '4px',
+                                  background: 'rgba(255, 203, 77, 0.95)', color: '#000', fontSize: '0.55rem', fontWeight: 900,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)', zIndex: 2
+                                }}>
+                                  📌 Mặc định
+                                </div>
+                              )}
+                              {active && (
+                                <div style={{
+                                  position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', borderRadius: '50%',
+                                  background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
+                                  justifyContent: 'center', fontSize: '0.65rem', fontWeight: 900, zIndex: 2
+                                }}>
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+
+                            <span style={{
+                              fontSize: '0.7rem', fontWeight: 700, color: active ? 'var(--primary)' : '#fff',
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center'
+                            }}>
+                              {p.name}
+                            </span>
+                            {summary && (
+                              <span style={{
+                                fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center',
+                                lineHeight: 1.3, overflow: 'hidden'
+                              }}>
+                                {summary}
+                              </span>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleToggleDefaultPreset(p); }}
+                                title={p.isDefault ? 'Bỏ đặt làm mặc định' : 'Đặt làm mặc định cho kịch bản mới'}
                                 style={{
-                                  width: '100%',
-                                  aspectRatio: isLandscape ? '16 / 9' : '3 / 4',
-                                  borderRadius: '10px',
-                                  overflow: 'hidden',
-                                  background: '#141419',
-                                  border: active ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.12)',
-                                  boxShadow: active ? '0 0 14px rgba(254, 44, 85, 0.4)' : 'none',
-                                  position: 'relative',
-                                  boxSizing: 'border-box',
-                                  cursor: 'pointer',
-                                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
+                                  background: p.isDefault ? 'rgba(255,203,77,0.18)' : 'rgba(255,255,255,0.06)',
+                                  border: `1px solid ${p.isDefault ? 'rgba(255,203,77,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                  borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
+                                  color: p.isDefault ? '#FFCB4D' : 'rgba(255,255,255,0.6)', fontWeight: 700
                                 }}
                               >
-                                <CaptionStylePreview
-                                  style={c.captionStyle || 'box'}
-                                  isLandscape={isLandscape}
-                                  textColor={c.textColor || undefined}
-                                  bgColor={c.isBgTransparent ? 'transparent' : (c.bgColor || undefined)}
-                                  font={c.font || undefined}
-                                  fontSize={c.fontSize || undefined}
-                                  highlightColor={c.highlightColor || undefined}
-                                />
-                                {p.isDefault && (
-                                  <div style={{
-                                    position: 'absolute', top: '4px', left: '4px', padding: '1px 5px', borderRadius: '4px',
-                                    background: 'rgba(255, 203, 77, 0.95)', color: '#000', fontSize: '0.55rem', fontWeight: 900,
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.5)', zIndex: 2
-                                  }}>
-                                    📌 Mặc định
-                                  </div>
-                                )}
-                                {active && (
-                                  <div style={{
-                                    position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', borderRadius: '50%',
-                                    background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', fontSize: '0.65rem', fontWeight: 900, zIndex: 2
-                                  }}>
-                                    ✓
-                                  </div>
-                                )}
-                              </div>
-
-                              <span style={{
-                                fontSize: '0.7rem', fontWeight: 700, color: active ? 'var(--primary)' : '#fff',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center'
-                              }}>
-                                {p.name}
-                              </span>
-                              {summary && (
-                                <span style={{
-                                  fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center',
-                                  lineHeight: 1.3, overflow: 'hidden'
-                                }}>
-                                  {summary}
-                                </span>
-                              )}
-
-                              <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleToggleDefaultPreset(p); }}
-                                  title={p.isDefault ? 'Bỏ đặt làm mặc định' : 'Đặt làm mặc định cho kịch bản mới'}
-                                  style={{
-                                    background: p.isDefault ? 'rgba(255,203,77,0.18)' : 'rgba(255,255,255,0.06)',
-                                    border: `1px solid ${p.isDefault ? 'rgba(255,203,77,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                                    borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
-                                    color: p.isDefault ? '#FFCB4D' : 'rgba(255,255,255,0.6)', fontWeight: 700
-                                  }}
-                                >
-                                  📌
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
-                                  title={`Xoá format "${p.name}"`}
-                                  style={{
-                                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                                    borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
-                                    color: 'rgba(255,255,255,0.45)'
-                                  }}
-                                >
-                                  🗑️
-                                </button>
-                              </div>
+                                📌
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
+                                title={`Xoá format "${p.name}"`}
+                                style={{
+                                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                  borderRadius: '5px', fontSize: '0.6rem', padding: '2px 6px', cursor: 'pointer',
+                                  color: 'rgba(255,255,255,0.45)'
+                                }}
+                              >
+                                🗑️
+                              </button>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                          </div>
+                        );
+                      })}
 
-                  {/* Trước đây thẻ ở đây chỉ sáng khi KHÔNG có Format nào đang khớp toàn bộ cấu hình
-                      (selected={!activePreset && ...}) — cố ý để tránh 2 chỗ cùng sáng ✓ một lúc,
-                      nhưng lại khiến người dùng chọn 1 Format rồi cuộn xuống thấy mục này như "chưa
-                      chọn gì", trông như 2 nơi chọn tách rời nhau. Bỏ điều kiện đó: renderCaptionStyle
-                      là NGUỒN SỰ THẬT DUY NHẤT, thẻ ở đây luôn sáng đúng theo giá trị đang áp dụng —
-                      dù giá trị đó đến từ việc bấm Format hay bấm thẳng thẻ này. */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Kiểu phụ đề</span>
-                      {CAPTION_STYLE_OPTIONS.some((o) => o.value === settings?.[settingsKey('defaultCaptionStyle')]) && (
-                        <span style={{ fontSize: '0.68rem', color: '#FFCB4D', fontWeight: 600 }}>
-                          📌 Đang ghim: {optionLabel(CAPTION_STYLE_OPTIONS, settings[settingsKey('defaultCaptionStyle')])}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {/* 2. Các Kiểu Phụ Đề Hệ Thống */}
                       {CAPTION_STYLE_OPTIONS.map(opt => {
                         const isPinned = settings?.[settingsKey('defaultCaptionStyle')] === opt.value;
+                        const isSelected = renderCaptionStyle === opt.value;
+                        const optDefaults = CAPTION_STYLE_DEFAULTS[opt.value] || CAPTION_STYLE_DEFAULTS.box;
+                        const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[opt.value];
+
+                        const effectiveHighlightColor = isSelected
+                          ? renderHighlightColor
+                          : (categoryOverride?.highlightColor || optDefaults.highlightColor);
+                        const effectiveTextColor = isSelected
+                          ? renderCaptionTextColor
+                          : optDefaults.textColor;
+                        const effectiveBgColor = isSelected
+                          ? (renderCaptionBgTransparent ? 'transparent' : renderCaptionBgColor)
+                          : (optDefaults.bgTransparent ? 'transparent' : optDefaults.bgColor);
+                        const effectiveFont = isSelected
+                          ? renderCaptionFont
+                          : optDefaults.font;
+                        const effectiveFontSize = isSelected
+                          ? renderCaptionFontSize
+                          : (categoryOverride?.fontSize || optDefaults.fontSize);
+
                         return (
                           <PickerCard
                             key={opt.value}
                             isLandscape={isLandscape}
-                            selected={renderCaptionStyle === opt.value}
+                            selected={isSelected}
                             showCustomizeBtn={true}
                             onClick={() => handleSelectCaptionStyle(opt.value)}
                             onCustomize={() => {
@@ -5658,6 +5733,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             <CaptionStylePreview
                               style={opt.value}
                               isLandscape={isLandscape}
+                              textColor={effectiveTextColor}
+                              bgColor={effectiveBgColor}
+                              font={effectiveFont}
+                              fontSize={effectiveFontSize}
+                              highlightColor={effectiveHighlightColor}
                             />
                           </PickerCard>
                         );
@@ -6493,24 +6573,75 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   flex: 1,
                   width: '100%',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   minHeight: 0,
-                  padding: '4px 0'
+                  padding: '4px 0',
+                  gap: '10px'
                 }}>
+                  {/* Khung điện thoại thông minh (Smartphone Mockup Frame) */}
                   <div style={{
                     height: capcutPreviewRatio === '16:9' ? 'auto' : '100%',
                     width: capcutPreviewRatio === '16:9' ? '100%' : 'auto',
                     aspectRatio: capcutPreviewRatio === '16:9' ? '16 / 9' : '9 / 16',
-                    maxHeight: '100%',
+                    maxHeight: capcutPreviewRatio === '16:9' ? '320px' : '520px',
                     maxWidth: '100%',
                     position: 'relative',
-                    borderRadius: '16px',
+                    borderRadius: capcutPreviewRatio === '16:9' ? '16px' : '36px',
                     overflow: 'hidden',
                     background: customScreenBg,
-                    border: capcutPreviewRatio === '16:9' ? '2px solid var(--secondary)' : '2px solid var(--primary)',
-                    boxShadow: capcutPreviewRatio === '16:9' ? '0 0 30px rgba(37,244,238,0.3)' : '0 0 30px rgba(254,44,85,0.3)'
+                    border: capcutPreviewRatio === '16:9'
+                      ? '6px solid #1a1a24'
+                      : '8px solid #1e1e2d',
+                    boxShadow: capcutPreviewRatio === '16:9'
+                      ? '0 15px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1), 0 0 25px rgba(37,244,238,0.2)'
+                      : '0 20px 50px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.12), 0 0 35px rgba(254,44,85,0.25)'
                   }}>
+                    {/* Top Status Bar & Dynamic Island (chỉ hiển thị trên màn hình dọc 9:16) */}
+                    {capcutPreviewRatio !== '16:9' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0 18px',
+                        zIndex: 20,
+                        pointerEvents: 'none'
+                      }}>
+                        {/* Giờ */}
+                        <span style={{ fontSize: '0.66rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' }}>9:41</span>
+                        {/* Dynamic Island Notch */}
+                        <div style={{
+                          position: 'absolute',
+                          left: '50%',
+                          top: '6px',
+                          transform: 'translateX(-50%)',
+                          width: '64px',
+                          height: '14px',
+                          background: '#09090e',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-end',
+                          paddingRight: '6px',
+                          border: '1px solid rgba(255,255,255,0.08)'
+                        }}>
+                          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#1c1b30' }} />
+                        </div>
+                        {/* Biểu tượng Sóng & Pin */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fff', fontSize: '0.62rem', fontWeight: 700 }}>
+                          <span>5G</span>
+                          <span style={{ fontSize: '0.72rem' }}>🔋</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Nội dung Video & Phụ đề */}
                     {isReadingPractice ? (
                       <ReadingPageLivePreview
                         isLandscape={capcutPreviewRatio === '16:9'}
@@ -6580,37 +6711,151 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         showSafeZone={showSafeZone}
                       />
                     )}
+
+                    {/* Lớp phủ giao diện TikTok / Shorts (Icons Tim, Bình luận, Tên kênh, Đĩa nhạc) */}
+                    {capcutPreviewRatio !== '16:9' && showSocialUI && !showSafeZone && (
+                      <>
+                        {/* Cột nút tương tác bên phải (Right Actions Bar) */}
+                        <div style={{
+                          position: 'absolute',
+                          right: '10px',
+                          bottom: '42px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '12px',
+                          zIndex: 15,
+                          pointerEvents: 'none'
+                        }}>
+                          {/* Avatar kênh + Nút Follow */}
+                          <div style={{ position: 'relative', width: '32px', height: '32px', borderRadius: '50%', border: '1.5px solid #fff', background: 'linear-gradient(135deg, #FE2C55, #25F4EE)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 800, color: '#fff' }}>
+                            🎬
+                            <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', width: '13px', height: '13px', borderRadius: '50%', background: '#FE2C55', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.62rem', color: '#fff', fontWeight: 900 }}>+</div>
+                          </div>
+                          {/* Nút Tim ❤️ */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>❤️</div>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 3px #000' }}>128K</span>
+                          </div>
+                          {/* Nút Bình luận 💬 */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>💬</div>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 3px #000' }}>1.4K</span>
+                          </div>
+                          {/* Nút Lưu Bookmark 🔖 */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>🔖</div>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 3px #000' }}>8.2K</span>
+                          </div>
+                          {/* Nút Chia sẻ ↗️ */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>↗️</div>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 3px #000' }}>3.1K</span>
+                          </div>
+                          {/* Đĩa nhạc xoay (Spinning Vinyl Disc) */}
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: '#000',
+                            border: '3px solid #2d2d3a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.55rem',
+                            marginTop: '2px',
+                            boxShadow: '0 0 10px rgba(0,0,0,0.8)'
+                          }}>
+                            🎵
+                          </div>
+                        </div>
+
+                        {/* Thanh thông tin dưới cùng bên trái (Channel info, title, music) */}
+                        <div style={{
+                          position: 'absolute',
+                          left: '12px',
+                          right: '65px',
+                          bottom: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '3px',
+                          zIndex: 15,
+                          pointerEvents: 'none',
+                          textAlign: 'left'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 3px #000' }}>@baihocdaoly</span>
+                            <span style={{ fontSize: '0.55rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700 }}>Theo dõi</span>
+                          </div>
+                          <span style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.92)', textShadow: '0 1px 3px #000', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {result.title || result.input?.headline || 'Một người có đời sống tinh thần phong phú'} #trending #shorts #daoly
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                            <span style={{ fontSize: '0.58rem' }}>♫</span>
+                            <span style={{ fontSize: '0.54rem', color: 'rgba(255,255,255,0.8)', textShadow: '0 1px 3px #000' }}>Âm thanh gốc - Lời khuyên cuộc sống</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Thanh gạt Home Indicator (iOS Bar) */}
+                    {capcutPreviewRatio !== '16:9' && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '5px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '80px',
+                        height: '3.5px',
+                        borderRadius: '2px',
+                        background: 'rgba(255,255,255,0.6)',
+                        zIndex: 20,
+                        pointerEvents: 'none'
+                      }} />
+                    )}
                   </div>
 
-                  {/* Bật/tắt lớp phủ vùng an toàn — chỉ có ý nghĩa với khung dọc 9:16 (các dải
-                      này là của TikTok/Reels/Shorts, khung ngang 16:9 không có). */}
+                  {/* Thanh nút điều khiển xem trước dưới màn hình điện thoại */}
                   {capcutPreviewRatio !== '16:9' && (
-                    <div style={{ marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '6px', width: '100%', maxWidth: '290px' }}>
                       <button
                         type="button"
-                        onClick={() => setShowSafeZone(v => !v)}
-                        title="Hiện các dải bị cắt trên máy màn hình dài + vùng bị giao diện TikTok/Reels che. Chỉ hiển thị hướng dẫn, không ảnh hưởng video render ra."
+                        onClick={() => setShowSocialUI(v => !v)}
                         style={{
-                          width: '100%',
-                          padding: '7px 10px',
-                          fontSize: '0.72rem',
+                          flex: 1,
+                          padding: '6px 8px',
+                          fontSize: '0.68rem',
                           fontWeight: 700,
                           borderRadius: '8px',
                           cursor: 'pointer',
-                          color: showSafeZone ? '#ff6b6b' : 'rgba(255,255,255,0.7)',
-                          background: showSafeZone ? 'rgba(255,71,87,0.14)' : 'rgba(255,255,255,0.05)',
-                          border: `1px solid ${showSafeZone ? 'rgba(255,71,87,0.45)' : 'rgba(255,255,255,0.12)'}`
+                          color: showSocialUI ? 'var(--secondary)' : 'rgba(255,255,255,0.6)',
+                          background: showSocialUI ? 'rgba(37,244,238,0.15)' : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${showSocialUI ? 'rgba(37,244,238,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        {showSafeZone ? '✓ Đang hiện vùng an toàn' : '🛡️ Hiện vùng an toàn (TikTok/Reels)'}
+                        {showSocialUI ? '📱 Ẩn UI TikTok' : '📱 Hiện UI TikTok'}
                       </button>
-                      {showSafeZone && (
-                        <span style={{ display: 'block', marginTop: '6px', fontSize: '0.65rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                          Vùng đỏ = người xem <strong>không thấy</strong>: 2 bên bị cắt trên máy màn hình dài (iPhone 14 Pro trở lên),
-                          trên/dưới/cột phải bị giao diện app che. Kéo <strong>Kích thước ảnh</strong> và <strong>Vị trí ảnh</strong> sao cho
-                          hình nằm gọn trong vùng trong suốt.
-                        </span>
-                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setShowSafeZone(v => !v)}
+                        title="Hiện vùng an toàn của TikTok/Reels để căn chỉnh nội dung không bị che."
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          color: showSafeZone ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
+                          background: showSafeZone ? 'rgba(255,71,87,0.14)' : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${showSafeZone ? 'rgba(255,71,87,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {showSafeZone ? '🛡️ Ẩn Vùng an toàn' : '🛡️ Vùng an toàn'}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -6993,8 +7238,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             </div>
                             <input
                               type="range"
-                              min={-150}
-                              max={350}
+                              min={-600}
+                              max={600}
                               step={5}
                               value={renderCaptionMarginY}
                               onChange={(e) => setRenderCaptionMarginY(e.target.value)}
@@ -7009,9 +7254,44 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   {/* TAB 3: FONT CHỮ & CỠ CHỮ */}
                   {customTab === 'typography' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>🔤 Kiểu chữ &amp; Phông chữ (Typography)</span>
+                      <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 700 }}>🔤 Kiểu chữ &amp; Cỡ chữ (Typography)</span>
 
-
+                      {/* Bộ chọn Phông chữ (Font Family) */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Phông chữ phụ đề & tiêu đề</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                          {[
+                            { key: 'paytone-one', label: 'Paytone One', desc: 'Đậm nét, tròn trịa, bắt mắt', fontCss: "'Paytone One', sans-serif" },
+                            { key: 'be-vietnam-pro', label: 'Be Vietnam Pro', desc: 'Hiện đại, chuẩn tiếng Việt', fontCss: "'Be Vietnam Pro', sans-serif" },
+                            { key: 'inter', label: 'Inter', desc: 'Tối giản, chuẩn mực', fontCss: "'Inter', sans-serif" }
+                          ].map(f => {
+                            const isSelected = (renderCaptionFont || 'paytone-one') === f.key;
+                            return (
+                              <button
+                                key={f.key}
+                                type="button"
+                                onClick={() => setRenderCaptionFont(f.key)}
+                                style={{
+                                  padding: '10px 12px',
+                                  borderRadius: '8px',
+                                  border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                                  background: isSelected ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
+                                  color: isSelected ? 'var(--secondary)' : '#fff',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '3px',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <span style={{ fontSize: '0.85rem', fontWeight: 800, fontFamily: f.fontCss }}>{f.label} {isSelected && '✓'}</span>
+                                <span style={{ fontSize: '0.62rem', color: isSelected ? 'var(--secondary)' : 'rgba(255,255,255,0.5)', opacity: 0.85 }}>{f.desc}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
                       {/* Cỡ chữ tiêu đề & Cỡ chữ nội dung */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

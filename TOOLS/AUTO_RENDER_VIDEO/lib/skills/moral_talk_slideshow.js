@@ -20,6 +20,17 @@ export default {
   },
 
   buildRemotionConfig(record, processedInput) {
-    return buildSlideshowRemotionConfig(record, processedInput, '#0E0F13');
+    const config = buildSlideshowRemotionConfig(record, processedInput, '#0E0F13');
+    return {
+      ...config,
+      font: 'paytone-one',
+      captionFont: 'paytone-one',
+      fontFamily: "'Paytone One', 'Be Vietnam Pro', Arial, sans-serif",
+      captionStyle: 'hook',
+      fontSize: 50,
+      highlightColor: '#d9a620',
+      isBgTransparent: true,
+      captionMarginY: -215
+    };
   },
 };

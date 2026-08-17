@@ -61,7 +61,7 @@ for (const arg of process.argv.slice(3)) {
 }
 const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook"];
 const TRANSITION_STYLES = ["crossfade", "slide-left", "slide-right", "slide-up", "zoom"];
-const CAPTION_FONTS = ["be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald"];
+const CAPTION_FONTS = ["paytone-one", "itim", "be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald", "poppins"];
 // Loose allowlist for freeform color strings (hex, rgb()/rgba(), "transparent",
 // CSS named colors) — just enough to reject obviously malformed input before
 // it lands in config.json; execFileSync (no shell) already rules out any

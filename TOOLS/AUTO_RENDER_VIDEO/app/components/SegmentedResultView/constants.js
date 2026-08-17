@@ -38,7 +38,7 @@ export const CAPTION_STYLE_DEFAULTS = {
     highlightColor: '#FE2C55'
   },
   tiktok: {
-    font: 'montserrat',
+    font: 'be-vietnam-pro',
     fontSize: '48',
     textColor: '#FFFFFF',
     bgColor: '#000000',
@@ -54,7 +54,7 @@ export const CAPTION_STYLE_DEFAULTS = {
     highlightColor: '#FE2C55'
   },
   page: {
-    font: 'nunito',
+    font: 'be-vietnam-pro',
     fontSize: '36',
     textColor: '#2A2118',
     bgColor: '#FBF3E3',
@@ -62,19 +62,19 @@ export const CAPTION_STYLE_DEFAULTS = {
     highlightColor: '#FFCB4D'
   },
   hook: {
-    font: 'be-vietnam-pro',
+    font: 'paytone-one',
     fontSize: '40',
     textColor: '#FFFFFF',
     bgColor: 'rgba(8, 8, 11, 0.88)',
     // Transparent theo đúng video mẫu tham khảo (chữ nổi trực tiếp trên nền đen của ảnh
     // pictogram, không có khung/hộp nền phía sau) — trước đây mặc định có khung mờ.
     bgTransparent: true,
-    highlightColor: '#FE2C55'
+    highlightColor: '#d9a620'
   },
   // Skill riêng reading-page-video (category 'reading_practice') — không có khái niệm
   // "Kiểu phụ đề" box/tiktok/karaoke, chỉ có 1 kiểu trang giấy karaoke duy nhất.
   readingPage: {
-    font: 'montserrat',
+    font: 'be-vietnam-pro',
     fontSize: '44',
     textColor: '#241C10',
     bgColor: '#F3EAD9',
@@ -110,7 +110,12 @@ export const TRANSITION_STYLE_OPTIONS = [
 // dưới. Màu #d9a620 khớp đúng màu nhấn của ảnh bìa (xem MoralTalkCover.tsx) — video Nói Chuyện Đạo
 // Lý dùng thống nhất 1 màu nhấn ở cả ảnh bìa lẫn phụ đề "Tiêu đề mở đầu" trong video.
 export const CATEGORY_STYLE_OVERRIDES = {
-  moral_talk_slideshow: { hook: { fontSize: '50', highlightColor: '#d9a620' } }
+  moral_talk_slideshow: {
+    hook: { font: 'paytone-one', fontSize: '50', highlightColor: '#d9a620' },
+    box: { font: 'paytone-one' },
+    tiktok: { font: 'paytone-one' },
+    karaoke: { font: 'paytone-one' }
+  }
 };
 
 // Mẫu Video Preset Mặc Định Hệ Thống cho kịch bản Đọc Giấy Karaoke
