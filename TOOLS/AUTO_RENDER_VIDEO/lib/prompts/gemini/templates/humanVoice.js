@@ -14,7 +14,14 @@
  *     bản mới đúng. Nên buộc thẳng: từ khoá lõi của chủ đề PHẢI nằm trong câu đầu tiên, kèm phép
  *     thử "đổi chủ đề khác mà câu vẫn dùng được thì là câu sáo, viết lại".
  *
- *  2. CHỐNG VĂN AI / DỊCH MÁY — đây là lỗ hổng lớn nhất. Không có bất kỳ ràng buộc nào, nên Gemini
+ *     BỔ SUNG (PAYOFF CLOCK): hook đạt rồi VẪN mất người xem. Vì cả khối này chỉ ràng buộc đúng
+ *     CÂU ĐẦU TIÊN — từ câu 2 trở đi model được thả tự do, nên kịch bản thực tế đi: hook sắc gọn
+ *     -> 3-4 slide dạo đầu trữ tình -> mãi tới gần giữa video mới có ý chính. Người dùng mô tả
+ *     đúng triệu chứng: "hơi liên miên, rồi mới vào vấn đề cần nghe". Nên phải ràng buộc thêm
+ *     TRỤC THỜI GIAN: chậm nhất tới segment 3 là phải có nội dung thật, mỗi segment một ý mới, và
+ *     cấm đích danh khuôn dạo đầu hoài niệm đặt trước ý chính.
+ *
+ *  3. CHỐNG VĂN AI / DỊCH MÁY — đây là lỗ hổng lớn nhất. Không có bất kỳ ràng buộc nào, nên Gemini
  *     mặc định viết tiếng Việt theo đúng khuôn văn nghị luận dịch từ tiếng Anh: danh từ hoá ("sự
  *     thành công", "việc rèn luyện"), liên từ văn viết ("Tuy nhiên", "Bên cạnh đó"), sáo ngữ
  *     ("hành trình", "chìa khoá"), và toàn khái niệm trừu tượng không có chi tiết cụ thể nào.
@@ -68,33 +75,93 @@ ${topicLockLine}
     ? `"Trong cuộc sống hiện đại ngày nay...", "Trong xã hội ngày nay...", "Ai trong chúng ta cũng từng...", "Có thể bạn chưa biết...", "Hôm nay chúng ta sẽ cùng tìm hiểu...", "Hãy cùng nhau khám phá...", "Cuộc sống là một hành trình...", "Xin chào các bạn..."`
     : `"In today's modern world...", "We all know that...", "Have you ever wondered...", "In this video, we'll explore...", "Life is a journey...", "Hello everyone..."`;
 
-  // Mỗi ví dụ kèm luôn chủ đề tương ứng để thấy rõ: từ khoá của chủ đề nằm ngay trong câu, chứ
-  // không phải câu hay chung chung rồi mới vào đề ở câu sau.
-  const goodExamples = isVietnamese
-    ? `   - Sự thật ngược đời, nói thẳng — chủ đề "làm hài lòng người khác": "Người càng cố làm hài lòng tất cả, càng bị coi thường."
-   - Chạm đúng nỗi đau CỤ THỂ — chủ đề "áp lực công việc": "Bạn trả lời tin nhắn sếp lúc 11 giờ đêm, mà vẫn thấy mình chưa đủ cố gắng."
-   - Con số + lời hứa rõ ràng — chủ đề "quy tắc ngầm trong xã hội": "10 quy tắc ngầm trong xã hội mà ai cũng nên biết."
-   - Câu hỏi buộc người nghe tự soi lại mình — chủ đề "sống cho bản thân": "Lần cuối bạn làm gì đó chỉ vì bản thân thích là khi nào?"
-   Để ý: cả 4 câu đều CÓ từ khoá của chủ đề ngay trong câu đầu — không câu nào phải chờ tới câu thứ hai mới lộ ra đang nói về cái gì.`
-    : `   - A blunt counter-intuitive truth — topic "people-pleasing": "The harder you try to please everyone, the less they respect you."
-   - A concrete pain point — topic "work pressure": "You answer your boss at 11 p.m., and still feel like you're not doing enough."
-   - A number plus a clear promise — topic "unspoken social rules": "10 unspoken social rules everyone should know."
-   - A question that forces self-reflection — topic "living for yourself": "When was the last time you did something just because you wanted to?"
-   Note: all four carry the topic's own keywords inside the very first sentence — none of them make the viewer wait until sentence two to find out what this is about.`;
+  // Thư viện kiểu hook, thay cho danh sách 4 mẫu cũ. Bốn kiểu đầu xếp lên trên vì trong các bài đo
+  // retention 2026 chỉ còn 4 khuôn này giữ điểm cao (Identity Call, Contrarian Strike, Open Loop,
+  // Confession); 6 kiểu sau là biến thể hợp với dòng "nói chuyện đạo lý" tiếng Việt.
+  //
+  // Mỗi mẫu bắt buộc kèm CHỦ ĐỀ tương ứng: bản 4-mẫu cũ chỉ đưa câu ví dụ trần, nên model học được
+  // "câu hay" mà không học được điều quan trọng hơn — từ khoá chủ đề phải nằm ngay trong câu đó.
+  const hookPatternLibrary = isVietnamese
+    ? `   1. GỌI ĐÚNG TÊN NGƯỜI NGHE — chỉ thẳng video này nói về ai, để đúng người dừng lại.
+      Chủ đề "người luôn nhắn tin trước": "Nếu bạn luôn là đứa nhắn tin trước, video này nói về bạn."
+   2. ĐẬP LẠI ĐIỀU AI CŨNG TIN — nêu niềm tin phổ biến rồi bác thẳng, não người nghe không bỏ dở một mâu thuẫn.
+      Chủ đề "làm hài lòng người khác": "Người càng cố làm hài lòng tất cả, càng bị coi thường."
+   3. MỞ MỘT VÒNG CHƯA ĐÓNG — hé ra một thứ chưa nói hết, phải nghe tiếp mới biết.
+      Chủ đề "cha mẹ già đi": "Mẹ tôi nói một câu năm 60 tuổi, tôi im lặng cả buổi tối."
+   4. TỰ THÚ MỘT MẤT MÁT CỤ THỂ — kể cái giá chính mình đã trả, có con số hoặc mốc thời gian.
+      Chủ đề "nghề tay trái": "Tôi mất 8 tháng và 30 triệu mới hiểu mình bán sai thứ."
+   5. CHẠM ĐÚNG NỖI ĐAU CỤ THỂ — tả đúng một cảnh người nghe vừa trải qua tuần này.
+      Chủ đề "áp lực công việc": "Bạn trả lời tin nhắn sếp lúc 11 giờ đêm, mà vẫn thấy mình chưa đủ."
+   6. CON SỐ + LỜI HỨA — dùng khi chủ đề đếm được số ý (xem luật MỞ BÀI HAI NHỊP bên dưới).
+      Chủ đề "quy tắc ngầm trong xã hội": "10 quy tắc ngầm trong xã hội mà ai cũng nên biết."
+   7. CÂU HỎI SOI CHIẾU — câu hỏi NGẮN buộc người nghe tự trả lời trong đầu.
+      Chủ đề "sống cho bản thân": "Lần cuối bạn làm gì đó chỉ vì bản thân thích là khi nào?"
+   8. CÁI GIÁ CỦA VIỆC KHÔNG BIẾT — nói thẳng người nghe mất gì nếu lướt qua.
+      Chủ đề "ứng xử với sếp": "Có một câu đừng bao giờ nói với sếp. Nhiều người mất thăng chức vì nó."
+   9. ĐỨNG VỀ PHÍA NGƯỜI NGHE — gỡ tội cho họ trước, rồi mới nói lý do.
+      Chủ đề "sống chậm": "Bạn không lười. Bạn chỉ đang chạy quá lâu mà chưa được dừng."
+   10. MỘT CÂU THOẠI CÓ THẬT — mở bằng lời ai đó đã nói, đặt trong ngoặc kép.
+      Chủ đề "cô đơn": "'Sao dạo này mày ít nhắn tin thế?' — câu đó tôi không trả lời được."
+   CÁCH CHỌN: chọn ĐÚNG MỘT kiểu hợp với chủ đề. Đừng ghép 2 kiểu vào một câu — hook ghép là hook loãng. Chủ đề có đếm số ý thì kiểu 6 là bắt buộc.
+   ĐỪNG chép nguyên văn các ví dụ trên — chúng là KHUÔN để dựng câu mới, không phải câu để dùng lại.
+   Để ý điểm chung: cả 10 mẫu đều có từ khoá của chủ đề NGAY trong câu đầu. Không mẫu nào bắt người nghe chờ tới câu thứ hai mới biết đang nói về cái gì — đó là điều kiện, không phải tuỳ chọn.`
+    : `   1. IDENTITY CALL — name exactly who this is for, so the right person stops scrolling.
+      Topic "people who always text first": "If you're always the one who texts first, this is about you."
+   2. CONTRARIAN STRIKE — state the common belief, then reject it. The brain can't leave a contradiction unresolved.
+      Topic "people-pleasing": "The harder you try to please everyone, the less they respect you."
+   3. OPEN LOOP — reveal part of something and withhold the rest; they must stay to close it.
+      Topic "ageing parents": "My mother said one sentence at 60, and I went quiet all evening."
+   4. CONFESSION — name the price you personally paid, with a number or a date.
+      Topic "side hustle": "It took me 8 months and $1,200 to learn I was selling the wrong thing."
+   5. CONCRETE PAIN POINT — describe a scene the listener lived through this week.
+      Topic "work pressure": "You answer your boss at 11 p.m., and still feel like you're not doing enough."
+   6. NUMBER PLUS PROMISE — use when the topic enumerates points (see the TWO-BEAT OPENING rule below).
+      Topic "unspoken social rules": "10 unspoken social rules everyone should know."
+   7. MIRROR QUESTION — a SHORT question that forces an answer in the listener's head.
+      Topic "living for yourself": "When was the last time you did something just because you wanted to?"
+   8. COST OF NOT KNOWING — say plainly what they lose by scrolling past.
+      Topic "talking to your boss": "There's one sentence you should never say to your boss. It costs people promotions."
+   9. TAKE THEIR SIDE FIRST — absolve them, then explain why.
+      Topic "slow living": "You're not lazy. You've just been running too long without being allowed to stop."
+   10. A REAL QUOTED LINE — open on something somebody actually said, in quotation marks.
+      Topic "loneliness": "'Why don't you text anymore?' — I had no answer for that."
+   HOW TO CHOOSE: pick EXACTLY ONE shape that genuinely fits. Never fuse two into one sentence — a blended hook is a diluted hook. If the topic enumerates points, shape 6 is mandatory.
+   Do NOT copy these examples verbatim — they are TEMPLATES for building a new line, not lines to reuse.
+   Note what they share: all ten carry the topic's own keywords inside the very first sentence. None make the viewer wait until sentence two to find out what this is about — that is a condition, not an option.`;
 
-  return `OPENING HOOK — THE FIRST 3 SECONDS (CRITICAL, THIS DECIDES WHETHER ANYONE WATCHES):
+  // Luật chống "vòng vo" — điểm hỏng thứ hai của dòng này, và là điểm mất người xem ĐÃ ở lại sau
+  // hook. Trước đây toàn bộ prompt chỉ ràng buộc CÂU ĐẦU TIÊN: từ câu 2 trở đi model được thả tự
+  // do, nên kịch bản hay đi hook (đạt) -> 3-4 slide dạo đầu trữ tình -> mãi mới tới ý chính. Với
+  // nhóm chủ đề phản tư thì còn nặng hơn, vì chính đoạn văn mẫu trong moralTalkVoiceStyle.js có
+  // sẵn nhịp dạo đầu đó và model bắt chước cấu trúc của mẫu.
+  const payoffClockBlock = `PAYOFF CLOCK — THE FIRST 10 SECONDS (the #2 failure of this genre; this is what loses the viewers who ALREADY stayed for the hook):
+- A strong hook followed by 20 seconds of warm-up still loses the viewer. Stopping the scroll and EARNING THE NEXT 30 SECONDS are two separate jobs, and only the first one is handled above.
+- Segment 1 = the hook. Segment 2 = ONE line giving a reason to keep watching. From SEGMENT 3 ONWARD the script must already be delivering the real substance — the first actual point, rule, or insight the viewer came for. Segment 3 is a ceiling, not a target.
+- HARD CAP ON SETUP: at most ONE segment of context/background in the whole opening. If two consecutive early segments only set a scene, describe how life generally is, or muse without asserting anything, DELETE ONE of them.
+- RESULT FIRST: when the topic has an answer, a rule, or a conclusion, SAY IT EARLY and spend the rest of the video proving and unpacking it. Do not hold it back for a reveal at the end — short-form viewers do not wait for a payoff, they leave and the payoff is never seen.
+- BANNED STRUCTURAL RAMP: ${isVietnamese
+    ? 'kiểu dạo đầu hoài niệm — "Ngày bé, chúng ta từng...", "Khi còn nhỏ, ai cũng mơ...", "Cuộc sống rồi sẽ dạy chúng ta..." — đặt TRƯỚC ý chính đầu tiên. Khuôn này chỉ được dùng SAU khi đã vào nội dung, để minh hoạ cho một ý vừa nói, tuyệt đối không dùng làm đường dẫn vào bài.'
+    : 'the nostalgic wind-up — "When we were young, we all dreamed...", "Life eventually teaches us..." — placed BEFORE the first real point. This shape is allowed only AFTER the substance has started, as illustration for a point already made, never as the on-ramp.'}
+- DELETE TEST (apply to every segment before segment 5): if a segment can be removed and the viewer loses no information, no new idea, and no new image, then REMOVE it. ${isVietnamese
+    ? 'Câu văn đẹp mà không mang thông tin mới chính là định nghĩa của "vòng vo".'
+    : 'Beautiful sentences carrying no new information are the precise definition of rambling.'}
+- ONE NEW IDEA PER SEGMENT from segment 3 onward. Restating the previous segment in prettier words is not a new segment — it is padding, and it reads as padding.`;
+
+  return `OPENING — THE FIRST 3 SECONDS (HOOK) AND THE FIRST 10 (PAYOFF). CRITICAL: THIS DECIDES WHETHER ANYONE WATCHES.
 
 ${topicLockBlock}
 
 - Short-form viewers decide within ~3 seconds whether to keep watching. The FIRST sentence of segment 1 is the single most important line in the entire script — write it last, after you know the payoff, then put it first.
 - HARD LIMIT: that first sentence must be at most ~14 words (${isVietnamese ? 'tiếng Việt: tối đa khoảng 14 chữ' : 'about 3 seconds when spoken aloud'}). If it does not fit, it is not a hook — rewrite it shorter.
 - It must land the CORE TENSION of the topic immediately. After hearing only that one sentence, the viewer should already know what this video is about and feel a reason to stay.
-- Pick ONE of these four proven shapes (choose whichever genuinely fits the topic — do not force):
-${goodExamples}
+- HOOK PATTERN LIBRARY — pick ONE shape that genuinely fits this topic (these are the openings currently holding attention on TikTok/Reels; the first four are the ones that still score highest on 3-second retention):
+${hookPatternLibrary}
 - BANNED OPENINGS — never begin with any of these, or anything resembling them: ${banned}
   These are throat-clearing: they burn the 3 golden seconds on setup and say nothing. Delete the warm-up and start at the sentence that actually has tension in it.
 - The first sentence must contain at least one CONCRETE noun, number, or image — never open on a pure abstraction. ${isVietnamese ? 'SAI: "Sự trưởng thành là một quá trình đầy thử thách." ĐÚNG: "Năm 25 tuổi, tôi nhận ra không ai đến cứu mình cả."' : 'BAD: "Growth is a challenging process." GOOD: "At 25, I realised nobody was coming to save me."'}
-- Do NOT greet the audience, introduce yourself, name the channel, or explain what the video will cover. Start mid-tension, as if the conversation is already underway.`;
+- Do NOT greet the audience, introduce yourself, name the channel, or explain what the video will cover. Start mid-tension, as if the conversation is already underway.
+
+${payoffClockBlock}`;
 }
 
 /**
@@ -157,5 +224,6 @@ Sau khi viết xong toàn bộ lời kể, rà lại một lượt và ĐẾM:
    d. Có 3 câu liên tiếp dài xấp xỉ nhau không? -> Có thì cắt ngắn một câu xuống còn 2-4 chữ.
    e. Câu đầu tiên của slide 1 có quá 14 chữ, hoặc có nằm trong danh sách mở bài bị cấm không? -> Có thì viết lại cho tới khi đạt.
    f. QUAN TRỌNG NHẤT — đọc riêng câu đầu tiên của slide 1, không đọc gì thêm: chỉ nghe câu đó thôi thì đã biết video nói về chủ đề gì chưa? Từ khoá lõi của chủ đề có nằm ngay trong câu đó không? -> Nếu chưa, tìm câu đầu tiên trong kịch bản có nhắc tới chủ đề, XOÁ HẾT các câu đứng trước nó, và bắt đầu từ đó.
-Chỉ xuất JSON sau khi cả 6 mục trên đều đạt.`;
+   g. QUAN TRỌNG NGANG MỤC f — đọc slide 1, 2, 3 rồi dừng: tới đây người xem đã nhận được ý chính đầu tiên chưa, hay vẫn đang nghe dạo đầu? -> Nếu tới slide 3 vẫn chưa có nội dung thật, XOÁ bớt slide dạo đầu và kéo ý chính lên. Rồi soát tiếp: có slide nào xoá đi mà người xem không mất thông tin nào không? -> Có thì xoá.
+Chỉ xuất JSON sau khi cả 7 mục trên đều đạt.`;
 }

@@ -422,7 +422,7 @@ export const PROMPT_CATEGORIES = {
         type: 'moral-theme-select',
         required: true,
         defaultValue: 'healing_pressure',
-        themeKeys: ['healing_pressure', 'self_help', 'inner_world', 'self_acceptance', 'overthinking', 'love_boundaries']
+        themeKeys: ['healing_pressure', 'self_help', 'inner_world', 'self_acceptance', 'overthinking', 'love_boundaries', 'slow_living', 'modern_loneliness', 'single_life', 'family_parents']
       },
       {
         key: 'scenario',

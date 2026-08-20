@@ -352,13 +352,13 @@ function PromptsStudioContent() {
 
                         {activeRightTab === 'process' && s.result && (
                           <div className="glass-card" style={{ marginBottom: '20px' }}>
-                            <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
+                            <SegmentedResultView key={s.result.id ? `process_${s.result.id}` : 'process'} result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
                           </div>
                         )}
 
                         {activeRightTab === 'script' && s.result && (
                           <div className="glass-card" style={{ marginBottom: '20px' }}>
-                            <SegmentedResultView result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="script" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
+                            <SegmentedResultView key={s.result.id ? `script_${s.result.id}` : 'script'} result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="script" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
                           </div>
                         )}
 

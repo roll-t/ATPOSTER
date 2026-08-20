@@ -6,7 +6,22 @@ const DB_FILE = PATHS_CONFIG.DB_FILE;
 function matchQuery(item, query) {
   if (!query || Object.keys(query).length === 0) return true;
   for (const key of Object.keys(query)) {
-    if (item[key] !== query[key]) return false;
+    const val = query[key];
+    if (val !== null && typeof val === 'object') {
+      if (Array.isArray(val.$in)) {
+        if (!val.$in.includes(item[key])) return false;
+        continue;
+      }
+      if (Array.isArray(val.$nin)) {
+        if (val.$nin.includes(item[key])) return false;
+        continue;
+      }
+      if (val.$ne !== undefined) {
+        if (item[key] === val.$ne) return false;
+        continue;
+      }
+    }
+    if (item[key] !== val) return false;
   }
   return true;
 }

@@ -27,8 +27,11 @@ import { isReflectiveMoralTheme, getMoralThemeVoice } from '../../moralThemes.js
  * (giữ ảnh)" đi qua buildRegenerateNarrationPrompt — chỉ sửa một bên là hai bên lệch pha ngay, đúng
  * cái bẫy mà docblock đầu file này đã cảnh báo.
  *
- * Cố ý KHÔNG quy định dùng "Một." hay "Thứ nhất" ở đây: mỗi văn phong đã có quy ước đánh số riêng
- * ở phần kỹ thuật bên trên, viết đè lại sẽ mâu thuẫn với chính nó.
+ * Quy ước ĐÁNH SỐ nằm ở đây và CHỈ ở đây (NUMBERING CONVENTION bên dưới), dùng chung cho cả 3 văn
+ * phong. Trước đây mỗi văn phong tự quy định lấy: nhánh liệt kê ghi "Một. Hai. Ba.", nhánh phản tư
+ * ghi "Thứ nhất, Thứ hai," — và vì "Thứ nhất," dẫn bằng dấu phẩy nên Gemini rất hay tự nối thêm
+ * chữ "là" ("Một là,... Hai là,..."), đúng thứ người dùng không muốn nghe. Gom về một mối để không
+ * còn chỗ nào cho phép biến thể đó nữa.
  */
 const ENUMERATED_OPENING_RULE = `
 TWO-BEAT OPENING (MANDATORY whenever the script enumerates points — i.e. the topic promises a count such as "7 điều...", "5 cách...", "6 dấu hiệu...", "5 lý do...", or you are writing points led by a sequence word):
@@ -38,7 +41,13 @@ TWO-BEAT OPENING (MANDATORY whenever the script enumerates points — i.e. the t
 - BEAT 2 — THE REASON TO STAY: immediately after, ONE short standalone line that makes the viewer sit through the whole list — the sharpest point teased, the cost of not knowing, or who this is for. Vietnamese examples: "Cách thứ tư gần như không ai nghĩ tới." / "Điều cuối cùng là điều khiến nhiều người trả giá đắt nhất." Do NOT repeat the count here; it was already said in BEAT 1.
 - Never jump straight from BEAT 1 into the first point — BEAT 2 is what converts a viewer who now knows the length into one who wants the content.
 - BEAT 2 is its own narration beat: when the output is split into slides/segments, it gets its own slide, separate from the opening slide and separate from point one.
-- Number the points using whichever sequence-word convention this voice's techniques above specify — do not invent a different one here.`;
+
+NUMBERING CONVENTION FOR THE POINTS (MANDATORY, IDENTICAL FOR EVERY VOICE IN THIS FILE — no voice may override it):
+- Lead each point with the BARE cardinal counting word FOLLOWED BY A PERIOD, nothing else: "Một. Hai. Ba. Bốn. Năm. Sáu. Bảy. Tám. Chín. Mười." (English mode: "One. Two. Three. Four....").
+- NEVER put the word "là" after the number. "Một là,", "Hai là,", "Thứ nhất là,", "Đầu tiên là,", "Điều đầu tiên là," are ALL FORBIDDEN — they are the single most common failure of this rule.
+- NEVER use a comma after the number either ("Một," / "Hai,"). The full stop is deliberate: it gives the voice a clear beat/pause before the point begins, which is what makes this format sound decisive when read aloud.
+- NEVER use ordinal forms ("Thứ nhất", "Thứ hai", "Điều thứ ba", "Số một") to lead a point. The bare cardinal + period is the ONLY accepted form, in every register — warm/reflective included.
+- Correct: "Ba. Kính rượu người lớn hơn thì cụng ly thấp hơn." — Wrong: "Ba là, kính rượu người lớn hơn..." / "Thứ ba, kính rượu người lớn hơn..." / "Ba, kính rượu người lớn hơn...".`;
 
 export function getMoralTalkStyleReference(theme) {
   // Văn phong đọc từ registry (moralThemes.js) chứ KHÔNG so sánh chuỗi tại đây nữa: trước đây là
@@ -64,16 +73,20 @@ Vậy nên, nếu một ngày gặp lại chính mình của lúc nhỏ, hy vọ
 """
 ${reflectiveSample}
 """
+WHAT TO TAKE FROM THIS SAMPLE, AND WHAT TO IGNORE (read this before using the sample — copying the wrong half is exactly what makes these scripts ramble):
+- TAKE: the tone, the imagery, the sentence rhythm, the way it speaks straight to "bạn", the quotable closing line.
+- IGNORE: its PACING and its STRUCTURE. This sample was written for a slower format. Its second paragraph ("Ngày bé, chúng ta từng mơ...") is a long nostalgic wind-up that only reaches the actual point in paragraph three. Reproducing that shape is precisely the failure the PAYOFF CLOCK above forbids. Keep the texture, drop the ramp.
 Techniques to reproduce from this reference, applied to whatever topic is given:
-1. Open on the topic itself, in ONE line addressed directly to "bạn" — either a reflective rhetorical QUESTION (the default for this warm register) or a blunt declarative statement when that names the subject faster. Whichever you pick, it MUST obey the TOPIC LOCK and 3-SECOND HOOK rules given above: the topic's own keywords inside that first line (ideally in the first 5-7 words), at most ~14 words total, a concrete image/number/detail, and NO warm-up clause in front of it.
+1. Open on the topic itself, in ONE line addressed directly to "bạn". Pick the shape from the HOOK PATTERN LIBRARY above — for this warm register a blunt declarative statement is the DEFAULT, because it names the subject fastest; a reflective rhetorical QUESTION is allowed only when it is short AND already carries the topic's keywords. Whichever you pick, it MUST obey the TOPIC LOCK and 3-SECOND HOOK rules given above: the topic's own keywords inside that first line (ideally in the first 5-7 words), at most ~14 words total, a concrete image/number/detail, and NO warm-up clause in front of it.
    - A long, abstract opening question is NOT a hook: reject "Bạn có bao giờ tự hỏi rằng liệu cuộc sống hiện tại của mình có thực sự là điều mình mong muốn hay không?" and write "Nếu gặp lại mình năm 10 tuổi, bạn có dám nhìn thẳng vào mắt nó không?" instead.
    - A question that hides the subject is ALSO not a hook, even when it is short and pretty. For the topic "áp lực của đàn ông": reject "Đã bao giờ bạn thấy mệt mà không dám nói ra chưa?" (nothing in it says who this is about) and write "Đàn ông có được phép mệt không?" or "Đàn ông không được phép mệt — ai quy định vậy?" instead.
    - Do not spend a line "setting the mood" before the question. The reflective, image-rich texture of this voice belongs in the BODY of the script; the first line's only job is to make the viewer know the subject and stay.
 2. Use repetition / parallel sentence structure at least once (e.g. "Chúng ta từng... Chúng ta từng...", "vẫn... vẫn... vẫn...") to build rhythmic, almost lyrical momentum.
-3. Use a clear BEFORE/AFTER or contrast structure — what we once believed, hoped for, or felt as a child/beginner, versus what life actually taught us or how things really turned out.
+3. Use a clear BEFORE/AFTER or contrast structure — what we once believed, hoped for, or felt as a child/beginner, versus what life actually taught us or how things really turned out. PLACEMENT IS STRICT: this contrast goes AFTER the piece's first real point has landed, and it may occupy at most 2 consecutive segments. Used as the opening ramp instead, it is the single most common way this voice turns into "vòng vo" — the viewer hears a minute of wistful before/after and never reaches the substance.
 4. Use elevated, image-rich, literary spoken language (metaphor, emotionally specific word choices like "giấu nước mắt sau một nụ cười") while still sounding natural when read aloud — not stiff, not academic, not a list of vague generalities.
 5. Close by circling back to the opening image/question, landing on ONE short, quotable closing line — ideally imagined direct speech in quotation marks, the kind of line someone would screenshot and share.
-6. If (and only if) the topic promises a count of points, number them naturally in this warm register — "Thứ nhất, ... Thứ hai, ... Thứ ba, ..." — and keep each point's explanation in the same reflective, image-rich voice. A reflective topic that is NOT enumerative must stay a flowing piece with no numbering at all.
+6. If (and only if) the topic promises a count of points, number them with the bare counting word and a full stop — "Một. ... Hai. ... Ba. ..." — exactly as specified in the NUMBERING CONVENTION block below, which applies to this warm register too (never "Thứ nhất," and never "Một là,"). Keep each point's explanation in the same reflective, image-rich voice; the blunt number is only the doorway into it. A reflective topic that is NOT enumerative must stay a flowing piece with no numbering at all.
+7. FRONT-LOAD THE CLAIM, DECORATE AFTERWARDS. A non-enumerative reflective piece still has ONE central claim — say it in plain words early (by segment 3, per the PAYOFF CLOCK above), then spend the metaphors, the parallel structure and the before/after contrast DEEPENING that claim. This voice earns its slow, warm texture only once the viewer already knows what they are staying for. Techniques 2, 3 and 4 are seasoning for the body; none of them is an opening.
 ${ENUMERATED_OPENING_RULE}`;
 
     return { isReflectiveTheme, narrationModeLine, styleReferenceBlock };
@@ -141,7 +154,7 @@ ${listSample}
 Techniques to reproduce from this reference, applied to whatever topic is given:
 1. Open with TWO separate beats (see the TWO-BEAT OPENING block below for the full rule). The FIRST line leads with the number itself and frames the list as hard-won truths learned through real life, not textbook advice — e.g. "10 quy tắc ngầm trong xã hội mà ai cũng nên biết." At most ~14 words, no warm-up clause in front of the number, and never starting with "Có". The count MUST equal exactly how many list-point slides/lines follow. The SECOND line is a short reason to stay to the end, without repeating the count.
 2. Each list point states the rule/fact DIRECTLY and PLAINLY, as its own complete statement — this is the DEFAULT for every point, straight to the point, no framing, no hedging. DO NOT force an artificial "[điều đúng], không phải [điều người ta thường lầm tưởng]" contrast onto every single point — repeated point after point across 5-10 points, that template becomes wordy and roundabout ("vòng vo") instead of sounding decisive. A contrast structure (e.g. "X, không phải Y" or "X thay vì Y") is fine ONLY where the content itself genuinely calls for correcting a common misconception — most points should just state the rule outright with zero contrast framing, exactly like "Hai. Có mượn thì phải trả." or "Năm. Được mời đi tiệc thì mang theo quà." in the reference sample.
-3. Lead each point with a plain sequential counting word FOLLOWED BY A PERIOD (not a comma, not the word "là") — "Một. Hai. Ba. Bốn. Năm. Sáu...." (NOT "Một, Hai," and NOT "Một là, Hai là...") — or in English mode: "First. Second. Third. Fourth...." The period after the number is a deliberate full stop, giving the voice a clear beat/pause before each point begins.
+3. Lead each point with a plain sequential counting word FOLLOWED BY A PERIOD, per the NUMBERING CONVENTION block below — "Một. Hai. Ba. Bốn. Năm. Sáu...." — never "Một, Hai,", never "Một là, Hai là,", never "Thứ nhất, Thứ hai,".
 4. Subtitle on-screen format (MANDATORY — MAX 2 LINES): In each segment's "subtitle" field, DO NOT include numbering prefixes like "Một.", "Hai.", "Ba.", "1.", "2.". Write ONLY the punchy statement itself (at most 8 to 14 words, exactly 1 to 2 lines on a phone screen), and wrap 1 to 2 key phrases in double asterisks **...** so they render in gold highlight on screen (e.g. "Đi ăn nhóm luôn **giành trả tiền**, về nhà ăn mì gói.").
 5. Spoken narration vs subtitle: The spoken voiceover ("dialogueOrNarration") can include the counting word ("Một.", "Hai.") to give natural voice pacing, but the "subtitle" on screen must remain strictly short and clean without numbers and at most 2 lines.
 6. Optionally close with ONE short, punchy line that invites the viewer to self-check against the list, e.g. "Bạn biết được bao nhiêu điều trong số này?" — this works well as a scroll-stopping, comment-bait closer for this genre.

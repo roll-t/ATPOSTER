@@ -504,12 +504,18 @@ export function usePromptStudio(initialCategory) {
   };
 
   const handleDeleteHistory = async (id) => {
-    if (!confirm('Xóa prompt này khỏi lịch sử?')) return;
+    if (!confirm('Xóa kịch bản này và toàn bộ âm thanh, hình ảnh liên quan đã tạo trong máy?')) return;
     try {
       const res = await fetch(`/api/prompts/history?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (res.ok) {
         setHistory(prev => prev.filter(h => h.id !== id));
         setSelectedHistoryIds(prev => prev.filter(x => x !== id));
+        if (result?.id === id) {
+          setResult(null);
+        }
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Lỗi khi xóa kịch bản.');
       }
     } catch (err) {
       alert('Lỗi kết nối khi xóa.');
@@ -579,16 +585,20 @@ export function usePromptStudio(initialCategory) {
 
   const handleDeleteSelectedHistory = async () => {
     if (selectedHistoryIds.length === 0) return;
-    if (!confirm(`Xóa ${selectedHistoryIds.length} prompt đã chọn khỏi lịch sử?`)) return;
+    if (!confirm(`Xóa ${selectedHistoryIds.length} kịch bản đã chọn và toàn bộ âm thanh, hình ảnh liên quan đã tạo trong máy?`)) return;
 
     try {
       const idsParam = selectedHistoryIds.join(',');
       const res = await fetch(`/api/prompts/history?ids=${encodeURIComponent(idsParam)}`, { method: 'DELETE' });
       if (res.ok) {
         setHistory(prev => prev.filter(h => !selectedHistoryIds.includes(h.id)));
+        if (result && selectedHistoryIds.includes(result.id)) {
+          setResult(null);
+        }
         setSelectedHistoryIds([]);
       } else {
-        alert('Lỗi khi xóa các mục đã chọn.');
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Lỗi khi xóa các mục đã chọn.');
       }
     } catch (err) {
       alert('Lỗi kết nối khi xóa.');

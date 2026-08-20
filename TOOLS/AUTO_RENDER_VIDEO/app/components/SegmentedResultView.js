@@ -211,8 +211,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const initialDefaults = isReadingPractice
     ? {
       ...CAPTION_STYLE_DEFAULTS.readingPage,
-      textColor: result.remotionConfig?.captionTextColor || CAPTION_STYLE_DEFAULTS.readingPage.textColor,
-      bgColor: result.remotionConfig?.captionBgColor || CAPTION_STYLE_DEFAULTS.readingPage.bgColor
+      font: result.remotionConfig?.font || result.remotionConfig?.captionFont || CAPTION_STYLE_DEFAULTS.readingPage.font,
+      fontSize: result.remotionConfig?.fontSize || result.remotionConfig?.captionFontSize || CAPTION_STYLE_DEFAULTS.readingPage.fontSize,
+      textColor: result.remotionConfig?.textColor || result.remotionConfig?.captionTextColor || CAPTION_STYLE_DEFAULTS.readingPage.textColor,
+      bgColor: result.remotionConfig?.bgColor || result.remotionConfig?.captionBgColor || CAPTION_STYLE_DEFAULTS.readingPage.bgColor,
+      bgTransparent: result.remotionConfig?.isBgTransparent !== undefined ? result.remotionConfig.isBgTransparent : (result.remotionConfig?.bgTransparent !== undefined ? result.remotionConfig.bgTransparent : CAPTION_STYLE_DEFAULTS.readingPage.bgTransparent),
+      highlightColor: result.remotionConfig?.highlightColor || CAPTION_STYLE_DEFAULTS.readingPage.highlightColor
     }
     : (() => {
       const styleDefault = CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box;
@@ -222,18 +226,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size'))
         : null;
       return {
-        font: rc.font || styleDefault.font,
-        fontSize: rc.fontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
-        textColor: rc.textColor || styleDefault.textColor,
-        bgColor: rc.bgColor || styleDefault.bgColor,
-        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : styleDefault.bgTransparent,
+        font: rc.font || rc.captionFont || styleDefault.font,
+        fontSize: rc.fontSize || rc.captionFontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
+        textColor: rc.textColor || rc.captionTextColor || styleDefault.textColor,
+        bgColor: rc.bgColor || rc.captionBgColor || styleDefault.bgColor,
+        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : (rc.bgTransparent !== undefined ? rc.bgTransparent : styleDefault.bgTransparent),
         highlightColor: rc.highlightColor || categoryOverride?.highlightColor || styleDefault.highlightColor
       };
     })();
 
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
-  const [renderTransitionStyle, setRenderTransitionStyle] = useState('crossfade');
-  const [renderBilingual, setRenderBilingual] = useState(true);
+  const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => result.remotionConfig?.transitionStyle || result.remotionConfig?.transitionEffect || 'crossfade');
+  const [renderBilingual, setRenderBilingual] = useState(() => result.remotionConfig?.bilingual !== undefined ? result.remotionConfig.bilingual : (result.remotionConfig?.showBilingual !== undefined ? result.remotionConfig.showBilingual : true));
   const [showRenderConfig, setShowRenderConfig] = useState(false);
 
   // Tuỳ chỉnh phụ đề kiểu CapCut — tự động đồng bộ theo thông số mặc định của kiểu phụ đề được chọn
@@ -249,7 +253,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   });
   const [renderCaptionTextColor, setRenderCaptionTextColor] = useState(initialDefaults.textColor);
   const [renderCaptionBgColor, setRenderCaptionBgColor] = useState(initialDefaults.bgColor);
-  const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState('100');
+  const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState(() => String(result.remotionConfig?.bgOpacity ?? '100'));
   const [renderCaptionBgTransparent, setRenderCaptionBgTransparent] = useState(initialDefaults.bgTransparent);
   // Màu pill tô sáng từ đang đọc (chỉ có tác dụng thấy được với kiểu "karaoke"/"page") — trước
   // đây bị hardcode cứng trong Caption.tsx, giờ có thể tuỳ chỉnh qua highlightColor (schema.ts).
@@ -264,21 +268,24 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [customScreenBg, setCustomScreenBg] = useState('#252538');
   const [customTab, setCustomTab] = useState('style'); // 'style' | 'layout' | 'typography'
 
-  // Tuỳ chỉnh LAYOUT kiểu CapCut (chỉ dùng cho reading_practice) — để trống ('') nghĩa là
-  // giữ nguyên mặc định của skill reading-page-video (25% / 10% / 40%, phần còn lại là bottom space).
-  const [renderHeroHeightPercent, setRenderHeroHeightPercent] = useState('25');
-  const [renderTitleHeightPercent, setRenderTitleHeightPercent] = useState('10');
-  const [renderBodyHeightPercent, setRenderBodyHeightPercent] = useState('40');
-  const [renderTitleFontSize, setRenderTitleFontSize] = useState('44');
-  const [renderTitleBodyGap, setRenderTitleBodyGap] = useState('18');
-  const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState('10');
-  const [renderBodyAlign, setRenderBodyAlign] = useState('left');
-  const [renderImageMode, setRenderImageMode] = useState('hero'); // 'hero' | 'full_bg' | 'none'
+  // Tuỳ chỉnh LAYOUT kiểu CapCut (chỉ dùng cho reading_practice) — đọc từ remotionConfig nếu đã lưu
+  const [renderHeroHeightPercent, setRenderHeroHeightPercent] = useState(() => String(result.remotionConfig?.heroPercent ?? '25'));
+  const [renderTitleHeightPercent, setRenderTitleHeightPercent] = useState(() => String(result.remotionConfig?.titlePercent ?? '10'));
+  const [renderBodyHeightPercent, setRenderBodyHeightPercent] = useState(() => String(result.remotionConfig?.bodyPercent ?? '40'));
+  const [renderTitleFontSize, setRenderTitleFontSize] = useState(() => String(result.remotionConfig?.titleFontSize ?? '44'));
+  const [renderTitleBodyGap, setRenderTitleBodyGap] = useState(() => String(result.remotionConfig?.titleBodyGap ?? '18'));
+  const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState(() => String(result.remotionConfig?.paddingPercent ?? '10'));
+  const [renderBodyAlign, setRenderBodyAlign] = useState(() => result.remotionConfig?.bodyAlign || 'left');
+  const [renderImageMode, setRenderImageMode] = useState(() => result.remotionConfig?.imageMode || 'hero');
   const [renderImageScale, setRenderImageScale] = useState(() => {
-    return result.remotionConfig?.imageScale !== undefined ? String(Math.round(result.remotionConfig.imageScale * 100)) : '100';
+    const savedLocal = typeof window !== 'undefined' ? (localStorage.getItem(`default_image_scale_${result.category}`) || localStorage.getItem('default_image_scale')) : null;
+    if (result.remotionConfig?.imageScale !== undefined) return String(Math.round(result.remotionConfig.imageScale * 100));
+    return savedLocal !== null ? String(savedLocal) : '100';
   });
   const [renderImageTranslateY, setRenderImageTranslateY] = useState(() => {
-    return result.remotionConfig?.imageTranslateY !== undefined ? String(result.remotionConfig.imageTranslateY) : '0';
+    const savedLocal = typeof window !== 'undefined' ? (localStorage.getItem(`default_image_translate_y_${result.category}`) || localStorage.getItem('default_image_translate_y')) : null;
+    if (result.remotionConfig?.imageTranslateY !== undefined) return String(result.remotionConfig.imageTranslateY);
+    return savedLocal !== null ? String(savedLocal) : '0';
   });
   const [renderCaptionMarginY, setRenderCaptionMarginY] = useState(() => {
     const savedLocal = typeof window !== 'undefined'
@@ -980,6 +987,122 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  const applyConfigToState = (rc = {}, s = settings) => {
+    const defaultCfg = (isReadingPractice ? s?.readingPracticeConfig : null) || s?.[settingsKey('defaultStyleConfig')] || {};
+
+    // Caption Style
+    let activeStyle = isReadingPractice ? 'page' : (rc.captionStyle || s?.[settingsKey('defaultCaptionStyle')] || initialStyle);
+    if (!isReadingPractice) {
+      setRenderCaptionStyle(activeStyle);
+    }
+
+    const styleDefaults = isReadingPractice
+      ? CAPTION_STYLE_DEFAULTS.readingPage
+      : (CAPTION_STYLE_DEFAULTS[activeStyle] || CAPTION_STYLE_DEFAULTS.box);
+    const categoryOverride = !isReadingPractice ? CATEGORY_STYLE_OVERRIDES[result?.category]?.[activeStyle] : undefined;
+
+    const savedLocalFontSize = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_caption_font_size_${result?.category}`) || localStorage.getItem('default_caption_font_size'))
+      : null;
+    const savedLocalMarginY = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_caption_margin_y_${result?.category}`) || localStorage.getItem('default_caption_margin_y'))
+      : null;
+    const savedLocalImageScale = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_image_scale_${result?.category}`) || localStorage.getItem('default_image_scale'))
+      : null;
+    const savedLocalImageTranslateY = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_image_translate_y_${result?.category}`) || localStorage.getItem('default_image_translate_y'))
+      : null;
+
+    // Font & Typography
+    const activeFont = rc.font || rc.captionFont || defaultCfg.font || s?.[settingsKey('defaultCaptionFont')] || styleDefaults.font;
+    if (activeFont) setRenderCaptionFont(activeFont);
+
+    const activeFontSize = rc.fontSize || rc.captionFontSize || defaultCfg.fontSize || s?.[settingsKey('defaultCaptionFontSize')] || savedLocalFontSize || categoryOverride?.fontSize || styleDefaults.fontSize;
+    if (activeFontSize) setRenderCaptionFontSize(String(activeFontSize));
+
+    const activeSecondaryFontSize = rc.secondaryFontSize !== undefined && rc.secondaryFontSize !== null
+      ? String(rc.secondaryFontSize)
+      : (defaultCfg.secondaryFontSize !== undefined ? String(defaultCfg.secondaryFontSize) : '');
+    setRenderCaptionSecondaryFontSize(activeSecondaryFontSize);
+
+    // Colors
+    const activeTextColor = rc.textColor || rc.captionTextColor || defaultCfg.textColor || s?.[settingsKey('defaultCaptionTextColor')] || styleDefaults.textColor;
+    if (activeTextColor) setRenderCaptionTextColor(activeTextColor);
+
+    const activeBgColor = rc.bgColor || rc.captionBgColor || defaultCfg.bgColor || s?.[settingsKey('defaultCaptionBgColor')] || styleDefaults.bgColor;
+    if (activeBgColor) setRenderCaptionBgColor(activeBgColor);
+
+    const activeBgOpacity = rc.bgOpacity !== undefined
+      ? String(rc.bgOpacity)
+      : (defaultCfg.bgOpacity !== undefined ? String(defaultCfg.bgOpacity) : '100');
+    setRenderCaptionBgOpacity(activeBgOpacity);
+
+    const activeBgTransparent = rc.isBgTransparent !== undefined
+      ? rc.isBgTransparent
+      : (rc.bgTransparent !== undefined ? rc.bgTransparent : (defaultCfg.isBgTransparent !== undefined ? defaultCfg.isBgTransparent : styleDefaults.bgTransparent));
+    setRenderCaptionBgTransparent(activeBgTransparent);
+
+    const activeHighlightColor = rc.highlightColor || defaultCfg.highlightColor || s?.[settingsKey('defaultHighlightColor')] || categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55';
+    if (activeHighlightColor) setRenderHighlightColor(activeHighlightColor);
+
+    // Transition & Bilingual
+    const activeTransition = rc.transitionStyle || rc.transitionEffect || defaultCfg.transitionStyle || s?.[settingsKey('defaultTransitionStyle')] || 'crossfade';
+    if (activeTransition) setRenderTransitionStyle(activeTransition);
+
+    const activeBilingual = rc.bilingual !== undefined
+      ? rc.bilingual
+      : (rc.showBilingual !== undefined ? rc.showBilingual : (defaultCfg.bilingual !== undefined ? defaultCfg.bilingual : (s?.[settingsKey('defaultBilingual')] !== undefined ? s[settingsKey('defaultBilingual')] : true)));
+    setRenderBilingual(activeBilingual);
+
+    // Layout & Scale
+    let activeImageScale = '100';
+    if (rc.imageScale !== undefined) {
+      activeImageScale = String(Math.round(rc.imageScale * 100));
+    } else if (defaultCfg.imageScale !== undefined) {
+      activeImageScale = String(Math.round(defaultCfg.imageScale * 100));
+    } else if (s?.[settingsKey('defaultImageScale')] !== undefined) {
+      activeImageScale = String(s[settingsKey('defaultImageScale')]);
+    } else if (savedLocalImageScale !== null) {
+      activeImageScale = String(savedLocalImageScale);
+    }
+    setRenderImageScale(activeImageScale);
+
+    let activeImageTranslateY = '0';
+    if (rc.imageTranslateY !== undefined) {
+      activeImageTranslateY = String(rc.imageTranslateY);
+    } else if (defaultCfg.imageTranslateY !== undefined) {
+      activeImageTranslateY = String(defaultCfg.imageTranslateY);
+    } else if (s?.[settingsKey('defaultImageTranslateY')] !== undefined) {
+      activeImageTranslateY = String(s[settingsKey('defaultImageTranslateY')]);
+    } else if (savedLocalImageTranslateY !== null) {
+      activeImageTranslateY = String(savedLocalImageTranslateY);
+    }
+    setRenderImageTranslateY(activeImageTranslateY);
+
+    let activeCaptionMarginY = result?.category === 'moral_talk_slideshow' ? '-215' : '0';
+    if (rc.captionMarginY !== undefined && rc.captionMarginY !== null) {
+      activeCaptionMarginY = String(rc.captionMarginY);
+    } else if (defaultCfg.captionMarginY !== undefined && defaultCfg.captionMarginY !== null) {
+      activeCaptionMarginY = String(defaultCfg.captionMarginY);
+    } else if (s?.[settingsKey('defaultCaptionMarginY')] !== undefined && s[settingsKey('defaultCaptionMarginY')] !== null) {
+      activeCaptionMarginY = String(s[settingsKey('defaultCaptionMarginY')]);
+    } else if (savedLocalMarginY !== null) {
+      activeCaptionMarginY = String(savedLocalMarginY);
+    }
+    setRenderCaptionMarginY(activeCaptionMarginY);
+
+    // Reading practice layout
+    setRenderHeroHeightPercent(rc.heroPercent !== undefined ? String(rc.heroPercent) : (defaultCfg.heroPercent !== undefined ? String(defaultCfg.heroPercent) : '25'));
+    setRenderTitleHeightPercent(rc.titlePercent !== undefined ? String(rc.titlePercent) : (defaultCfg.titlePercent !== undefined ? String(defaultCfg.titlePercent) : '10'));
+    setRenderBodyHeightPercent(rc.bodyPercent !== undefined ? String(rc.bodyPercent) : (defaultCfg.bodyPercent !== undefined ? String(defaultCfg.bodyPercent) : '40'));
+    setRenderTitleFontSize(rc.titleFontSize !== undefined ? String(rc.titleFontSize) : (defaultCfg.titleFontSize !== undefined ? String(defaultCfg.titleFontSize) : '44'));
+    setRenderTitleBodyGap(rc.titleBodyGap !== undefined ? String(rc.titleBodyGap) : (defaultCfg.titleBodyGap !== undefined ? String(defaultCfg.titleBodyGap) : '18'));
+    setRenderContentPaddingPercent(rc.paddingPercent !== undefined ? String(rc.paddingPercent) : (defaultCfg.paddingPercent !== undefined ? String(defaultCfg.paddingPercent) : '10'));
+    setRenderBodyAlign(rc.bodyAlign || defaultCfg.bodyAlign || 'left');
+    setRenderImageMode(rc.imageMode || defaultCfg.imageMode || 'hero');
+  };
+
   useEffect(() => {
     const isNewScript = lastResultIdRef.current !== result?.id;
     const settingsJustLoaded = !hasLoadedSettingsRef.current && settings?.defaultBgMusicVolume !== undefined;
@@ -993,6 +1116,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         hasLoadedSettingsRef.current = true;
       }
 
+      applyConfigToState(result?.remotionConfig || {}, settings);
+
       const savedTrack = (typeof window !== 'undefined' ? localStorage.getItem('default_bg_music_track_id') : null) || settings?.defaultBgMusicTrackId || 'track1';
       const activeTrack = result?.remotionConfig?.bgMusicTrackId || savedTrack;
       setSelectedBgMusicTrackId(activeTrack);
@@ -1004,8 +1129,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       }
       setDefaultBgMusicVolume(savedVolume);
 
-      // Công tắc bật/tắt cũng phải theo kịch bản đang mở, cùng lý do với giá trị khởi tạo ở trên —
-      // không đặt lại ở đây thì chuyển từ kịch bản A (đang bật) sang B (đã tắt) vẫn thấy đang bật.
+      // Công tắc bật/tắt cũng phải theo kịch bản đang mở
       setRenderBgMusicEnabled(
         result?.remotionConfig?.bgMusicEnabled !== undefined
           ? Boolean(result.remotionConfig.bgMusicEnabled)
@@ -1023,21 +1147,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       } else {
         setRenderBgMusicVolume(savedVolume);
       }
-
-      const savedMarginY = (typeof window !== 'undefined'
-        ? (localStorage.getItem(`default_caption_margin_y_${result?.category}`) || localStorage.getItem('default_caption_margin_y'))
-        : null) || settings?.[settingsKey('defaultCaptionMarginY')];
-      if (result?.remotionConfig?.captionMarginY !== undefined && result?.remotionConfig?.captionMarginY !== null) {
-        setRenderCaptionMarginY(String(result.remotionConfig.captionMarginY));
-      } else if (savedMarginY !== undefined && savedMarginY !== null) {
-        setRenderCaptionMarginY(String(savedMarginY));
-      }
     }
     fetchPresets();
   }, [
-    showCustomCapCut,
-    isReadingPractice,
     result?.id,
+    result?.remotionConfig,
     settings?.defaultBgMusicVolume,
     settings?.defaultBgMusicTrackId,
     settings?.defaultBgMusicEnabled
@@ -1512,54 +1626,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const data = await res.json();
       if (data.success && data.settings) {
         setSettings(data.settings);
-        const s = data.settings;
-        // Bỏ qua giá trị không nằm trong danh sách kiểu của skill slideshow (vd 'page' bị ghim
-        // nhầm từ màn reading_practice trước khi có bản sửa ở handlePinDefaultRenderConfig) —
-        // nếu không, kịch bản mới bị đặt sang một kiểu phụ đề không có trong lưới chọn.
-        const pinnedCaptionStyle = s[settingsKey('defaultCaptionStyle')];
-        const isValidDefaultStyle = CAPTION_STYLE_OPTIONS.some((o) => o.value === pinnedCaptionStyle);
-        if (pinnedCaptionStyle && isValidDefaultStyle && !isReadingPractice && !result.remotionConfig?.captionStyle) {
-          setRenderCaptionStyle(pinnedCaptionStyle);
-          // ...VÀ áp luôn bộ mặc định (font/cỡ chữ/màu chữ/nền) CỦA CHÍNH kiểu vừa ghim.
-          //
-          // Trước đây chỉ đặt mỗi tên kiểu: initialDefaults ở đầu component được tính lúc render
-          // đầu tiên, khi settings còn CHƯA tải xong, nên nó luôn rơi về mặc định của kiểu 'box'.
-          // Kết quả là ghim "Tiêu đề mở đầu" (hook) xong thì kịch bản mới chạy đúng kiểu hook
-          // nhưng mang màu/cỡ chữ của box — rõ nhất là bgTransparent của box là false, nên chữ
-          // hook bị bọc trong một khung nền tối đặc, trong khi bản thân kiểu hook mặc định là chữ
-          // nổi trực tiếp trên nền đen (đúng như video mẫu). Người dùng ghim xong vẫn không ra
-          // đúng format và không có cách nào biết vì sao.
-          //
-          // Chỉ áp cho những trường kịch bản này CHƯA tự lưu riêng — tuỳ chỉnh tay của người dùng
-          // luôn thắng mặc định hệ thống.
-          const styleDefaults = CAPTION_STYLE_DEFAULTS[pinnedCaptionStyle];
-          if (styleDefaults) {
-            const rc = result.remotionConfig || {};
-            const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[pinnedCaptionStyle];
-            const savedFontSize = s[settingsKey('defaultCaptionFontSize')]
-              || s[settingsKey('defaultStyleConfig')]?.fontSize
-              || (typeof window !== 'undefined' ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size')) : null);
-            const savedFont = s[settingsKey('defaultCaptionFont')] || s[settingsKey('defaultStyleConfig')]?.font;
-            const savedTextColor = s[settingsKey('defaultCaptionTextColor')] || s[settingsKey('defaultStyleConfig')]?.textColor;
-            const savedBgColor = s[settingsKey('defaultCaptionBgColor')] || s[settingsKey('defaultStyleConfig')]?.bgColor;
-            const savedHighlightColor = s[settingsKey('defaultHighlightColor')] || s[settingsKey('defaultStyleConfig')]?.highlightColor;
-
-            if (!rc.font) setRenderCaptionFont(savedFont || styleDefaults.font);
-            if (!rc.fontSize) setRenderCaptionFontSize(savedFontSize || categoryOverride?.fontSize || styleDefaults.fontSize);
-            if (!rc.textColor) setRenderCaptionTextColor(savedTextColor || styleDefaults.textColor);
-            if (!rc.bgColor) setRenderCaptionBgColor(savedBgColor || styleDefaults.bgColor);
-            if (rc.isBgTransparent === undefined) setRenderCaptionBgTransparent(styleDefaults.bgTransparent);
-            if (!rc.highlightColor) setRenderHighlightColor(savedHighlightColor || categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55');
-          }
-        }
-        const pinnedTransitionStyle = s[settingsKey('defaultTransitionStyle')];
-        if (pinnedTransitionStyle && !result.remotionConfig?.transitionEffect) {
-          setRenderTransitionStyle(pinnedTransitionStyle);
-        }
-        const pinnedBilingual = s[settingsKey('defaultBilingual')];
-        if (pinnedBilingual !== undefined && result.remotionConfig?.bilingual === undefined) {
-          setRenderBilingual(pinnedBilingual);
-        }
+        applyConfigToState(result?.remotionConfig || {}, data.settings);
       }
     } catch (err) {
       console.error('Error loading settings:', err);
@@ -2432,8 +2499,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
         localStorage.setItem(`default_caption_margin_y_${result.category}`, renderCaptionMarginY);
         localStorage.setItem('default_caption_margin_y', renderCaptionMarginY);
+        localStorage.setItem(`default_image_scale_${result.category}`, renderImageScale);
+        localStorage.setItem('default_image_scale', renderImageScale);
+        localStorage.setItem(`default_image_translate_y_${result.category}`, renderImageTranslateY);
+        localStorage.setItem('default_image_translate_y', renderImageTranslateY);
         localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
       }
+      await fetchSettings();
     } catch (err) {
       console.warn('Lỗi tự động lưu ghim mặc định:', err);
     }
@@ -5725,7 +5797,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             showCustomizeBtn={true}
                             onClick={() => handleSelectCaptionStyle(opt.value)}
                             onCustomize={() => {
-                              handleSelectCaptionStyle(opt.value);
+                              if (renderCaptionStyle !== opt.value) {
+                                handleSelectCaptionStyle(opt.value);
+                              }
                               setShowCustomCapCut(true);
                             }}
                             label={isPinned ? `${opt.label} 📌` : opt.label}

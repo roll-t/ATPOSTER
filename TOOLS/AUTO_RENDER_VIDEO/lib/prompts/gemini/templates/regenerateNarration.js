@@ -30,7 +30,7 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
     ? (isVietnamesePrimary
       ? `- The narration (dialogueOrNarration) MUST be written in natural, warm, spoken VIETNAMESE — it will be sent directly to a Vietnamese voice narrator. Use simple, everyday Vietnamese.
 - Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate simple-English translation of that same line.
-- On-screen emphasis markup: in the "subtitle" field's PRIMARY (Vietnamese) line only, wrap 1 to 3 short key words/phrases in double asterisks so they render in a highlight color on screen — e.g. "Một. Tôn trọng **ranh giới**, không phải **điều tra gia cảnh**." Never mark the translation line or "dialogueOrNarration". Keep it sparse.
+- On-screen emphasis markup: in the "subtitle" field's PRIMARY (Vietnamese) line only, wrap 1 to 3 short key words/phrases in double asterisks so they render in a highlight color on screen — e.g. "Tôn trọng **ranh giới**, không phải **điều tra gia cảnh**." Never mark the translation line or "dialogueOrNarration". Keep it sparse. (Note the example carries NO "Một."/"Hai." prefix — the counting word belongs to the spoken narration only, never to the on-screen subtitle.)
 - ${buildVietnamesePronunciationNote()}`
       : `- The narration (dialogueOrNarration) MUST be written in simple, natural, spoken ENGLISH (CEFR A2-B1 level) — it will be sent directly to an English voice narrator.
 - Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`)

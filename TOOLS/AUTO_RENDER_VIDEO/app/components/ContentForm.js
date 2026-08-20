@@ -567,7 +567,7 @@ export default function ContentForm({
                       {activeCategory === 'reading_practice'
                         ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
                         : ['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory)
-                          ? `📚 Xem danh sách 50 chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
+                          ? `📚 Xem danh sách ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
                           : `📚 Kho 200 Chủ Đề Video Dài (${STICK_FIGURE_LONGFORM_TOPIC_COUNT} chủ đề)`
                       }
                     </button>

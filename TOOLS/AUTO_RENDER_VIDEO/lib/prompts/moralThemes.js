@@ -176,6 +176,84 @@ export const MORAL_THEMES = [
     icon: '🔥',
     voice: 'satire',
     styleLabel: 'Vietnamese Internet Slang Explainer — comedic, satirical Gen Z voice built around ONE trending term (e.g. "Sĩ Vương", "Lốp Trưởng"); the term itself is the punchline and must be repeated verbatim'
+  },
+  // -----------------------------------------------------------------------------------------------
+  // ĐỢT BỔ SUNG THEO NGHIÊN CỨU XU HƯỚNG 2026 (và các năm tiếp theo).
+  //
+  // Căn cứ: TikTok Next 2026 (chủ đề "Irreplaceable Instinct" — khán giả tìm cái thật, tìm chiều
+  // sâu chủ đề thay vì lướt cho vui), báo cáo thị trường lao động VN 2026 (AI định hình lại việc
+  // làm của lao động trẻ), khảo sát sức khỏe tinh thần 2026 ("kiệt sức tập thể", sống chậm như một
+  // hình thức phản kháng mềm), số liệu 85% người trẻ đô thị dùng điện thoại 6-7 tiếng/ngày, và số
+  // liệu tuổi kết hôn lần đầu tăng + tỉ lệ độc thân tăng từ 6,23% (2004) lên 10,1% (2019).
+  //
+  // Bốn nhóm 'list' đứng trước, bốn nhóm 'reflective' đứng sau — giữ đúng thói quen của file: chọn
+  // `voice` theo BẢN CHẤT nội dung, không theo chủ đề nghe "sâu sắc" hay không. Nhóm nào dạy việc
+  // phải làm thì 'list'; nhóm nào chạm vào chuyện không giải quyết được bằng các bước thì
+  // 'reflective'.
+  // -----------------------------------------------------------------------------------------------
+  {
+    key: 'ai_and_career',
+    label: 'AI & Nghề Nghiệp',
+    sub: 'Không bị AI thay thế',
+    icon: '🤖',
+    voice: 'list',
+    styleLabel: 'Surviving & Thriving Alongside AI at Work — which tasks get automated, which skills stay human, how to use AI without hollowing out your own judgement; concrete and current, never sci-fi speculation'
+  },
+  {
+    key: 'digital_detox',
+    label: 'Nghiện Điện Thoại',
+    sub: 'Tập trung & Dopamine',
+    icon: '📵',
+    voice: 'list',
+    styleLabel: 'Attention & Digital Minimalism — reclaiming focus from infinite scroll, notification hygiene, dopamine reset, sleep and screens; practical rules a viewer can apply tonight'
+  },
+  {
+    key: 'health_longevity',
+    label: 'Sức Khỏe & Tuổi Thọ',
+    sub: 'Ngủ, ăn & vận động',
+    icon: '🏃',
+    voice: 'list',
+    styleLabel: 'Everyday Health & Longevity for Young People — sleep, posture, movement, food and check-ups; the debt the twenties quietly hand to the forties. Lifestyle habits only, never medical diagnosis or treatment advice'
+  },
+  {
+    key: 'side_hustle',
+    label: 'Nghề Tay Trái',
+    sub: 'Thu nhập thứ hai',
+    icon: '🚀',
+    voice: 'list',
+    styleLabel: 'Side Income & Freelancing While Employed — finding the first client, pricing your work, contracts, burnout from two jobs; grounded in ordinary skills, explicitly anti get-rich-quick'
+  },
+  {
+    key: 'slow_living',
+    label: 'Sống Chậm & Vừa Đủ',
+    sub: 'Bớt lại để sống',
+    icon: '🍃',
+    voice: 'reflective',
+    styleLabel: 'Slow Living & Enough — pushing back on hustle culture and collective exhaustion; defining "enough" for yourself, resting without guilt, owning less on purpose'
+  },
+  {
+    key: 'modern_loneliness',
+    label: 'Cô Đơn Thời Kết Nối',
+    sub: 'Bạn bè & Gắn kết',
+    icon: '🫧',
+    voice: 'reflective',
+    styleLabel: 'Loneliness in a Hyper-Connected World — friendships thinning out after your twenties, being surrounded yet unseen, the effort real closeness costs when nobody has time'
+  },
+  {
+    key: 'single_life',
+    label: 'Độc Thân & Cưới Xin',
+    sub: 'Chọn sống một mình',
+    icon: '💍',
+    voice: 'reflective',
+    styleLabel: 'Staying Single & Marrying Later — family pressure, the Tet interrogation, waiting for financial ground before commitment; validating the choice without preaching either way'
+  },
+  {
+    key: 'family_parents',
+    label: 'Cha Mẹ & Gia Đình',
+    sub: 'Cha mẹ đang già đi',
+    icon: '🏠',
+    voice: 'reflective',
+    styleLabel: 'Parents & Family Across the Generation Gap — ageing parents, love expressed through food instead of words, unspoken apologies, becoming the one your parents lean on'
   }
 ];
 
