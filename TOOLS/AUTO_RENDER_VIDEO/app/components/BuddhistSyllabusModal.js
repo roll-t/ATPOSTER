@@ -1,0 +1,358 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { BUDDHIST_THEMES, getBuddhistTheme } from '@/lib/prompts/buddhistThemes.js';
+import { BUDDHIST_SYLLABUS } from '@/lib/prompts/buddhistSyllabus.js';
+
+export default function BuddhistSyllabusModal({
+  isOpen,
+  onClose,
+  currentTheme = 'zen_stories',
+  onSelectTopic,
+  history = []
+}) {
+  const [selectedTheme, setSelectedTheme] = useState(currentTheme);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'completed' | 'uncompleted'
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (currentTheme) {
+      setSelectedTheme(currentTheme);
+    }
+  }, [currentTheme]);
+
+  // Tập hợp NGUYÊN VĂN chủ đề đã chọn
+  const exactSyllabusTopics = useMemo(() => {
+    const set = new Set();
+    (history || []).forEach(item => {
+      if (item.input?.syllabusTopic) set.add(item.input.syllabusTopic.trim().toLowerCase());
+      if (item.input?.scenario) set.add(item.input.scenario.trim().toLowerCase());
+    });
+    return set;
+  }, [history]);
+
+  const checkIsCompleted = (topicText, topicVi) => {
+    if (!topicText) return false;
+    const targetEn = topicText.trim().toLowerCase();
+    const targetVi = topicVi ? topicVi.trim().toLowerCase() : '';
+    const full = `${targetEn} (${targetVi})`;
+
+    if (exactSyllabusTopics.has(targetEn) || exactSyllabusTopics.has(full)) return true;
+
+    for (const hText of exactSyllabusTopics) {
+      if (hText.includes(targetEn) || targetEn.includes(hText)) return true;
+    }
+    return false;
+  };
+
+  const themeObj = getBuddhistTheme(selectedTheme);
+  const themeTopics = BUDDHIST_SYLLABUS[selectedTheme] || BUDDHIST_SYLLABUS.zen_stories;
+
+  // Tính số bài đã làm
+  const completedCount = useMemo(() => {
+    return themeTopics.filter(t => checkIsCompleted(t.text, t.vi)).length;
+  }, [themeTopics, exactSyllabusTopics]);
+
+  const progressPercent = themeTopics.length ? Math.round((completedCount / themeTopics.length) * 100) : 0;
+
+  // Lọc chủ đề theo từ khóa và trạng thái
+  const filteredList = useMemo(() => {
+    return themeTopics.filter(item => {
+      const isComp = checkIsCompleted(item.text, item.vi);
+      if (filterType === 'completed' && !isComp) return false;
+      if (filterType === 'uncompleted' && isComp) return false;
+
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (item.text && item.text.toLowerCase().includes(q)) ||
+        (item.vi && item.vi.toLowerCase().includes(q)) ||
+        (item.desc && item.desc.toLowerCase().includes(q)) ||
+        (item.coreMessage && item.coreMessage.toLowerCase().includes(q))
+      );
+    });
+  }, [themeTopics, searchQuery, filterType, exactSyllabusTopics]);
+
+  const totalTopics = Object.values(BUDDHIST_SYLLABUS).reduce((sum, list) => sum + list.length, 0);
+
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(12px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        animation: 'fadeIn 0.2s ease-out'
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#14121a',
+          border: '1.5px solid rgba(245, 158, 11, 0.35)',
+          borderRadius: '20px',
+          width: '100%',
+          maxWidth: '920px',
+          maxHeight: '88vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15)',
+          overflow: 'hidden',
+          animation: 'fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        {/* Modal Header */}
+        <div style={{
+          padding: '20px 24px 16px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'linear-gradient(180deg, rgba(245, 158, 11, 0.12), transparent)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '2rem' }}>🪷</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                Danh sách {themeTopics.length} Chủ đề Phật giáo & Thiền
+                <span style={{
+                  fontSize: '0.78rem',
+                  padding: '3px 10px',
+                  borderRadius: '8px',
+                  background: 'rgba(245, 158, 11, 0.18)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  color: '#fbbf24',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {themeObj.icon} {themeObj.sublabel}
+                </span>
+              </h3>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.65)' }}>
+                {themeTopics.length} chủ đề cho nhóm đang chọn ở form. Đổi nhóm ở ngoài form để xem lộ trình khác. Click vào bài để chọn nhanh.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              color: '#fff',
+              fontSize: '1.2rem',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Progress & Search Controls */}
+        <div style={{
+          padding: '14px 24px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          background: 'rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          {/* Progress Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ flex: 1, height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${progressPercent}%`,
+                background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+                borderRadius: '4px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', whiteSpace: 'nowrap' }}>
+              ✓ Đã làm {completedCount}/{themeTopics.length} bài ({progressPercent}%)
+            </span>
+          </div>
+
+          {/* Search & Filter Type */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="🔍 Tìm kiếm bài học theo tên tiếng Anh, tiếng Việt hoặc ý nghĩa..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '9px 14px',
+                fontSize: '0.86rem',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderColor: 'rgba(255, 255, 255, 0.12)'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.04)', padding: '3px', borderRadius: '8px' }}>
+              {[
+                { key: 'all', label: 'Tất cả' },
+                { key: 'uncompleted', label: 'Chưa làm' },
+                { key: 'completed', label: 'Đã làm' }
+              ].map(f => (
+                <button
+                  type="button"
+                  key={f.key}
+                  onClick={() => setFilterType(f.key)}
+                  style={{
+                    background: filterType === f.key ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                    border: filterType === f.key ? '1px solid rgba(245, 158, 11, 0.4)' : 'none',
+                    borderRadius: '6px',
+                    color: filterType === f.key ? '#fbbf24' : 'rgba(255, 255, 255, 0.6)',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* List of Topics */}
+        <div style={{
+          padding: '18px 24px',
+          overflowY: 'auto',
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          {filteredList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255, 255, 255, 0.4)' }}>
+              Không tìm thấy chủ đề phù hợp
+            </div>
+          ) : (
+            filteredList.map((item, idx) => {
+              const fullTitle = `${item.text} (${item.vi})`;
+              const isUsed = checkIsCompleted(item.text, item.vi);
+
+              return (
+                <div
+                  key={item.id || idx}
+                  onClick={() => {
+                    onSelectTopic(fullTitle);
+                    onClose();
+                  }}
+                  style={{
+                    background: isUsed ? 'rgba(34, 197, 94, 0.06)' : 'rgba(255, 255, 255, 0.03)',
+                    border: isUsed ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '16px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                    e.currentTarget.style.transform = 'translateX(4px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isUsed ? 'rgba(34, 197, 94, 0.06)' : 'rgba(255, 255, 255, 0.03)';
+                    e.currentTarget.style.borderColor = isUsed ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.transform = 'none';
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flexGrow: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 900,
+                        color: '#f59e0b',
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        padding: '2px 7px',
+                        borderRadius: '6px'
+                      }}>
+                        #{idx + 1}
+                      </span>
+                      <span style={{ fontSize: '0.94rem', fontWeight: 800, color: '#fff' }}>
+                        {item.text}
+                      </span>
+                      {isUsed && (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          color: '#4ade80',
+                          fontWeight: 800,
+                          background: 'rgba(74, 222, 128, 0.15)',
+                          padding: '2px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          ✓ Đã làm
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700 }}>
+                      🇻🇳 {item.vi}
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'rgba(255, 255, 255, 0.65)', lineHeight: 1.35 }}>
+                      💡 {item.desc}
+                    </div>
+                    {item.coreMessage && (
+                      <div style={{ fontSize: '0.72rem', color: 'rgba(255, 255, 255, 0.45)', fontStyle: 'italic' }}>
+                        "{item.coreMessage}"
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    style={{
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '8px',
+                      color: '#fbbf24',
+                      padding: '8px 14px',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      flexShrink: 0
+                    }}
+                  >
+                    Chọn chủ đề →
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

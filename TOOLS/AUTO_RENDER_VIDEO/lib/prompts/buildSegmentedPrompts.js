@@ -7,8 +7,28 @@ const CATEGORY_ENGLISH_LABELS = {
   english_tips: 'English Tips Video',
   stick_figure_slideshow: 'Stick Figure Slideshow Image',
   reading_practice: 'Reading Practice Page Image',
-  moral_talk_slideshow: 'Moral Talk Pictogram Slideshow Image'
+  moral_talk_slideshow: 'Moral Talk Pictogram Slideshow Image',
+  buddhist_wisdom: 'Buddhist Wisdom Watercolour Slideshow'
 };
+
+// Câu chỉ định thứ KHÔNG có trong ảnh ("no people in frame", "without any modern objects") là
+// thuốc độc với công cụ sinh ảnh: Google Flow chỉ nhận một prompt dương, không có kênh negative
+// prompt, nên mọi danh từ nằm trong câu phủ định vẫn được vẽ ra — bảo "no people" là cách chắc
+// chắn để có người trong ảnh.
+//
+// Prompt đã dặn Gemini đừng viết kiểu đó, nhưng đây là lớp chặn cuối: mô tả cảnh chạy thẳng vào
+// prompt ảnh, lọt một câu là hỏng nguyên slide mà không có gì báo lỗi. Cắt theo CÂU để phần còn
+// lại vẫn đọc trôi chảy.
+const NEGATIVE_SENTENCE = /\b(?:no|not|without|nobody|none of|empty of|free of|devoid of|instead of)\b/i;
+
+export function stripNegativeClauses(text) {
+  const kept = String(text || '')
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence.trim() && !NEGATIVE_SENTENCE.test(sentence));
+  return kept.join(' ').trim().replace(/\.\s*$/, '');
+}
+
 
 /**
  * Ghép style cố định của chủ đề với từng phân đoạn được sinh ra từ Gemini
@@ -209,6 +229,97 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       return {
         segmentNumber: seg.segmentNumber,
         durationSeconds: Math.max(8, Math.round((seg.dialogueOrNarration || '').trim().split(/\s+/).filter(Boolean).length / 2.5)),
+        visualDescription: seg.visualDescription,
+        dialogueOrNarration: seg.dialogueOrNarration,
+        subtitle: seg.subtitle,
+        aspectRatio: selectedAspectRatio,
+        jsonPrompt,
+        textPrompt
+      };
+    });
+  }
+
+  // --- Chuyện Triết Lý & Thiền Phật Giáo (Tranh màu nước & mực cổ điển, 1 ảnh / 10s) ---
+  //
+  // THỨ TỰ TRONG textPrompt LÀ CÓ CHỦ Ý: mô tả cảnh đứng ĐẦU, phần phong cách đứng sau và chỉ nói
+  // MỘT LẦN. Bản trước xếp ngược lại và ảnh sinh ra không bám nội dung — đo trên một prompt thật:
+  // 1350 ký tự thì 84% là style boilerplate, cảnh thật chỉ 16% và mãi tới 39% chiều dài prompt mới
+  // xuất hiện. Model sinh ảnh cân nội dung theo thứ tự + tỉ trọng, nên nó vẽ "tranh thiền chung
+  // chung" thay vì đúng khoảnh khắc của đoạn đó.
+  //
+  // Cũng đã BỎ HẲN dòng "Background setting: ... ancient monastery stone walls, antique wooden
+  // textures ...". Đó là chuỗi CỐ ĐỊNH gắn vào mọi slide, tức là tiêm thêm CHỦ THỂ lạ vào cảnh:
+  // slide đang tả nhà sư cõng cô gái lội sông thì vẫn bị dặn thêm "tường đá tu viện, đồ gỗ cổ" —
+  // ảnh ra thành tu viện chứ không phải dòng sông. Nền giờ chỉ còn nói về CHẤT LIỆU GIẤY, không
+  // nói tới vật thể nào.
+  //
+  // Bỏ luôn danh sách mã màu hex: công cụ sinh ảnh đọc "#d97706" như rác, tên màu đã nằm trong
+  // câu phong cách rồi.
+  if (categoryKey === 'buddhist_wisdom') {
+    // TỈ LỆ ẢNH LUÔN LÀ 16:9 NGANG cho skill này, không đi theo input.aspectRatio như các skill
+    // khác — người dùng chốt cứng vậy. Nghĩa là nếu chọn dạng video dọc 9:16, ảnh vẫn ra ngang và
+    // Remotion sẽ phải cắt/viền chúng khi dựng.
+    const selectedAspectRatio = '16:9';
+    // Câu phong cách bám theo ảnh mẫu người dùng đưa: bút mực mảnh vẽ tay hơi nguệch ngoạc, màu
+    // nước loang nhẹ ra ngoài nét, GIẤY TRẮNG SẠCH chừa nhiều khoảng trống, sáng và trong.
+    //
+    // CHỈ VIẾT KHẲNG ĐỊNH, KHÔNG VIẾT "No ...". Google Flow nhận đúng MỘT prompt dương, không có
+    // kênh negative prompt riêng như Stable Diffusion. Mọi danh từ mình nhét vào câu phủ định đều
+    // được model đọc như một khái niệm cần vẽ. Bản trước ghi "No aged, brown, sepia or textured
+    // parchment background", "no glowing light source", "No border, no frame, no vignette" — và
+    // ảnh trả về đúng là giấy cũ rách mép, đèn dầu phát sáng, tranh nằm trong một khung giấy.
+    // Muốn không có giấy cũ thì phải TẢ giấy trắng, không phải cấm giấy cũ.
+    const styleClause = 'Drawn as a loose pen-and-watercolour storybook illustration: fine dark ink linework, sketchy and light, over soft translucent watercolour washes that bleed a little past the lines. Painted on smooth bright white paper, with wide areas of the paper left bare. Muted palette of warm ochre, mustard yellow, slate blue-grey, soft sienna and sage green. Even bright daylight, airy and low in contrast, clean and fresh.';
+
+    // Tỉ lệ + tràn viền tách thành câu riêng, ĐỨNG CUỐI và ngắn gọn để không bị chìm.
+    //
+    // Lưu ý: extension KHÔNG chỉnh ô tỉ lệ trong giao diện Google Flow (aspectRatio gửi sang chỉ
+    // được ghi vào manifest, xem content-flow.js) — nên câu này là thứ DUY NHẤT tác động tới khung
+    // hình. Người dùng vẫn nên đặt sẵn 16:9 trong chính Google Flow cho chắc.
+    const formatClause = `Wide ${selectedAspectRatio} landscape format. Full-bleed artwork: the illustration runs all the way to all four edges of the image.`;
+
+    // Giữ lại đúng MỘT câu phủ định — chữ lọt vào ảnh là lỗi nặng nhất và không tả dương được.
+    const textRule = 'No text or lettering anywhere in the image.';
+
+    return segments.map(seg => {
+      // Lọc câu phủ định (xem stripNegativeClauses) và bỏ dấu chấm cuối để câu nối phía sau
+      // không thành ".." như bản cũ.
+      const scene = stripNegativeClauses(seg.visualDescription);
+
+      const jsonPrompt = {
+        title: `${title} - Slide ${seg.segmentNumber}`,
+        category: 'Buddhist Wisdom Watercolour Slideshow',
+        image_style: 'Loose pen-and-watercolour storybook illustration on white paper',
+        aspect_ratio: selectedAspectRatio,
+        // scene đứng trước style, cùng lý do với textPrompt ở trên.
+        scene: {
+          setting: scene
+        },
+        style: {
+          visual_style: styleClause,
+          paper: 'Smooth bright white paper, left bare across large parts of the image.',
+          format: formatClause,
+          text: textRule
+        },
+        audio: {
+          narration: seg.dialogueOrNarration
+        },
+        on_screen_captions: {
+          subtitle: seg.subtitle
+        }
+      };
+
+      const textPrompt = [
+        `${scene}.`,
+        styleClause,
+        textRule,
+        formatClause
+      ].filter(Boolean).join(' ');
+
+      return {
+        segmentNumber: seg.segmentNumber,
+        // 1 ảnh giữ 10 giây — xem DURATION_TARGETS trong templates/buddhistWisdom.js.
+        durationSeconds: seg.durationSeconds || 10,
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,

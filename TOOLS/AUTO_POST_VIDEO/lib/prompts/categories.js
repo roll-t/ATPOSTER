@@ -437,5 +437,57 @@ export const PROMPT_CATEGORIES = {
       aspectRatio: '16:9',
       durationSeconds: 60
     }
+  },
+
+  buddhist_wisdom: {
+    key: 'buddhist_wisdom',
+    type: 'slideshow',
+    label: 'Chuyện Triết Lý & Thiền Phật Giáo',
+    icon: '🪷',
+    description: 'Kịch bản podcast Phật pháp nhẹ nhàng kiểu Spotify — 100% tiếng Anh kèm Vietsub, có [tag] cảm xúc cho ElevenLabs v3, tranh màu nước bút mực trên giấy trắng (ảnh luôn 16:9 ngang), phân cảnh 10s/ảnh đồng bộ tự động Google Flow.',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '16:9',
+        options: [
+          { value: '16:9', label: '💻 YouTube Dài (16:9 ngang)' },
+          { value: '9:16', label: '📱 Shorts / TikTok (9:16 dọc)' }
+        ]
+      },
+      {
+        key: 'buddhistTheme',
+        label: 'Nhóm chủ đề Phật giáo & Thiền',
+        type: 'buddhist-theme-select',
+        required: true,
+        defaultValue: 'zen_stories'
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / Câu chuyện Phật giáo muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: 'The Two Monks and the Woman by the River (Hai nhà sư và cô gái bên dòng sông)'
+      },
+      {
+        key: 'script',
+        label: 'Gợi ý cốt truyện / Trích dẫn (tuỳ chọn — hệ thống sẽ tự viết kịch bản nói tiếng Anh & phân cảnh 10s/ảnh)',
+        type: 'textarea',
+        required: false,
+        placeholder: 'A story about a monk who helped a woman cross the river and was questioned by his companion hours later...'
+      }
+    ],
+    defaultStyle: {
+      series: 'Ancient Buddhist Wisdom & Zen Tales',
+      aspectRatio: '16:9',
+      durationSeconds: 540,
+      visualStyle: 'Loose hand-drawn pen-and-watercolour storybook illustration: fine dark ink linework, sketchy and light, over soft translucent washes that bleed slightly past the lines. Plain white paper with large unpainted areas, the painting fading out into white at the edges. Muted palette, bright and airy, no heavy shadows.',
+      colorPalette: ['#c9962f (warm ochre)', '#5b7893 (slate blue-grey)', '#a9673f (soft sienna)', '#8d9b74 (sage green)', '#ffffff (white paper)'],
+      lighting: 'Bright airy high-key daylight — early morning, soft overcast, drizzle or late afternoon. Never night, never a glowing lamp.',
+      camera: 'Wide landscape composition with generous empty space',
+      moodTone: 'Tranquil, meditative, serene, compassionate — late-night podcast calm'
+    }
   }
 };

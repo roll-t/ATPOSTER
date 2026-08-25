@@ -22,7 +22,17 @@ export function getDurationInfo(durationRange) {
     case '6_8m':
       return { label: 'Từ 6 - 8 phút', targetSeconds: 420, segmentsCount: '60 đến 80' };
     case '8_10m':
+      // 80-100 là nhịp của các skill slideshow nhanh (english_tips, moral_wisdom) — mỗi slide vài
+      // giây. KHÔNG hạ con số này xuống theo nhịp 10 giây/ảnh của skill Phật giáo: skill đó có
+      // bảng số slide riêng trong buddhistWisdom.js (DURATION_TARGETS), còn segmentsCount ở đây
+      // là bảng DÙNG CHUNG, sửa một chỗ là mọi skill đọc nó đều bị kéo theo.
       return { label: 'Từ 8 - 10 phút', targetSeconds: 540, segmentsCount: '80 đến 100' };
+    // Hai mốc dài dưới đây hiện chỉ có skill buddhist_wisdom dùng (10 giây/ảnh), nên segmentsCount
+    // để theo nhịp đó. Skill nào muốn mở 2 mốc này phải tự khai số slide của mình trước.
+    case '10_15m':
+      return { label: 'Từ 10 - 15 phút', targetSeconds: 750, segmentsCount: '35 đến 45' };
+    case '15_20m':
+      return { label: 'Từ 15 - 20 phút', targetSeconds: 1050, segmentsCount: '45 đến 60' };
     default:
       return { label: 'Dưới 1 phút (Mặc định)', targetSeconds: 45, segmentsCount: '12 đến 16' };
   }

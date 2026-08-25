@@ -8,9 +8,16 @@ import { WORDS_PER_SECOND_VI, WORDS_PER_SECOND_EN } from '../../speechRate.js';
 // Đặt 0.85 để chấp nhận sai lệch nhỏ tự nhiên của văn nói — chỉ can thiệp khi hụt thật sự.
 const SHORT_SCRIPT_RATIO = 0.85;
 
-// Chỉ skill này được tự động viết bù. Các skill slideshow khác gắn MỖI segment với MỘT ảnh phải
-// sinh riêng, nên tự ý thêm segment sẽ âm thầm làm lệch số ảnh cần tạo ở các bước sau.
-const AUTO_EXTEND_CATEGORIES = ['pexels_talk_video'];
+// Các skill được tự động viết bù khi Gemini trả về kịch bản ngắn hơn hẳn thời lượng đã đặt.
+//
+// Các skill slideshow KHÔNG có trong danh sách này gắn MỖI segment với MỘT ảnh phải sinh riêng,
+// nên tự ý thêm segment sẽ âm thầm làm lệch số ảnh cần tạo ở các bước sau.
+//
+// buddhist_wisdom cũng là slideshow-1-ảnh-mỗi-segment, nhưng vẫn nằm đây vì với nhịp 10 giây/ảnh
+// thì số segment và số chữ khoá chặt vào nhau: hụt chữ tức là hụt luôn segment (đo được 40 slide
+// /833 từ ở mốc 10-15 phút, trong khi cần khoảng 75 slide/1400 từ). Nó tự khai luật viết bù riêng
+// qua skill.extendRules() bên dưới, thay vì dùng luật mặc định "cho phép chèn thêm đoạn ở giữa".
+const AUTO_EXTEND_CATEGORIES = ['pexels_talk_video', 'buddhist_wisdom'];
 
 function stripForWordCount(text) {
   return String(text || '')
@@ -65,24 +72,30 @@ function resolveMaxOutputTokens(targetSeconds) {
 /**
  * Yêu cầu Gemini viết bù khi kịch bản trả về ngắn hơn hẳn thời lượng đã đặt.
  *
- * Cố ý GIỮ NGUYÊN tiêu đề, số đoạn và phần mở/kết: chỉ đào sâu thêm nội dung từng đoạn và cho phép
- * chèn thêm đoạn phát triển ở giữa. Viết lại từ đầu sẽ đánh mất bản nháp vốn đã đúng giọng.
+ * Cố ý GIỮ NGUYÊN tiêu đề và phần mở/kết: chỉ đào sâu thêm nội dung từng đoạn. Viết lại từ đầu sẽ
+ * đánh mất bản nháp vốn đã đúng giọng.
+ *
+ * extraRules: skill tự khai luật cấu trúc riêng cho lượt viết bù (vd skill mỗi segment gắn cứng
+ * với một ảnh cần chỉ rõ số segment và số chữ mỗi segment). Không khai thì dùng luật mặc định.
  */
-function buildExtendPrompt(script, currentWords, targetWords, durationInfo, isVietnamese) {
+function buildExtendPrompt(script, currentWords, targetWords, durationInfo, wps, extraRules) {
   return `You previously wrote this narration script, but it is TOO SHORT for the requested video length.
 
 REQUESTED VIDEO LENGTH: ${durationInfo.label} (about ${durationInfo.targetSeconds} seconds).
 REQUIRED WORD BUDGET: at least ${targetWords} words across all "dialogueOrNarration" fields.
-YOUR PREVIOUS DRAFT: only ${currentWords} words — it would produce a video roughly ${Math.round(currentWords / (isVietnamese ? WORDS_PER_SECOND_VI : WORDS_PER_SECOND_EN))} seconds long, far short of the target.
+YOUR PREVIOUS DRAFT: only ${currentWords} words — it would produce a video roughly ${Math.round(currentWords / wps)} seconds long, far short of the target.
 
 YOUR TASK: return the SAME script, expanded to meet the word budget.
 
 RULES:
 - KEEP the title, the opening hook segment, and the final closing segment intact in spirit.
 - EXPAND existing paragraphs: add concrete everyday scenes (a specific place, time, action), a second angle, or a deeper consequence of the idea already there.
-- You MAY add new development segments in the MIDDLE (never after the closing segment) to introduce genuinely NEW sub-ideas.
+${extraRules?.length
+    ? extraRules.join('\n')
+    : '- You MAY add new development segments in the MIDDLE (never after the closing segment) to introduce genuinely NEW sub-ideas.'}
 - DO NOT pad with repetition, filler, or rephrasing of what is already said. Every added sentence must carry new meaning.
 - Keep every existing field name and the exact same JSON schema. Renumber segmentNumber sequentially from 1.
+- Keep the voice, vocabulary rules and audio tags of the original draft exactly as they are. This is an expansion pass, not a rewrite.
 - Every segment still needs its "subtitle" field (primary language line, then "\\n", then the translation) with 1-2 key phrases wrapped in **double asterisks** on the primary line only.
 - COUNT the total words before returning. It MUST be at least ${targetWords}.
 
@@ -115,19 +128,27 @@ export async function generateSegmentedScript({ category, durationRange, input, 
 
   const isVietnamese = (input.narrationLanguage || 'vi') !== 'en';
   const wps = isVietnamese ? WORDS_PER_SECOND_VI : WORDS_PER_SECOND_EN;
-  const targetWords = Math.round(durationInfo.targetSeconds * wps);
+  // Skill tự khai mục tiêu chữ thì tin nó hơn công thức chung: công thức chung suy ra số từ từ
+  // tốc độ đọc tiếng Việt, sai hẳn với skill đọc tiếng Anh chậm (đòi ~3200 từ cho video 10-15
+  // phút, trong khi 40 slide × 20 giây chỉ cần khoảng 1600).
+  const targetWords = skill?.targetWordCount?.(durationRange) ?? Math.round(durationInfo.targetSeconds * wps);
+  // Suy ngược nhịp đọc từ chính mục tiêu chữ của skill, thay vì dùng lại `wps` chung. Nếu không,
+  // dòng log và câu "bản nháp của bạn chỉ dài ~N giây" trong prompt viết bù sẽ quy đổi 833 từ
+  // tiếng Anh bằng tốc độ tiếng Việt và báo 194 giây — nghe như chỉ hụt một chút, trong khi thật
+  // ra hụt một nửa.
+  const effectiveWps = targetWords / durationInfo.targetSeconds;
   const actualWords = countScriptWords(script.segments);
 
   if (actualWords >= targetWords * SHORT_SCRIPT_RATIO) return script;
 
   console.log(
     `[Viết kịch bản] Kịch bản chỉ có ${actualWords}/${targetWords} từ `
-    + `(~${Math.round(actualWords / wps)}s so với mục tiêu ${durationInfo.targetSeconds}s) — gọi thêm 1 lượt viết bù.`
+    + `(~${Math.round(actualWords / effectiveWps)}s so với mục tiêu ${durationInfo.targetSeconds}s) — gọi thêm 1 lượt viết bù.`
   );
 
   try {
     const extended = await callGeminiApi(
-      buildExtendPrompt(script, actualWords, targetWords, durationInfo, isVietnamese),
+      buildExtendPrompt(script, actualWords, targetWords, durationInfo, effectiveWps, skill?.extendRules?.(durationRange)),
       keys,
       { tier: 'quality', timeoutMs: SCRIPT_REQUEST_TIMEOUT_MS, deadlineMs: SCRIPT_DEADLINE_MS, label: 'Viết bù kịch bản', maxOutputTokens },
     );
@@ -135,7 +156,7 @@ export async function generateSegmentedScript({ category, durationRange, input, 
     // Chỉ nhận bản mới nếu nó THỰC SỰ dài hơn — có lần model trả về bản ngắn hơn cả bản gốc, lấy
     // bừa là làm hỏng luôn bản nháp vốn đã dùng được.
     if (extendedWords > actualWords) {
-      console.log(`[Viết kịch bản] Đã viết bù: ${actualWords} -> ${extendedWords} từ (~${Math.round(extendedWords / wps)}s).`);
+      console.log(`[Viết kịch bản] Đã viết bù: ${actualWords} -> ${extendedWords} từ (~${Math.round(extendedWords / effectiveWps)}s).`);
       return extended;
     }
     console.warn(`[Viết kịch bản] Bản viết bù (${extendedWords} từ) không dài hơn bản gốc — giữ bản gốc.`);

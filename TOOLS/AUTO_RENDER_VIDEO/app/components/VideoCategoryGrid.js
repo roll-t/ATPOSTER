@@ -353,7 +353,136 @@ function MoralTalkPreview() {
   );
 }
 
+function BuddhistWisdomPreview() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: 'linear-gradient(145deg, #1c1917 0%, #292524 50%, #1c1917 100%)',
+      position: 'relative',
+      padding: '12px',
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      overflow: 'hidden'
+    }}>
+      {/* Soft warm lantern glow aura in top-left */}
+      <div style={{
+        position: 'absolute',
+        top: '-10px',
+        left: '20px',
+        width: '140px',
+        height: '120px',
+        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(217, 119, 6, 0.1) 50%, transparent 80%)',
+        pointerEvents: 'none',
+        animation: 'lampAuraGlow 4s infinite ease-in-out'
+      }} />
+
+      {/* Top Header Label */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+        <span style={{ fontSize: '9px', color: 'rgba(253, 230, 138, 0.7)', fontWeight: 800, letterSpacing: '0.8px' }}>
+          ZEN WATERCOLOR & INK
+        </span>
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.2)',
+          border: '1px solid rgba(245, 158, 11, 0.45)',
+          color: '#fbbf24',
+          fontSize: '9px',
+          fontWeight: 900,
+          padding: '2px 8px',
+          borderRadius: '12px'
+        }}>
+          100% ENGLISH · VIETSUB
+        </div>
+      </div>
+
+      {/* Center Illustrated Scene SVG (Recreating the oil lamp, antique scrolls, parchment & desk) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '70px',
+        zIndex: 2,
+        margin: '2px 0'
+      }}>
+        <svg viewBox="0 0 160 70" style={{ width: '100%', height: '65px' }}>
+          {/* Background Stone Wall Texture */}
+          <rect x="5" y="5" width="150" height="60" rx="4" fill="#262329" opacity="0.6" />
+          <line x1="5" y1="25" x2="155" y2="25" stroke="#38333e" strokeWidth="1" strokeDasharray="15 3 20 4" />
+          <line x1="5" y1="45" x2="155" y2="45" stroke="#38333e" strokeWidth="1" strokeDasharray="25 4 10 3" />
+
+          {/* Wooden Desk Surface */}
+          <polygon points="5,48 155,48 150,66 10,66" fill="#3e2d21" stroke="#5c4028" strokeWidth="1" />
+          <line x1="15" y1="53" x2="145" y2="53" stroke="#2b1d14" strokeWidth="0.8" />
+          <line x1="20" y1="60" x2="140" y2="60" stroke="#2b1d14" strokeWidth="0.8" />
+
+          {/* Glowing Antique Oil Lamp on Left */}
+          <path d="M 28 52 Q 22 52 20 48 Q 20 44 26 44 L 38 44 Q 44 44 44 48 Q 42 52 36 52 Z" fill="#b45309" stroke="#78350f" strokeWidth="1" />
+          <path d="M 22 46 Q 16 46 16 50 Q 16 54 22 54" stroke="#78350f" strokeWidth="1.2" fill="none" />
+          <circle cx="38" cy="42" r="2.5" fill="#f59e0b" />
+          {/* Animated Lamp Flame */}
+          <path d="M 38 42 Q 36 34 38 30 Q 40 34 38 42" fill="#fbbf24" style={{ animation: 'flameFlicker 2s infinite ease-in-out', transformOrigin: '38px 42px' }} />
+          <circle cx="38" cy="36" r="6" fill="rgba(245, 158, 11, 0.35)" />
+
+          {/* Ancient Parchment Paper with Calligraphy & Ink Splash */}
+          <polygon points="46,46 100,45 106,62 50,63" fill="#fef3c7" stroke="#d97706" strokeWidth="0.8" />
+          {/* Faux Calligraphy Lines */}
+          <line x1="53" y1="49" x2="93" y2="48" stroke="#78350f" strokeWidth="1.2" strokeDasharray="3 2 4 1 2 1" />
+          <line x1="52" y1="53" x2="96" y2="52" stroke="#78350f" strokeWidth="1.2" strokeDasharray="4 2 2 2 3 1" />
+          <line x1="54" y1="57" x2="88" y2="56" stroke="#78350f" strokeWidth="1.2" strokeDasharray="2 1 4 2 2 1" />
+          {/* Ink Drop Stain */}
+          <circle cx="95" cy="57" r="2" fill="#1e1b4b" />
+          <circle cx="98" cy="55.5" r="0.8" fill="#1e1b4b" />
+
+          {/* Calligraphy Brush / Quill */}
+          <line x1="75" y1="53" x2="112" y2="51" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" />
+          <polygon points="75,53 70,53.5 73,52" fill="#1e1b4b" />
+
+          {/* Stack of Rolled Ancient Scrolls on Right */}
+          {/* Bottom Scroll */}
+          <rect x="108" y="52" width="36" height="7" rx="3.5" fill="#fef08a" stroke="#ca8a04" strokeWidth="0.8" />
+          <line x1="120" y1="52" x2="120" y2="59" stroke="#78350f" strokeWidth="1.2" />
+          {/* Top Scroll */}
+          <rect x="110" y="45" width="34" height="7" rx="3.5" fill="#fef9c3" stroke="#ca8a04" strokeWidth="0.8" />
+          <line x1="122" y1="45" x2="122" y2="52" stroke="#78350f" strokeWidth="1.2" />
+        </svg>
+      </div>
+
+      {/* Bottom Floating Zen Wisdom Subtitle Quote */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', zIndex: 2 }}>
+        <div style={{
+          fontSize: '10px',
+          fontWeight: 800,
+          color: '#fef3c7',
+          textAlign: 'center',
+          fontFamily: 'serif',
+          letterSpacing: '-0.2px'
+        }}>
+          "In the stillness of the mind, wisdom arises."
+        </div>
+        <div style={{
+          fontSize: '8px',
+          color: 'rgba(251, 191, 36, 0.8)',
+          textAlign: 'center',
+          fontWeight: 600
+        }}>
+          Trong tĩnh lặng của tâm, trí tuệ tự khắc sinh khởi.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CARD_CONFIGS = {
+  buddhist_wisdom: {
+    badge: '🪷 PHẬT GIÁO & ZEN',
+    badgeBg: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    accentColor: '#f59e0b',
+    glowColor: 'rgba(245, 158, 11, 0.3)',
+    buttonTextColor: '#000',
+    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Anh (Vietsub)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ 1 Ảnh / 20s (Google Flow)']
+  },
   stick_figure_slideshow: {
     bgImg: '/card-bg/stick_figure_slideshow.png',
     badge: '🔥 HOT SKILL',
@@ -388,7 +517,7 @@ const CARD_CONFIGS = {
 };
 
 export default function VideoCategoryGrid({ onSelectCategory }) {
-  const allCategoryKeys = ['stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
+  const allCategoryKeys = ['buddhist_wisdom', 'stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
 
   return (
     <div style={{ padding: '8px 8px 36px 8px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -483,6 +612,18 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                   50% { filter: drop-shadow(0 0 14px rgba(167,139,250,0.95)); opacity: 1; }
                   100% { filter: drop-shadow(0 0 5px rgba(167,139,250,0.5)); opacity: 0.85; }
                 }
+                @keyframes flameFlicker {
+                  0% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+                  25% { transform: scale(1.1, 0.9) rotate(-2deg); opacity: 1; }
+                  50% { transform: scale(0.95, 1.15) rotate(2deg); opacity: 0.85; }
+                  75% { transform: scale(1.05, 0.98) rotate(-1deg); opacity: 1; }
+                  100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+                }
+                @keyframes lampAuraGlow {
+                  0% { opacity: 0.6; transform: scale(1); }
+                  50% { opacity: 0.95; transform: scale(1.15); }
+                  100% { opacity: 0.6; transform: scale(1); }
+                }
                 .video-card .storyboard-cell {
                   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
                 }
@@ -506,13 +647,14 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                 zIndex: 1
               }}>
+                {key === 'buddhist_wisdom' && <BuddhistWisdomPreview />}
                 {key === 'stick_figure_slideshow' && <StickFigurePreview />}
                 {key === 'reading_practice' && <ReadingPracticePreview />}
                 {key === 'moral_talk_slideshow' && <MoralTalkPreview />}
                 {key === 'pexels_talk_video' && <PexelsTalkPreview />}
 
                 {/* Fallback for other potential categories */}
-                {!['stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
+                {!['buddhist_wisdom','stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
                   <div
                     className="card-bg-layer"
                     style={{

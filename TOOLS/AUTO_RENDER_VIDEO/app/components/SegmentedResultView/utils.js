@@ -6,18 +6,41 @@ import { wordsPerSecond } from '@/lib/speechRate.js';
 // hiển thị/copy trong trang này (Toàn bộ lời thuyết minh, Sao chép toàn bộ, Lời thoại từng slide).
 // Nếu người dùng dán nguyên văn (có tag) sang 1 công cụ TTS khác không hiểu convention này, công
 // cụ đó sẽ ĐỌC TO cả cụm "[pause]" ra thành lời — gây giọng đọc méo/nghe lạ ở đúng chỗ có tag. Vì
-// vậy strip tag ở MỌI nơi hiển thị/copy lời thoại cho người dùng xem hoặc dán ra ngoài.
+// vậy MẶC ĐỊNH strip tag ở mọi nơi hiển thị/copy lời thoại cho người dùng xem hoặc dán ra ngoài.
+//
+// NGOẠI LỆ: ElevenLabs v3 thì ngược lại — nó diễn đúng theo tag. Nút "🏷️ Hiện/Ẩn [tag]" ở khối
+// "Toàn bộ lời thuyết minh" cho phép giữ tag lại khi cần dán sang đó; xem cleanNarrationText().
 export function stripEmotionTagsForDisplay(text) {
+  return cleanNarrationText(text, { keepTags: false });
+}
+
+/**
+ * Dọn lời thoại để hiển thị / copy, có thể GIỮ LẠI [tag] khi người dùng bật nút "Hiện tag".
+ *
+ * keepTags = true dành cho ElevenLabs v3: nó thực sự diễn theo [whispers], [sighs], [long pause]...
+ * nên bản copy đem dán sang đó phải còn nguyên tag. Mọi công cụ khác (CapCut, giọng đọc trong app)
+ * không hiểu convention này và sẽ ĐỌC TO cụm "[whispers]" thành lời, nên mặc định vẫn là bỏ tag.
+ *
+ * Dù giữ hay bỏ tag thì **markdown** luôn bị gỡ: dấu ** chỉ để tô đậm phụ đề trên video, đọc lên
+ * thành "sao sao" thì hỏng câu.
+ */
+export function cleanNarrationText(text, { keepTags = false } = {}) {
   return String(text || '')
     .split('\n')
-    .map((line) => line
-      .replace(/\[[^\]]*\]/g, ' ')
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/[ \t]+/g, ' ')
-      .trim()
-    )
+    .map((line) => {
+      const withoutTags = keepTags ? line : line.replace(/\[[^\]]*\]/g, ' ');
+      return withoutTags
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+    })
     .join('\n');
+}
+
+/** Kịch bản có [tag] cảm xúc hay không — dùng để chỉ hiện nút bật/tắt tag khi thật sự có tag. */
+export function hasEmotionTags(segments) {
+  return (segments || []).some((s) => /\[[^\]]*\]/.test(String(s?.dialogueOrNarration || '')));
 }
 
 // Ước lượng thời lượng đọc để người dùng biết NGAY lúc gõ là slide này đang dài/ngắn bao nhiêu,
@@ -47,10 +70,10 @@ export function countCharacters(text) {
  * hiển thị toàn văn, nút Copy giọng đọc) — sửa một chỗ là hai chỗ kia lệch ngay, mà lệch kiểu này
  * không báo lỗi: người dùng chỉ thấy số chữ không khớp với đoạn họ vừa chép.
  */
-export function buildFullNarrationText(segments) {
+export function buildFullNarrationText(segments, { keepTags = false } = {}) {
   return (segments || [])
     .filter((s) => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail'))
-    .map((s) => stripEmotionTagsForDisplay((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim()))
+    .map((s) => cleanNarrationText((s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim(), { keepTags }))
     .filter(Boolean)
     .join(' ');
 }
@@ -217,8 +240,8 @@ export function buildTtsPartDivider(partNumber) {
 }
 
 /** Toàn bộ kịch bản đã format: mỗi câu một dòng, kèm dòng phân cách nếu phải chia nhiều lần render. */
-export function buildTtsScriptText(segments) {
-  const parts = splitNarrationForTts(buildFullNarrationText(segments));
+export function buildTtsScriptText(segments, { keepTags = false } = {}) {
+  const parts = splitNarrationForTts(buildFullNarrationText(segments, { keepTags }));
   if (parts.length <= 1) return parts[0] || '';
   return parts.reduce((acc, part, i) => (i === 0 ? part : `${acc}\n${buildTtsPartDivider(i)}\n${part}`), '');
 }
@@ -228,8 +251,8 @@ export function buildTtsScriptText(segments) {
  * @param {boolean} [isVietnamese=true] Mặc định tiếng Việt — các skill dùng hàm này đều là kịch bản
  *   tiếng Việt là chính; chỉ luồng đọc tiếng Anh mới cần truyền false.
  */
-export function estimateSpeechSeconds(text, isVietnamese = true) {
-  return Math.round(countWords(stripEmotionTagsForDisplay(text)) / wordsPerSecond(isVietnamese));
+export function estimateSpeechSeconds(text, isVietnamese = true, wps = wordsPerSecond(isVietnamese)) {
+  return Math.round(countWords(stripEmotionTagsForDisplay(text)) / wps);
 }
 
 export function formatDuration(totalSeconds) {

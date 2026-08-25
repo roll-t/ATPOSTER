@@ -7,6 +7,7 @@ export const DEFAULT_SKILL_FOLDER = 'moral_talk_slideshow';
 
 export const CATEGORY_SKILL_MAPPING = {
   moral_talk_slideshow: 'moral_talk_slideshow',
+  buddhist_wisdom: 'moral_talk_slideshow',
   reading_practice: 'reading-page-video',
   stick_figure_slideshow: 'stick-figure-slideshow-video',
   pexels_talk_video: 'pexels-talk-video',
@@ -20,6 +21,13 @@ export const ALL_SKILL_FOLDERS = Array.from(
 
 // Metadata for video categories
 export const SKILLS_METADATA = {
+  buddhist_wisdom: {
+    id: 'buddhist_wisdom',
+    title: 'Chuyện Triết Lý & Thiền Phật Giáo',
+    skillFolder: 'moral_talk_slideshow',
+    type: 'remotion',
+    defaultCaptionStyle: 'hook',
+  },
   moral_talk_slideshow: {
     id: 'moral_talk_slideshow',
     title: 'Đạo Lý & Cuộc Sống (Slideshow)',

@@ -17,8 +17,10 @@ import {
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
   CATEGORY_STYLE_OVERRIDES, SYSTEM_READING_PRESETS
 } from './SegmentedResultView/constants.js';
+import { WORDS_PER_SECOND_EN_SLOW } from '@/lib/speechRate.js';
 import {
-  stripEmotionTagsForDisplay, countWords, estimateSpeechSeconds, formatDuration,
+  stripEmotionTagsForDisplay, cleanNarrationText, hasEmotionTags,
+  countWords, estimateSpeechSeconds, formatDuration,
   optionLabel, detectActiveCharacters, getFlowQueueStatus,
   buildFullNarrationText, splitNarrationForTts, buildTtsScriptText,
   countCharacters, TTS_CHUNK_CHAR_LIMIT
@@ -168,6 +170,29 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [videoVersion, setVideoVersion] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
   const isPexelsTalkVideo = result.category === 'pexels_talk_video';
+  // Skill Phật giáo là skill DUY NHẤT cố ý sinh [tag] cảm xúc trong lời kể, vì kịch bản của nó
+  // được viết để dán thẳng sang ElevenLabs v3 (v3 thật sự diễn theo [whispers], [sighs]...).
+  // Prompt của các skill còn lại cấm hẳn tag, nên với chúng nút bật/tắt bên dưới không hiện ra.
+  const isBuddhistWisdom = result.category === 'buddhist_wisdom';
+  // Kịch bản Phật giáo là 100% TIẾNG ANH đọc chậm kiểu thiền. Để mặc định (tốc độ tiếng Việt
+  // 4.3 âm tiết/giây) thì dòng "đọc khoảng ..." báo ngắn hơn sự thật khoảng một nửa — đúng lỗi
+  // đã gặp: kịch bản 833 từ hiện "3 phút 14 giây" trong khi đọc thật mất hơn 6 phút.
+  // Skill này lồng tiếng bằng ElevenLabs v3 BÊN NGOÀI (cả kịch bản được viết kèm [tag] cho v3),
+  // nên Bước 1 trong app chỉ là tuỳ chọn. Không được để nó khoá Bước 2 (sinh ảnh) và Bước 3 —
+  // người dùng cần chạy ảnh ngay, trong lúc đi làm giọng ở chỗ khác.
+  //
+  // Riêng Bước 4 (render) VẪN đòi audio có thật trên đĩa: render-project.mjs gắn cứng
+  // audio/scene-NN.mp3 cho từng cảnh, thiếu file là Remotion đứt giữa chừng. Người dùng bỏ file
+  // mp3 tự lồng vào thư mục audio/ là assetCounts đếm được và Bước 4 tự mở.
+  const isExternalVoiceSkill = isBuddhistWisdom;
+  const narrationWps = isBuddhistWisdom ? WORDS_PER_SECOND_EN_SLOW : undefined;
+  const estimateSeconds = (text) => (
+    narrationWps ? estimateSpeechSeconds(text, false, narrationWps) : estimateSpeechSeconds(text)
+  );
+  // Hiện [tag] trong mọi ô lời kể + bản copy. Mặc định bật cho skill Phật giáo (đúng thứ người
+  // dùng cần đem dán), tắt ở nơi khác để giữ nguyên hành vi cũ.
+  const [showEmotionTags, setShowEmotionTags] = useState(isBuddhistWisdom);
+  const scriptHasEmotionTags = hasEmotionTags(result.segments);
 
   // Kho "Format đã lưu" (preset kiểu phụ đề / chuyển cảnh / font / màu) tách RIÊNG theo skill.
   //
@@ -1571,9 +1596,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const flowStatus = getFlowQueueStatus(extQueueState, result.title);
-  // Cả 2 chủ đề đều dùng chung quy trình các bước (TTS giọng -> Google Flow ảnh ->
-  // Remotion render) thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
-  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isReadingPractice || isPexelsTalkVideo;
+  // Các chủ đề dùng chung quy trình các bước (TTS giọng -> Google Flow ảnh -> Remotion render)
+  // thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
+  //
+  // Cờ này còn quyết định `isImage` gửi cho Chrome Extension ở START_FLOW_GENERATION. Sai cờ là
+  // extension coi kết quả Google Flow như VIDEO: nó đẩy file qua download manager thay vì gọi
+  // SAVE_IMAGE_LOCAL, nên ảnh sinh xong không bao giờ nằm vào thư mục dự án — đúng triệu chứng
+  // "ảnh tạo xong không lưu được".
+  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow', 'buddhist_wisdom'].includes(result.category) || isReadingPractice || isPexelsTalkVideo;
   // true khi TẤT CẢ segments dùng PNG assets (elements[]) — không cần sinh ảnh qua Google Flow
   const allHaveElements = result.category === 'stick_figure_slideshow' &&
     (result.segments || []).length > 0 &&
@@ -3016,7 +3046,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               className="btn btn-secondary"
               style={{ padding: '8px 16px', fontSize: '0.85rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
               onClick={() => {
-                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${cleanNarrationText(s.dialogueOrNarration, { keepTags: showEmotionTags })}\nPhụ đề: ${s.subtitle}`).join('\n\n');
                 onCopy(allPrompts, 'all_segments');
               }}
             >
@@ -3079,6 +3109,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       <div style={{ minWidth: 0 }}>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
                           Bước 1: Tạo giọng lồng tiếng
+                          {isExternalVoiceSkill && (
+                            <span style={{ marginLeft: '8px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
+                              tuỳ chọn
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -3532,7 +3567,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             {/* Bước 2: Sinh & tải ảnh — ẩn với video người que PNG (không cần Google Flow) và pexels_talk_video */}
             {!allHaveElements && !isPexelsTalkVideo && (() => {
               const total = result.segments.length;
-              const isStep1Done = assetCounts.audioCount >= total;
+              // isStep1Done ở đây là CỬA MỞ của bước này, không phải "đã lồng tiếng xong":
+              // skill lồng tiếng ngoài thì cửa luôn mở (xem isExternalVoiceSkill).
+              const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
               const completedFlow = flowStatus ? flowStatus.completed : 0;
               const isFlowDone = flowStatus && flowStatus.phase === 'completed';
               const hasAllImages = assetCounts.imageCount >= total;
@@ -3612,7 +3649,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
             {(() => {
               const total = result.segments.length;
-              const isStep1Done = assetCounts.audioCount >= total;
+              const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
               const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
 
               const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true, library: bgMusicLibrary });
@@ -3717,9 +3754,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const isStep2Done = isPexelsTalkVideo
                 ? assetCounts.hasBgVideo
                 : (allHaveElements || (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
+              // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs gắn cứng
+              // audio/scene-NN.mp3 cho từng cảnh nên thiếu file là Remotion đứt, không phải chỉ
+              // mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào lỗi khó hiểu.
               const isReadyToRender = isStep1Done && isStep2Done;
               const isRenderDone = assetCounts.videoCreated;
               const stepNum = isPexelsTalkVideo ? '3' : allHaveElements ? '3' : '4';
+              // Đã có ảnh, chỉ còn thiếu giọng đọc — trường hợp thường gặp của skill lồng tiếng ngoài.
+              const waitingForExternalAudio = isExternalVoiceSkill && isStep2Done && !isStep1Done;
 
               return (
                 <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
@@ -3790,6 +3832,38 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </div>
                   </div>
+
+                  {/* Skill lồng tiếng ngoài: ảnh xong rồi mà chưa có mp3 thì chỉ rõ phải bỏ file
+                      vào đâu và đặt tên thế nào — check-assets đếm đúng scene-NN.mp3, đếm được
+                      đủ là nút render tự sáng lên, không cần thao tác gì thêm. */}
+                  {waitingForExternalAudio && (
+                    <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
+                      🎙️ Ảnh đã đủ, còn thiếu giọng đọc. Bạn đang lồng tiếng bằng ElevenLabs bên ngoài —
+                      chép file mp3 vào thư mục <strong>audio/</strong> của dự án, đặt tên đúng theo slide:{' '}
+                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px' }}>scene-01.mp3</code>,{' '}
+                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px' }}>scene-02.mp3</code>… đủ {total} file.
+                      Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
+                      <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                          onClick={handleOpenVideoFolder}
+                          disabled={isOpeningFolder}
+                        >
+                          {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục dự án'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                          onClick={checkAssets}
+                        >
+                          🔄 Quét lại ({assetCounts.audioCount}/{total} file audio)
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Nhắc render lại khi nhạc nền vừa được thay đổi */}
                   {musicChangedSinceRender && isRenderDone && !isRenderingVideo && (
@@ -3994,9 +4068,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         {(() => {
           // Một nguồn duy nhất cho cả dòng đếm, khối hiển thị và các nút copy — xem
           // buildFullNarrationText() để biết vì sao không nối chuỗi tại chỗ nữa.
-          const speechText = buildFullNarrationText(result.segments);
+          const keepTags = showEmotionTags;
+          const speechText = buildFullNarrationText(result.segments, { keepTags });
           const ttsParts = splitNarrationForTts(speechText);
+          // Ký tự đếm trên bản ĐANG HIỂN THỊ (có tag thì tính cả tag) vì đó đúng là số ký tự sẽ
+          // dán vào công cụ TTS và bị tính phí/chặn ở mốc 5000. Ngược lại số chữ và thời lượng đọc
+          // phải tính trên bản KHÔNG tag: tag không được đọc lên, tính vào là báo dài hơn sự thật.
           const totalChars = countCharacters(speechText);
+          const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
           const isMultiPart = ttsParts.length > 1;
 
           return (
@@ -4007,13 +4086,31 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <span>Toàn bộ lời thuyết minh</span>
                 </strong>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
-                  {countWords(speechText)} chữ · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSpeechSeconds(speechText))}
+                  {countWords(spokenOnlyText)} chữ · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
                   {isMultiPart && (
                     <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
                       {' '}· chia {ttsParts.length} lần render TTS
                     </span>
                   )}
                 </span>
+                {scriptHasEmotionTags && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    title={showEmotionTags
+                      ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
+                      : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
+                    style={{
+                      padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0,
+                      color: showEmotionTags ? '#0f172a' : undefined,
+                      background: showEmotionTags ? 'var(--warning)' : undefined,
+                      borderColor: showEmotionTags ? 'var(--warning)' : undefined
+                    }}
+                    onClick={() => setShowEmotionTags(v => !v)}
+                  >
+                    {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -4026,7 +4123,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   type="button"
                   className="btn btn-secondary"
                   style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                  onClick={() => onCopy(buildTtsScriptText(result.segments), 'full_speech_only')}
+                  onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
                 >
                   {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
                 </button>
@@ -4036,6 +4133,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
                     để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
+                    {scriptHasEmotionTags && (keepTags
+                      ? ' Đang kèm [tag] cảm xúc — dán thẳng sang ElevenLabs v3 để nó đọc theo sắc thái. Công cụ khác không hiểu tag sẽ đọc to cụm trong ngoặc, khi đó bấm 🏷️ để ẩn tag rồi copy lại.'
+                      : ' Đang ẩn [tag] cảm xúc — bấm 🏷️ ở trên để hiện lại nếu cần dán sang ElevenLabs v3.')}
                   </p>
                   {ttsParts.map((part, i) => (
                     <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
@@ -4152,7 +4252,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 className="btn btn-secondary"
                 style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
                 onClick={() => {
-                  const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${stripEmotionTagsForDisplay(s.dialogueOrNarration)}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                  const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${cleanNarrationText(s.dialogueOrNarration, { keepTags: showEmotionTags })}\nPhụ đề: ${s.subtitle}`).join('\n\n');
                   onCopy(allPrompts, 'all_segments');
                 }}
               >
@@ -4424,7 +4524,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                               <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
                               <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                                {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSpeechSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                                {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSeconds(editedValue(seg, 'dialogueOrNarration'))}s
                               </span>
                             </span>
                             {isEditingScript ? (
@@ -4437,7 +4537,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               />
                             ) : (
                               <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                                {stripEmotionTagsForDisplay(seg.dialogueOrNarration)}
+                                {cleanNarrationText(seg.dialogueOrNarration, { keepTags: showEmotionTags })}
                               </p>
                             )}
                           </div>
