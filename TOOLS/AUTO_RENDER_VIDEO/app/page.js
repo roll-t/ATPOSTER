@@ -16,6 +16,7 @@ import HistoryList from './components/HistoryList.js';
 import CreatedVideosGrid from './components/CreatedVideosGrid.js';
 import PexelsSearchPanel from './components/PexelsSearchPanel.js';
 import CraftAsmrPanel from './components/CraftAsmrPanel.js';
+import BgMusicPromptPanel from './components/BgMusicPromptPanel.js';
 import SettingsModal from './components/SettingsModal.js';
 
 function PromptsStudioContent() {
@@ -27,8 +28,9 @@ function PromptsStudioContent() {
   const isPexelsTab = tabParam === 'pexels';
   const isVideosTab = tabParam === 'videos';
   const isCraftTab = tabParam === 'craft';
+  const isMusicTab = tabParam === 'music';
   const isGridMode =
-    !isPexelsTab && !isVideosTab && !isCraftTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+    !isPexelsTab && !isVideosTab && !isCraftTab && !isMusicTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
 
   const initialCategory = categoryParam && PROMPT_CATEGORIES[categoryParam] ? categoryParam : undefined;
   const s = usePromptStudio(initialCategory);
@@ -149,6 +151,19 @@ function PromptsStudioContent() {
             </svg>
             Prompt ASMR Chế Tác
           </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/?tab=music')}
+            className={`nav-item ${isMusicTab ? 'active' : ''}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            Prompt Nhạc Nền
+          </button>
         </nav>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -198,6 +213,11 @@ function PromptsStudioContent() {
             /* Màn hình sinh prompt video ASMR chế tác thủ công (độc lập, không qua Remotion) */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
               <CraftAsmrPanel />
+            </div>
+          ) : isMusicTab ? (
+            /* Kho prompt Suno để tự tạo nhạc nền cho video */
+            <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
+              <BgMusicPromptPanel />
             </div>
           ) : isVideosTab ? (
             /* Màn hình Video đã tạo độc lập */

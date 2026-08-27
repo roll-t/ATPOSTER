@@ -27,6 +27,20 @@ export const ELEVENLABS_V3_TAGS = [
   '[short pause]', '[long pause]',
 ];
 
+// Bộ tag riêng cho skill LỊCH SỬ. Kênh lịch sử cần giọng chắc chắn, tự tin, hào hùng — nên bộ trên
+// (vốn dựng cho kênh Phật giáo trầm lắng) đọc lên nghe do dự và yếu, sai hẳn thể loại.
+//
+// Vì sao chọn được những tag này dù chúng không nằm trong danh sách ví dụ của tài liệu ElevenLabs:
+// tài liệu v3 nói rõ danh sách đó chỉ là ví dụ và khuyến khích dùng thêm "descriptive emotional
+// states" — các tag mô tả trạng thái cảm xúc bằng tính từ thường. [serious], [solemn], [proud],
+// [confident], [determined] đều thuộc dạng đó và được dùng phổ biến cho lời dẫn phim tài liệu.
+// KHÔNG thêm tag lạ ngoài danh sách này: v3 đọc TO những tag nó không nhận ra thành lời.
+export const ELEVENLABS_V3_TAGS_HISTORY = [
+  '[serious]', '[solemn]', '[confident]', '[determined]', '[proud]',
+  '[thoughtful]', '[curious]', '[sighs]', '[exhales]',
+  '[short pause]', '[long pause]',
+];
+
 // 1 ảnh giữ 5 GIÂY. Đây là hằng số DUY NHẤT điều khiển nhịp ảnh — số slide, số ký tự mỗi slide, số
 // ảnh phải sinh bên Google Flow đều suy ra từ nó.
 export const SECONDS_PER_IMAGE = 5;
@@ -113,14 +127,20 @@ export function sectionLanguage(vocabularyNote) {
 ${vocabularyNote}`;
 }
 
-/** Mục 1 — giọng kể. Dòng định vị kênh do từng skill tự khai, phần còn lại dùng chung. */
-export function sectionVoice(openingRightExample, openingWrongExamples) {
+/**
+ * Mục 1 — giọng kể. Dòng định vị kênh do từng skill tự khai, phần còn lại dùng chung.
+ *
+ * `registerLines` cho phép skill đổi HẲN chất giọng: kênh Phật giáo cần trầm lắng và dịu, kênh
+ * lịch sử cần chắc chắn và hào hùng. Bỏ trống thì dùng chất giọng trầm lắng mặc định.
+ */
+export function sectionVoice(openingRightExample, openingWrongExamples, registerLines = null) {
+  const register = registerLines || `- Slow, low, unhurried, kind. Long enough silences that the listener can breathe. Never hyped, never dramatic, never salesy.`;
   return `────────────────────────────────────────
 1. VOICE: A PERSON TELLING A STORY, NOT A DOCUMENTARY
 ────────────────────────────────────────
 - Everything you write in "dialogueOrNarration" will be read aloud. Write for the ear, never for the page.
 - One person talking to ONE listener, not a lecturer addressing a hall.
-- Slow, low, unhurried, kind. Long enough silences that the listener can breathe. Never hyped, never dramatic, never salesy.
+${register}
 - Use 「あなた」 sparingly — Japanese drops the second person far more than English. Address the listener through the shape of the sentence, not by naming them every line.
 - Vary the rhythm. A long, flowing sentence, then a short one. Sometimes a fragment. Silence is part of the writing.
 - Tell the story in scenes with concrete physical detail — the weight of a wet robe, mud on the road, the smell of rain on hot stone. Let the meaning arrive through what happens, not through you announcing what it means.
@@ -220,19 +240,32 @@ ${subjectRequirement}
 SELF-CHECK BEFORE YOU OUTPUT: reread every segment and delete any sentence that could sit unchanged in a generic inspirational video. If a line feels smooth but says nothing, cut it.`;
 }
 
-/** Mục 3 — tag ElevenLabs v3. */
-export const SECTION_TAGS = `────────────────────────────────────────
+/**
+ * Mục 3 — tag ElevenLabs v3.
+ *
+ * `tags` và `openingRule` khác nhau giữa các skill: kênh Phật giáo mở bằng giọng thì thầm, kênh
+ * lịch sử mở bằng giọng chắc chắn. Mọi luật còn lại (cấm tag lạ, mật độ, chỗ đặt tag) là chung.
+ */
+export function sectionTags(tags, openingRule, registerNote = '') {
+  return `────────────────────────────────────────
 3. ELEVENLABS V3 AUDIO TAGS
 ────────────────────────────────────────
 The narration gets read by ElevenLabs v3, which acts on bracketed audio tags. The tags stay in English even though the speech is Japanese — that is how v3 works.
 - ALLOWED TAGS — use only these exact strings, nothing else:
-  ${ELEVENLABS_V3_TAGS.join('  ')}
+  ${tags.join('  ')}
 - Any other bracketed tag is forbidden. ElevenLabs reads unknown tags OUT LOUD as words, which ruins the take. Never invent tags like [calm voice], [meditative], [pause 2s], [music].
 - Placement: put the tag immediately BEFORE the sentence it should colour, on the same line as the text.
 - Density: about one tag every 3 to 5 sentences. Many segments should contain no tag at all. Never put two tags next to each other, and never open every segment with a tag — it makes the whole episode sound mechanical.
-- Segment 1 must open with [whispers] or [thoughtful] so the voice starts low and close to the microphone. Never open the episode with [curious], [excited] or any tag that lifts the energy.
+${openingRule}
 - For pauses, prefer 「……」 inside the sentence. v3 does not support SSML break tags, so never write <break>. Use [short pause] or [long pause] only at a genuine turning point, at most two or three times in the whole episode.
-- Tags belong ONLY in "dialogueOrNarration". The "subtitle", "title" and "visualDescription" fields must never contain a bracketed tag.`;
+- Tags belong ONLY in "dialogueOrNarration". The "subtitle", "title" and "visualDescription" fields must never contain a bracketed tag.${registerNote}`;
+}
+
+/** Mục 3 cho kênh kể chuyện trầm lắng (Phật giáo & Thiền). */
+export const SECTION_TAGS = sectionTags(
+  ELEVENLABS_V3_TAGS,
+  '- Segment 1 must open with [whispers] or [thoughtful] so the voice starts low and close to the microphone. Never open the episode with [curious], [excited] or any tag that lifts the energy.',
+);
 
 /** Mục 4 — độ dài, đếm bằng ký tự tiếng Nhật. */
 export function sectionLength(durationInfo, targetSlides, targetChars, honestFillOptions) {

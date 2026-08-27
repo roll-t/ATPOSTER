@@ -5,12 +5,14 @@ import CharacterPicker from './CharacterPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
 import BuddhistSyllabusModal from './BuddhistSyllabusModal.js';
+import JapaneseHistorySyllabusModal from './JapaneseHistorySyllabusModal.js';
 import StickFigureLongFormModal from './StickFigureLongFormModal.js';
 import { STICK_FIGURE_LONGFORM_GROUPS, STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/lib/prompts/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
 import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
 import { getMoralSyllabusCount } from '@/lib/prompts/moralSyllabus.js';
 import { BUDDHIST_SYLLABUS, getBuddhistSyllabusCount } from '@/lib/prompts/buddhistSyllabus.js';
+import { getJapaneseHistorySyllabusCount } from '@/lib/prompts/japaneseHistorySyllabus.js';
 import { getBuddhistThemeLabel } from '@/lib/prompts/buddhistThemes.js';
 import { getBuddhistDurationOptions } from '@/lib/prompts/gemini/templates/buddhistWisdom.js';
 import LevelPicker from './LevelPicker.js';
@@ -222,6 +224,7 @@ export default function ContentForm({
   const [isCharModalOpen, setIsCharModalOpen] = useState(false);
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
   const [isBuddhistModalOpen, setIsBuddhistModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isLongFormTopicsOpen, setIsLongFormTopicsOpen] = useState(false);
 
   return (
@@ -433,6 +436,29 @@ export default function ContentForm({
                     }}
                   >
                     🪷 Lộ trình {getBuddhistSyllabusCount(currentInput.buddhistTheme)} chủ đề
+                  </button>
+                )}
+                {field.key === 'scenario' && activeCategory === 'japanese_history' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryModalOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(168, 139, 250, 0.22), rgba(124, 58, 237, 0.22))',
+                      border: '1px solid rgba(168, 139, 250, 0.45)',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      color: '#c4b5fd',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 10px rgba(168, 139, 250, 0.2)',
+                      flexShrink: 0
+                    }}
+                  >
+                    🏯 Kho {getJapaneseHistorySyllabusCount(currentInput.historyTheme || 'japan_history')} chủ đề lịch sử
                   </button>
                 )}
                 {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && (
@@ -749,6 +775,20 @@ export default function ContentForm({
           isOpen={isBuddhistModalOpen}
           onClose={() => setIsBuddhistModalOpen(false)}
           currentTheme={currentInput.buddhistTheme || 'zen_stories'}
+          onSelectTopic={(topicText) => {
+            onFieldChange('scenario', topicText);
+            onFieldChange('syllabusTopic', topicText);
+          }}
+          history={history}
+        />
+      )}
+
+      {/* Kho chủ đề Lịch Sử Nhật Bản — mỗi bài kèm niên đại và mức độ tin cậy sử liệu */}
+      {activeCategory === 'japanese_history' && (
+        <JapaneseHistorySyllabusModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          currentTheme={currentInput.historyTheme || 'japan_history'}
           onSelectTopic={(topicText) => {
             onFieldChange('scenario', topicText);
             onFieldChange('syllabusTopic', topicText);

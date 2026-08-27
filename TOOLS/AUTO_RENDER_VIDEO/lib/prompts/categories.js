@@ -522,13 +522,6 @@ export const PROMPT_CATEGORIES = {
         type: 'textarea',
         required: true,
         placeholder: '関ヶ原の戦い — Trận Sekigahara và ngày định đoạt nước Nhật'
-      },
-      {
-        key: 'script',
-        label: 'Gợi ý nội dung / Tư liệu (tuỳ chọn — hệ thống sẽ tự viết kịch bản tiếng Nhật & phân cảnh 5s/ảnh)',
-        type: 'textarea',
-        required: false,
-        placeholder: 'Tập trung vào quyết định của Kobayakawa Hideaki lúc giữa trận...'
       }
     ],
     defaultStyle: {

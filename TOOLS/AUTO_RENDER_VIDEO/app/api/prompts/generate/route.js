@@ -92,7 +92,7 @@ export async function POST(request) {
           ? { hashtags: geminiResult.hashtags }
           : {}),
         ...(geminiResult.youtubeDescription ? { youtubeDescription: geminiResult.youtubeDescription } : {}),
-        ...(geminiResult.coverPrompts ? { coverPrompts: buildBuddhistCoverPrompts(geminiResult.coverPrompts) } : {}),
+        ...(geminiResult.coverPrompts ? { coverPrompts: buildBuddhistCoverPrompts(category, geminiResult.coverPrompts) } : {}),
         segments: segmentedPrompts,
         isSegmented: true,
         createdAt: new Date().toISOString(),

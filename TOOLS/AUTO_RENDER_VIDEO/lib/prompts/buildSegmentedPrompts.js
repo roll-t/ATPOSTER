@@ -136,7 +136,7 @@ const BUDDHIST_TEXT_RULE = 'No text or lettering anywhere in the image.';
  * đúng những lỗi hay gặp nhất (câu phủ định bị vẽ ra, danh từ mặc-định-phương-Tây), không có lý
  * do gì để ảnh bìa được miễn.
  */
-export function buildBuddhistCoverPrompts(coverPrompts = {}) {
+export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
   const build = (raw, aspectRatio, composition) => {
     const subject = easternizeScene(stripNegativeClauses(raw));
     if (!subject) return null;

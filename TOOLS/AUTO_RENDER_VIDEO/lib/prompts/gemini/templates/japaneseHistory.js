@@ -1,7 +1,9 @@
 import { getJapaneseHistoryTheme } from '../../japaneseHistoryThemes.js';
+import { findJapaneseHistoryTopic } from '../../japaneseHistorySyllabus.js';
 import {
   sectionLanguage,
-  SECTION_TAGS,
+  sectionTags,
+  ELEVENLABS_V3_TAGS_HISTORY,
   SECTION_SUBTITLES,
   SECTION_COVER,
   SECTION_JSON_RULES,
@@ -47,12 +49,37 @@ const CHANNEL_IDENTITY = `WHAT THIS CHANNEL IS, AND WHAT IT IS NOT:
 - It is NOT a self-help channel. You are not drawing life lessons for the listener out of history. Tell what happened and what it cost the people it happened to. If a meaning is there, the listener will find it without you pointing.
 - It is NOT an action channel. No choreographed duels, no body counts, no dramatic narration of violence. The interesting part is always the decision, the waiting, or the consequence.`;
 
-const SUBJECT_REQUIREMENT = `REQUIRED: THIS IS HISTORY. DO NOT INVENT IT.
-- Separate RECORD from LEGEND, out loud, whenever both exist. 「記録に残っているのはここまでです。」 then the legend, marked as legend. Never present a story as documented fact when it is not.
-- Do not invent dates, names, casualty numbers, quotations, or documents. If you are not certain, either leave the detail out or say plainly that it is not known.
-- Reconstructed scene detail is allowed and wanted — what the road felt like underfoot, how cold the armour was, how long the wait lasted. That is texture, not fabrication. Inventing a named person's words is fabrication.
+const SUBJECT_REQUIREMENT = `REQUIRED: THIS IS HISTORY. ACCURACY OUTRANKS EVERY OTHER INSTRUCTION IN THIS PROMPT.
+This channel's whole value is that what it says is true. A beautiful episode with one invented fact in it is a failure. If following any other rule here would force you to state something you are not sure of, break that rule instead and say less.
+
+THE THREE-WAY TEST — every factual sentence you write must fall into one of these, and you must know which:
+  a) DOCUMENTED — contemporary sources support it. State it plainly, as fact.
+  b) DISPUTED or UNCERTAIN — sources disagree, or the detail comes from a much later source. State it AS a hypothesis, with the doubt attached: 「〜という説があります。」「〜とも伝えられています。」「はっきりしたことは分かっていません。」
+  c) UNKNOWN or INVENTED — you cannot support it at all. DELETE IT. Do not smooth it over, do not guess, do not fill the gap with something plausible.
+Never let a (b) sentence be spoken in the voice of an (a) sentence. That single slip is how history channels lose their credibility.
+
+WHAT YOU MAY NOT INVENT, EVER:
+- Dates, place names, personal names, titles, troop numbers, casualty figures.
+- Quotations. Never put words in a real person's mouth unless the quote is genuinely recorded — and if it is recorded only in a later chronicle, say so before quoting it.
+- Documents, letters, laws or their contents.
+- Causes and motives. If the record does not say WHY someone did something, say that the record does not say. Competing theories are told as competing theories, none of them settled.
+
+WHAT YOU MAY AND SHOULD RECONSTRUCT — this is texture, not fabrication:
+- The physical world: what the road felt like underfoot, how cold the armour was, how long the wait lasted, the weather the sources describe, the sound of a camp before dawn.
+- Keep reconstruction sensory and unattributed. The moment you attach a reconstructed thought or line of speech to a named historical person, it stops being texture and becomes fabrication.
+
+THE FAMOUS-VERSION TRAP — the most common way this channel would go wrong:
+For many of these events the version everybody knows is an Edo-period embellishment, not the record. When your topic is one of them, name the gap out loud and give the documented version. Known examples:
+- Nagashino 1575: the "three thousand guns in three rotating ranks" comes from 『信長記』 (Oze Hoan, 17th century). No contemporary source describes it. Guns and field fortifications are documented; the rotation is not.
+- The cuckoo poem sorting Nobunaga, Hideyoshi and Ieyasu by temperament is a late-Edo senryū recorded in 『甲子夜話』 — over two centuries after all three died. It is not their words.
+- Kenshin sending salt to Shingen is a cherished tradition with no contemporary documentation.
+- The single-combat duel between Shingen and Kenshin at Kawanakajima comes from 『甲陽軍鑑』, a later and unreliable source.
+- Hattori Hanzō was a spear commander of the Tokugawa, not a practising ninja.
+When you hit one of these: state the popular version, say plainly it is a later story, then tell what the record actually supports. That contrast is more interesting than the myth, and it is the reason this channel exists.
+
 - Name the era once, plainly, so the listener knows where they are standing: 平安, 鎌倉, 戦国, 江戸, 幕末, 明治.
-- Popular-culture ninja and samurai are NOT the subject. No fireballs, no flying, no invincible swordsmen. The real craft is far more interesting and is what this channel is for.`;
+- Popular-culture ninja and samurai are NOT the subject. No fireballs, no flying, no invincible swordsmen. The real craft is far more interesting and is what this channel is for.
+- SELF-CHECK BEFORE OUTPUT: reread every factual claim and ask "which of a / b / c is this?". Any (c) gets deleted. Any (b) spoken as (a) gets rewritten with its doubt restored.`;
 
 const HONEST_FILL = `  - what the same day looked like from the other side;
   - what the people involved did afterwards, and what it cost them;
@@ -79,10 +106,31 @@ This is what gets pasted into YouTube when the video is uploaded, so it is writt
   - NEVER sleep or background-noise tags: no #睡眠導入, no #作業用BGM, no #安眠, no #リラックス. Those pull the channel into a category it is not in, and YouTube will recommend it next to sleep videos instead of history ones.
 - "youtubeDescription": 2 to 4 sentences of Japanese introducing the episode in the same calm voice as the narration, then a blank line, then the hashtags on one line.`;
 
+// Chất giọng của kênh lịch sử: chắc chắn, tự tin, hào hùng — thay cho chất trầm lắng mặc định của
+// kênh Phật giáo. Vẫn giữ luật "vào bài không giật tít", nhưng nói rõ vào khẽ KHÁC với nói rụt rè,
+// nếu không model sẽ hiểu "năng lượng thấp" thành "giọng yếu và ngập ngừng".
+const HISTORY_REGISTER = `- Steady, assured, unhurried. The voice of someone who knows this material and does not need to raise it. Weight comes from certainty, never from volume.
+- This is a proud subject and the telling may sound proud. When the moment earns it — a march that should have been impossible, a levee that still holds four centuries later, a last charge — let the voice carry that weight openly.
+- Never hushed, never soothing, never tentative. Entering quietly means starting without a hook, NOT speaking timidly. Every sentence lands like something the speaker is sure of.
+- Where the record is uncertain, be just as firm about the uncertainty: 「そこは分かっていません。」 said plainly and without apology is stronger than a confident guess.
+- Never hyped, never salesy, never a trailer voice. Confidence and theatrics are opposites here.`;
+
 export function buildJapaneseHistoryScriptPrompt(input, durationInfo, durationRange = '8_10m') {
   const isLandscape = (input.aspectRatio || '16:9') === '16:9';
   const themeObj = getJapaneseHistoryTheme(input.historyTheme || 'japan_history');
   const { slides: targetSlides, chars: targetChars } = targetFor(durationRange);
+
+  // Nếu chủ đề được chọn từ kho có sẵn, kéo theo niên đại và cảnh báo sử liệu của chính bài đó.
+  // Cảnh báo riêng cho từng bài đắt hơn hẳn cảnh báo chung: nó chỉ đúng vào chi tiết hay bị kể sai.
+  const topic = findJapaneseHistoryTopic(input.scenario);
+  const topicBlock = topic
+    ? `
+VERIFIED FRAMING FOR THIS EXACT TOPIC (from the channel's own topic library — trust this over your own recall):
+- Period: ${topic.era}
+- Evidence status: ${topic.status === 'record' ? 'DOCUMENTED — contemporary sources support the main account.' : topic.status === 'legend' ? 'LEGEND — there is no contemporary documentation. The episode must present this as a tradition, not as fact, starting in the first minute.' : 'MIXED — the event is real but the popular version contains later invention. You must separate the two out loud.'}
+${topic.caution ? `- SPECIFIC WARNING FOR THIS EPISODE: ${topic.caution}` : ''}
+`
+    : '';
 
   const themeBlock = `IMAGES FOR THIS THEME — 「${themeObj.label}」 (${themeObj.en}):
 - Across the episode the pictures must keep returning to this theme instead of drifting into generic old-Japan scenery. When the narration allows it, draw from: ${themeObj.motifs}.
@@ -99,18 +147,24 @@ THIS IS THE SUBJECT THE EPISODE MUST CARRY. Not a mood, not a lifestyle tip: a r
 HOW THIS THEME WANTS TO BE TOLD: ${themeObj.story}
 EPISODE TOPIC REQUESTED BY THE USER:
 "${input.scenario || 'A single decisive day in the Sengoku period'}"
-${input.script ? `EXTRA CONTEXT / DRAFT FROM THE USER: "${input.script}"` : ''}
-
+${topicBlock}
 ${sectionLanguage(VOCABULARY_NOTE)}
 
 ${sectionVoice(
     '「峠の茶屋の前に、荷を下ろした男が一人立っていました。」 then, later, ease into the account.',
     '- Wrong: 「今日は関ヶ原の戦いについて解説します。」 / 「歴史を変えた、運命の一日が始まろうとしていた。」',
+    HISTORY_REGISTER,
   )}
 
 ${sectionBanned(SUBJECT_REQUIREMENT)}
 
-${SECTION_TAGS}
+${sectionTags(
+    ELEVENLABS_V3_TAGS_HISTORY,
+    '- Segment 1 must open with [serious] or [thoughtful] so the voice starts grounded and certain. Never open the episode with [proud] or [determined] — those lift the energy before the listener knows what they are looking at.',
+    `
+- REGISTER OF THESE TAGS: this is a history channel, so the tag set is deliberately firm rather than soothing. Use [serious] and [solemn] for the weight of an event, [confident] and [determined] where someone acts, [proud] where an achievement genuinely earns it, [thoughtful] and [curious] where the record is uncertain and you are weighing it.
+- Do NOT reach for [proud] often. It lands only when the episode has already shown the listener what was accomplished; used early or repeatedly it turns the narration into a pep talk.`,
+  )}
 
 ${sectionLength(durationInfo, targetSlides, targetChars, HONEST_FILL)}
 
