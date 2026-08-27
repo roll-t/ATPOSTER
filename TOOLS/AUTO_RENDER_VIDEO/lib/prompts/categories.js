@@ -444,7 +444,7 @@ export const PROMPT_CATEGORIES = {
     type: 'slideshow',
     label: 'Chuyện Triết Lý & Thiền Phật Giáo',
     icon: '🪷',
-    description: 'Kịch bản podcast Phật pháp nhẹ nhàng kiểu Spotify — 100% tiếng Anh kèm Vietsub, có [tag] cảm xúc cho ElevenLabs v3, tranh màu nước bút mực trên giấy trắng (ảnh luôn 16:9 ngang), phân cảnh 10s/ảnh đồng bộ tự động Google Flow.',
+    description: 'Kịch bản podcast Phật pháp nhẹ nhàng kiểu Spotify — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, tranh màu nước bút mực trên giấy trắng (ảnh luôn 16:9 ngang), phân cảnh 5s/ảnh đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
     fields: [
       {
         key: 'aspectRatio',
@@ -473,7 +473,7 @@ export const PROMPT_CATEGORIES = {
       },
       {
         key: 'script',
-        label: 'Gợi ý cốt truyện / Trích dẫn (tuỳ chọn — hệ thống sẽ tự viết kịch bản nói tiếng Anh & phân cảnh 10s/ảnh)',
+        label: 'Gợi ý cốt truyện / Trích dẫn (tuỳ chọn — hệ thống sẽ tự viết kịch bản nói tiếng Nhật & phân cảnh 5s/ảnh)',
         type: 'textarea',
         required: false,
         placeholder: 'A story about a monk who helped a woman cross the river and was questioned by his companion hours later...'
@@ -488,6 +488,58 @@ export const PROMPT_CATEGORIES = {
       lighting: 'Bright airy high-key daylight — early morning, soft overcast, drizzle or late afternoon. Never night, never a glowing lamp.',
       camera: 'Wide landscape composition with generous empty space',
       moodTone: 'Tranquil, meditative, serene, compassionate — late-night podcast calm'
+    }
+  },
+
+  japanese_history: {
+    key: 'japanese_history',
+    type: 'slideshow',
+    label: 'Lịch Sử Nhật Bản, Samurai & Ninja',
+    icon: '⚔️',
+    description: 'Kể một lát cắt lịch sử Nhật Bản có thật — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, DÙNG CHUNG phong cách tranh màu nước bút mực của skill Phật giáo, chỉ đổi bối cảnh và nhân vật. Ảnh luôn 16:9 ngang, phân cảnh 5s/ảnh đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
+    fields: [
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '16:9',
+        options: [
+          { value: '16:9', label: '💻 YouTube Dài (16:9 ngang)' },
+          { value: '9:16', label: '📱 Shorts / TikTok (9:16 dọc)' }
+        ]
+      },
+      {
+        key: 'historyTheme',
+        label: 'Nhóm chủ đề Lịch Sử Nhật Bản',
+        type: 'japanese-history-theme-select',
+        required: true,
+        defaultValue: 'japan_history'
+      },
+      {
+        key: 'scenario',
+        label: 'Chủ đề / Câu chuyện lịch sử muốn kể',
+        type: 'textarea',
+        required: true,
+        placeholder: '関ヶ原の戦い — Trận Sekigahara và ngày định đoạt nước Nhật'
+      },
+      {
+        key: 'script',
+        label: 'Gợi ý nội dung / Tư liệu (tuỳ chọn — hệ thống sẽ tự viết kịch bản tiếng Nhật & phân cảnh 5s/ảnh)',
+        type: 'textarea',
+        required: false,
+        placeholder: 'Tập trung vào quyết định của Kobayakawa Hideaki lúc giữa trận...'
+      }
+    ],
+    defaultStyle: {
+      series: 'Japanese History, Samurai & Ninja',
+      aspectRatio: '16:9',
+      durationSeconds: 540,
+      visualStyle: 'Japanese ink-and-watercolour illustration in the spirit of sumi-e: fine dark brush-and-ink linework over soft translucent washes, on smooth bright white paper with wide bare areas.',
+      colorPalette: ['#c9962f (warm ochre)', '#5b7893 (slate blue-grey)', '#a9673f (soft sienna)', '#8d9b74 (moss green)', '#ffffff (white paper)'],
+      lighting: 'Bright airy high-key daylight — early morning, soft overcast, drizzle or late afternoon. Never night.',
+      camera: 'Wide landscape composition with generous empty space',
+      moodTone: 'Grave, unhurried, documentary calm'
     }
   }
 };

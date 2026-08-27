@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
-import { SceneImage, Caption } from "@atposter/remotion-shared";
+import { SceneImage, Caption, resolveCaptionFontFamily } from "@atposter/remotion-shared";
 
 /**
  * Ảnh bìa (thumbnail) cho skill "Video Nói Chuyện Đạo Lý" — MỘT composition riêng, render bằng
@@ -20,7 +20,9 @@ export const MoralTalkCover: React.FC<{
   image: string;
   headline: string;
   highlightColor?: string;
-}> = ({ image, headline, highlightColor }) => {
+  /** Đi theo cùng một công tắc với video (schema: channelLogo). Mặc định bật, giống trước đây. */
+  channelLogo?: boolean;
+}> = ({ image, headline, highlightColor, channelLogo = true }) => {
   return (
     <AbsoluteFill style={{ background: "#000000" }}>
       <SceneImage
@@ -44,7 +46,10 @@ export const MoralTalkCover: React.FC<{
         videoTitle={headline}
         position="top"
         captionMarginY={0}
-        fontFamily="'Paytone One','Be Vietnam Pro',Arial,sans-serif"
+        // Tiêu đề tập giờ là tiếng Nhật. Paytone One và Be Vietnam Pro đều không có glyph
+        // kana/kanji, để nguyên là ảnh bìa ra một hàng ô vuông. resolveCaptionFontFamily đã nối
+        // sẵn Noto Sans JP vào cuối mọi họ font, nên lấy qua đó thay vì gõ tay chuỗi font ở đây.
+        fontFamily={resolveCaptionFontFamily("paytone-one", "sans-serif")}
         captionFont="paytone-one"
         mode="full"
         wordsPerChunk={999}
@@ -56,7 +61,8 @@ export const MoralTalkCover: React.FC<{
         durationInFrames={300}
         opacity={1}
       />
-      {/* Watermark Logo tinh tế phía dưới ảnh */}
+      {/* Logo kênh — cùng công tắc với video, xem channelLogo trong schema.ts */}
+      {channelLogo ? (
       <div
         style={{
           position: "absolute",
@@ -82,6 +88,7 @@ export const MoralTalkCover: React.FC<{
           }}
         />
       </div>
+      ) : null}
     </AbsoluteFill>
   );
 };

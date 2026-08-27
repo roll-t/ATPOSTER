@@ -1,5 +1,5 @@
 import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
-import { wordsPerSecond } from '@/lib/speechRate.js';
+import { wordsPerSecond, isJapaneseText } from '@/lib/speechRate.js';
 
 // [tag cảm xúc] (vd "[pause]", "[softly]") không có tác dụng gì với giọng đọc thật — API tổng
 // hợp giọng (voiceover/route.js) đã tự strip sạch trước khi gửi đi, tag chỉ còn sót lại ở các ô
@@ -59,6 +59,22 @@ export function countWords(text) {
 // để chừa biên cho khoảng trắng/xuống dòng phát sinh lúc copy-dán.
 export const TTS_CHUNK_CHAR_LIMIT = 4900;
 
+// Kịch bản TIẾNG NHẬT cắt nhỏ hơn hẳn — 2000 ký tự mỗi phần.
+//
+// Đây là GIỚI HẠN KỸ THUẬT THẬT, không phải chọn cho tiện: ElevenLabs không nhận nổi 5000 ký tự
+// tiếng Nhật trong một lượt như với chữ Latin — người dùng đo được trần thực tế quanh 2000. Lý do
+// hợp lý là mỗi kana/kanji tốn nhiều token hơn hẳn một ký tự Latin, nên cùng một trần token thì số
+// ký tự Nhật lọt qua ít hơn nhiều.
+//
+// Đánh đổi: nhiều phần hơn thì nhiều lượt render TTS hơn và nhiều file audio phải thả vào hơn. Đổi
+// lại mỗi lần hỏng chỉ phải làm lại một phần nhỏ.
+export const TTS_CHUNK_CHAR_LIMIT_JA = 2000;
+
+/** Trần ký tự mỗi phần TTS, chọn theo ngôn ngữ của chính kịch bản. */
+export function ttsChunkLimitFor(text) {
+  return isJapaneseText(text) ? TTS_CHUNK_CHAR_LIMIT_JA : TTS_CHUNK_CHAR_LIMIT;
+}
+
 export function countCharacters(text) {
   return String(text || '').length;
 }
@@ -89,7 +105,14 @@ export function splitIntoSentences(text) {
   const flat = String(text || '').replace(/\s+/g, ' ').trim();
   if (!flat) return [];
 
-  const rough = flat.split(/(?<=[.!?…])\s+(?=[^\p{Ll}\s])/gu);
+  // HAI luật tách, vì hai hệ chữ viết ngắt câu khác nhau:
+  //
+  //  - Nhật: 。！？ tự nó kết câu và KHÔNG có khoảng trắng theo sau. Luật Latin bên dưới đòi
+  //    `\s+` sau dấu chấm nên với tiếng Nhật nó không khớp một lần nào — cả kịch bản 4.131 ký tự
+  //    bị coi là ĐÚNG MỘT CÂU, kéo theo một đoạn duy nhất và một khối copy duy nhất không cắt nổi.
+  //    `(?![」』）])` để không cắt ngay giữa 「これでいい。」 làm dấu đóng ngoặc rơi sang câu sau.
+  //  - Latin: giữ nguyên luật cũ — cần khoảng trắng sau dấu, và ký tự kế không phải chữ thường.
+  const rough = flat.split(/(?<=[。！？])(?![」』）])|(?<=[.!?…])\s+(?=[^\p{Ll}\s])/gu);
 
   // Gộp lại chỗ cắt nhầm ở số thập phân ("3.5 triệu"): dấu chấm giữa hai chữ số không kết thúc câu.
   const merged = [];
@@ -160,6 +183,10 @@ const CLOSING_SENTENCE = /^(vậy là|tóm lại|nói tóm lại)(?![\p{L}])|h�
  * lời nói thật, còn dòng trống giữa hai đoạn cho giọng đọc quãng nghỉ dài hơn để sang ý mới. Tách
  * mỗi câu một dòng nghe sẽ vụn và đều đều như đọc danh sách.
  */
+// Một đoạn dài tới mức này thì đóng lại, dù không gặp mốc ngắt ý nào. Khoảng 3-4 câu — đủ để một
+// ý trọn vẹn nằm chung một đoạn, mà không để đoạn phình thành cả trang.
+const PARAGRAPH_SOFT_CHARS = 220;
+
 export function formatNarrationAsParagraphs(text) {
   const sentences = splitIntoSentences(text);
   if (!sentences.length) return '';
@@ -182,6 +209,12 @@ export function formatNarrationAsParagraphs(text) {
     current.push(sentence);
     // CTA thường chỉ một câu — đóng đoạn ngay để nó không nuốt luôn ý kế tiếp.
     if (isCta) flush();
+    // Chốt chặn theo ĐỘ DÀI, không phụ thuộc ngôn ngữ.
+    //
+    // Ba mốc ngắt đoạn ở trên (isPointStart / CTA / câu kết) đều dò theo cụm từ TIẾNG VIỆT. Với
+    // kịch bản tiếng Nhật chúng không khớp một lần nào, nên cả bài dồn vào MỘT đoạn duy nhất: bản
+    // hiển thị thành một bức tường chữ, và công cụ TTS không có chỗ trống nào để nghỉ hơi.
+    else if (current.join('').length >= PARAGRAPH_SOFT_CHARS) flush();
   }
   flush();
 
@@ -197,7 +230,7 @@ export function formatNarrationAsParagraphs(text) {
  *
  * Chỉ khi một đoạn ĐƠN LẺ đã dài hơn cả giới hạn mới hạ xuống cắt theo câu bên trong đoạn đó.
  */
-export function splitNarrationForTts(text, limit = TTS_CHUNK_CHAR_LIMIT) {
+export function splitNarrationForTts(text, limit = ttsChunkLimitFor(text)) {
   const paragraphs = formatNarrationAsParagraphs(text).split('\n\n').filter(Boolean);
   const chunks = [];
   let current = '';
@@ -244,6 +277,59 @@ export function buildTtsScriptText(segments, { keepTags = false } = {}) {
   const parts = splitNarrationForTts(buildFullNarrationText(segments, { keepTags }));
   if (parts.length <= 1) return parts[0] || '';
   return parts.reduce((acc, part, i) => (i === 0 ? part : `${acc}\n${buildTtsPartDivider(i)}\n${part}`), '');
+}
+
+/**
+ * Bản TTS chia theo ĐÚNG SLIDE: mỗi slide một đoạn, cách nhau một dòng trống.
+ *
+ * Khác hẳn buildTtsScriptText ngay trên. Bản kia gộp mọi slide bằng MỘT DẤU CÁCH (xem
+ * buildFullNarrationText) rồi chia lại thành đoạn bằng heuristic câu — ranh giới slide biến mất
+ * sạch, nên công cụ TTS nghỉ hơi ở những chỗ chẳng liên quan gì tới slide.
+ *
+ * Bản này giữ ranh giới slide lại, để:
+ *   1. CẮT LẠI ĐƯỢC. Có dòng trống ở đúng mọi ranh giới slide thì ElevenLabs chèn quãng lặng thật
+ *      tại đó, và bộ cắt (audioSlicer.js) dò ra đúng N-1 chỗ cắt khớp 1:1 với slide.
+ *   2. Ảnh đổi ngay tại chỗ nghỉ, đúng nhịp một slideshow, thay vì đổi giữa chừng một câu.
+ *
+ * Trả về từng PHẦN kèm danh sách segmentNumber nằm trong phần đó: mỗi phần là một lượt render TTS
+ * riêng (do trần ký tự), và bộ cắt cần biết file vừa thả vào ứng với những slide nào.
+ */
+export function buildTtsSlideParts(segments, { keepTags = false, limit } = {}) {
+  const slides = (segments || [])
+    .filter((s) => !s.isThumbnail && !s.dialogueOrNarration?.includes('Thumbnail'))
+    .map((s) => ({
+      segmentNumber: Number(s.segmentNumber),
+      text: cleanNarrationText(
+        (s.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim(),
+        { keepTags }
+      ),
+    }))
+    .filter((s) => s.text && Number.isFinite(s.segmentNumber));
+
+  // Trần ký tự suy ra từ CHÍNH nội dung, không nhận mặc định cứng: kịch bản Nhật cắt 2000, các
+  // ngôn ngữ còn lại giữ 4900 như cũ. Bỏ trống `limit` là để hàm tự quyết.
+  const chunkLimit = limit ?? ttsChunkLimitFor(slides.map((s) => s.text).join(''));
+
+  const SEPARATOR = '\n\n';
+  const parts = [];
+  let current = null;
+
+  for (const slide of slides) {
+    if (current && current.text.length + SEPARATOR.length + slide.text.length > chunkLimit) {
+      parts.push(current);
+      current = null;
+    }
+    if (current) {
+      current.text += SEPARATOR + slide.text;
+      current.segmentNumbers.push(slide.segmentNumber);
+    } else {
+      // Một slide đơn lẻ dài hơn cả trần ký tự thì vẫn để nguyên thành một phần: chẻ nhỏ nó ra sẽ
+      // phá mất tính chất "1 slide = 1 đoạn" mà toàn bộ bộ cắt dựa vào.
+      current = { text: slide.text, segmentNumbers: [slide.segmentNumber] };
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
 }
 
 /**

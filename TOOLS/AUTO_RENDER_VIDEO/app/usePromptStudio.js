@@ -269,7 +269,7 @@ export function usePromptStudio(initialCategory) {
       // DANH SÁCH TRẮNG — skill nào quên thêm vào đây thì folderPath = undefined, và mọi thao tác
       // ghi/đọc file của nó rơi hết về thư mục dùng chung 'example' (hoặc đứt hẳn ở các chỗ không
       // có fallback). Triệu chứng người dùng thấy: sinh ảnh xong "không lưu được".
-      if (['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'buddhist_wisdom'].includes(activeCategory) && key === 'scenario') {
+      if (['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && key === 'scenario') {
         if (!isFolderPathUserEdited) {
           nextInput.folderPath = generateDefaultFolderName(value);
         }
@@ -327,7 +327,7 @@ export function usePromptStudio(initialCategory) {
         // và cập nhật thẳng qua setFormValues (không qua handleFieldChange) để
         // không bị đánh dấu thành "đã tự sửa" — lần tạo AI kế tiếp vẫn tiếp tục
         // tự gen theo tiêu đề mới.
-        if (['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom'].includes(activeCategory) && useGemini && data.result?.title && !isFolderPathUserEdited) {
+        if (['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && useGemini && data.result?.title && !isFolderPathUserEdited) {
           const aiFolderName = generateDefaultFolderName(data.result.title);
           setFormValues(prev => ({
             ...prev,

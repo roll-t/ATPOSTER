@@ -312,8 +312,52 @@ function fixMissingOpeningQuote(text) {
 }
 
 /** Thử parse 1 chuỗi qua đủ các bước sửa lỗi phổ biến. Không ném lỗi — trả về kết quả có cờ ok. */
+/**
+ * Vá DẤU PHẨY BỊ THIẾU giữa hai thuộc tính hoặc hai phần tử mảng.
+ *
+ * Đây là lỗi đã gặp thật khi chuyển kịch bản sang tiếng Nhật: model viết 130+ segment, mỗi
+ * segment 5-6 trường, và thỉnh thoảng rơi mất một dấu phẩy — JSON.parse chết với
+ * "Expected ',' or '}' after property value" ở giữa tài liệu, làm hỏng trắng cả lượt gọi dù
+ * 99,9% nội dung viết ra hoàn toàn dùng được.
+ *
+ * Chỉ chèn phẩy khi hai token nằm trên HAI DÒNG KHÁC NHAU và giữa chúng không có phẩy nào. Một
+ * JSON vốn đã hợp lệ không bao giờ có hình dạng đó, nên bước này không thể làm hỏng bản đúng.
+ * Chuỗi hợp lệ cũng không chứa xuống dòng thô, nên không có nguy cơ cắt nhầm giữa một chuỗi.
+ */
+function fixMissingCommas(text) {
+  return String(text || '')
+    // <giá trị>  ↵  "khoá":   -> thiếu phẩy giữa hai thuộc tính
+    .replace(/("(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null|\}|\])(\s*\r?\n\s*)(")/g, '$1,$2$3')
+    // }  ↵  {   hoặc  ]  ↵  [   -> thiếu phẩy giữa hai phần tử mảng
+    .replace(/([}\]])(\s*\r?\n\s*)([{[])/g, '$1,$2$3');
+}
+
+/**
+ * Vá các chuỗi thoát KHÔNG HỢP LỆ: một dấu gạch chéo ngược đứng trước ký tự mà JSON không công
+ * nhận là escape — ví dụ model viết một dấu gạch lạc ngay trước chữ Kanji.
+ *
+ * JSON chỉ chấp nhận  "  \  /  b  f  n  r  t  u  đứng sau dấu gạch chéo ngược; mọi thứ khác là lỗi
+ * cú pháp ngay tại ký tự đó. Nhân đôi dấu gạch để nó thành một dấu gạch thật nằm trong chuỗi.
+ *
+ * PHẢI khớp trọn CẶP escape hợp lệ rồi mới xét dấu gạch lẻ, chứ không dùng lookahead phủ định.
+ * Bản đầu tiên viết /\\(?!["\\/bfnrtu])/ và nó PHÁ JSON vốn đã đúng: gặp "C:\\path", dấu gạch thứ
+ * nhất được lookahead tha (vì ngay sau là dấu gạch), nhưng con trỏ dừng lại ở dấu gạch THỨ HAI —
+ * lúc này ký tự kế tiếp là "p" nên nó bị nhân đôi thành "C:\\\path". Khớp trọn cặp thì con trỏ
+ * nhảy qua cả hai, không còn cơ hội xét nhầm.
+ */
+function fixInvalidEscapes(text) {
+  return String(text || '').replace(
+    /\\(["\\/bfnrtu])|\\/g,
+    (match, validEscape) => (validEscape ? match : '\\\\'),
+  );
+}
+
 function tryParseWithRepairs(text) {
   const quoteFixed = fixMissingOpeningQuote(text);
+  // Thứ tự CÓ CHỦ Ý: bản chưa sửa gì đứng đầu, các bước can thiệp mạnh dần về sau. Bước nào
+  // parse được trước thì thắng, nên một JSON vốn đã đúng không bao giờ bị bước sau đụng vào.
+  const commaFixed = fixMissingCommas(text);
+  const escapeFixed = fixInvalidEscapes(text);
   const attempts = [
     text,
     escapeStrayControlChars(text),
@@ -322,6 +366,11 @@ function tryParseWithRepairs(text) {
     stripTrailingCommas(quoteFixed),
     stripTrailingCommas(text),
     stripTrailingCommas(escapeStrayControlChars(text)),
+    commaFixed,
+    escapeFixed,
+    fixMissingCommas(escapeFixed),
+    escapeStrayControlChars(fixMissingCommas(escapeFixed)),
+    stripTrailingCommas(fixMissingCommas(escapeStrayControlChars(escapeFixed))),
   ];
 
   let lastError = null;

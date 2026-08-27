@@ -7,6 +7,7 @@ import { loadFont as loadNunito } from "@remotion/google-fonts/Nunito";
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
 import { loadFont as loadOswald } from "@remotion/google-fonts/Oswald";
 import { loadFont as loadPoppins } from "@remotion/google-fonts/Poppins";
+import { loadFont as loadNotoSansJP } from "@remotion/google-fonts/NotoSansJP";
 import type { CaptionFont } from "./types";
 
 export const CAPTION_FONT_OPTIONS = [
@@ -20,6 +21,18 @@ export const CAPTION_FONT_OPTIONS = [
   { key: "oswald", label: "Oswald (bold/condensed)" },
   { key: "poppins", label: "Poppins (no dấu tiếng Việt — tự rớt về Be Vietnam Pro cho chữ có dấu)" },
 ] as const;
+
+// KHÔNG font nào trong danh sách trên chứa glyph tiếng Nhật — cả 9 font đều chỉ nạp subset
+// "latin" + "vietnamese". Skill Phật giáo giờ xuất bản 100% tiếng Nhật, nên chữ kana/kanji sẽ
+// rơi về font hệ thống bất kỳ của Chromium headless, hoặc ra ô vuông trống.
+//
+// Cách xử lý giống hệt Poppins với dấu tiếng Việt bên dưới: nối Noto Sans JP vào CUỐI mọi họ
+// font. Trình duyệt tra font theo TỪNG GLYPH, nên chữ Latin vẫn giữ đúng font đã chọn, chỉ
+// riêng kana/kanji mới rơi sang Noto. Không font nào bị đổi diện mạo.
+const notoSansJpFamily = loadNotoSansJP("normal", {
+  weights: ["400", "500", "700"],
+  subsets: ["japanese", "latin"],
+}).fontFamily;
 
 const beVietnamProFamily = loadBeVietnamPro("normal", {
   weights: ["500", "600", "700", "800"],
@@ -43,16 +56,19 @@ const poppinsFamily = loadPoppins("normal", {
   subsets: ["latin"],
 }).fontFamily;
 
+// Đuôi dự phòng chung: chữ Nhật trước, rồi sans-serif hệ thống.
+const JA = `'${notoSansJpFamily}', sans-serif`;
+
 const CAPTION_FONT_FAMILIES: Record<CaptionFont, string> = {
-  "paytone-one": `'${paytoneOneFamily}', '${beVietnamProFamily}', sans-serif`,
-  itim: `'${itimFamily}', '${beVietnamProFamily}', sans-serif`,
-  "be-vietnam-pro": beVietnamProFamily,
-  roboto: loadRoboto("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,
-  montserrat: loadMontserrat("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,
-  nunito: loadNunito("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,
-  inter: loadInter("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily,
-  oswald: loadOswald("normal", { weights: ["500", "600", "700"], subsets: ["latin", "vietnamese"] }).fontFamily,
-  poppins: `'${poppinsFamily}', '${beVietnamProFamily}', sans-serif`,
+  "paytone-one": `'${paytoneOneFamily}', '${beVietnamProFamily}', ${JA}`,
+  itim: `'${itimFamily}', '${beVietnamProFamily}', ${JA}`,
+  "be-vietnam-pro": `'${beVietnamProFamily}', ${JA}`,
+  roboto: `'${loadRoboto("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily}', ${JA}`,
+  montserrat: `'${loadMontserrat("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily}', ${JA}`,
+  nunito: `'${loadNunito("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily}', ${JA}`,
+  inter: `'${loadInter("normal", { weights: ["500", "600", "700", "800"], subsets: ["latin", "vietnamese"] }).fontFamily}', ${JA}`,
+  oswald: `'${loadOswald("normal", { weights: ["500", "600", "700"], subsets: ["latin", "vietnamese"] }).fontFamily}', ${JA}`,
+  poppins: `'${poppinsFamily}', '${beVietnamProFamily}', ${JA}`,
 };
 
 export function resolveCaptionFontFamily(

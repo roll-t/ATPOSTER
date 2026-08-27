@@ -12,7 +12,28 @@ const JSON_SAFETY_SUFFIX = `
 IMPORTANT JSON OUTPUT RULES:
 - Return ONLY a single valid JSON object. No markdown, no comments, no trailing commas.
 - Inside any string value, if you need to quote a word/phrase, use single quotes (') instead of double quotes ("). Never place an unescaped double-quote character inside a string value.
-- Do not use literal newline characters inside string values; keep each string value on a single line.`;
+- When the text is Japanese, quote with the Japanese brackets 「」 — never with " inside a string value.
+- Do not use literal newline characters inside string values; keep each string value on a single line.
+- Never write a lone backslash inside a string value. The only backslash allowed is the one in \\n.
+- Put a comma after EVERY property and EVERY array element except the last one. A missing comma is the most common way a long answer becomes unparseable — check the last property of each object before moving to the next.
+- Emit EXACTLY the keys shown in the output shape, no more. Do not invent extra fields, and do not repeat a value under a second name. Every extra key lengthens the answer and raises the chance of running out of room before the JSON is closed.`;
+
+/**
+ * Trích đúng đoạn văn bản quanh vị trí mà JSON.parse báo lỗi.
+ *
+ * Phản hồi hỏng vẫn được đổ nguyên văn ra log, nhưng một kịch bản 130 slide dài hơn 44.000 ký tự —
+ * đọc bằng mắt để tìm dấu phẩy thiếu là không khả thi. SyntaxError của V8 luôn kèm "position N",
+ * nên cắt lấy vài dòng quanh N và đánh dấu đúng điểm gãy.
+ */
+function jsonErrorContext(error) {
+  const raw = error?.rawText;
+  const at = /position (\d+)/.exec(error?.message || '');
+  if (!raw || !at) return '';
+  const pos = Math.min(Number(at[1]), raw.length);
+  const before = raw.slice(Math.max(0, pos - 160), pos);
+  const after = raw.slice(pos, Math.min(raw.length, pos + 160));
+  return `\n   ...${before}  <<<< GÃY Ở ĐÂY >>>>  ${after}...`;
+}
 
 // ---------------------------------------------------------------------------
 // Bộ nhớ trạng thái xoay vòng — sống theo tiến trình server (mất khi restart dev server).
@@ -537,7 +558,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
           console.error(`${tag} Gemini trả JSON hỏng ${badJsonCount} lần liên tiếp — dừng lại để thử cứu vớt phần còn dùng được.`);
           break;
         }
-        console.warn(`${tag} ${model}${keyLabel} trả JSON hỏng (${error.message}) — thử lại lượt kế tiếp.`);
+        console.warn(`${tag} ${model}${keyLabel} trả JSON hỏng (${error.message}) — thử lại lượt kế tiếp.${jsonErrorContext(error)}`);
         continue;
       }
 

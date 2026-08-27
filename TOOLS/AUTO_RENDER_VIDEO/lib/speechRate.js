@@ -41,6 +41,54 @@ export const WORDS_PER_SECOND_EN = 2.8;
  */
 export const WORDS_PER_SECOND_EN_SLOW = 2.1;
 
+/**
+ * Nhịp đọc TIẾNG NHẬT trầm/thiền, tính bằng KÝ TỰ mỗi giây.
+ *
+ * Phải đổi đơn vị sang ký tự chứ không dùng "từ" như các ngôn ngữ trên: tiếng Nhật viết liền,
+ * không có khoảng trắng giữa từ. Đếm theo khoảng trắng thì cả một câu 34 ký tự ra đúng 1 "từ",
+ * và mọi mục tiêu độ dài lệch khoảng 30 lần.
+ *
+ * SỐ LIỆU ĐO THẬT (file ElevenLabs của chính skill này, kịch bản 二人の僧と川の手放し):
+ *   3485 ký tự / 492 giây (8:12) = 7.08 ký tự/giây
+ *
+ * Lấy 7.0 (thấp hơn số đo một chút) theo đúng nguyên tắc của cả file này: ước tính THẤP hơn thực
+ * tế thì kịch bản viết ra dài hơn mục tiêu một nhịp — an toàn hơn hụt, vì khâu dựng cắt được phần
+ * thừa nhưng không tự sinh thêm nội dung khi thiếu.
+ *
+ * Hằng số cũ là 5.0, đặt bằng ƯỚC LƯỢNG (~300 ký tự/phút, suy từ tốc độ đọc tin tức Nhật rồi trừ
+ * hao cho nhịp đọc thiền). Thực tế ElevenLabs đọc NHANH HƠN 42%. Hậu quả đo được: kịch bản 135
+ * slide đáng lẽ dài 11,3 phút thì audio thật chỉ 8,2 phút, và mỗi ảnh chỉ đứng 3,6 giây thay vì 5.
+ *
+ * Con số này phụ thuộc giọng đọc được chọn bên ElevenLabs. Đổi sang giọng khác hẳn về nhịp thì
+ * nên đo lại: lấy tổng ký tự của kịch bản chia cho độ dài file audio, cả hai đều hiện sẵn ở bảng
+ * "Ghép giọng ElevenLabs" trong Bước 1.
+ */
+export const CHARS_PER_SECOND_JA_SLOW = 7.0;
+
+// Có ký tự Hiragana / Katakana / Kanji hay không. Dùng để chọn ĐƠN VỊ đếm, nên chỉ cần biết văn
+// bản có phải tiếng Nhật hay không, không cần phân biệt Nhật với Trung ở mức tinh vi hơn.
+const JAPANESE_CHAR = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/;
+
+export function isJapaneseText(text) {
+  return JAPANESE_CHAR.test(String(text || ''));
+}
+
+/**
+ * Đơn vị độ dài của lời thoại: KÝ TỰ với tiếng Nhật, TỪ với các ngôn ngữ tách bằng khoảng trắng.
+ *
+ * Mọi chỗ so sánh "kịch bản đã đủ dài chưa" phải đi qua đây, nếu không phần tiếng Nhật sẽ luôn bị
+ * coi là hụt gần hết và kích hoạt lượt viết bù vô nghĩa.
+ */
+export function countNarrationUnits(text) {
+  const clean = String(text || '').trim();
+  if (!clean) return 0;
+  if (isJapaneseText(clean)) {
+    // Bỏ khoảng trắng và xuống dòng: chúng không được đọc thành tiếng nên không tính thời lượng.
+    return clean.replace(/\s+/g, '').length;
+  }
+  return clean.split(/\s+/).filter(Boolean).length;
+}
+
 export function wordsPerSecond(isVietnamese) {
   return isVietnamese ? WORDS_PER_SECOND_VI : WORDS_PER_SECOND_EN;
 }

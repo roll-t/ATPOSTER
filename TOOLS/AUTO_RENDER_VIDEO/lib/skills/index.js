@@ -3,6 +3,7 @@ import stick_figure_slideshow from './stick_figure_slideshow.js';
 import reading_practice from './reading_practice.js';
 import pexels_talk_video from './pexels_talk_video.js';
 import buddhist_wisdom from './buddhist_wisdom.js';
+import japanese_history from './japanese_history.js';
 import { videoTypeHandlers } from './video-types.js';
 
 // Registry: category key -> skill handler.
@@ -14,6 +15,7 @@ const SKILL_HANDLERS = {
   reading_practice,
   pexels_talk_video,
   buddhist_wisdom,
+  japanese_history,
   ...videoTypeHandlers,
 };
 

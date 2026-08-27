@@ -1,5 +1,7 @@
 import { PROMPT_CATEGORIES } from './categories.js';
 import { getStickFigureCastOverrides } from './castOverrides.js';
+import { getBuddhistTheme } from './buddhistThemes.js';
+import { getJapaneseHistoryTheme } from './japaneseHistoryThemes.js';
 const CATEGORY_ENGLISH_LABELS = {
   english_quiz: 'English Quiz Video',
   stick_figure: 'Stick Figure Video',
@@ -21,6 +23,21 @@ const CATEGORY_ENGLISH_LABELS = {
 // lại vẫn đọc trôi chảy.
 const NEGATIVE_SENTENCE = /\b(?:no|not|without|nobody|none of|empty of|free of|devoid of|instead of)\b/i;
 
+// Skill nào dùng chung khối dựng prompt ảnh tranh mực-màu nước này.
+const JAPANESE_INK_CATEGORIES = ['buddhist_wisdom', 'japanese_history'];
+
+/** Thế giới hình ảnh của skill: cùng nét vẽ, khác bối cảnh và nhân vật. */
+function worldClauseFor(categoryKey) {
+  return categoryKey === 'japanese_history' ? HISTORY_WORLD_CLAUSE : BUDDHIST_WORLD_CLAUSE;
+}
+
+/** Nhóm chủ đề đang chọn — mỗi skill có bộ chủ đề riêng nhưng cùng hình dạng dữ liệu. */
+function narrativeThemeFor(categoryKey, input) {
+  return categoryKey === 'japanese_history'
+    ? getJapaneseHistoryTheme(input.historyTheme || 'japan_history')
+    : getBuddhistTheme(input.buddhistTheme || 'zen_stories');
+}
+
 export function stripNegativeClauses(text) {
   const kept = String(text || '')
     .trim()
@@ -29,6 +46,124 @@ export function stripNegativeClauses(text) {
   return kept.join(' ').trim().replace(/\.\s*$/, '');
 }
 
+
+// Đổi các danh từ mặc-định-phương-Tây trong mô tả cảnh sang vật tương đương Đông Á.
+//
+// worldClause (xem nhánh buddhist_wisdom) ghim bối cảnh Đông Á vào mọi prompt, nhưng nó chỉ ĐỨNG
+// CẠNH mô tả cảnh chứ không ghi đè được: slide viết "a stack of heavy books on the desk beside the
+// window" thì model vẫn vẽ sách bìa da và cửa sổ kiểu Âu, vì đó là danh từ nằm ngay trong cảnh và
+// đứng trước. Phải đổi chính danh từ đó.
+//
+// Quan trọng với các KỊCH BẢN CŨ: chúng được Gemini viết trước khi prompt kịch bản có mục "EVERY
+// SCENE IS EAST ASIAN", nên visualDescription của chúng gần như chắc chắn dùng danh từ trung tính.
+// Lớp này giúp chúng dùng lại được mà không phải sinh lại cả kịch bản.
+//
+// Danh sách cố ý NGẮN: chỉ những từ thật sự hay kéo ảnh về châu Âu. Mỗi mẫu tự nuốt luôn bản đã
+// đổi rồi ("(?:thread-bound )?books?") để chạy hai lần không bị cộng dồn chuỗi.
+const EASTERN_SUBSTITUTIONS = [
+  { re: /\b(?:book\s?shel(?:f|ves)|book\s?cases?)\b/gi, one: 'wooden scroll rack', many: 'wooden scroll racks' },
+  { re: /\b(?:thread-bound\s(?:rice-paper\s)?volume|book)s?\b/gi, one: 'thread-bound rice-paper volume', many: 'thread-bound rice-paper volumes' },
+  { re: /\b(?:low\s)?(?:wooden\s)?(?:writing\s)?desks?\b/gi, one: 'low wooden writing table', many: 'low wooden writing tables' },
+  { re: /\b(?:shoji\s)?(?:paper\s)?(?:sliding\s)?screens?\b/gi, one: 'shoji paper sliding screen', many: 'shoji paper sliding screens' },
+  { re: /\b(?:arm)?chairs?\b/gi, one: 'floor cushion', many: 'floor cushions' },
+  { re: /\b(?:tatami\s|wooden\s|plank\s)*floors?\b/gi, one: 'tatami floor', many: 'tatami floors' },
+  { re: /\b(?:wooden\s)?(?:lattice\s)?windows?\b/gi, one: 'wooden lattice window', many: 'wooden lattice windows' },
+  { re: /\b(?:stone\s|old\s)?cottages?\b/gi, one: 'small wooden hut', many: 'small wooden huts' },
+];
+
+export function easternizeScene(text) {
+  let out = String(text || '');
+  for (const { re, one, many } of EASTERN_SUBSTITUTIONS) {
+    out = out.replace(re, (match) => {
+      const replacement = match.trim().endsWith('s') ? many : one;
+      // Giữ nguyên chữ hoa đầu câu, nếu không sẽ ra "...morning. thread-bound...".
+      return /^[A-Z]/.test(match) ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
+    });
+  }
+  return out;
+}
+
+
+// ─── Bộ câu dùng chung cho MỌI prompt ảnh của skill Phật giáo ───
+//
+// Nâng lên mức module vì có HAI nơi cần đúng bộ câu này: prompt của từng slide, và prompt hai
+// ảnh bìa (16:9 + 9:16). Trước đây chúng là biến cục bộ trong nhánh segment, nên ảnh bìa hoặc
+// phải chép lại y hệt — rồi sớm muộn cũng lệch nhau — hoặc ra một phong cách khác hẳn video.
+
+// Bám theo ảnh mẫu người dùng đưa: nét mực mảnh vẽ tay hơi nguệch ngoạc, màu nước loang nhẹ ra
+// ngoài nét, GIẤY TRẮNG SẠCH chừa nhiều khoảng trống, sáng và trong.
+//
+// PHONG CÁCH ĐÃ CHUYỂN SANG NHẬT. Bản trước ghi "pen-and-watercolour STORYBOOK illustration" —
+// "storybook illustration" là dòng minh hoạ sách thiếu nhi PHƯƠNG TÂY, nên dù cảnh vật, y phục,
+// đồ đạc đã Nhật hết (xem BUDDHIST_WORLD_CLAUSE) thì NÉT VẼ vẫn ra kiểu Âu. Giờ neo vào sumi-e
+// và tranh minh hoạ Nhật hiện đại, thêm "yohaku" (mỹ học chừa khoảng trống) và bố cục lệch tâm.
+//
+// CỐ Ý KHÔNG dùng chữ "washi": giấy washi kéo model về màu ngà và thớ giấy thô, đúng thứ đã
+// phải sửa một lần rồi (xem đoạn cấm giấy cũ ngay dưới). Giữ "smooth bright white paper".
+//
+// Bảng màu GIỮ NGUYÊN sắc độ người dùng đã chọn, chỉ đổi TÊN GỌI sang sắc truyền thống Nhật
+// (yamabuki, indigo, moss) — thêm tín hiệu văn hoá mà không làm ảnh đổi tông.
+//
+// CHỈ VIẾT KHẲNG ĐỊNH, KHÔNG VIẾT "No ...". Google Flow nhận đúng MỘT prompt dương, không có
+// kênh negative prompt riêng như Stable Diffusion. Mọi danh từ nhét vào câu phủ định đều được
+// model đọc như một khái niệm cần vẽ. Bản trước ghi "No aged, brown, sepia parchment", "no
+// glowing light source" — và ảnh trả về đúng là giấy cũ rách mép với đèn dầu phát sáng.
+const JAPANESE_INK_STYLE_CLAUSE = 'Drawn as a Japanese ink-and-watercolour illustration, in the spirit of sumi-e and modern Japanese picture books: fine dark brush-and-ink linework, sketchy and light, over soft translucent watercolour washes that bleed a little past the lines. Painted on smooth bright white paper, with wide areas of the paper left bare — yohaku, the Japanese use of empty space. Muted palette of warm ochre and yamabuki yellow, indigo-tinted slate blue-grey, soft sienna and moss green. Asymmetric, off-centre composition in the Zen manner. Even bright daylight, airy and low in contrast, clean and fresh.';
+
+// NEO VĂN HOÁ — thứ thiếu nó là ảnh ra "không có xíu nào Phật giáo".
+//
+// BUDDHIST_STYLE_CLAUSE chỉ tả CHẤT LIỆU (bút mực + màu nước + giấy trắng), không nói cảnh ở
+// đâu, thời nào, người mặc gì. Gặp mô tả trung tính như "a scholar reading heavy books by a
+// window", model vẽ theo cái phổ biến nhất trong dữ liệu huấn luyện: học giả châu Âu, sách bìa
+// da gáy mạ vàng, cửa sổ kiểu Pháp. Đúng những gì đã nhận được ở lần chạy đầu.
+// Thế giới hình ảnh của skill LỊCH SỬ. Cùng phong cách vẽ với Phật giáo (JAPANESE_INK_STYLE_CLAUSE
+// ở trên), chỉ đổi bối cảnh và nhân vật — đúng yêu cầu.
+const HISTORY_WORLD_CLAUSE = 'Set in old Japan, a world of castles and warriors: castle keeps above stone walls and moats, castle gates and guard towers, timber-post rooms with tatami floors and shoji paper screens, plastered walls with tiled coping, packed-dirt post roads through pine and bamboo, terraced rice fields, thatched village roofs. Every person is Japanese in period dress, samurai in dark lacquered armour with wide shoulder plates or in plain kimono with two swords at the waist, foot soldiers in simple conical helmets, lords in stiff wide-shouldered formal dress, travellers and shinobi disguised as farmers or pedlars in straw hats, villagers in wrapped kimono with cloth sashes, straw sandals, hair in topknots. Period objects throughout: long and short swords on wooden stands, helmets with wide neck-guards, banners with family crests, lacquered message boxes, rolled maps and letters, ink stones, bamboo brushes, clay tea bowls, wooden buckets.';
+
+const BUDDHIST_WORLD_CLAUSE = 'Set in old Japan, a traditional Japanese Zen Buddhist world: tiled temple roofs with deep sweeping eaves, timber posts, shoji paper screens and wooden lattice, stone lanterns, raked gravel, pine and bamboo. Every person is Japanese in period dress, monks with shaved heads in faded ochre or grey robes, villagers in wrapped kimono with cloth sashes, hair in topknots or buns, straw sandals. Period objects throughout: thread-bound rice-paper volumes, rolled scrolls, ink stones, bamboo brushes, clay tea bowls, low writing tables, tatami mats.';
+
+// Giữ lại đúng MỘT câu phủ định — chữ lọt vào ảnh là lỗi nặng nhất và không tả dương được.
+const BUDDHIST_TEXT_RULE = 'No text or lettering anywhere in the image.';
+
+/**
+ * Hai prompt ẢNH BÌA cho một tập: 16:9 cho video dài, 9:16 cho video dọc.
+ *
+ * Gemini chỉ viết phần CHỦ THỂ (xem mục 8 trong buddhistWisdom.js); phần phong cách, neo văn hoá
+ * và tỉ lệ khung được ghép ở đây — cùng thứ tự và cùng câu chữ với prompt của từng slide, để ảnh
+ * bìa trông đúng là một khung hình của chính video đó chứ không phải một bức tranh lạ.
+ *
+ * Chạy qua cả stripNegativeClauses lẫn easternizeScene giống hệt slide: hai lớp lọc này đã cứu
+ * đúng những lỗi hay gặp nhất (câu phủ định bị vẽ ra, danh từ mặc-định-phương-Tây), không có lý
+ * do gì để ảnh bìa được miễn.
+ */
+export function buildBuddhistCoverPrompts(coverPrompts = {}) {
+  const build = (raw, aspectRatio, composition) => {
+    const subject = easternizeScene(stripNegativeClauses(raw));
+    if (!subject) return null;
+    return [
+      `${subject}.`,
+      composition,
+      worldClauseFor(categoryKey),
+      JAPANESE_INK_STYLE_CLAUSE,
+      BUDDHIST_TEXT_RULE,
+      `${aspectRatio} format. Full-bleed artwork: the illustration runs all the way to all four edges of the image.`,
+    ].filter(Boolean).join(' ');
+  };
+
+  const landscape = build(
+    coverPrompts.landscape,
+    'Wide 16:9 landscape',
+    'Thumbnail composition: the main subject sits to one side, the opposite side left open and quiet.',
+  );
+  const portrait = build(
+    coverPrompts.portrait,
+    'Tall 9:16 vertical',
+    'Thumbnail composition: one close, centred subject filling the middle of the frame, open space above and below it, readable at a glance on a phone.',
+  );
+
+  if (!landscape && !portrait) return null;
+  return { ...(landscape ? { landscape } : {}), ...(portrait ? { portrait } : {}) };
+}
 
 /**
  * Ghép style cố định của chủ đề với từng phân đoạn được sinh ra từ Gemini
@@ -255,7 +390,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
   //
   // Bỏ luôn danh sách mã màu hex: công cụ sinh ảnh đọc "#d97706" như rác, tên màu đã nằm trong
   // câu phong cách rồi.
-  if (categoryKey === 'buddhist_wisdom') {
+  if (JAPANESE_INK_CATEGORIES.includes(categoryKey)) {
     // TỈ LỆ ẢNH LUÔN LÀ 16:9 NGANG cho skill này, không đi theo input.aspectRatio như các skill
     // khác — người dùng chốt cứng vậy. Nghĩa là nếu chọn dạng video dọc 9:16, ảnh vẫn ra ngang và
     // Remotion sẽ phải cắt/viền chúng khi dựng.
@@ -269,7 +404,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     // parchment background", "no glowing light source", "No border, no frame, no vignette" — và
     // ảnh trả về đúng là giấy cũ rách mép, đèn dầu phát sáng, tranh nằm trong một khung giấy.
     // Muốn không có giấy cũ thì phải TẢ giấy trắng, không phải cấm giấy cũ.
-    const styleClause = 'Drawn as a loose pen-and-watercolour storybook illustration: fine dark ink linework, sketchy and light, over soft translucent watercolour washes that bleed a little past the lines. Painted on smooth bright white paper, with wide areas of the paper left bare. Muted palette of warm ochre, mustard yellow, slate blue-grey, soft sienna and sage green. Even bright daylight, airy and low in contrast, clean and fresh.';
+    const styleClause = JAPANESE_INK_STYLE_CLAUSE;
 
     // Tỉ lệ + tràn viền tách thành câu riêng, ĐỨNG CUỐI và ngắn gọn để không bị chìm.
     //
@@ -278,22 +413,51 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     // hình. Người dùng vẫn nên đặt sẵn 16:9 trong chính Google Flow cho chắc.
     const formatClause = `Wide ${selectedAspectRatio} landscape format. Full-bleed artwork: the illustration runs all the way to all four edges of the image.`;
 
-    // Giữ lại đúng MỘT câu phủ định — chữ lọt vào ảnh là lỗi nặng nhất và không tả dương được.
-    const textRule = 'No text or lettering anywhere in the image.';
+    // NEO VĂN HOÁ — đây chính là thứ thiếu khiến ảnh trả về "không có xíu nào Phật giáo".
+    //
+    // styleClause ở trên chỉ tả CHẤT LIỆU (bút mực + màu nước + giấy trắng). Nó không nói cảnh ở
+    // đâu, thời nào, người mặc gì. Gặp một mô tả trung tính như "a scholar reading heavy books by a
+    // window", model sinh ảnh vẽ theo cái phổ biến nhất trong dữ liệu huấn luyện: học giả châu Âu,
+    // sách bìa da gáy mạ vàng, cửa sổ kiểu Pháp, giếng đá kiểu Ý. Đúng những gì đã nhận được.
+    //
+    // Câu này ghim bối cảnh Đông Á cổ vào MỌI prompt ảnh, kể cả các slide CŨ đã sinh từ trước rồi
+    // được bấm "Copy Prompt Ảnh" / "Đẩy sang Google Flow" lại — không phụ thuộc vào việc
+    // visualDescription của slide đó có nhớ nói "Chinese temple" hay không.
+    //
+    // Cố ý viết GỌN và đứng NGAY SAU cảnh, trước styleClause: model cân nội dung theo thứ tự, và
+    // bài học ghi ở đầu khối này là boilerplate dài sẽ nhấn chìm mất cảnh thật.
+    const worldClause = worldClauseFor(categoryKey);
+
+    // Không khí riêng của nhóm chủ đề đang chọn (Chánh Niệm, Nhân Quả, Vô Thường...).
+    //
+    // CHỈ lấy trường `mood`, KHÔNG lấy `motifs`. motifs là danh sách CHỦ THỂ (bàn tay rửa bát,
+    // chiếc thuyền trống, cánh hoa rơi) — dán một danh sách chủ thể cố định vào MỌI slide đúng là
+    // lỗi đã được ghi ở đầu khối này: chuỗi "ancient monastery stone walls" gắn cứng từng làm
+    // slide tả nhà sư lội sông biến thành ảnh tu viện. Vì vậy motifs chỉ được đưa vào prompt KỊCH
+    // BẢN (buddhistWisdom.js), nơi Gemini cân nhắc theo từng phân đoạn; còn ở đây chỉ có `mood`,
+    // một câu thuần không khí và ánh sáng, không chứa chủ thể nào để model vẽ nhầm.
+    const themeObj = narrativeThemeFor(categoryKey, input);
+    const moodClause = themeObj.mood ? `Mood: ${themeObj.mood}` : '';
+
+    const textRule = BUDDHIST_TEXT_RULE;
 
     return segments.map(seg => {
       // Lọc câu phủ định (xem stripNegativeClauses) và bỏ dấu chấm cuối để câu nối phía sau
       // không thành ".." như bản cũ.
-      const scene = stripNegativeClauses(seg.visualDescription);
+      const scene = easternizeScene(stripNegativeClauses(seg.visualDescription));
 
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
-        category: 'Buddhist Wisdom Watercolour Slideshow',
+        category: categoryKey === 'japanese_history'
+          ? 'Japanese History Watercolour Slideshow'
+          : 'Buddhist Wisdom Watercolour Slideshow',
         image_style: 'Loose pen-and-watercolour storybook illustration on white paper',
         aspect_ratio: selectedAspectRatio,
         // scene đứng trước style, cùng lý do với textPrompt ở trên.
         scene: {
-          setting: scene
+          setting: scene,
+          world: worldClause,
+          ...(moodClause ? { mood: themeObj.mood } : {})
         },
         style: {
           visual_style: styleClause,
@@ -311,6 +475,8 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
       const textPrompt = [
         `${scene}.`,
+        worldClause,
+        moodClause,
         styleClause,
         textRule,
         formatClause
@@ -318,8 +484,8 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
       return {
         segmentNumber: seg.segmentNumber,
-        // 1 ảnh giữ 10 giây — xem DURATION_TARGETS trong templates/buddhistWisdom.js.
-        durationSeconds: seg.durationSeconds || 10,
+        // 1 ảnh giữ 5 giây — xem SECONDS_PER_IMAGE trong templates/buddhistWisdom.js.
+        durationSeconds: seg.durationSeconds || 5,
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,

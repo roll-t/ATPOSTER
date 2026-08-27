@@ -9,7 +9,8 @@ import { getSkill } from '@/lib/skills/index.js';
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
 // việc chèn ký tự đặc biệt của shell khi giá trị này được dùng làm tham số dòng lệnh.
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
-const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook'];
+const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook', 'none'];
+const KEN_BURNS_MODES = ['in', 'out', 'pan-left', 'pan-right', 'none'];
 const TRANSITION_STYLES = ['crossfade', 'slide-left', 'slide-right', 'slide-up', 'zoom'];
 const CAPTION_FONTS = ['paytone-one', 'itim', 'be-vietnam-pro', 'roboto', 'montserrat', 'nunito', 'inter', 'oswald', 'poppins'];
 // Loose allowlist for freeform CapCut-style color overrides (hex, rgb()/rgba(),
@@ -25,7 +26,7 @@ export async function POST(req) {
       captionFont, captionFontSize, captionSecondaryFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
       contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume,
-      imageScale, imageTranslateY, captionMarginY,
+      imageScale, imageTranslateY, captionMarginY, kenBurnsMode, cornerPatch, channelLogo,
       // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
       segments: segmentsForManifest, title: titleForManifest
     } = await req.json();
@@ -194,6 +195,10 @@ export async function POST(req) {
     const extraArgs = [];
     if (CAPTION_STYLES.includes(captionStyle)) extraArgs.push(`--captionStyle=${captionStyle}`);
     if (TRANSITION_STYLES.includes(transitionStyle)) extraArgs.push(`--transitionStyle=${transitionStyle}`);
+    if (KEN_BURNS_MODES.includes(kenBurnsMode)) extraArgs.push(`--kenBurnsMode=${kenBurnsMode}`);
+    // Chỉ gửi khi TẮT — không gửi thì render-project.mjs giữ mặc định bật, đúng hành vi cũ.
+    if (cornerPatch === false) extraArgs.push('--cornerPatch=false');
+    if (channelLogo === false) extraArgs.push('--channelLogo=false');
     if (typeof bilingual === 'boolean') extraArgs.push(`--bilingual=${bilingual}`);
     if (orientation === 'landscape' || orientation === 'portrait') extraArgs.push(`--orientation=${orientation}`);
     if (CAPTION_FONTS.includes(captionFont)) extraArgs.push(`--captionFont=${captionFont}`);

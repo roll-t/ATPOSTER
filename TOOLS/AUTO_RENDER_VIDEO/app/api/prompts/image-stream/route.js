@@ -35,13 +35,18 @@ export async function GET(request) {
       }
     }
 
-    // audio/bg-music.<ext>: đuôi file thật do người dùng tự tải lên (mp3/wav/m4a/...) nên
-    // frontend không biết trước để xin đúng tên — luôn xin "bg-music.mp3" rồi dò theo
-    // wildcard đúng basename "bg-music.*" trong thư mục audio nếu file yêu cầu không khớp.
-    if (!fs.existsSync(imagePath) && /audio[\\/]bg-music\.[^./\\]+$/.test(file)) {
+    // MỌI file trong audio/ đều có đuôi không đoán trước được, không riêng gì bg-music:
+    //   • bg-music.<ext>  — người dùng tự tải lên (mp3/wav/m4a/...)
+    //   • scene-NN.<ext>  — .mp3 nếu app tự tạo giọng, .wav nếu cắt từ file ElevenLabs
+    //                       (xem audioSlicer.js), .m4a nếu chép tay vào
+    // Frontend luôn xin MỘT đuôi cố định, nên ở đây dò theo basename và lấy file thật đang có.
+    // Trước đây chỉ bg-music được đối xử như vậy, khiến nút nghe thử giọng trả 404 ngay sau khi
+    // luồng cắt ElevenLabs ghi ra .wav.
+    if (!fs.existsSync(imagePath) && /audio[\\/][^./\\]+\.[^./\\]+$/.test(file)) {
       const audioDirPath = path.join(projectDir, 'audio');
       if (fs.existsSync(audioDirPath)) {
-        const match = fs.readdirSync(audioDirPath).find((f) => f.startsWith('bg-music.'));
+        const wanted = path.basename(file).replace(/\.[^.]+$/, '') + '.';
+        const match = fs.readdirSync(audioDirPath).find((f) => f.startsWith(wanted));
         if (match) imagePath = path.join(audioDirPath, match);
       }
     }

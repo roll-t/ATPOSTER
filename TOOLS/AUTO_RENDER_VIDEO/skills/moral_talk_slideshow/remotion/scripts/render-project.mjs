@@ -10,7 +10,10 @@
  *   node scripts/render-project.mjs my-video --captionStyle=karaoke --transitionStyle=slide-left --bilingual=false
  *
  * Options (all optional, fall back to the skill's original defaults):
- *   --captionStyle=box|tiktok|karaoke|page|hook
+ *   --captionStyle=box|tiktok|karaoke|page|hook|none
+ *   --kenBurnsMode=in|out|pan-left|pan-right|none   (bỏ trống = luân phiên in/out theo cảnh)
+ *   --cornerPatch=false   tắt ô che góc phải dưới (bắt buộc với ảnh nền sáng)
+ *   --channelLogo=false   ẩn logo kênh mờ ở đáy mọi slide
  *   --transitionStyle=crossfade|slide-left|slide-right|slide-up|zoom
  *   --bilingual=true|false   (show/hide the "\n"-separated translation line)
  *   --captionFont=be-vietnam-pro|roboto|montserrat|nunito|inter|oswald
@@ -59,7 +62,10 @@ for (const arg of process.argv.slice(3)) {
   const match = arg.match(/^--([a-zA-Z]+)=(.*)$/);
   if (match) flags[match[1]] = match[2];
 }
-const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook"];
+const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook", "none"];
+// Hướng Ken Burns áp cho MỌI cảnh. Bỏ trống = giữ hành vi cũ: Scene.tsx tự luân phiên in/out
+// theo chỉ số cảnh. Đặt "in" thì cả video là một nhịp phóng to chậm đều, không đảo chiều.
+const KEN_BURNS_MODES = ["in", "out", "pan-left", "pan-right", "none"];
 const TRANSITION_STYLES = ["crossfade", "slide-left", "slide-right", "slide-up", "zoom"];
 const CAPTION_FONTS = ["paytone-one", "itim", "be-vietnam-pro", "roboto", "montserrat", "nunito", "inter", "oswald", "poppins"];
 // Loose allowlist for freeform color strings (hex, rgb()/rgba(), "transparent",
@@ -70,6 +76,11 @@ const CSS_COLOR_RE = /^[a-zA-Z0-9#(),.\s%-]+$/;
 
 const captionStyle = CAPTION_STYLES.includes(flags.captionStyle) ? flags.captionStyle : "box";
 const transitionStyle = TRANSITION_STYLES.includes(flags.transitionStyle) ? flags.transitionStyle : "crossfade";
+const kenBurnsMode = KEN_BURNS_MODES.includes(flags.kenBurnsMode) ? flags.kenBurnsMode : undefined;
+// Mặc định BẬT: giữ nguyên hành vi cũ của dòng pictogram nền đen. Chỉ tắt khi được dặn tường minh.
+const imageCornerPatch = flags.cornerPatch !== "false";
+// Mặc định BẬT, giống hành vi cũ khi logo còn gắn cứng trong Scene.tsx.
+const channelLogo = flags.channelLogo !== "false";
 const showBilingual = flags.bilingual === undefined ? true : flags.bilingual !== "false";
 // "page" only makes sense as a whole-scene, centered block — see the usage note above.
 const isPageStyle = captionStyle === "page";
@@ -162,6 +173,9 @@ const scenes = manifest.segments.map((seg) => {
 
   return {
     image: imagePath,
+    // Ghim hướng Ken Burns lên TỪNG cảnh khi có cờ --kenBurnsMode. Scene.tsx đọc scene.kenBurns
+    // trước rồi mới rơi về luân phiên theo chỉ số, nên ghim ở đây là đủ, không phải sửa component.
+    ...(kenBurnsMode ? { kenBurns: kenBurnsMode } : {}),
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
     caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
     // Real per-word timing from ElevenLabs' alignment API, if the voiceover
@@ -223,6 +237,8 @@ const remotionConfig = {
   captionPosition: isPageStyle ? "center" : isHookStyle ? "top" : "bottom",
   imageFit: "cover",
   kenBurns: !isPageStyle,
+  imageCornerPatch,
+  channelLogo,
   transitionSeconds: 0.5,
   transitionStyle,
   // "hook" (pictogram trắng phát sáng trên nền ĐEN TUYỆT ĐỐI, xem moral_talk_slideshow) cần nền
@@ -335,6 +351,7 @@ if (scenes.length > 0 && scenes[0].image) {
           headline: manifest.title || "slideshow-video",
           highlightColor: "#d9a620",
           orientation: remotionConfig.orientation,
+          channelLogo,
         })}`,
         "--frame=20",
       ],

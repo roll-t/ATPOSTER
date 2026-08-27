@@ -67,6 +67,8 @@ export const Scene: React.FC<{
   transitionStyle: TransitionStyle;
   globalKenBurns: boolean;
   globalImageFit: "cover" | "contain";
+  imageCornerPatch: boolean;
+  channelLogo: boolean;
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
@@ -96,6 +98,8 @@ export const Scene: React.FC<{
   transitionStyle,
   globalKenBurns,
   globalImageFit,
+  imageCornerPatch,
+  channelLogo,
   imageScale,
   imageTranslateY,
   captionMarginY,
@@ -208,9 +212,10 @@ export const Scene: React.FC<{
         topOffsetPercent={captionStyle === "hook" ? HOOK_IMAGE_OFFSET_PERCENT : 0}
         imageScale={imageScale}
         imageTranslateY={imageTranslateY}
-        // Chỉ bật ở skill này (xem CORNER_PATCH trong SceneImage.tsx). Nền ảnh của dòng video này
-        // là đen tuyền nên ô che trùng màu nền, không để lại vệt.
-        patchBottomRightCorner
+        // Ô che góc chỉ vô hình khi nền ảnh ĐEN TUYỀN (dòng pictogram). Ảnh nền sáng — như tranh
+        // màu nước trên giấy trắng của dòng video Phật giáo — sẽ ăn nguyên một ô đen ở góc phải
+        // dưới MỌI slide, nên phải theo cấu hình chứ không gắn cứng.
+        patchBottomRightCorner={imageCornerPatch}
         cornerPatchColor="#000000"
       />
       <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
@@ -220,7 +225,10 @@ export const Scene: React.FC<{
           Khác với việc để caption rỗng ở khâu viết kịch bản: caption vẫn cần giữ nguyên vì lời kể
           (dialogueOrNarration) và phụ đề là 2 trường tách biệt, xoá caption đi thì mất luôn dữ
           liệu, còn ở đây chỉ là không VẼ nó ra. */}
-      {layout === "caption-left" ? (
+      {/* captionStyle "none" đứng TRƯỚC mọi nhánh bố cục: nó là lệnh "video này không có chữ",
+          nên phải thắng cả "caption-left". Đặt sau thì một slide lỡ mang layout caption-left vẫn
+          vẽ chữ ra, và đó đúng là loại lỗi chỉ lộ ra sau khi render xong cả video. */}
+      {captionStyle === "none" ? null : layout === "caption-left" ? (
         <CaptionLeftOverlay
           caption={scene.caption}
           fontFamily={fontFamily}
@@ -254,7 +262,8 @@ export const Scene: React.FC<{
           opacity={1}
         />
       )}
-      {/* Watermark Logo tinh tế phía dưới ảnh */}
+      {/* Logo kênh mờ ở đáy khung — bật/tắt trong "Cấu hình kiểu render" (schema: channelLogo) */}
+      {channelLogo ? (
       <div
         style={{
           position: "absolute",
@@ -280,6 +289,7 @@ export const Scene: React.FC<{
           }}
         />
       </div>
+      ) : null}
     </AbsoluteFill>
   );
 };

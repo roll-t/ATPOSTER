@@ -15,6 +15,7 @@ import SegmentedResultView from './components/SegmentedResultView.js';
 import HistoryList from './components/HistoryList.js';
 import CreatedVideosGrid from './components/CreatedVideosGrid.js';
 import PexelsSearchPanel from './components/PexelsSearchPanel.js';
+import CraftAsmrPanel from './components/CraftAsmrPanel.js';
 import SettingsModal from './components/SettingsModal.js';
 
 function PromptsStudioContent() {
@@ -25,7 +26,9 @@ function PromptsStudioContent() {
   const tabParam = searchParams.get('tab');
   const isPexelsTab = tabParam === 'pexels';
   const isVideosTab = tabParam === 'videos';
-  const isGridMode = !isPexelsTab && !isVideosTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+  const isCraftTab = tabParam === 'craft';
+  const isGridMode =
+    !isPexelsTab && !isVideosTab && !isCraftTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
 
   const initialCategory = categoryParam && PROMPT_CATEGORIES[categoryParam] ? categoryParam : undefined;
   const s = usePromptStudio(initialCategory);
@@ -135,6 +138,17 @@ function PromptsStudioContent() {
             </svg>
             Stock Pexels
           </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/?tab=craft')}
+            className={`nav-item ${isCraftTab ? 'active' : ''}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+            Prompt ASMR Chế Tác
+          </button>
         </nav>
 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -179,6 +193,11 @@ function PromptsStudioContent() {
             /* Màn hình Kho Stock Pexels độc lập */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
               <PexelsSearchPanel />
+            </div>
+          ) : isCraftTab ? (
+            /* Màn hình sinh prompt video ASMR chế tác thủ công (độc lập, không qua Remotion) */
+            <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
+              <CraftAsmrPanel />
             </div>
           ) : isVideosTab ? (
             /* Màn hình Video đã tạo độc lập */

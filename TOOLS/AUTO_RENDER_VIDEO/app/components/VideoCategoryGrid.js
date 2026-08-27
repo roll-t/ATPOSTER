@@ -481,7 +481,14 @@ const CARD_CONFIGS = {
     accentColor: '#f59e0b',
     glowColor: 'rgba(245, 158, 11, 0.3)',
     buttonTextColor: '#000',
-    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Anh (Vietsub)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ 1 Ảnh / 20s (Google Flow)']
+    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ 1 Ảnh / 5s (Google Flow)']
+  },
+  japanese_history: {
+    badge: '⚔️ LỊCH SỬ NHẬT BẢN',
+    badgeBg: 'linear-gradient(135deg, #f43f5e, #be123c)',
+    accentColor: '#f43f5e',
+    glowColor: 'rgba(244, 63, 94, 0.3)',
+    tags: ['🏯 Lịch Sử · Samurai · Ninja', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Cùng Nét Vẽ Với Skill Phật Giáo', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 4 - 20 Phút', '🖼️ 1 Ảnh / 5s (Google Flow)']
   },
   stick_figure_slideshow: {
     bgImg: '/card-bg/stick_figure_slideshow.png',
@@ -517,7 +524,7 @@ const CARD_CONFIGS = {
 };
 
 export default function VideoCategoryGrid({ onSelectCategory }) {
-  const allCategoryKeys = ['buddhist_wisdom', 'stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
+  const allCategoryKeys = ['buddhist_wisdom', 'japanese_history', 'stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
 
   return (
     <div style={{ padding: '8px 8px 36px 8px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -648,6 +655,7 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 zIndex: 1
               }}>
                 {key === 'buddhist_wisdom' && <BuddhistWisdomPreview />}
+                {key === 'japanese_history' && <BuddhistWisdomPreview />}
                 {key === 'stick_figure_slideshow' && <StickFigurePreview />}
                 {key === 'reading_practice' && <ReadingPracticePreview />}
                 {key === 'moral_talk_slideshow' && <MoralTalkPreview />}

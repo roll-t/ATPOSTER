@@ -20,9 +20,24 @@ export async function POST(req) {
       imageCount = fs.readdirSync(imagesDir).filter(f => f.startsWith('scene-') && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp'))).length;
     }
 
+    // Giọng đọc từng slide KHÔNG phải lúc nào cũng là .mp3. Giọng do app tự tạo (Edge/CapCut) ra
+    // .mp3, nhưng luồng lồng tiếng ngoài cắt file ElevenLabs ngay trong trình duyệt thì ghi ra
+    // .wav (xem audioSlicer.js — trình duyệt giải mã được mp3 nhưng không encode lại được mp3),
+    // và người dùng chép tay vào cũng có thể là .m4a. Bản trước chỉ đếm .mp3 nên 52 file .wav ghi
+    // thành công vẫn cho audioCount = 0, khiến nút Render không bao giờ mở dù dữ liệu đã đủ.
+    //
+    // render-project.mjs vốn đã dò đuôi thật (`match.split('.').pop()`), nên chỗ ĐẾM này mới là
+    // nơi duy nhất còn gắn cứng .mp3.
+    const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac'];
     let audioCount = 0;
+    // Đuôi THẬT của file giọng đọc trên đĩa — trả về để giao diện xin đúng tên khi nghe thử,
+    // thay vì đoán 'mp3' rồi nhận 404.
+    let audioExt = null;
     if (fs.existsSync(audioDir)) {
-      audioCount = fs.readdirSync(audioDir).filter(f => f.startsWith('scene-') && f.endsWith('.mp3')).length;
+      const sceneAudio = fs.readdirSync(audioDir)
+        .filter(f => f.startsWith('scene-') && AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
+      audioCount = sceneAudio.length;
+      if (sceneAudio.length > 0) audioExt = path.extname(sceneAudio[0]).slice(1).toLowerCase();
     }
 
     // targetDir (đã resolve ở trên qua resolveProjectDir) đã tự tìm đúng vị trí thật của
@@ -59,6 +74,7 @@ export async function POST(req) {
       success: true,
       imageCount,
       audioCount,
+      audioExt,
       videoCreated,
       hasBgMusic: Boolean(bgMusicFile),
       bgMusicFile,

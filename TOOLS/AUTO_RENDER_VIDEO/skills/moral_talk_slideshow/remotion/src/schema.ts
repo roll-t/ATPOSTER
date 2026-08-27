@@ -126,6 +126,21 @@ export const slideshowVideoSchema = z.object({
   imageTranslateY: z.number().min(-100).max(100).default(0),
   captionMarginY: z.number().min(-800).max(800).default(0),
   kenBurns: z.boolean().default(true),
+
+  // Ô che góc phải dưới của ảnh (xem CORNER_PATCH trong SceneImage.tsx). Nó ra đời cho dòng ảnh
+  // pictogram NỀN ĐEN TUYỆT ĐỐI: ô che trùng màu nền nên vô hình, chỉ có tác dụng xoá một góc
+  // sáng thừa trong ảnh nguồn.
+  //
+  // Trên ảnh nền SÁNG thì nó là một ô đen chình ình. Skill Remotion này còn được dùng để render
+  // dòng video tranh màu nước Phật giáo (giấy trắng, không có góc thừa nào cần che), nên phải
+  // tắt được. Mặc định true để mọi cấu hình cũ render ra y hệt như trước.
+  imageCornerPatch: z.boolean().default(true),
+
+  // Logo kênh mờ ở đáy MỌI slide (public/logo/the-mind-logo.png). Trước đây gắn cứng trong
+  // Scene.tsx, không có đường nào tắt — mà cùng một skill Remotion này còn render dòng video Phật
+  // giáo, nơi người dùng có thể không muốn gắn thương hiệu lên tranh.
+  // Mặc định true để mọi video cũ giữ nguyên logo như trước.
+  channelLogo: z.boolean().default(true),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),
@@ -175,7 +190,10 @@ export const slideshowVideoSchema = z.object({
   // the scene's own image down a little (see SceneImage.tsx) to leave
   // headroom for the card instead of the card sitting on top of it. See
   // Caption.tsx.
-  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook"]).default("box"),
+  // "none" = KHÔNG vẽ phụ đề, chỉ còn hình + tiếng. Dùng cho dòng video tranh màu nước Phật
+  // giáo: chữ đè lên tranh phá mất khoảng trống của bức tranh, mà lời kể đã có giọng đọc.
+  // Vẫn giữ scene.caption trong config: đây chỉ là không VẼ, không phải xoá dữ liệu.
+  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook", "none"]).default("box"),
 
   // CapCut-style manual overrides on top of whatever captionStyle already looks
   // like — every field here is optional and only overrides that one visual

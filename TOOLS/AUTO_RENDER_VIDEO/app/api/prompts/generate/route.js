@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/lib/db.js';
-import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCoverPrompts } from '@/lib/prompts/index.js';
 import { generateSegmentedScript, translateAndExpandInputs } from '@/lib/prompts/gemini/index.js';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
 import { getSkill } from '@/lib/skills/index.js';
@@ -84,6 +84,15 @@ export async function POST(request) {
         category,
         input: { ...processedInput, durationRange: durationRange || 'under_1m', useGemini: true },
         title: geminiResult.title,
+        // Khối ĐĂNG VIDEO + ẢNH BÌA do Gemini viết kèm (xem mục 7-8 trong buddhistWisdom.js).
+        // Phải liệt kê tường minh: record chỉ giữ những trường được kể tên ở đây, mọi trường
+        // khác trong geminiResult đều rơi mất — kể cả khi prompt đã yêu cầu model trả về.
+        ...(geminiResult.youtubeTitle ? { youtubeTitle: geminiResult.youtubeTitle } : {}),
+        ...(Array.isArray(geminiResult.hashtags) && geminiResult.hashtags.length > 0
+          ? { hashtags: geminiResult.hashtags }
+          : {}),
+        ...(geminiResult.youtubeDescription ? { youtubeDescription: geminiResult.youtubeDescription } : {}),
+        ...(geminiResult.coverPrompts ? { coverPrompts: buildBuddhistCoverPrompts(geminiResult.coverPrompts) } : {}),
         segments: segmentedPrompts,
         isSegmented: true,
         createdAt: new Date().toISOString(),

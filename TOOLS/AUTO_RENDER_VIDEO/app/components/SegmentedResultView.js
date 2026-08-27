@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import VoiceSplitPanel from './VoiceSplitPanel.js';
 import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
 
@@ -17,13 +18,13 @@ import {
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
   CATEGORY_STYLE_OVERRIDES, SYSTEM_READING_PRESETS
 } from './SegmentedResultView/constants.js';
-import { WORDS_PER_SECOND_EN_SLOW } from '@/lib/speechRate.js';
+import { WORDS_PER_SECOND_EN_SLOW, CHARS_PER_SECOND_JA_SLOW, countNarrationUnits, isJapaneseText } from '@/lib/speechRate.js';
 import {
   stripEmotionTagsForDisplay, cleanNarrationText, hasEmotionTags,
   countWords, estimateSpeechSeconds, formatDuration,
   optionLabel, detectActiveCharacters, getFlowQueueStatus,
   buildFullNarrationText, splitNarrationForTts, buildTtsScriptText,
-  countCharacters, TTS_CHUNK_CHAR_LIMIT
+  countCharacters, ttsChunkLimitFor
 } from './SegmentedResultView/utils.js';
 
 // Map moralTheme key → DANH SÁCH từ khoá tìm video nền (tiếng Anh, vì Pexels tìm chuẩn hơn).
@@ -174,6 +175,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // được viết để dán thẳng sang ElevenLabs v3 (v3 thật sự diễn theo [whispers], [sighs]...).
   // Prompt của các skill còn lại cấm hẳn tag, nên với chúng nút bật/tắt bên dưới không hiện ra.
   const isBuddhistWisdom = result.category === 'buddhist_wisdom';
+  // Skill lịch sử Nhật là bản song sinh của skill Phật giáo: cùng pipeline, cùng nhịp 5 giây/ảnh,
+  // cùng lồng tiếng ngoài bằng ElevenLabs, cùng tắt phụ đề, cùng zoom đều. Mọi cờ hành vi bên dưới
+  // vì vậy phải hỏi CỜ CHUNG này, không hỏi riêng isBuddhistWisdom — nếu không skill mới sẽ âm thầm
+  // rơi về hành vi mặc định (có phụ đề, đếm chữ theo tiếng Việt, không mở bảng ghép giọng).
+  const isJapaneseNarrative = isBuddhistWisdom || result.category === 'japanese_history';
   // Kịch bản Phật giáo là 100% TIẾNG ANH đọc chậm kiểu thiền. Để mặc định (tốc độ tiếng Việt
   // 4.3 âm tiết/giây) thì dòng "đọc khoảng ..." báo ngắn hơn sự thật khoảng một nửa — đúng lỗi
   // đã gặp: kịch bản 833 từ hiện "3 phút 14 giây" trong khi đọc thật mất hơn 6 phút.
@@ -184,14 +190,22 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Riêng Bước 4 (render) VẪN đòi audio có thật trên đĩa: render-project.mjs gắn cứng
   // audio/scene-NN.mp3 cho từng cảnh, thiếu file là Remotion đứt giữa chừng. Người dùng bỏ file
   // mp3 tự lồng vào thư mục audio/ là assetCounts đếm được và Bước 4 tự mở.
-  const isExternalVoiceSkill = isBuddhistWisdom;
-  const narrationWps = isBuddhistWisdom ? WORDS_PER_SECOND_EN_SLOW : undefined;
-  const estimateSeconds = (text) => (
-    narrationWps ? estimateSpeechSeconds(text, false, narrationWps) : estimateSpeechSeconds(text)
-  );
+  const isExternalVoiceSkill = isJapaneseNarrative;
+  // Skill Phật giáo giờ viết 100% TIẾNG NHẬT, mà tiếng Nhật viết liền không khoảng trắng: đếm
+  // theo "từ" thì cả một câu 34 ký tự ra đúng 1 từ, và dòng "đọc khoảng ... phút" sai khoảng 30
+  // lần. Chuyển hẳn sang đơn vị KÝ TỰ khi văn bản là tiếng Nhật (countNarrationUnits tự nhận ra).
+  const estimateSeconds = (text) => {
+    if (!isJapaneseNarrative) return estimateSpeechSeconds(text);
+    const spoken = stripEmotionTagsForDisplay(text);
+    const units = countNarrationUnits(spoken);
+    const rate = isJapaneseText(spoken) ? CHARS_PER_SECOND_JA_SLOW : WORDS_PER_SECOND_EN_SLOW;
+    return Math.round(units / rate);
+  };
+  // Nhãn đơn vị cho dòng thống kê: "chữ" với ngôn ngữ tách bằng khoảng trắng, "ký tự" với Nhật.
+  const narrationUnitLabel = (text) => (isJapaneseText(text) ? 'ký tự' : 'chữ');
   // Hiện [tag] trong mọi ô lời kể + bản copy. Mặc định bật cho skill Phật giáo (đúng thứ người
   // dùng cần đem dán), tắt ở nơi khác để giữ nguyên hành vi cũ.
-  const [showEmotionTags, setShowEmotionTags] = useState(isBuddhistWisdom);
+  const [showEmotionTags, setShowEmotionTags] = useState(isJapaneseNarrative);
   const scriptHasEmotionTags = hasEmotionTags(result.segments);
 
   // Kho "Format đã lưu" (preset kiểu phụ đề / chuyển cảnh / font / màu) tách RIÊNG theo skill.
@@ -263,7 +277,25 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
   const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => result.remotionConfig?.transitionStyle || result.remotionConfig?.transitionEffect || 'crossfade');
   const [renderBilingual, setRenderBilingual] = useState(() => result.remotionConfig?.bilingual !== undefined ? result.remotionConfig.bilingual : (result.remotionConfig?.showBilingual !== undefined ? result.remotionConfig.showBilingual : true));
+  // Logo kênh mờ ở đáy mọi slide. Mặc định BẬT — trước đây nó gắn cứng trong Scene.tsx nên mọi
+  // video đã render đều có, để mặc định tắt sẽ âm thầm đổi diện mạo các dự án cũ khi render lại.
+  const [renderChannelLogo, setRenderChannelLogo] = useState(() => (
+    result.remotionConfig?.channelLogo !== undefined ? result.remotionConfig.channelLogo : true
+  ));
   const [showRenderConfig, setShowRenderConfig] = useState(false);
+
+  // Dòng video Phật giáo: tranh màu nước chừa nhiều khoảng trắng, chữ đè lên là phá mất chính
+  // thứ làm nên bức tranh — mà lời kể đã có giọng đọc rồi. Nên bỏ hẳn phụ đề, và cho ảnh phóng
+  // to chậm ĐỀU (tuyến tính, cùng một chiều cho mọi slide) thay vì luân phiên in/out như mặc định.
+  //
+  // Ép ở ĐÂY — lúc gửi lệnh render — chứ không đụng vào renderCaptionStyle: state đó còn được
+  // ghi vào preset và remotionConfig lưu bền, ép vào đó sẽ làm bẩn preset dùng chung với các
+  // skill khác (buddhist_wisdom render bằng chính skill Remotion của moral_talk_slideshow).
+  const forcedCaptionStyle = isJapaneseNarrative ? 'none' : renderCaptionStyle;
+  const forcedKenBurnsMode = isJapaneseNarrative ? 'in' : undefined;
+  // Ô che góc phải dưới sinh ra cho ảnh pictogram nền đen. Tranh màu nước nền giấy trắng mà bật
+  // nó lên thì mỗi slide dính một ô đen ở góc — tắt hẳn cho skill này.
+  const forcedCornerPatch = isJapaneseNarrative ? false : undefined;
 
   // Tuỳ chỉnh phụ đề kiểu CapCut — tự động đồng bộ theo thông số mặc định của kiểu phụ đề được chọn
   const [renderCaptionFont, setRenderCaptionFont] = useState(initialDefaults.font);
@@ -902,6 +934,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     videoCreated: false,
     hasBgMusic: false,
     bgMusicFile: null, // tên file nhạc nền thật trên đĩa, vd "bg-music.mp3" hoặc "bg-music.m4a"
+    audioExt: null,    // đuôi thật của scene-NN trên đĩa: 'mp3' (app tự tạo) hoặc 'wav' (cắt từ ElevenLabs)
     hasBgVideo: false
   });
 
@@ -1494,6 +1527,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [voicePreviewVersion, setVoicePreviewVersion] = useState(0);
   const [renderProgress, setRenderProgress] = useState(0);
   const [isOpeningFolder, setIsOpeningFolder] = useState(false);
+  // State riêng cho nút mở thư mục ảnh ở Bước 2, KHÔNG dùng chung với nút mở thư mục dự án ở
+  // Bước 4: dùng chung thì bấm nút này lại làm nút kia xám đi và lỗi hiện ở chỗ không liên quan.
+  const [isOpeningImages, setIsOpeningImages] = useState(false);
+  // Bảng ghép giọng ElevenLabs ở Bước 1 (chỉ skill lồng tiếng ngoài) — mặc định đóng vì đa số
+  // lượt mở lại dự án là để xem/render, không phải để nạp lại giọng.
+  const [showVoiceSplit, setShowVoiceSplit] = useState(false);
+  const [openImagesError, setOpenImagesError] = useState('');
   const [openFolderError, setOpenFolderError] = useState('');
 
   const [showVoiceConfig, setShowVoiceConfig] = useState(false);
@@ -1570,7 +1610,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setPreviewAudioIndex(index);
 
     const folder = result.input?.folderPath || 'example';
-    const audExt = result.input?.audioExt || 'mp3';
+    const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
     const paddedNum = String(index + 1).padStart(2, '0');
     const previewSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
 
@@ -1627,6 +1667,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           videoCreated: data.videoCreated,
           hasBgMusic: data.hasBgMusic || false,
           bgMusicFile: data.bgMusicFile || null,
+          audioExt: data.audioExt || null,
           hasBgVideo: data.hasBgVideo || false
         });
         // Dựng lại trạng thái "đoạn nào đã có nền riêng" từ file thật trên đĩa. Từ khoá và ảnh thu
@@ -1679,7 +1720,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           [settingsKey('defaultCaptionBgColor')]: renderCaptionBgColor,
           [settingsKey('defaultHighlightColor')]: renderHighlightColor,
           [settingsKey('defaultTransitionStyle')]: renderTransitionStyle,
-          [settingsKey('defaultBilingual')]: renderBilingual
+          [settingsKey('defaultBilingual')]: renderBilingual,
+          [settingsKey('defaultChannelLogo')]: renderChannelLogo
         })
       });
       if (typeof window !== 'undefined') {
@@ -2064,6 +2106,31 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // Mở thẳng <dự án>/images — nơi Google Flow đổ ảnh về sau Bước 2.
+  const handleOpenImagesFolder = async () => {
+    setIsOpeningImages(true);
+    setOpenImagesError('');
+    try {
+      const res = await fetch('/api/prompts/open-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath: result.input?.folderPath || 'example',
+          category: result.category,
+          subfolder: 'images'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setOpenImagesError(data.error || 'Không thể mở thư mục ảnh.');
+      }
+    } catch (err) {
+      setOpenImagesError('Lỗi kết nối khi mở thư mục ảnh.');
+    } finally {
+      setIsOpeningImages(false);
+    }
+  };
+
   const handleRenderVideo = async () => {
     setIsRenderingVideo(true);
     setRenderMsg('');
@@ -2096,8 +2163,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
           ...(allHaveElements || isPexelsTalkVideo ? { segments: result.segments, title: result.title } : {}),
-          captionStyle: renderCaptionStyle,
+          captionStyle: forcedCaptionStyle,
           transitionStyle: renderTransitionStyle,
+          kenBurnsMode: forcedKenBurnsMode,
+          cornerPatch: forcedCornerPatch,
+          channelLogo: renderChannelLogo,
           bilingual: renderBilingual,
           orientation: orientation,
           level: result.input?.level || result.level || undefined,
@@ -2458,6 +2528,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       bodyAlign: renderBodyAlign,
       imageMode: renderImageMode,
       bilingual: renderBilingual,
+      channelLogo: renderChannelLogo,
       bgMusicEnabled: renderBgMusicEnabled,
       bgMusicVolume: renderBgMusicVolume,
       bgMusicTrackId: selectedBgMusicTrackId,
@@ -2777,7 +2848,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       return;
     }
     const folder = result.input?.folderPath || 'example';
-    const audExt = result.input?.audioExt || 'mp3';
+    const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
     const paddedNum = String(seg.segmentNumber).padStart(2, '0');
     const src = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folder)}&file=audio/scene-${paddedNum}.${audExt}&category=${encodeURIComponent(result.category || '')}&v=${voicePreviewVersion}`;
     const audio = new Audio(src);
@@ -3118,6 +3189,23 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      {isExternalVoiceSkill && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          title="Đã render giọng bên ElevenLabs? Thả file dài vào đây, tool tự cắt theo từng slide."
+                          style={{
+                            padding: '7px 12px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap',
+                            background: showVoiceSplit ? 'rgba(37,244,238,0.15)' : undefined,
+                            border: showVoiceSplit ? '1px solid rgba(37,244,238,0.4)' : undefined,
+                            color: showVoiceSplit ? 'var(--secondary)' : undefined
+                          }}
+                          onClick={() => setShowVoiceSplit((v) => !v)}
+                          disabled={isRenderingVideo}
+                        >
+                          {showVoiceSplit ? '▲ Đóng ghép giọng' : '🎧 Ghép giọng ElevenLabs'}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-secondary"
@@ -3173,6 +3261,18 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </div>
                   </div>
+
+                  {isExternalVoiceSkill && showVoiceSplit && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                      <VoiceSplitPanel
+                        segments={result.segments}
+                        folderPath={result.input?.folderPath || 'example'}
+                        category={result.category}
+                        keepTags={showEmotionTags}
+                        onApplied={checkAssets}
+                      />
+                    </div>
+                  )}
 
                   {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
                       dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
@@ -3611,28 +3711,55 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         </span>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      style={{
-                        padding: '7px 14px',
-                        fontSize: '0.76rem',
-                        borderRadius: '8px',
-                        fontWeight: 700,
-                        background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                        color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                        border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                        boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                        cursor: !isStep1Done ? 'not-allowed' : 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}
-                      onClick={() => pushToFlow(flowStatus)}
-                      disabled={!isStep1Done}
-                    >
-                      {flowButtonLabel(flowStatus)}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {/* Chỉ hiện khi dự án đã có ảnh: chưa sinh ảnh thì thư mục images/ còn
+                          chưa tồn tại và nút sẽ lặng lẽ mở nhầm sang thư mục gốc. */}
+                      {assetCounts.imageCount > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          title={`Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về`}
+                          style={{
+                            padding: '7px 12px',
+                            fontSize: '0.76rem',
+                            borderRadius: '8px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            cursor: isOpeningImages ? 'wait' : 'pointer'
+                          }}
+                          onClick={handleOpenImagesFolder}
+                          disabled={isOpeningImages}
+                        >
+                          {isOpeningImages ? '⏳ Đang mở...' : '🖼️ Thư mục ảnh'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          padding: '7px 14px',
+                          fontSize: '0.76rem',
+                          borderRadius: '8px',
+                          fontWeight: 700,
+                          background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                          color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                          border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                          boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                          cursor: !isStep1Done ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0
+                        }}
+                        onClick={() => pushToFlow(flowStatus)}
+                        disabled={!isStep1Done}
+                      >
+                        {flowButtonLabel(flowStatus)}
+                      </button>
+                    </div>
                   </div>
+
+                  {openImagesError && (
+                    <div style={{ fontSize: '0.74rem', color: '#f87171' }}>⚠️ {openImagesError}</div>
+                  )}
 
                   {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
                   {isStep2Running && flowStatus && flowStatus.total > 0 && (
@@ -3754,9 +3881,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const isStep2Done = isPexelsTalkVideo
                 ? assetCounts.hasBgVideo
                 : (allHaveElements || (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
-              // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs gắn cứng
-              // audio/scene-NN.mp3 cho từng cảnh nên thiếu file là Remotion đứt, không phải chỉ
-              // mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào lỗi khó hiểu.
+              // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs đòi một
+              // file audio/scene-NN.<ext> cho TỪNG cảnh, thiếu file là Remotion đứt giữa chừng chứ
+              // không phải chỉ mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào
+              // một lỗi render khó hiểu.
+              //
+              // Đuôi file không nhất thiết là .mp3: luồng cắt giọng ElevenLabs ghi ra .wav. Cả
+              // render-project.mjs lẫn check-assets đều dò đuôi thật, nên đừng gắn cứng .mp3 ở đây.
               const isReadyToRender = isStep1Done && isStep2Done;
               const isRenderDone = assetCounts.videoCreated;
               const stepNum = isPexelsTalkVideo ? '3' : allHaveElements ? '3' : '4';
@@ -3965,7 +4096,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       scenes: result.segments.map(seg => {
                         const folder = result.input?.folderPath || 'example';
                         const imgExt = result.input?.imageExt || 'jpg';
-                        const audExt = result.input?.audioExt || 'mp3';
+                        const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
                         const paddedNum = String(seg.segmentNumber).padStart(2, '0');
                         return {
                           image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
@@ -4008,7 +4139,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   scenes: result.segments.map(seg => {
                     const folder = result.input?.folderPath || 'example';
                     const imgExt = result.input?.imageExt || 'jpg';
-                    const audExt = result.input?.audioExt || 'mp3';
+                    const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
                     const paddedNum = String(seg.segmentNumber).padStart(2, '0');
                     return {
                       image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
@@ -4086,7 +4217,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <span>Toàn bộ lời thuyết minh</span>
                 </strong>
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
-                  {countWords(spokenOnlyText)} chữ · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
+                  {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
                   {isMultiPart && (
                     <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
                       {' '}· chia {ttsParts.length} lần render TTS
@@ -4148,7 +4279,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
                           </strong>
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {countCharacters(part).toLocaleString('vi-VN')} / {TTS_CHUNK_CHAR_LIMIT.toLocaleString('vi-VN')} ký tự
+                            {countCharacters(part).toLocaleString('vi-VN')} / {ttsChunkLimitFor(part).toLocaleString('vi-VN')} ký tự
                           </span>
                           <button
                             type="button"
@@ -4181,6 +4312,146 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           );
         })()}
       </div>
+
+      {/* Khối ĐĂNG VIDEO + ẢNH BÌA — chỉ skill Phật giáo (tiếng Nhật) mới có, và chỉ hiện khi
+          Gemini thật sự trả về. Kịch bản sinh TRƯỚC bản cập nhật này không có mấy trường đó,
+          hiện khối rỗng ra chỉ làm người dùng tưởng hỏng. */}
+      {activeTab === 'script' && isJapaneseNarrative && (result.youtubeTitle || result.hashtags || result.coverPrompts) && (
+        <div style={{
+          marginBottom: '16px', padding: '14px 16px', borderRadius: '12px',
+          border: '1px solid rgba(37,244,238,0.25)', background: 'rgba(37,244,238,0.05)',
+          display: 'flex', flexDirection: 'column', gap: '12px'
+        }}>
+          <strong style={{ fontSize: '0.88rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            📤 Đăng video lên YouTube (tiếng Nhật)
+          </strong>
+
+          {result.youtubeTitle && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Tiêu đề</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                        onClick={() => onCopy(result.youtubeTitle, 'yt_title')}
+                      >
+                        {copiedKey === 'yt_title' ? '✓ Đã chép!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <p style={{
+                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                      fontWeight: 700
+                    }}>
+                      {result.youtubeTitle}
+                    </p>
+                  </div>
+          )}
+
+          {Array.isArray(result.hashtags) && result.hashtags.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Hashtag</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                        onClick={() => onCopy(result.hashtags.join(' '), 'yt_tags')}
+                      >
+                        {copiedKey === 'yt_tags' ? '✓ Đã chép!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <p style={{
+                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                      fontWeight: 700
+                    }}>
+                      {result.hashtags.join(' ')}
+                    </p>
+                  </div>
+          )}
+
+          {result.youtubeDescription && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Mô tả</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                        onClick={() => onCopy(result.youtubeDescription, 'yt_desc')}
+                      >
+                        {copiedKey === 'yt_desc' ? '✓ Đã chép!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <p style={{
+                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                      fontWeight: 700
+                    }}>
+                      {result.youtubeDescription}
+                    </p>
+                  </div>
+          )}
+
+          {result.coverPrompts && (
+            <>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                🖼️ Prompt ảnh bìa
+              </strong>
+              {result.coverPrompts.landscape && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ngang 16:9 — video dài</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                        onClick={() => onCopy(result.coverPrompts.landscape, 'cover_landscape')}
+                      >
+                        {copiedKey === 'cover_landscape' ? '✓ Đã chép!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <p style={{
+                      margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                    }}>
+                      {result.coverPrompts.landscape}
+                    </p>
+                  </div>
+              )}
+              {result.coverPrompts.portrait && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Dọc 9:16 — video ngắn</strong>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                        onClick={() => onCopy(result.coverPrompts.portrait, 'cover_portrait')}
+                      >
+                        {copiedKey === 'cover_portrait' ? '✓ Đã chép!' : '📋 Copy'}
+                      </button>
+                    </div>
+                    <p style={{
+                      margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                    }}>
+                      {result.coverPrompts.portrait}
+                    </p>
+                  </div>
+              )}
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Hai prompt này cố ý KHÔNG chứa chữ — công cụ sinh ảnh viết chữ Nhật rất tệ. Sinh ảnh trước, rồi
+                đặt tiêu đề lên phần khoảng trống bằng công cụ khác.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {activeTab === 'script' && (
         <>
@@ -4524,7 +4795,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                               <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
                               <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                                {countWords(editedValue(seg, 'dialogueOrNarration'))} chữ · ~{estimateSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                                {countNarrationUnits(editedValue(seg, 'dialogueOrNarration')).toLocaleString('vi-VN')} {narrationUnitLabel(editedValue(seg, 'dialogueOrNarration'))} · ~{estimateSeconds(editedValue(seg, 'dialogueOrNarration'))}s
                               </span>
                             </span>
                             {isEditingScript ? (
@@ -5746,6 +6017,21 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </span>
                     </div>
 
+                    {/* Skill Phật giáo render KHÔNG phụ đề (xem forcedCaptionStyle), nên cả bảng
+                        Style bên dưới lẫn nút song ngữ đều không tác động gì tới video. Nói thẳng
+                        ra đây, thay vì để người dùng bấm đi bấm lại rồi tưởng tool hỏng. */}
+                    {isJapaneseNarrative && (
+                      <div style={{
+                        fontSize: '0.72rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)',
+                        border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px',
+                        padding: '8px 10px', marginBottom: '10px', lineHeight: 1.5
+                      }}>
+                        🪷 Dòng video này render <strong>không có phụ đề</strong> — tranh giữ nguyên khoảng trắng, lời kể đã nằm ở giọng đọc.
+                        Ảnh <strong>phóng to chậm đều</strong> suốt mỗi slide. Bảng Style và nút song ngữ bên dưới vì vậy không đổi gì trên video;
+                        chúng chỉ còn dùng cho ảnh bìa và các skill khác. Kiểu chuyển cảnh thì vẫn có tác dụng.
+                      </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {/* 1. Format Style đã lưu của người dùng (nếu có) */}
                       {userPresets.filter((p) => !p.isSystemClone).map((p) => {
@@ -5870,6 +6156,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       {CAPTION_STYLE_OPTIONS.map(opt => {
                         const isPinned = settings?.[settingsKey('defaultCaptionStyle')] === opt.value;
                         const isSelected = renderCaptionStyle === opt.value;
+                        // Format đang áp dụng vốn đã CHỨA kiểu phụ đề này -> thẻ vẫn đúng, nhưng nó
+                        // là thành phần của thẻ Format chứ không phải một lựa chọn thứ hai. Hạ
+                        // xuống mức phụ để cả hàng chỉ còn một viền đỏ (xem PickerCard).
+                        const insideActivePreset = Boolean(activePreset) && (activePreset.config?.captionStyle === opt.value);
                         const optDefaults = CAPTION_STYLE_DEFAULTS[opt.value] || CAPTION_STYLE_DEFAULTS.box;
                         const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[opt.value];
 
@@ -5894,6 +6184,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             key={opt.value}
                             isLandscape={isLandscape}
                             selected={isSelected}
+                            subdued={insideActivePreset}
+                            subLabel={insideActivePreset ? `trong "${activePreset.name}"` : undefined}
                             showCustomizeBtn={true}
                             onClick={() => handleSelectCaptionStyle(opt.value)}
                             onCustomize={() => {
@@ -5948,6 +6240,65 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   </div>
                 </>
               )}
+
+              {/* Ẩn/hiện logo kênh — thẻ riêng vì nó KHÔNG thuộc về phụ đề: video Phật giáo đã tắt
+                  hẳn phụ đề nhưng vẫn cần quyết định có đóng dấu thương hiệu lên tranh hay không. */}
+              <div
+                onClick={() => setRenderChannelLogo(!renderChannelLogo)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  marginBottom: '12px',
+                  border: renderChannelLogo ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: renderChannelLogo ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                  boxShadow: renderChannelLogo ? '0 4px 20px rgba(37, 244, 238, 0.15)' : 'none',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: renderChannelLogo ? 'rgba(37, 244, 238, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                    flexShrink: 0
+                  }}>
+                    🏷️
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      Hiện logo kênh
+                      {settings?.[settingsKey('defaultChannelLogo')] !== undefined && settings[settingsKey('defaultChannelLogo')] === renderChannelLogo && (
+                        <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                      Đóng dấu logo mờ ở đáy mọi slide. Tắt để tranh sạch hoàn toàn.
+                    </span>
+                  </div>
+                </div>
+
+                <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={renderChannelLogo}
+                    onChange={(e) => setRenderChannelLogo(e.target.checked)}
+                  />
+                  <span className="switch-slider" style={{
+                    backgroundColor: renderChannelLogo ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                  }}></span>
+                </label>
+              </div>
 
               {/* Hiển thị phụ đề song ngữ (Card Container với Toggle Switch xịn) */}
               <div

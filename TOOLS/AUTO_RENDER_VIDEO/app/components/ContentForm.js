@@ -12,9 +12,11 @@ import { getMoralThemeLabel } from '@/lib/prompts/moralThemes.js';
 import { getMoralSyllabusCount } from '@/lib/prompts/moralSyllabus.js';
 import { BUDDHIST_SYLLABUS, getBuddhistSyllabusCount } from '@/lib/prompts/buddhistSyllabus.js';
 import { getBuddhistThemeLabel } from '@/lib/prompts/buddhistThemes.js';
+import { getBuddhistDurationOptions } from '@/lib/prompts/gemini/templates/buddhistWisdom.js';
 import LevelPicker from './LevelPicker.js';
 import MoralThemePicker from './MoralThemePicker.js';
 import BuddhistThemePicker from './BuddhistThemePicker.js';
+import JapaneseHistoryThemePicker from './JapaneseHistoryThemePicker.js';
 import StickFigureThemePicker from './StickFigureThemePicker.js';
 
 const VISIBLE_SUGGESTIONS_COUNT = 5;
@@ -52,7 +54,7 @@ export default function ContentForm({
   );
 
   // Các category có mốc "video dài" (4-6/6-8/8-10/10-15/15-20 phút) — đều là skill dựng bằng Remotion.
-  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video', 'buddhist_wisdom'];
+  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video', 'buddhist_wisdom', 'japanese_history'];
 
   // Trong số đó, category CHỈ cho phép mốc dài ở Dạng ngang 16:9: khung dọc 9:16 vốn để lướt nhanh
   // trên điện thoại, video 8-10 phút ở khung đó là sai mục đích sử dụng. Cố ý chỉ áp cho
@@ -75,7 +77,7 @@ export default function ContentForm({
 
   // Set default duration for buddhist_wisdom to 8_10m on category select
   useEffect(() => {
-    if (activeCategory === 'buddhist_wisdom' && !['4_6m', '6_8m', '8_10m', '10_15m', '15_20m'].includes(durationRange)) {
+    if (['buddhist_wisdom', 'japanese_history'].includes(activeCategory) && !['4_6m', '6_8m', '8_10m', '10_15m', '15_20m'].includes(durationRange)) {
       setDurationRange('8_10m');
     }
   }, [activeCategory]);
@@ -339,15 +341,13 @@ export default function ContentForm({
                 value={durationRange}
                 onChange={(e) => setDurationRange(e.target.value)}
               >
-                {activeCategory === 'buddhist_wisdom' ? (
+                {['buddhist_wisdom', 'japanese_history'].includes(activeCategory) ? (
                   <>
-                    {/* Số slide = số giây / 10 (1 ảnh giữ 10 giây) — lấy từ DURATION_TARGETS
-                        trong templates/buddhistWisdom.js. Sửa bảng đó thì sửa cả nhãn ở đây. */}
-                    <option value="4_6m">Từ 4 - 6 phút (26 - 34 slide tranh, ~554 từ)</option>
-                    <option value="6_8m">Từ 6 - 8 phút (37 - 47 slide tranh, ~776 từ)</option>
-                    <option value="8_10m">Từ 8 - 10 phút (48 - 60 slide tranh, ~998 từ)</option>
-                    <option value="10_15m">Từ 10 - 15 phút (66 - 84 slide tranh, ~1386 từ)</option>
-                    <option value="15_20m">Từ 15 - 20 phút (92 - 118 slide tranh, ~1940 từ)</option>
+                    {/* Nhãn SINH RA từ DURATION_TARGETS trong templates/buddhistWisdom.js, không gõ
+                        tay: bản trước gõ tay và đã lệch hẳn khỏi thực tế sau hai lần đổi thông số. */}
+                    {getBuddhistDurationOptions().map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </>
                 ) : activeCategory === 'stick_figure_slideshow' ? (
                   <>
@@ -544,6 +544,11 @@ export default function ContentForm({
                 />
               ) : field.type === 'buddhist-theme-select' ? (
                 <BuddhistThemePicker
+                  value={currentInput[field.key]}
+                  onChange={(val) => onFieldChange(field.key, val)}
+                />
+              ) : field.type === 'japanese-history-theme-select' ? (
+                <JapaneseHistoryThemePicker
                   value={currentInput[field.key]}
                   onChange={(val) => onFieldChange(field.key, val)}
                 />

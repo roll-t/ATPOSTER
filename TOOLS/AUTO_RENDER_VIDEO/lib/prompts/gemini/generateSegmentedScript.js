@@ -2,7 +2,7 @@ import { getDurationInfo } from './durationInfo.js';
 import { getSkill } from '../../skills/index.js';
 import { buildEnglishQuizScriptPrompt } from './templates/englishQuiz.js';
 import { callGeminiApi } from './callGeminiApi.js';
-import { WORDS_PER_SECOND_VI, WORDS_PER_SECOND_EN } from '../../speechRate.js';
+import { WORDS_PER_SECOND_VI, WORDS_PER_SECOND_EN, countNarrationUnits, isJapaneseText } from '../../speechRate.js';
 
 // Kịch bản đạt dưới mức này so với thời lượng mục tiêu thì mới đáng gọi thêm 1 lượt viết bù.
 // Đặt 0.85 để chấp nhận sai lệch nhỏ tự nhiên của văn nói — chỉ can thiệp khi hụt thật sự.
@@ -13,10 +13,11 @@ const SHORT_SCRIPT_RATIO = 0.85;
 // Các skill slideshow KHÔNG có trong danh sách này gắn MỖI segment với MỘT ảnh phải sinh riêng,
 // nên tự ý thêm segment sẽ âm thầm làm lệch số ảnh cần tạo ở các bước sau.
 //
-// buddhist_wisdom cũng là slideshow-1-ảnh-mỗi-segment, nhưng vẫn nằm đây vì với nhịp 10 giây/ảnh
-// thì số segment và số chữ khoá chặt vào nhau: hụt chữ tức là hụt luôn segment (đo được 40 slide
-// /833 từ ở mốc 10-15 phút, trong khi cần khoảng 75 slide/1400 từ). Nó tự khai luật viết bù riêng
-// qua skill.extendRules() bên dưới, thay vì dùng luật mặc định "cho phép chèn thêm đoạn ở giữa".
+// buddhist_wisdom cũng là slideshow-1-ảnh-mỗi-segment, nhưng vẫn nằm đây vì số segment và số ký tự
+// khoá chặt vào nhau: hụt ký tự tức là hụt luôn segment. Đo được ở mốc 10-15 phút: kịch bản trả về
+// 2.897 ký tự (6 phút 54 giây) trong khi cần tối thiểu 4.620 ký tự / 132 slide. Nó tự khai luật
+// viết bù riêng qua skill.extendRules(), thay vì dùng luật mặc định "cho phép chèn thêm đoạn ở giữa"
+// — luật mặc định còn kèm câu "kéo dài các đoạn có sẵn", đúng thứ phải cấm ở skill này.
 const AUTO_EXTEND_CATEGORIES = ['pexels_talk_video', 'buddhist_wisdom'];
 
 function stripForWordCount(text) {
@@ -26,11 +27,18 @@ function stripForWordCount(text) {
     .trim();
 }
 
+/**
+ * Độ dài kịch bản, tính bằng ĐƠN VỊ HỢP VỚI NGÔN NGỮ: ký tự với tiếng Nhật, từ với phần còn lại.
+ *
+ * Trước đây luôn tách theo khoảng trắng. Tiếng Nhật viết liền nên cả một câu 34 ký tự ra đúng 1
+ * "từ" — kịch bản tiếng Nhật nào cũng bị coi là hụt gần hết, lượt viết bù kích hoạt mọi lần và
+ * còn dặn model "bản nháp của bạn mới có 100 từ / cần 2700" khiến nó viết lại loạn hết.
+ */
 function countScriptWords(segments) {
-  return (segments || []).reduce((sum, seg) => {
-    const words = stripForWordCount(seg?.dialogueOrNarration).split(/\s+/).filter(Boolean).length;
-    return sum + words;
-  }, 0);
+  return (segments || []).reduce(
+    (sum, seg) => sum + countNarrationUnits(stripForWordCount(seg?.dialogueOrNarration)),
+    0,
+  );
 }
 
 /**
@@ -79,25 +87,34 @@ function resolveMaxOutputTokens(targetSeconds) {
  * với một ảnh cần chỉ rõ số segment và số chữ mỗi segment). Không khai thì dùng luật mặc định.
  */
 function buildExtendPrompt(script, currentWords, targetWords, durationInfo, wps, extraRules) {
+  // ĐƠN VỊ phải khớp với ngôn ngữ của chính bản nháp. Nói "bạn mới viết 2897 words, cần 4620 words"
+  // với một kịch bản tiếng Nhật là sai hẳn: con số đó đếm KÝ TỰ (tiếng Nhật viết liền, không có
+  // khoảng trắng để đếm từ). Model nhận hai tín hiệu mâu thuẫn nhau ngay ở dòng quan trọng nhất.
+  const sample = (script?.segments || []).map((s) => s?.dialogueOrNarration || '').join(' ');
+  const unit = isJapaneseText(sample) ? 'JAPANESE CHARACTERS' : 'words';
+
   return `You previously wrote this narration script, but it is TOO SHORT for the requested video length.
 
 REQUESTED VIDEO LENGTH: ${durationInfo.label} (about ${durationInfo.targetSeconds} seconds).
-REQUIRED WORD BUDGET: at least ${targetWords} words across all "dialogueOrNarration" fields.
-YOUR PREVIOUS DRAFT: only ${currentWords} words — it would produce a video roughly ${Math.round(currentWords / wps)} seconds long, far short of the target.
+REQUIRED BUDGET: at least ${targetWords} ${unit} across all "dialogueOrNarration" fields.
+YOUR PREVIOUS DRAFT: only ${currentWords} ${unit} — it would produce a video roughly ${Math.round(currentWords / wps)} seconds long, far short of the target.
 
-YOUR TASK: return the SAME script, expanded to meet the word budget.
+YOUR TASK: return the SAME script, expanded to meet that budget.
 
 RULES:
 - KEEP the title, the opening hook segment, and the final closing segment intact in spirit.
-- EXPAND existing paragraphs: add concrete everyday scenes (a specific place, time, action), a second angle, or a deeper consequence of the idea already there.
 ${extraRules?.length
+    // Skill tự khai luật thì KHÔNG kèm câu "EXPAND existing paragraphs" mặc định bên dưới: với
+    // skill mỗi segment khoá cứng vào một ảnh, kéo dài đoạn có sẵn là đúng thứ phải cấm, và hai
+    // dòng ngược nhau đứng cạnh nhau chỉ làm model chọn bừa một bên.
     ? extraRules.join('\n')
-    : '- You MAY add new development segments in the MIDDLE (never after the closing segment) to introduce genuinely NEW sub-ideas.'}
+    : '- EXPAND existing paragraphs: add concrete everyday scenes (a specific place, time, action), a second angle, or a deeper consequence of the idea already there.\n'
+      + '- You MAY add new development segments in the MIDDLE (never after the closing segment) to introduce genuinely NEW sub-ideas.'}
 - DO NOT pad with repetition, filler, or rephrasing of what is already said. Every added sentence must carry new meaning.
 - Keep every existing field name and the exact same JSON schema. Renumber segmentNumber sequentially from 1.
 - Keep the voice, vocabulary rules and audio tags of the original draft exactly as they are. This is an expansion pass, not a rewrite.
 - Every segment still needs its "subtitle" field (primary language line, then "\\n", then the translation) with 1-2 key phrases wrapped in **double asterisks** on the primary line only.
-- COUNT the total words before returning. It MUST be at least ${targetWords}.
+- COUNT the total ${unit} before returning. It MUST be at least ${targetWords}.
 
 PREVIOUS DRAFT (JSON):
 ${JSON.stringify(script, null, 2)}

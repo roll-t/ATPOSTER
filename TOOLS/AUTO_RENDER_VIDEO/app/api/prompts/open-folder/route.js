@@ -6,9 +6,13 @@ import { resolveProjectDir } from '@/lib/remotionPaths';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
+// Thư mục con được phép mở thẳng. Whitelist CỨNG, không ghép chuỗi tự do từ client: giá trị này
+// đi vào path.join rồi vào execFile, nên nhận bừa sẽ mở được thư mục bất kỳ ngoài dự án.
+const SAFE_SUBFOLDERS = new Set(['images', 'audio', 'final']);
+
 export async function POST(req) {
   try {
-    const { folderPath, category } = await req.json();
+    const { folderPath, category, subfolder } = await req.json();
     if (!folderPath) {
       return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
     }
@@ -21,9 +25,21 @@ export async function POST(req) {
     // resolveProjectDir tự tìm đúng vị trí thật của project (phẳng cũ hoặc lồng theo category
     // mới, ở đúng skill của category — xem lib/remotionPaths.js) thay vì tự dò lại thủ công.
     const projectDir = resolveProjectDir(cleanFolder, category);
-    const finalDir = path.join(projectDir, 'final');
-    // Ưu tiên mở thư mục final/ (chứa video đã render) nếu có, không thì mở thư mục dự án chính.
-    const targetDir = fs.existsSync(finalDir) ? finalDir : projectDir;
+    let targetDir;
+    if (subfolder) {
+      // Gọi có subfolder = người dùng bấm nút đi thẳng vào chỗ chứa ảnh (hoặc audio).
+      if (!SAFE_SUBFOLDERS.has(subfolder)) {
+        return NextResponse.json({ error: `Thư mục con không hợp lệ: ${subfolder}` }, { status: 400 });
+      }
+      const subDir = path.join(projectDir, subfolder);
+      // Thư mục con chỉ sinh ra khi có file đầu tiên rơi vào; chưa có thì mở tạm thư mục dự án
+      // còn hơn báo lỗi rồi không mở gì cả.
+      targetDir = fs.existsSync(subDir) ? subDir : projectDir;
+    } else {
+      // Hành vi cũ giữ nguyên: ưu tiên final/ (chứa video đã render), không có thì thư mục dự án.
+      const finalDir = path.join(projectDir, 'final');
+      targetDir = fs.existsSync(finalDir) ? finalDir : projectDir;
+    }
 
     if (!targetDir || !fs.existsSync(targetDir)) {
       return NextResponse.json({ error: `Không tìm thấy thư mục dự án: ${cleanFolder}` }, { status: 404 });
