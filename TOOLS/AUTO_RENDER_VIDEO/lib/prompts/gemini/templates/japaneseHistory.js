@@ -118,7 +118,7 @@ const HISTORY_REGISTER = `- Steady, assured, unhurried. The voice of someone who
 export function buildJapaneseHistoryScriptPrompt(input, durationInfo, durationRange = '8_10m') {
   const isLandscape = (input.aspectRatio || '16:9') === '16:9';
   const themeObj = getJapaneseHistoryTheme(input.historyTheme || 'japan_history');
-  const { slides: targetSlides, chars: targetChars } = targetFor(durationRange);
+  const { slidesEn: targetSlides, minChars: targetChars } = targetFor(durationRange);
 
   // Nếu chủ đề được chọn từ kho có sẵn, kéo theo niên đại và cảnh báo sử liệu của chính bài đó.
   // Cảnh báo riêng cho từng bài đắt hơn hẳn cảnh báo chung: nó chỉ đúng vào chi tiết hay bị kể sai.
@@ -147,6 +147,7 @@ THIS IS THE SUBJECT THE EPISODE MUST CARRY. Not a mood, not a lifestyle tip: a r
 HOW THIS THEME WANTS TO BE TOLD: ${themeObj.story}
 EPISODE TOPIC REQUESTED BY THE USER:
 "${input.scenario || 'A single decisive day in the Sengoku period'}"
+${input.script ? `EXTRA CONTEXT / DRAFT FROM THE USER: "${input.script}"` : ''}
 ${topicBlock}
 ${sectionLanguage(VOCABULARY_NOTE)}
 
@@ -199,7 +200,10 @@ ${SECTION_JSON_RULES}
   "theme": "${themeObj.key}",
   "coverPrompts": {
     "landscape": "On the stone forecourt of a Japanese castle in old Japan. On the right, a samurai in dark lacquered armour kneels with both hands resting on his knees, his long sword laid on a low wooden stand before him. On the left, wide open gravel running toward a tall stone wall and a castle keep beyond it. Bright overcast morning, soft even light.",
-    "portrait": "Close-up on a plank floor inside a Japanese castle room. A single long sword resting on a dark wooden stand, its lacquered scabbard catching the flat daylight. Behind it, out of focus, a paper screen and one timber post. Early morning, soft grey light above and worn wood below."
+    "portrait": "Close-up on a plank floor inside a Japanese castle room. A single long sword resting on a dark wooden stand, its lacquered scabbard catching the flat daylight. Behind it, out of focus, a paper screen and one timber post. Early morning, soft grey light above and worn wood below.",
+    "headline": "刀を置いた日",
+    "sub": "ある侍の最後の役目",
+    "kicker": "一六〇〇年 美濃"
   },
   "totalSegments": 25,
   "segments": [

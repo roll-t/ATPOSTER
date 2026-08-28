@@ -444,7 +444,7 @@ export const PROMPT_CATEGORIES = {
     type: 'slideshow',
     label: 'Chuyện Triết Lý & Thiền Phật Giáo',
     icon: '🪷',
-    description: 'Kịch bản podcast Phật pháp nhẹ nhàng kiểu Spotify — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, tranh màu nước bút mực trên giấy trắng (ảnh luôn 16:9 ngang), phân cảnh 5s/ảnh đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
+    description: 'Kịch bản podcast Phật pháp nhẹ nhàng kiểu Spotify — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, tranh màu nước bút mực trên giấy trắng (ảnh luôn 16:9 ngang), mỗi ảnh giữ đúng bằng đoạn lời nói của nó, đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
     fields: [
       {
         key: 'aspectRatio',
@@ -473,7 +473,7 @@ export const PROMPT_CATEGORIES = {
       },
       {
         key: 'script',
-        label: 'Gợi ý cốt truyện / Trích dẫn (tuỳ chọn — hệ thống sẽ tự viết kịch bản nói tiếng Nhật & phân cảnh 5s/ảnh)',
+        label: 'Gợi ý cốt truyện / Trích dẫn (tuỳ chọn — hệ thống sẽ tự viết kịch bản nói tiếng Nhật & tự chia cảnh theo mạch chuyện)',
         type: 'textarea',
         required: false,
         placeholder: 'A story about a monk who helped a woman cross the river and was questioned by his companion hours later...'
@@ -496,7 +496,7 @@ export const PROMPT_CATEGORIES = {
     type: 'slideshow',
     label: 'Lịch Sử Nhật Bản, Samurai & Ninja',
     icon: '⚔️',
-    description: 'Kể một lát cắt lịch sử Nhật Bản có thật — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, DÙNG CHUNG phong cách tranh màu nước bút mực của skill Phật giáo, chỉ đổi bối cảnh và nhân vật. Ảnh luôn 16:9 ngang, phân cảnh 5s/ảnh đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
+    description: 'Kể một lát cắt lịch sử Nhật Bản có thật — 100% TIẾNG NHẬT (kèm dòng dịch tiếng Việt để bạn đọc hiểu), có [tag] cảm xúc cho ElevenLabs v3, DÙNG CHUNG phong cách tranh màu nước bút mực của skill Phật giáo, chỉ đổi bối cảnh và nhân vật. Ảnh luôn 16:9 ngang, mỗi ảnh giữ đúng bằng đoạn lời nói của nó, đồng bộ tự động Google Flow. Kèm sẵn tiêu đề + hashtag tiếng Nhật và 2 prompt ảnh bìa (16:9 & 9:16).',
     fields: [
       {
         key: 'aspectRatio',
@@ -522,6 +522,18 @@ export const PROMPT_CATEGORIES = {
         type: 'textarea',
         required: true,
         placeholder: '関ヶ原の戦い — Trận Sekigahara và ngày định đoạt nước Nhật'
+      },
+      // Cùng vai trò với ô 'script' của buddhist_wisdom: khi BẬT Gemini nó là gợi ý thêm (ẩn khỏi
+      // giao diện, xem ContentForm.js), khi TẮT Gemini nó là nơi DUY NHẤT nhập lời thuyết minh tự
+      // viết — skill japanese_history.js đã đòi input.script ở nhánh đó từ đầu, thiếu ô này thì
+      // tắt Gemini là bế tắc: báo lỗi "Vui lòng nhập Nội dung thuyết minh ở bên dưới" mà bên dưới
+      // không có gì để nhập.
+      {
+        key: 'script',
+        label: 'Gợi ý diễn biến / Trích dẫn sử liệu (tuỳ chọn — hệ thống sẽ tự viết kịch bản tiếng Nhật & tự chia cảnh theo mạch chuyện)',
+        type: 'textarea',
+        required: false,
+        placeholder: 'Trận mở màn trong sương sớm; Kobayakawa trở cờ lúc giữa trưa; đến chiều thì cục diện đã ngã ngũ...'
       }
     ],
     defaultStyle: {

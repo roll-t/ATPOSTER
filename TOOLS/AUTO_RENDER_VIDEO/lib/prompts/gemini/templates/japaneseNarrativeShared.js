@@ -7,9 +7,9 @@ import { CHARS_PER_SECOND_JA_SLOW } from '../../../speechRate.js';
  *   - buddhist_wisdom  (Chuyện Triết Lý & Thiền Phật Giáo)
  *   - japanese_history (Lịch Sử Nhật Bản, Samurai & Ninja)
  *
- * Hai skill khác nhau ở BỐI CẢNH và NHÂN VẬT, còn mọi thứ khác thì giống hệt: nhịp 5 giây một ảnh,
- * đếm độ dài bằng ký tự, tag ElevenLabs v3, phụ đề Nhật-Việt, luật viết visualDescription, luật
- * cấm giọng ru ngủ / self-help, khối đăng video, hai prompt ảnh bìa.
+ * Hai skill khác nhau ở BỐI CẢNH và NHÂN VẬT, còn mọi thứ khác thì giống hệt: ảnh chạy theo độ dài
+ * giọng đọc của chính slide đó, đếm độ dài bằng ký tự, tag ElevenLabs v3, phụ đề Nhật-Việt, luật
+ * viết visualDescription, luật cấm giọng ru ngủ / self-help, khối đăng video, hai prompt ảnh bìa.
  *
  * VÌ SAO PHẢI TÁCH RA: những khối này là phần tốn nhiều vòng sửa nhất — luật cấm văn phong AI tiếng
  * Nhật, luật "mọi cảnh phải là Nhật" kèm bảng đổi đồ vật, mốc mở đầu, cách đếm ký tự. Chép chúng
@@ -41,8 +41,16 @@ export const ELEVENLABS_V3_TAGS_HISTORY = [
   '[short pause]', '[long pause]',
 ];
 
-// 1 ảnh giữ 5 GIÂY. Đây là hằng số DUY NHẤT điều khiển nhịp ảnh — số slide, số ký tự mỗi slide, số
-// ảnh phải sinh bên Google Flow đều suy ra từ nó.
+// Số giây TRUNG BÌNH của một ảnh. Đây KHÔNG phải thời gian hiển thị thật.
+//
+// Thời gian thật của mỗi ảnh là ĐỘ DÀI FILE GIỌNG ĐỌC CỦA CHÍNH SLIDE ĐÓ: Root.tsx của skill
+// Remotion đo từng file audio/scene-NN.* rồi mới quyết định số khung hình (xem calculateMetadata),
+// và render-project.mjs cố tình KHÔNG truyền durationSeconds xuống scene để không đè lên phép đo
+// đó. Đoạn nói 2 giây thì ảnh giữ 2 giây, đoạn 8 giây thì giữ 8 giây — không cắt, không kéo.
+//
+// Con số này chỉ dùng để LẬP KẾ HOẠCH: đổi "video 8-10 phút" ra số slide phải viết và số ảnh phải
+// sinh bên Google Flow. Vì vậy prompt được phép nói "một slide thường dài chừng ngần này" nhưng
+// KHÔNG được ép mọi slide vừa đúng khuôn — xem sectionLength() bên dưới.
 export const SECONDS_PER_IMAGE = 5;
 
 // Số slide nằm trong "30 giây đầu" — phần mở đầu phải vào thật khẽ.
@@ -55,7 +63,17 @@ function targetsFor(seconds) {
   const slides = seconds / SECONDS_PER_IMAGE;
   const chars = seconds * CHARS_PER_SECOND_JA_SLOW;
   const range = (n) => `${Math.round(n * (1 - SPREAD))} đến ${Math.round(n * (1 + SPREAD))}`;
-  return { slides: range(slides), chars: range(chars), minChars: Math.round(chars * (1 - SPREAD)) };
+  // Bản TIẾNG ANH của cùng khoảng số, dành riêng cho prompt gửi Gemini. Trước đây prompt tiếng Anh
+  // nội suy thẳng chuỗi có chữ "đến" vào giữa câu ("Produce exactly 74 đến 94 segments") — model
+  // vẫn đoán ra, nhưng đó là một từ tiếng Việt lạc giữa một bản chỉ dẫn tiếng Anh chặt chẽ.
+  const rangeEn = (n) => `${Math.round(n * (1 - SPREAD))} to ${Math.round(n * (1 + SPREAD))}`;
+  return {
+    slides: range(slides),
+    chars: range(chars),
+    slidesEn: rangeEn(slides),
+    charsEn: rangeEn(chars),
+    minChars: Math.round(chars * (1 - SPREAD)),
+  };
 }
 
 // Số slide / số KÝ TỰ mục tiêu theo từng mốc thời lượng. Số ký tự suy ra TỪ CHÍNH LỜI NÓI:
@@ -87,14 +105,15 @@ export function getCharTarget(durationRange) {
   return targetFor(durationRange).minChars;
 }
 
-/** Khoảng số ký tự của MỘT slide (5 giây lời nói) — dùng chung cho prompt viết mới và viết bù. */
+/** Khoảng ký tự của một slide ĐIỂN HÌNH (~5 giây lời nói) — dùng chung cho prompt viết mới và viết
+ * bù. Là mức THAM CHIẾU, không phải trần: slide dài ngắn bao nhiêu thì ảnh giữ bấy nhiêu. */
 export function getCharsPerSlide() {
   return { low: CHARS_PER_SLIDE_LOW, high: CHARS_PER_SLIDE_HIGH };
 }
 
-/** Số slide (= số ảnh, = số prompt ảnh) mục tiêu của mốc thời lượng này. */
+/** Số slide (= số ảnh, = số prompt ảnh) mục tiêu — dạng tiếng Anh, chỉ dùng trong prompt. */
 export function getSlideTarget(durationRange) {
-  return targetFor(durationRange).slides;
+  return targetFor(durationRange).slidesEn;
 }
 
 // Nhãn hiển thị của ô "Thời lượng mục tiêu", SINH RA TỪ chính DURATION_TARGETS. Trước đây gõ tay
@@ -273,19 +292,22 @@ export function sectionLength(durationInfo, targetSlides, targetChars, honestFil
 4. LENGTH AND PACING — COUNTED IN JAPANESE CHARACTERS
 ────────────────────────────────────────
 - Target duration: ${durationInfo.label} (about ${durationInfo.targetSeconds} seconds).
-- Produce exactly ${targetSlides} segments. One segment = one painted image held on screen for about ${SECONDS_PER_IMAGE} seconds. The segment count IS the number of illustrations that have to be generated, so it is not negotiable.
+- Produce ${targetSlides} segments. One segment = one painted image. The segment count IS the number of illustrations that have to be generated, so stay inside that range.
 
-THE TWO NUMBERS BELOW ARE BOTH HARD REQUIREMENTS — READ THIS TWICE:
-- SEGMENT COUNT: exactly ${targetSlides} segments. Fewer segments means fewer illustrations than the video needs, and the images will run out before the narration does.
-- CHARACTERS PER SEGMENT: each "dialogueOrNarration" holds **${CHARS_PER_SLIDE_LOW} to ${CHARS_PER_SLIDE_HIGH} Japanese characters** — that is ${SECONDS_PER_IMAGE} seconds of slow speech, one image's worth. That is ONE short sentence, sometimes just a clause. Count every kana and kanji; punctuation counts, audio tags do not.
-- The LAST segment is a segment like any other. It must carry a full ${CHARS_PER_SLIDE_LOW} to ${CHARS_PER_SLIDE_HIGH} characters. Never return an empty or one-line final segment.
-- TOTAL: across all segments the script must reach **at least ${targetChars} Japanese characters** of spoken text. Audio tags are not spoken and do not count toward any of these numbers.
-- BEFORE YOU RETURN: count the segments, then count the characters in each one. Both numbers must land in range. If the total is short, the fix is MORE SEGMENTS carrying the story further — never longer segments, and never fewer of them.
+HOW LONG EACH IMAGE STAYS ON SCREEN — READ THIS BEFORE YOU WORRY ABOUT SEGMENT LENGTH:
+- Every image is held for exactly as long as ITS OWN narration takes to say. The renderer measures the finished audio clip of each segment and gives that picture exactly that much screen time. There is no fixed shot length: a two-second line gets a two-second shot, an eight-second line gets an eight-second shot. Nothing is ever cut off, and nothing is ever padded out with silence.
+- Therefore a segment is a UNIT OF MEANING, not a character budget. Cut where the PICTURE should change. One sentence may run across two or three segments when it walks the listener through two or three images; one segment may carry two short sentences when they both belong to the same picture.
+- ${CHARS_PER_SLIDE_LOW} to ${CHARS_PER_SLIDE_HIGH} Japanese characters (about ${SECONDS_PER_IMAGE} seconds of slow speech) is the TYPICAL segment, and most of the episode should sit near it so the video keeps moving instead of resting on long static shots. Going shorter or longer where the meaning asks for it is correct, not a mistake. The only thing that must never happen is a segment ending mid-word.
+
+THE ONE HARD NUMBER:
+- TOTAL: across all segments the script must reach **at least ${targetChars} Japanese characters** of spoken text. Count every kana and kanji; punctuation counts, audio tags do not.
+- BEFORE YOU RETURN: count the total, then count the segments. If the total is short, the fix is MORE SEGMENTS carrying the story further — never a handful of bloated ones.
+- The last segment is a real segment carrying real material, not a sign-off. Never return it empty or as a single word.
 
 HOW TO REACH THE TOTAL HONESTLY:
 - Segments are short, so the story must actually go somewhere across ${targetSlides} of them. Do not stretch a thin idea over the whole episode and do not repeat a beat you have already covered.
 - When you need more material, go further into the scene rather than padding: what the road smelled like, what he did with his hands, how long the silence lasted before anyone spoke. Concrete detail is what fills a script honestly.
-- At this length a segment is one short breath, not a paragraph. A long sentence MAY run across two segments when it reads naturally that way — the picture simply changes mid-sentence, which is the point of a ${SECONDS_PER_IMAGE}-second cut. What must not happen is a segment that ends mid-word.
+- A segment is one short breath, not a paragraph. A long sentence running across two or three segments is normal and good — the picture simply changes mid-sentence, and each of those pictures gets exactly the time its own words need.
 - Keep each sentence short enough to say in one breath.
 - Give the episode a shape: a quiet opening that eases the listener in (see THE FIRST 30 SECONDS above), a story that unfolds without rushing, and an ending that lands on one image and stops. No recap, no wind-down, no send-off.
 
@@ -359,15 +381,31 @@ NEVER: European or Western people, dress, architecture or objects of any kind �
 ${compositionGuidance}`;
 }
 
-/** Mục 8 — hai prompt ảnh bìa. */
+/**
+ * Mục 8 — ảnh bìa: hai prompt HÌNH + ba dòng CHỮ sẽ được vẽ thẳng vào ảnh.
+ *
+ * Trước đây ảnh bìa cố tình không có chữ ("the text is added later outside this pipeline"), nhưng
+ * với dòng video này không hề có bước "later" nào: người dùng lấy thẳng ảnh Google Flow làm
+ * thumbnail. Một bức tranh đẹp mà không có chữ thì người lướt không biết tập nói về cái gì.
+ *
+ * Nên giờ Gemini phải viết luôn phần chữ, NGẮN và bằng tiếng Nhật. buildBuddhistCoverPrompts()
+ * ghép nó thành câu chỉ dẫn "vẽ đúng mấy chữ này vào mảng giấy trắng đã chừa sẵn".
+ */
 export const SECTION_COVER = `────────────────────────────────────────
-8. COVER ART — TWO PROMPTS, ENGLISH, SUBJECT ONLY
+8. COVER ART — TWO PICTURES, PLUS THE JAPANESE TITLE PAINTED ONTO THEM
 ────────────────────────────────────────
-Two separate thumbnail illustrations for the same episode. Same rules as visualDescription: ENGLISH, subject only, no style words, no colour names, only what IS in the picture, daylight, old Japan.
-- "coverPrompts.landscape" — for the long 16:9 video. Pick the single strongest image of the whole episode (its peak, not its opening). Compose it WIDE: place the main figure or object clearly to the LEFT or the RIGHT and leave the opposite side open and quiet, because a Japanese headline will be laid over that empty side afterwards.
-- "coverPrompts.portrait" — for the 9:16 vertical short. Same episode, but composed TALL and read at thumbnail size on a phone: one subject, close, centred, filling the middle of the frame, with open sky or open ground above and below it. Simpler than the landscape one — a busy vertical thumbnail turns to mush when it is small.
-- Both must work as a picture with NO text in them. Do not describe letters, titles or captions; the text is added later outside this pipeline.
-- Do not simply repeat the visualDescription of segment 1. A cover is chosen for how it looks at a glance, not for where it sits in the story.`;
+Two separate thumbnail illustrations for the same episode, plus the short Japanese lettering that gets painted into them. Someone who sees only the thumbnail should already understand most of what this episode is about.
+
+THE PICTURE — ENGLISH, SUBJECT ONLY. Same rules as visualDescription: no style words, no colour names, only what IS in the picture, daylight, old Japan. Do not describe letters or titles inside these two fields; the pipeline adds the lettering from the three fields below.
+- "coverPrompts.landscape" — for the long 16:9 video. Pick the single strongest image of the whole episode (its peak, not its opening) and make it READ AT A GLANCE: the one thing this episode is about, shown plainly. Put the main figure or object clearly on the RIGHT side of the frame, and leave the LEFT THIRD open and quiet — bare ground, mist, empty sky — because the title is painted down that side.
+- "coverPrompts.portrait" — for the 9:16 vertical short. Same episode, composed TALL and read at thumbnail size on a phone: one subject, close, centred, filling the middle, open ground below. Keep the UPPER QUARTER open and quiet — the title is painted across it. Simpler than the landscape one; a busy vertical thumbnail turns to mush when it is small.
+- Do not simply repeat the visualDescription of segment 1. A cover is chosen for how it looks at a glance, not for where it sits in the story.
+
+THE LETTERING — JAPANESE, SHORT, PAINTED INTO THE PICTURE:
+- "coverPrompts.headline": the episode in 4 to 8 Japanese characters — a name, a place, an event. 「応仁の乱」「関ヶ原」「刀を置いた日」. This is painted large, so keep it SHORT: every extra character is one more chance the brush strokes come out wrong.
+- "coverPrompts.sub": ONE line of 10 to 18 Japanese characters saying what actually happened, painted smaller beneath the headline. 「京の都が燃えた十年」. Headline plus sub together must tell a stranger most of the episode.
+- "coverPrompts.kicker": the year and the place in 6 to 12 plain characters — 「一四六七年 京都」. Write numbers as kanji.
+- All three are READ OFF THE SCREEN, never spoken. No audio tags, no closing punctuation, no ！ or ？, no 【】 brackets, no emoji, no romaji.`;
 
 /**
  * Luật giữ JSON hợp lệ — mục 9.

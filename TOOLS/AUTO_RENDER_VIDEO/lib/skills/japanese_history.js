@@ -33,13 +33,14 @@ export default {
     return getHistoryCharTarget(durationRange);
   },
 
-  // Mỗi segment khoá cứng vào MỘT ảnh giữ 5 giây, nên hụt ký tự đồng nghĩa hụt segment. Lượt viết
-  // bù phải được dặn thêm SEGMENT chứ không phải kéo dài từng đoạn ra.
+  // Mỗi segment là MỘT ảnh, và ảnh giữ đúng bằng độ dài giọng đọc của segment đó — nên hụt ký tự
+  // đồng nghĩa hụt cả thời lượng lẫn số ảnh. Lượt viết bù phải được dặn thêm SEGMENT chứ không
+  // phải kéo dài từng đoạn ra: viết dài ra chỉ làm vài bức tranh đứng yên lâu hơn.
   extendRules(durationRange) {
     const { low, high } = getHistoryCharsPerSlide();
     return [
       `- The script is short because it is MISSING SEGMENTS, not because its segments are too brief. Expand it to ${getHistorySlideTarget(durationRange)} segments by carrying the account further, adding new beats in the MIDDLE (never after the closing segment).`,
-      `- Every segment must hold ${low} to ${high} JAPANESE CHARACTERS — about 5 seconds of slow speech, one illustration's worth. Do NOT lengthen existing segments past ${high} characters to hit the total.`,
+      `- Each image is held for exactly as long as its own narration audio, so segment length follows the meaning, not a stopwatch. ${low} to ${high} JAPANESE CHARACTERS is the typical segment and most should sit near it; shorter or longer is fine where the moment asks for it. What you must NOT do is reach the total by bloating a few existing segments — add segments instead.`,
       '- Keep writing in Japanese (ですます調), same voice as the draft. Never switch to English or Vietnamese in "dialogueOrNarration".',
       '- Added material must still be HISTORY, not reflection: what happened next, what it cost, what the record does not say. Never fill with advice to the listener.',
       '- Each added segment needs its own "visualDescription" IN ENGLISH describing that new moment: subject and composition only, no art-style words, no colour names.',

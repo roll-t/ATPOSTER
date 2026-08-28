@@ -136,8 +136,39 @@ const BUDDHIST_TEXT_RULE = 'No text or lettering anywhere in the image.';
  * đúng những lỗi hay gặp nhất (câu phủ định bị vẽ ra, danh từ mặc-định-phương-Tây), không có lý
  * do gì để ảnh bìa được miễn.
  */
+/**
+ * Khối chỉ dẫn VẼ CHỮ lên ảnh bìa.
+ *
+ * Ngược hẳn với slide thường: slide giữ nguyên BUDDHIST_TEXT_RULE ("không có chữ nào trong ảnh") vì
+ * chữ lọt vào giữa tranh là lỗi nặng. Ảnh bìa thì cần chữ — nó là thumbnail, người lướt phải hiểu
+ * được tập nói gì trước khi bấm vào.
+ *
+ * Ba điều rút ra từ chỗ công cụ sinh ảnh hay hỏng nhất khi phải viết chữ Nhật:
+ *   1. Nói RÕ TỪNG CHỮ phải vẽ, đặt trong 「」 — đừng để model tự nghĩ ra chữ.
+ *   2. Ghim chữ vào ĐÚNG mảng giấy trắng đã chừa sẵn (bên trái với 16:9, đỉnh khung với 9:16), nếu
+ *      không nó viết đè lên mặt nhân vật.
+ *   3. Càng ít chữ càng đúng nét — vì vậy prompt kịch bản giới hạn headline 4-8 ký tự.
+ *
+ * Kịch bản CŨ không có ba khoá này thì rơi về đúng hành vi trước đây: ảnh bìa không chữ.
+ */
+function coverLetteringClause({ headline, sub, kicker }, isLandscape) {
+  if (!headline) return BUDDHIST_TEXT_RULE;
+  const parts = [];
+  if (isLandscape) {
+    parts.push(`Japanese title hand-painted down the open left side of the picture, written vertically in large bold sumi brush calligraphy, deep ink black, reading exactly: 「${headline}」.`);
+    if (sub) parts.push(`Beside it, a second vertical line in the same brush hand but much smaller and thinner, reading exactly: 「${sub}」.`);
+    if (kicker) parts.push(`Low on the left, one short horizontal line of small plain characters, reading exactly: 「${kicker}」.`);
+  } else {
+    parts.push(`Japanese title hand-painted across the open space at the top of the picture, written horizontally in large bold sumi brush calligraphy, deep ink black, reading exactly: 「${headline}」.`);
+    if (sub) parts.push(`Directly beneath it, a second horizontal line in the same brush hand but much smaller and thinner, reading exactly: 「${sub}」.`);
+    if (kicker) parts.push(`Along the bottom edge, one short line of small plain characters, reading exactly: 「${kicker}」.`);
+  }
+  parts.push('The lettering sits on the bare white paper and keeps well clear of the figure. These lines are the whole of the lettering in the picture.');
+  return parts.join(' ');
+}
+
 export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
-  const build = (raw, aspectRatio, composition) => {
+  const build = (raw, aspectRatio, composition, isLandscape) => {
     const subject = easternizeScene(stripNegativeClauses(raw));
     if (!subject) return null;
     return [
@@ -145,7 +176,7 @@ export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
       composition,
       worldClauseFor(categoryKey),
       JAPANESE_INK_STYLE_CLAUSE,
-      BUDDHIST_TEXT_RULE,
+      coverLetteringClause(coverPrompts, isLandscape),
       `${aspectRatio} format. Full-bleed artwork: the illustration runs all the way to all four edges of the image.`,
     ].filter(Boolean).join(' ');
   };
@@ -153,12 +184,16 @@ export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
   const landscape = build(
     coverPrompts.landscape,
     'Wide 16:9 landscape',
-    'Thumbnail composition: the main subject sits to one side, the opposite side left open and quiet.',
+    // Ghim hẳn CHỦ THỂ BÊN PHẢI thay vì "một bên nào đó": phải biết trước chỗ trống nằm đâu thì
+    // câu vẽ chữ mới trỏ đúng vào nó được.
+    'Thumbnail composition: the main subject sits on the right, and the left third of the frame stays open and quiet.',
+    true,
   );
   const portrait = build(
     coverPrompts.portrait,
     'Tall 9:16 vertical',
-    'Thumbnail composition: one close, centred subject filling the middle of the frame, open space above and below it, readable at a glance on a phone.',
+    'Thumbnail composition: one close, centred subject filling the middle of the frame, the upper quarter left open and quiet, readable at a glance on a phone.',
+    false,
   );
 
   if (!landscape && !portrait) return null;
@@ -484,7 +519,9 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
       return {
         segmentNumber: seg.segmentNumber,
-        // 1 ảnh giữ 5 giây — xem SECONDS_PER_IMAGE trong templates/buddhistWisdom.js.
+        // Con số ƯỚC LƯỢNG, ghi vào manifest để hiển thị và thống kê. KHÔNG phải thời gian hiển
+        // thị thật: render-project.mjs cố tình không truyền durationSeconds xuống scene Remotion,
+        // nên Root.tsx đo file audio/scene-NN.* của chính slide đó và cho ảnh đúng ngần ấy giây.
         durationSeconds: seg.durationSeconds || 5,
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,

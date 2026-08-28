@@ -18,7 +18,12 @@ const SHORT_SCRIPT_RATIO = 0.85;
 // 2.897 ký tự (6 phút 54 giây) trong khi cần tối thiểu 4.620 ký tự / 132 slide. Nó tự khai luật
 // viết bù riêng qua skill.extendRules(), thay vì dùng luật mặc định "cho phép chèn thêm đoạn ở giữa"
 // — luật mặc định còn kèm câu "kéo dài các đoạn có sẵn", đúng thứ phải cấm ở skill này.
-const AUTO_EXTEND_CATEGORIES = ['pexels_talk_video', 'buddhist_wisdom'];
+// japanese_history nằm cùng vì lý do y hệt: nó dùng chung japaneseNarrativeShared.js với
+// buddhist_wisdom (cùng bảng DURATION_TARGETS, cùng số ký tự mỗi slide, cùng 5 giây/ảnh) và cũng
+// tự khai extendRules() riêng. Đo được ở mốc 6-8 phút: kịch bản trả về 1.758 ký tự (~4 phút 11
+// giây) trong khi mốc đó cần tối thiểu 2.587 ký tự — thiếu tên ở đây thì lượt viết bù không bao
+// giờ chạy và video luôn ngắn hơn thời lượng người dùng đã chọn.
+const AUTO_EXTEND_CATEGORIES = ['pexels_talk_video', 'buddhist_wisdom', 'japanese_history'];
 
 function stripForWordCount(text) {
   return String(text || '')

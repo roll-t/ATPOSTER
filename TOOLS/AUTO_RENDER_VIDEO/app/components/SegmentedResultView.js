@@ -1643,7 +1643,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // extension coi kết quả Google Flow như VIDEO: nó đẩy file qua download manager thay vì gọi
   // SAVE_IMAGE_LOCAL, nên ảnh sinh xong không bao giờ nằm vào thư mục dự án — đúng triệu chứng
   // "ảnh tạo xong không lưu được".
-  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow', 'buddhist_wisdom'].includes(result.category) || isReadingPractice || isPexelsTalkVideo;
+  //
+  // japanese_history KHÔNG được kể tên trong mảng mà đi qua isJapaneseNarrative: nó là bản song
+  // sinh của buddhist_wisdom (cùng pipeline ảnh-slideshow, cùng skill Remotion moral_talk_slideshow,
+  // cùng nhịp 5 giây/ảnh). Thiếu nó ở đây là cả tab "Quy trình & Review" im lặng rơi về luồng
+  // "Video phân đoạn Veo3" — không có bước sinh ảnh, lồng tiếng hay render, chỉ còn nút đẩy sang
+  // Google Flow. Mọi skill kiểu Nhật thêm sau này vì vậy phải vào đây qua CỜ CHUNG, không phải
+  // bằng cách nhớ sửa mảng.
+  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative || isReadingPractice || isPexelsTalkVideo;
   // true khi TẤT CẢ segments dùng PNG assets (elements[]) — không cần sinh ảnh qua Google Flow
   const allHaveElements = result.category === 'stick_figure_slideshow' &&
     (result.segments || []).length > 0 &&

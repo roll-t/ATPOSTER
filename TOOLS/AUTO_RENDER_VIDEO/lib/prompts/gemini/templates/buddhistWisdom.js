@@ -82,7 +82,7 @@ This is what gets pasted into YouTube when the video is uploaded, so it is writt
 export function buildBuddhistWisdomScriptPrompt(input, durationInfo, durationRange = '8_10m') {
   const isLandscape = (input.aspectRatio || '16:9') === '16:9';
   const themeObj = getBuddhistTheme(input.buddhistTheme || 'zen_stories');
-  const { slides: targetSlides, chars: targetChars } = targetFor(durationRange);
+  const { slidesEn: targetSlides, minChars: targetChars } = targetFor(durationRange);
 
   const themeBlock = `IMAGES FOR THIS THEME — 「${themeObj.label}」 (${themeObj.en}):
 - Across the episode the pictures must keep returning to this theme instead of drifting into generic temple scenery. When the narration allows it, draw from: ${themeObj.motifs}.
@@ -145,7 +145,10 @@ ${SECTION_JSON_RULES}
   "theme": "${themeObj.key}",
   "coverPrompts": {
     "landscape": "On the muddy bank of a swollen river in old Japan. On the right, an older monk with a shaved head in a faded ochre robe crouches low with a young woman in a pale kimono stepping onto his back. On the left, wide open water running white over half-submerged stepping stones toward a far treeline. Bright overcast morning, soft even light.",
-    "portrait": "Close-up in the courtyard of an old Japanese temple. A pair of open hands held palm up at chest height, a single wet maple leaf resting in one palm. Behind them, out of focus, the deep tiled eaves of a wooden temple and one pine. Early morning, soft grey mist above and worn stone below."
+    "portrait": "Close-up in the courtyard of an old Japanese temple. A pair of open hands held palm up at chest height, a single wet maple leaf resting in one palm. Behind them, out of focus, the deep tiled eaves of a wooden temple and one pine. Early morning, soft grey mist above and worn stone below.",
+    "headline": "川を渡る",
+    "sub": "背負ったまま歩いた午後",
+    "kicker": "ある夏の朝 山寺"
   },
   "totalSegments": 25,
   "segments": [

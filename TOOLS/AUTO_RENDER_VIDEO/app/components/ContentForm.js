@@ -400,7 +400,7 @@ export default function ContentForm({
           // Ẩn các trường kịch bản chi tiết thủ công khi bật Gemini AI để làm gọn giao diện
           const isHiddenForGemini = effectiveUseGemini && (
             (activeCategory === 'english_quiz' && ['options', 'correctAnswer', 'explanation'].includes(field.key)) ||
-            (['stick_figure', 'stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom'].includes(activeCategory) && field.key === 'script') ||
+            (['stick_figure', 'stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && field.key === 'script') ||
             (activeCategory === 'moral_wisdom' && field.key === 'quote')
           );
           if (isHiddenForGemini) return null;

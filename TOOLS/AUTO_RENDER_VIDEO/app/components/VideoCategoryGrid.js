@@ -481,14 +481,14 @@ const CARD_CONFIGS = {
     accentColor: '#f59e0b',
     glowColor: 'rgba(245, 158, 11, 0.3)',
     buttonTextColor: '#000',
-    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ 1 Ảnh / 5s (Google Flow)']
+    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ Ảnh Chạy Theo Giọng Đọc']
   },
   japanese_history: {
     badge: '⚔️ LỊCH SỬ NHẬT BẢN',
     badgeBg: 'linear-gradient(135deg, #f43f5e, #be123c)',
     accentColor: '#f43f5e',
     glowColor: 'rgba(244, 63, 94, 0.3)',
-    tags: ['🏯 Lịch Sử · Samurai · Ninja', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Cùng Nét Vẽ Với Skill Phật Giáo', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 4 - 20 Phút', '🖼️ 1 Ảnh / 5s (Google Flow)']
+    tags: ['🏯 Lịch Sử · Samurai · Ninja', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Cùng Nét Vẽ Với Skill Phật Giáo', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 4 - 20 Phút', '🖼️ Ảnh Chạy Theo Giọng Đọc']
   },
   stick_figure_slideshow: {
     bgImg: '/card-bg/stick_figure_slideshow.png',
