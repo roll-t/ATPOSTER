@@ -132,6 +132,32 @@ export const BG_MUSIC_PROMPTS = [
     instruments:
       'call and response đối đáp · panned left / right tách hai bên — người nghe cảm được "hai phía" mà không cần bạn nói ra.',
   },
+  {
+    id: 'tragic_history',
+    themeKey: 'tragic_history',
+    label: '悲劇と苦難の歴史',
+    sublabel: 'Bi Kịch & Biến Cố Đau Thương',
+    icon: '🥀',
+    useCase:
+      'Bi thương, nặng nề, lắng đọng. Tỳ bà satsuma biwa buông từng tiếng gắt xót xa, sáo trúc shakuhachi chơi quãng trầm thê lương, khoảng lặng dài giữa các nốt thể hiện sự mất mát cùng cực và sức nặng của nỗi đau lịch sử.',
+    prompt:
+      'Japanese traditional instrumental, mournful and solemn, deep sorrow and heavy loss, elegiac documentary underscore, weeping solo shakuhachi flute, slow somber satsuma biwa plucked chords with long painful silences between phrases, sustained low cello drone, distant muffled taiko heartbeats, 48 BPM, very slow 4/4, melancholy minor pentatonic in-scale, dark natural hall reverb, sparse and weeping arrangement, constant low dynamics, no build-ups, seamless loop, mixed to sit under spoken narration',
+    instruments:
+      '尺八 shakuhachi sáo trầm thê lương · 薩摩琵琶 biwa nốt gảy xót xa · cello drone giữ độ sâu bi thương · khoảng lặng dài ngưng đọng.',
+  },
+  {
+    id: 'feudal_tyrants',
+    themeKey: 'feudal_tyrants',
+    label: '暴君と非情の掟',
+    sublabel: 'Bạo Chúa & Tội Ác Quyền Lực',
+    icon: '🩸',
+    useCase:
+      'U tối, lạnh lẽo, căng thẳng và rợn gáy. Tiếng gảy tỳ bà biwa sắc lẹm đanh thép, trống taiko đánh chậm đe dọa như án tử, sáo trúc shakuhachi ở quãng nghịch u uất.',
+    prompt:
+      'Japanese traditional instrumental, dark ominous and chilling, feudal tension and brutal power, harsh sharp satsuma biwa strikes, deep threatening taiko pulses like an execution drum, dissonant low shakuhachi tones, dark sustained bass drone, 52 BPM, slow deliberate 4/4, dark minor pentatonic, menacing atmosphere, constant low cold dynamics, no sudden jumps, seamless loop, mixed to sit under spoken narration',
+    instruments:
+      '薩摩琵琶 biwa tiếng gắt lạnh lùng · 太鼓 taiko nhịp gõ đe dọa như án tử · sáo shakuhachi quãng nghịch u tối · không gian rợn gáy.',
+  },
 ];
 
 /** Lấy bản nhạc gợi ý cho một nhóm chủ đề lịch sử đang chọn ở form. */

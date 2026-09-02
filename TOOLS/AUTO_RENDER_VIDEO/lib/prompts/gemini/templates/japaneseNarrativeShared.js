@@ -38,6 +38,7 @@ export const ELEVENLABS_V3_TAGS = [
 export const ELEVENLABS_V3_TAGS_HISTORY = [
   '[serious]', '[solemn]', '[confident]', '[determined]', '[proud]',
   '[thoughtful]', '[curious]', '[sighs]', '[exhales]',
+  '[sad]', '[grief]', '[mournful]',
   '[short pause]', '[long pause]',
 ];
 
@@ -388,23 +389,31 @@ ${compositionGuidance}`;
  * với dòng video này không hề có bước "later" nào: người dùng lấy thẳng ảnh Google Flow làm
  * thumbnail. Một bức tranh đẹp mà không có chữ thì người lướt không biết tập nói về cái gì.
  *
- * Nên giờ Gemini phải viết luôn phần chữ, NGẮN và bằng tiếng Nhật. buildBuddhistCoverPrompts()
- * ghép nó thành câu chỉ dẫn "vẽ đúng mấy chữ này vào mảng giấy trắng đã chừa sẵn".
+ * BỐ CỤC CHỮ giờ là kiểu áp phích hai dải đen (xem coverLetteringClause trong
+ * buildSegmentedPrompts.js): dòng DẪN màu trắng nằm trên dải đen ở đỉnh khung, dòng CHỐT màu nhấn
+ * to nhất ảnh nằm trên dải đen ở đáy khung. Hai vai trò đó khác hẳn cặp "tiêu đề lớn + phụ đề nhỏ"
+ * trước đây, nên mục này phải nói rõ: "sub" là câu MỞ, "headline" là câu ĐÓNG — đọc từ trên xuống
+ * phải thành một cú lật.
+ *
+ * Chỗ chừa trống trong TRANH cũng đổi theo: chữ không còn nằm trên nền giấy trắng bên trái nữa mà
+ * bị dải đen phủ lên hai mép trên/dưới, nên chủ thể phải nằm gọn ở khoảng giữa khung.
  */
 export const SECTION_COVER = `────────────────────────────────────────
-8. COVER ART — TWO PICTURES, PLUS THE JAPANESE TITLE PAINTED ONTO THEM
+8. COVER ART — TWO PICTURES, PLUS THE JAPANESE TITLE PRINTED ONTO THEM
 ────────────────────────────────────────
-Two separate thumbnail illustrations for the same episode, plus the short Japanese lettering that gets painted into them. Someone who sees only the thumbnail should already understand most of what this episode is about.
+Two separate thumbnail illustrations for the same episode, plus the short Japanese lettering that gets printed into them. The finished thumbnail is laid out like a Japanese history poster: a black band across the TOP of the frame carrying one white line, and a black band across the BOTTOM carrying one much bigger line in a strong accent colour. Someone who sees only the thumbnail should already understand most of what this episode is about.
 
-THE PICTURE — ENGLISH, SUBJECT ONLY. Same rules as visualDescription: no style words, no colour names, only what IS in the picture, daylight, old Japan. Do not describe letters or titles inside these two fields; the pipeline adds the lettering from the three fields below.
-- "coverPrompts.landscape" — for the long 16:9 video. Pick the single strongest image of the whole episode (its peak, not its opening) and make it READ AT A GLANCE: the one thing this episode is about, shown plainly. Put the main figure or object clearly on the RIGHT side of the frame, and leave the LEFT THIRD open and quiet — bare ground, mist, empty sky — because the title is painted down that side.
-- "coverPrompts.portrait" — for the 9:16 vertical short. Same episode, composed TALL and read at thumbnail size on a phone: one subject, close, centred, filling the middle, open ground below. Keep the UPPER QUARTER open and quiet — the title is painted across it. Simpler than the landscape one; a busy vertical thumbnail turns to mush when it is small.
+THE PICTURE — ENGLISH, SUBJECT ONLY. Same rules as visualDescription: no style words, no colour names, only what IS in the picture, daylight, old Japan. Do not describe letters, titles or bands inside these two fields; the pipeline adds the lettering from the three fields below.
+- "coverPrompts.landscape" — for the long 16:9 video. Pick the single strongest image of the whole episode (its peak, not its opening) and make it READ AT A GLANCE: the one thing this episode is about, shown plainly. Put the main figure or object LARGE ACROSS THE MIDDLE of the frame, centred or a little right of centre, with faces well inside the middle of the picture. Keep the strip along the very top edge and the strip along the very bottom edge quiet and simple — open sky, bare ground, mist — because the two black title bands cover them.
+- "coverPrompts.portrait" — for the 9:16 vertical short. Same episode, composed TALL and read at thumbnail size on a phone: one subject, close, centred, filling the middle. Keep the strip along the very top edge and the strip along the very bottom edge quiet and simple, for the same two bands. Simpler than the landscape one; a busy vertical thumbnail turns to mush when it is small.
 - Do not simply repeat the visualDescription of segment 1. A cover is chosen for how it looks at a glance, not for where it sits in the story.
+- FOR TRAGIC / DISASTER / LOSS TOPICS: Capture the profound weight of tragedy, grief, and quiet aftermath rather than sensational action or blood. Show the haunting desolation: a solitary survivor standing amidst scorched timbers and drifting grey ash, a mother holding her child in silence before an insurmountable fate, a child's small comb half-buried in river mud, or a lone blackened pillar against an overcast sky. The image must strike the viewer immediately with deep sorrow and historical solemnity.
+- FOR FEUDAL TYRANTS / ATROCITIES TOPICS: Capture the chilling, terrifying coldness of feudal tyranny and bloody purges. Show an imposing warlord watching a burning mountain temple from a distance, the desolate riverside execution grounds of Sanjō-gawara with wooden execution posts, or heavy iron chains in a dark cedar dungeon. 
 
-THE LETTERING — JAPANESE, SHORT, PAINTED INTO THE PICTURE:
-- "coverPrompts.headline": the episode in 4 to 8 Japanese characters — a name, a place, an event. 「応仁の乱」「関ヶ原」「刀を置いた日」. This is painted large, so keep it SHORT: every extra character is one more chance the brush strokes come out wrong.
-- "coverPrompts.sub": ONE line of 10 to 18 Japanese characters saying what actually happened, painted smaller beneath the headline. 「京の都が燃えた十年」. Headline plus sub together must tell a stranger most of the episode.
-- "coverPrompts.kicker": the year and the place in 6 to 12 plain characters — 「一四六七年 京都」. Write numbers as kanji.
+THE LETTERING — JAPANESE, SHORT, PRINTED INTO THE PICTURE. Two lines that work as a pair: the top line SETS UP, the bottom line PAYS OFF. Read together, top then bottom, they must land like a turn — the first line makes a stranger ask a question, the second answers it.
+- "coverPrompts.sub": the SETUP line, printed white across the black band at the TOP. 10 to 18 Japanese characters stating the fact that raises the question — a span of time, a number, a place, a promise, a moment. 「本能寺の変からわずか十一日」「京の都が燃えた十年」. For tragic/tyrant events, state the chilling scale or decisive act: 「三十八万人が消えた十五分」「比叡山を焼き尽くした日」「三十九人が消えた河原」「二万人が焼かれた砦」. State the fact plainly; the pull comes from the fact itself, never from a question mark or a tease.
+- "coverPrompts.headline": the PAYOFF line, printed enormous in the accent colour across the black band at the BOTTOM. 4 to 8 Japanese characters — the outcome, the fate, the name. 「明智一族の末路」「刀を置いた日」「関ヶ原」. For tyrant/atrocity events, state the chilling crime or purge: 「信長の残虐」「秀次の悲劇」「暴君の末路」「非情の掟」「血塗られた覇道」. This is the biggest lettering in the image, so keep it SHORT: every extra character is one more chance the strokes come out wrong.
+- "coverPrompts.kicker": the year and the place in 6 to 12 plain characters — 「一一八五年 壇ノ浦」「一五七一年 比叡山」「一五九五年 三条河原」. Printed small in a corner of the picture. Write numbers as kanji.
 - All three are READ OFF THE SCREEN, never spoken. No audio tags, no closing punctuation, no ！ or ？, no 【】 brackets, no emoji, no romaji.`;
 
 /**

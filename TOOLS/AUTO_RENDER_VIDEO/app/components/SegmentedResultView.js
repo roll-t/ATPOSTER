@@ -4320,17 +4320,22 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         })()}
       </div>
 
-      {/* Khối ĐĂNG VIDEO + ẢNH BÌA — chỉ skill Phật giáo (tiếng Nhật) mới có, và chỉ hiện khi
-          Gemini thật sự trả về. Kịch bản sinh TRƯỚC bản cập nhật này không có mấy trường đó,
-          hiện khối rỗng ra chỉ làm người dùng tưởng hỏng. */}
-      {activeTab === 'script' && isJapaneseNarrative && (result.youtubeTitle || result.hashtags || result.coverPrompts) && (
+      {/* Khối ĐĂNG VIDEO + ẢNH BÌA. Chỉ hiện khi thật sự có dữ liệu: kịch bản sinh TRƯỚC bản cập
+          nhật này không có mấy trường đó, hiện khối rỗng ra chỉ làm người dùng tưởng hỏng.
+
+          BỎ điều kiện isJapaneseNarrative: tiêu đề + hashtag + mô tả giờ được sinh tự động cho MỌI
+          skill (xem generatePublishMeta.js), không còn là đặc quyền của hai skill Nhật nữa. Giữ
+          nguyên điều kiện cũ thì moral_talk, stick_figure, pexels... vẫn có caption trong CSDL mà
+          không bao giờ hiện ra màn hình. Riêng prompt ảnh bìa thì vẫn chỉ hai skill Nhật sinh ra,
+          nên phần đó tự ẩn theo result.coverPrompts. */}
+      {activeTab === 'script' && (result.youtubeTitle || result.hashtags || result.youtubeDescription || result.coverPrompts) && (
         <div style={{
           marginBottom: '16px', padding: '14px 16px', borderRadius: '12px',
           border: '1px solid rgba(37,244,238,0.25)', background: 'rgba(37,244,238,0.05)',
           display: 'flex', flexDirection: 'column', gap: '12px'
         }}>
           <strong style={{ fontSize: '0.88rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            📤 Đăng video lên YouTube (tiếng Nhật)
+            📤 Đăng video lên YouTube{isJapaneseNarrative ? ' (tiếng Nhật)' : ''}
           </strong>
 
           {result.youtubeTitle && (

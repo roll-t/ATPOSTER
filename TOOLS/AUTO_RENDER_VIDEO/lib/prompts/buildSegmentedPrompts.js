@@ -137,37 +137,74 @@ const BUDDHIST_TEXT_RULE = 'No text or lettering anywhere in the image.';
  * do gì để ảnh bìa được miễn.
  */
 /**
- * Khối chỉ dẫn VẼ CHỮ lên ảnh bìa.
+ * Sắc chữ của DÒNG CHỐT dưới đáy — mỗi skill một màu, chung một bố cục.
+ *
+ * Lịch sử lấy đỏ máu đúng như ảnh mẫu người dùng đưa (thumbnail lịch sử Nhật dùng sắc này gần như
+ * mặc định). Phật giáo giữ vàng yamabuki: vẫn là chữ áp phích to đậm, nhưng không biến một video
+ * podcast nhẹ nhàng thành cái thumbnail giật gân.
+ */
+function accentColourFor(categoryKey) {
+  return categoryKey === 'japanese_history'
+    ? 'deep blood red, glowing slightly, each stroke edged with a thin dark outline'
+    : 'warm golden yamabuki yellow, each stroke edged with a thin dark outline';
+}
+
+/**
+ * Khối chỉ dẫn VẼ CHỮ lên ảnh bìa — BỐ CỤC ÁP PHÍCH HAI DẢI ĐEN.
  *
  * Ngược hẳn với slide thường: slide giữ nguyên BUDDHIST_TEXT_RULE ("không có chữ nào trong ảnh") vì
  * chữ lọt vào giữa tranh là lỗi nặng. Ảnh bìa thì cần chữ — nó là thumbnail, người lướt phải hiểu
  * được tập nói gì trước khi bấm vào.
  *
- * Ba điều rút ra từ chỗ công cụ sinh ảnh hay hỏng nhất khi phải viết chữ Nhật:
+ * BẢN TRƯỚC viết chữ bằng bút lông sumi mực đen, dựng dọc mép trái (16:9) hoặc ngang đỉnh khung
+ * (9:16), đặt thẳng lên nền giấy trắng. Đẹp như một bức tranh, nhưng THUA khi thu nhỏ thành ô
+ * thumbnail: nét bút mảnh, mực đen trên giấy trắng gần như biến mất, và chữ dọc thì mắt phải dừng
+ * lại mới đọc được — đúng thứ người lướt không bao giờ làm.
+ *
+ * Giờ bám theo ảnh mẫu người dùng đưa (thumbnail lịch sử Nhật):
+ *   - Một DẢI ĐEN đặc chạy hết bề ngang ở ĐỈNH khung, trong đó là DÒNG DẪN màu trắng — câu đặt
+ *     bối cảnh, gợi tò mò ("chỉ 11 ngày sau biến Honnō-ji").
+ *   - Một DẢI ĐEN thứ hai ở ĐÁY khung, trong đó là DÒNG CHỐT — chữ to nhất ảnh, màu nhấn, là câu
+ *     trả lời cho dòng trên ("kết cục của gia tộc Akechi").
+ *   - Cả hai dòng đều NGANG, chữ gothic khối dày, kéo gần hết bề ngang dải.
+ *
+ * Ba điều rút ra từ chỗ công cụ sinh ảnh hay hỏng nhất khi phải viết chữ Nhật vẫn giữ nguyên:
  *   1. Nói RÕ TỪNG CHỮ phải vẽ, đặt trong 「」 — đừng để model tự nghĩ ra chữ.
- *   2. Ghim chữ vào ĐÚNG mảng giấy trắng đã chừa sẵn (bên trái với 16:9, đỉnh khung với 9:16), nếu
- *      không nó viết đè lên mặt nhân vật.
- *   3. Càng ít chữ càng đúng nét — vì vậy prompt kịch bản giới hạn headline 4-8 ký tự.
+ *   2. Ghim chữ vào ĐÚNG một mảng đã định sẵn — ở đây là hai dải đen đặc, nên chữ không còn cơ hội
+ *      đè lên mặt nhân vật như hồi đặt thẳng lên tranh.
+ *   3. Càng ít chữ càng đúng nét — vì vậy prompt kịch bản giới hạn dòng chốt 4-8 ký tự.
  *
  * Kịch bản CŨ không có ba khoá này thì rơi về đúng hành vi trước đây: ảnh bìa không chữ.
  */
-function coverLetteringClause({ headline, sub, kicker }, isLandscape) {
+function coverLetteringClause({ headline, sub, kicker }, isLandscape, accentColour) {
   if (!headline) return BUDDHIST_TEXT_RULE;
-  const parts = [];
-  if (isLandscape) {
-    parts.push(`Japanese title hand-painted down the open left side of the picture, written vertically in large bold sumi brush calligraphy, deep ink black, reading exactly: 「${headline}」.`);
-    if (sub) parts.push(`Beside it, a second vertical line in the same brush hand but much smaller and thinner, reading exactly: 「${sub}」.`);
-    if (kicker) parts.push(`Low on the left, one short horizontal line of small plain characters, reading exactly: 「${kicker}」.`);
-  } else {
-    parts.push(`Japanese title hand-painted across the open space at the top of the picture, written horizontally in large bold sumi brush calligraphy, deep ink black, reading exactly: 「${headline}」.`);
-    if (sub) parts.push(`Directly beneath it, a second horizontal line in the same brush hand but much smaller and thinner, reading exactly: 「${sub}」.`);
-    if (kicker) parts.push(`Along the bottom edge, one short line of small plain characters, reading exactly: 「${kicker}」.`);
+
+  // Dải chiếm bao nhiêu chiều cao phụ thuộc khung: cùng một số ký tự kéo hết bề ngang thì khung
+  // 16:9 rộng nên chữ thấp, khung 9:16 hẹp nên chữ cao gấp đôi theo tỉ lệ.
+  const topBand = isLandscape ? 'the top fifth' : 'the top eighth';
+  const bottomBand = isLandscape ? 'the bottom quarter' : 'the bottom sixth';
+
+  const parts = [
+    'Finished as a Japanese YouTube thumbnail poster, with the painting full-bleed behind two solid black horizontal bands.',
+  ];
+
+  if (sub) {
+    parts.push(`A solid black band runs edge to edge across ${topBand} of the frame. Inside it, centred, one horizontal line of very large heavy white Japanese gothic poster lettering, thick blocky even strokes, tightly spaced, stretched almost the full width of the band, reading exactly: 「${sub}」.`);
   }
-  parts.push('The lettering sits on the bare white paper and keeps well clear of the figure. These lines are the whole of the lettering in the picture.');
+
+  parts.push(`A second solid black band runs edge to edge across ${bottomBand} of the frame. Inside it, centred, one horizontal line of enormous heavy Japanese gothic poster lettering in ${accentColour}, thick blocky even strokes, the biggest lettering in the whole image, stretched almost the full width of the band, reading exactly: 「${headline}」.`);
+
+  if (kicker) {
+    parts.push(`Just below the upper band, tucked into the left corner of the painting, one short horizontal line of small plain white characters, reading exactly: 「${kicker}」.`);
+  }
+
+  parts.push('All lettering is horizontal, upright and level, printed type rather than brushwork, sharp against the flat black bands. These lines are the whole of the lettering in the picture.');
   return parts.join(' ');
 }
 
 export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
+  const accentColour = accentColourFor(categoryKey);
+
   const build = (raw, aspectRatio, composition, isLandscape) => {
     const subject = easternizeScene(stripNegativeClauses(raw));
     if (!subject) return null;
@@ -176,7 +213,7 @@ export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
       composition,
       worldClauseFor(categoryKey),
       JAPANESE_INK_STYLE_CLAUSE,
-      coverLetteringClause(coverPrompts, isLandscape),
+      coverLetteringClause(coverPrompts, isLandscape, accentColour),
       `${aspectRatio} format. Full-bleed artwork: the illustration runs all the way to all four edges of the image.`,
     ].filter(Boolean).join(' ');
   };
@@ -184,15 +221,16 @@ export function buildBuddhistCoverPrompts(categoryKey, coverPrompts = {}) {
   const landscape = build(
     coverPrompts.landscape,
     'Wide 16:9 landscape',
-    // Ghim hẳn CHỦ THỂ BÊN PHẢI thay vì "một bên nào đó": phải biết trước chỗ trống nằm đâu thì
-    // câu vẽ chữ mới trỏ đúng vào nó được.
-    'Thumbnail composition: the main subject sits on the right, and the left third of the frame stays open and quiet.',
+    // Chữ đã dời lên hai DẢI ĐEN ở đỉnh và đáy khung, nên chỗ trống cần chừa cũng dời theo: không
+    // còn khoảng trắng bên trái cho hàng chữ dọc nữa, mà là hai mép trên/dưới sẽ bị dải đen phủ.
+    // Chủ thể vì thế phải nằm gọn ở KHOẢNG GIỮA, nếu không dải đen cắt mất đầu nhân vật.
+    'Thumbnail composition: the main subject sits large across the middle of the frame, centred or a little right of centre, its head and face well inside the middle band of the picture, and the strip along the very top edge and the strip along the very bottom edge stay quiet and simple.',
     true,
   );
   const portrait = build(
     coverPrompts.portrait,
     'Tall 9:16 vertical',
-    'Thumbnail composition: one close, centred subject filling the middle of the frame, the upper quarter left open and quiet, readable at a glance on a phone.',
+    'Thumbnail composition: one close, centred subject filling the middle of the frame, readable at a glance on a phone, its head and face well inside the middle band of the picture, and the strip along the very top edge and the strip along the very bottom edge stay quiet and simple.',
     false,
   );
 

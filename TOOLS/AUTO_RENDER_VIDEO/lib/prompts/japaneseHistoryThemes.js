@@ -87,6 +87,30 @@ export const JAPANESE_HISTORY_THEMES = [
     story: 'Put TWO real figures side by side and compare them through ONE thing they both faced — the same rival, the same year, the same kind of decision. Alternate between them cleanly so the listener always knows whose side of the story they are on. Compare what the record shows they DID, never their imagined personalities. End without crowning a winner: say what each man\'s choice bought him and what it cost him, and let the listener weigh it. The famous cuckoo poem that sorts the three unifiers by temperament is an Edo-period senryū, not their words — if you use it, say that plainly first.',
     motifs: 'two war banners with different family crests standing apart on the same hillside, a wide river valley with a camp on either bank, a folding map weighted open on a plank floor with two commanders on opposite sides of it, two mounted figures halted far apart across an open plain, a pair of helmets resting side by side on separate wooden blocks, a mountain pass seen from above with roads approaching it from two directions',
     mood: 'Even-handed and deliberate, two weights on the same scale.'
+  },
+  {
+    key: 'tragic_history',
+    label: '悲劇と苦難の歴史',
+    sublabel: 'Bi Kịch & Biến Cố Đau Thương',
+    en: 'Tragic history: catastrophic disasters, extreme casualties, deep grief, and the darkest hours of human loss',
+    icon: '🥀',
+    accentColor: '#e11d48',
+    description: 'Những biến cố bi thương cùng cực — tập trung lột tả thương vong tàn khốc, nỗi đau quằn quại và sự diệt vong theo đúng sử liệu.',
+    story: 'Tell ONE deeply tragic episode of Japanese history by directly confronting and detailing the documented casualties, the massive scale of devastation, and the heart-wrenching human suffering recorded in contemporary chronicles. Focus heavily on: the staggering casualty numbers, the desperate cries of victims, families torn apart, villages starved or burned to ash, boiling rivers, mass suicides in dark caves, and the lingering agony of survivors. Describe the harrowing historical truth without sanitizing it — let the unbearable weight of real human loss, sacrifice, and extreme grief dominate every segment.',
+    motifs: 'a solitary burned wooden post standing in charred earth under drifting smoke, grey ash falling slowly across an empty dirt road, a small personal token or child comb lying half-buried in dried mud, silhouettes of weeping figures kneeling by a riverbank in heavy morning mist, a torn family banner fluttering on a desolate shore under a dark overcast sky, an empty ruined wooden gate with cold rain falling',
+    mood: 'Devastatingly sorrowful and heavy, raw historical grief, the unbearable weight of catastrophic human loss.'
+  },
+  {
+    key: 'feudal_tyrants',
+    label: '暴君と非情の掟',
+    sublabel: 'Bạo Chúa & Tội Ác Quyền Lực',
+    en: 'Feudal tyrants and atrocities: extreme cruelty, bloody purges, and the darkest crimes of power',
+    icon: '🩸',
+    accentColor: '#b91c1c',
+    description: 'Tội ác và sự tàn bạo cùng cực của các bạo chúa phong kiến — Nobunaga đốt núi Hiei, Hideyoshi tru diệt gia quyến Hidetsugu, nhục hình xứ Shimabara.',
+    story: 'Tell ONE documented historical atrocity or act of extreme tyranny in feudal Japan with unvarnished, chilling honesty. Focus directly on the calculated cruelty, the bloody purges, the terrifying executions, and the horrifying abuse of power backed by genuine contemporary records (such as Ōta Gyūichi\'s Shinchō Kōki, Jesuit reports, court chronicles, and official shogunate logs). Detail the exact mechanisms of cruelty: the burning of holy mountains, whole families executed at riverside execution grounds, severed ears and noses counted for bounty, and brutal torture inflicted on helpless peasants. Expose the chilling reality of absolute power without glamorizing the tyrant.',
+    motifs: 'a wooden execution platform surrounded by bamboo fences on a riverbank at grey dawn, a towering palisade of sharpened logs holding back fire and smoke, rows of severed heads displayed on wooden boards with inked name placards, a dark dungeon cell with heavy iron chains hanging from cedar pillars, a warlord sitting impassively on a camp stool as smoke rises from a distant burning temple, a bloodstained executioner blade resting on a wooden block',
+    mood: 'Chilling, ominous and terrifyingly bleak, the cold cruelty of unrestrained feudal power.'
   }
 ];
 

@@ -47,7 +47,7 @@ const CHANNEL_IDENTITY = `WHAT THIS CHANNEL IS, AND WHAT IT IS NOT:
 - It is a JAPANESE HISTORY channel. The episode exists to carry one real episode of history, or the real working life of a real class of people. That is the content, not the decoration.
 - It is NOT a sleep channel, NOT a relaxation channel, NOT a "wind down before bed" channel. The video is watched at any hour. Never assume the listener is in bed, never send them to sleep, never wish them good night.
 - It is NOT a self-help channel. You are not drawing life lessons for the listener out of history. Tell what happened and what it cost the people it happened to. If a meaning is there, the listener will find it without you pointing.
-- It is NOT an action channel. No choreographed duels, no body counts, no dramatic narration of violence. The interesting part is always the decision, the waiting, or the consequence.`;
+- It is NOT a shallow action channel. No choreographed fictional duels. BUT for tragic / disaster history episodes: DIRECTLY ADDRESS AND DETAIL the documented casualty numbers, the extreme suffering of the victims, and the harrowing human toll recorded in official chronicles without sanitizing history.`;
 
 const SUBJECT_REQUIREMENT = `REQUIRED: THIS IS HISTORY. ACCURACY OUTRANKS EVERY OTHER INSTRUCTION IN THIS PROMPT.
 This channel's whole value is that what it says is true. A beautiful episode with one invented fact in it is a failure. If following any other rule here would force you to state something you are not sure of, break that rule instead and say less.
@@ -110,7 +110,8 @@ This is what gets pasted into YouTube when the video is uploaded, so it is writt
 // kênh Phật giáo. Vẫn giữ luật "vào bài không giật tít", nhưng nói rõ vào khẽ KHÁC với nói rụt rè,
 // nếu không model sẽ hiểu "năng lượng thấp" thành "giọng yếu và ngập ngừng".
 const HISTORY_REGISTER = `- Steady, assured, unhurried. The voice of someone who knows this material and does not need to raise it. Weight comes from certainty, never from volume.
-- This is a proud subject and the telling may sound proud. When the moment earns it — a march that should have been impossible, a levee that still holds four centuries later, a last charge — let the voice carry that weight openly.
+- When telling moments of achievement: let the voice carry pride and determination.
+- FOR TRAGIC TOPICS (disasters, famines, bombardments, mass loss): The voice carries profound solemnity, grief, and sorrow ([solemn], [sad], [mournful], [serious]). Deliver casualty figures, the cries of victims, and the grim devastation with deep, respectful gravity — neither sensational nor detached, but bearing the unbearable weight of real human suffering and irreplaceable loss.
 - Never hushed, never soothing, never tentative. Entering quietly means starting without a hook, NOT speaking timidly. Every sentence lands like something the speaker is sure of.
 - Where the record is uncertain, be just as firm about the uncertainty: 「そこは分かっていません。」 said plainly and without apology is stronger than a confident guess.
 - Never hyped, never salesy, never a trailer voice. Confidence and theatrics are opposites here.`;
@@ -202,7 +203,7 @@ ${SECTION_JSON_RULES}
     "landscape": "On the stone forecourt of a Japanese castle in old Japan. On the right, a samurai in dark lacquered armour kneels with both hands resting on his knees, his long sword laid on a low wooden stand before him. On the left, wide open gravel running toward a tall stone wall and a castle keep beyond it. Bright overcast morning, soft even light.",
     "portrait": "Close-up on a plank floor inside a Japanese castle room. A single long sword resting on a dark wooden stand, its lacquered scabbard catching the flat daylight. Behind it, out of focus, a paper screen and one timber post. Early morning, soft grey light above and worn wood below.",
     "headline": "刀を置いた日",
-    "sub": "ある侍の最後の役目",
+    "sub": "関ヶ原の戦いからわずか七日",
     "kicker": "一六〇〇年 美濃"
   },
   "totalSegments": 25,

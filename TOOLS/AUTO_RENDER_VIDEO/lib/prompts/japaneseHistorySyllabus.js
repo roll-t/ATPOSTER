@@ -501,6 +501,140 @@ export const JAPANESE_HISTORY_SYLLABUS = {
       status: 'record',
       desc: 'Hai thế lực vùng biên cùng bành trướng mạnh, và cùng phải quy phục khi Hideyoshi đem đại quân xuống miền nam.'
     }
+  ],
+
+  tragic_history: [
+    {
+      id: 1,
+      text: 'The Fall of the Heike at Dan-no-ura',
+      vi: 'Bi Kịch Diệt Vong Nhà Heike Tại Dan-no-ura',
+      era: '1185 (壇ノ浦の戦い)',
+      status: 'record',
+      desc: 'Thái phu nhân bế Thiên hoàng nhí 6 tuổi gieo mình xuống biển sâu, toàn bộ gia tộc Heike trầm mình kết thúc một triều đại.'
+    },
+    {
+      id: 2,
+      text: 'The Great Tenmei Famine: Despair in the North',
+      vi: 'Đại Nạn Đói Tenmei: Đỉnh Điểm Tuyệt Vọng Miền Đông Bắc',
+      era: '1782–1788 (天明の大飢饉)',
+      status: 'record',
+      desc: 'Tro bụi núi lửa che khuất bầu trời, mùa màng tuyệt diệt và cảnh tượng thê lương cùng cực được Sugita Genpaku ghi lại.'
+    },
+    {
+      id: 3,
+      text: 'The 1923 Kanto Earthquake: The Honjo Clothing Depot Firestorm',
+      vi: 'Đại Động Đất Kanto 1923 và Cơn Lốc Lửa Bãi Honjo',
+      era: '1923 (関東大震災・被服廠跡)',
+      status: 'record',
+      desc: 'Trận động đất lịch sử và 15 phút cơn cuồng phong lửa thiêu rụi 38.000 người dân tị nạn tại bãi đất quân nhu Honjo.'
+    },
+    {
+      id: 4,
+      text: 'The Tokyo Firebombing: Operation Meetinghouse',
+      vi: 'Đêm Bão Lửa Tokyo: Thảm Họa Bom Napalm 1945',
+      era: '1945 (東京大空襲)',
+      status: 'record',
+      desc: 'Đêm không kích khốc liệt nhất lịch sử khi sông Sumida sôi sùng sục và hơn 100.000 thường dân thiệt mạng chỉ trong một đêm.'
+    },
+    {
+      id: 5,
+      text: 'Hiroshima and Nagasaki: The Shadows of Atomic Destruction',
+      vi: 'Hiroshima và Nagasaki: Những Chiếc Bóng Bom Nguyên Tử',
+      era: '1945 (広島・長崎原爆投下)',
+      status: 'record',
+      desc: 'Chớp sáng xóa sổ hai đô thị, những chiếc bóng in vĩnh viễn trên đá và nỗi đau di chứng Hibakusha qua nhiều thế hệ.'
+    },
+    {
+      id: 6,
+      text: 'The Battle of Okinawa: The Typhoon of Steel and Mass Suicides',
+      vi: 'Trận Okinawa: Cơn Cuồng Phong Thép và Bi Kịch Ép Buộc Tự Sát',
+      era: '1945 (沖縄戦・集団自決)',
+      status: 'record',
+      desc: 'Một phần ba dân số đảo thiệt mạng và nỗi đau tột cùng của những gia đình bị ép tự vẫn tập thể trong các hang đá.'
+    },
+    {
+      id: 7,
+      text: 'The Shimabara Rebellion and the Despair of the Starving Peasants',
+      vi: 'Khởi Nghĩa Shimabara và Nỗi Khổ Cùng Cực Của Dân Nghèo',
+      era: '1637–1638 (島原の乱)',
+      status: 'record',
+      desc: 'Sự bần cùng hóa và áp bức tôn giáo đẩy 37.000 nông dân vào thành hoang Hara, kết thúc bằng một cuộc thảm sát đẫm máu.'
+    },
+    {
+      id: 8,
+      text: 'The Kaiten Human Torpedoes: The Coffins of the Young Sailors',
+      vi: 'Ngư Lôi Tự Sát Kaiten: Những Cỗ Quan Tài Sắt Dưới Đáy Biển',
+      era: '1944–1945 (人間魚雷 回天)',
+      status: 'record',
+      desc: 'Những thanh niên tuổi đôi mươi bị khóa kín nắp trong khoang ngư lôi lao vào tàu địch, một đi không bao giờ trở lại.'
+    }
+  ],
+
+  feudal_tyrants: [
+    {
+      id: 1,
+      text: 'The Burning of Mount Hiei: Nobunaga\'s Annihilation of Enryaku-ji',
+      vi: 'Nobunaga Thiêu Rụi Núi Hiei và Thảm Sát Chùa Enryaku-ji',
+      era: '1571 (比叡山焼き討ち)',
+      status: 'record',
+      desc: 'Theo 『Tín Trường Công Ký』, Nobunaga bao vây ngọn núi thiêng, phóng hoả thiêu rụi chùa chiền và hạ sát hàng ngàn tăng lữ, phụ nữ, trẻ nhỏ.'
+    },
+    {
+      id: 2,
+      text: 'The Massacre of Nagashima: Twenty Thousand Burned Alive',
+      vi: 'Thảm Sát Nagashima: Hai Vạn Người Bị Thiêu Sống Trong Hàng Rào Lửa',
+      era: '1574 (長島一向一揆)',
+      status: 'record',
+      desc: 'Nobunaga dựng rào gỗ khổng lồ quây kín hơn hai vạn tín đồ và nông dân rồi châm lửa đốt rụi, tuyệt diệt không chừa một ai.'
+    },
+    {
+      id: 3,
+      text: 'The Purge of the Hidetsugu Clan at Sanjo-gawara',
+      vi: 'Cuộc Thanh Trừng Gia Tộc Hidetsugu và Hố Chôn Súc Sinh Trũng',
+      era: '1595 (秀次事件・三条河原の処刑)',
+      status: 'record',
+      desc: 'Hideyoshi ép cháu ruột mổ bụng, rồi điệu 39 phụ nữ và trẻ thơ ra bãi chém Sanjō-gawara hành quyết trước khi vứt vào hố chôn nguyền rủa.'
+    },
+    {
+      id: 4,
+      text: 'The Tyrant of Shimabara: Matsukura and the Mino-odori Torture',
+      vi: 'Bạo Chúa Xứ Shimabara: Matsukura và Nhục Hình Điệu Nhảy Áo Rơm',
+      era: '1630s (松倉勝家・過酷な収奪)',
+      status: 'record',
+      desc: 'Sưu thuế tàn bạo cùng cực và hình phạt thiêu sống bằng áo mưa rơm (Mino-odori) của lãnh chúa Matsukura châm ngòi cuộc nổi dậy đẫm máu.'
+    },
+    {
+      id: 5,
+      text: 'The Golden Skull Cups of Nobunaga',
+      vi: 'Chén Rượu Sọ Người Dát Vàng Của Oda Nobunaga',
+      era: '1574 (信長公記・薄濃)',
+      status: 'record',
+      desc: 'Sử liệu 『Tín Trường Công Ký』 xác nhận Nobunaga cho sơn son dát vàng sọ của Azai và Asakura đem ra tiệc rượu đầu năm thị uy trước tướng lĩnh.'
+    },
+    {
+      id: 6,
+      text: 'The Mimizuka Nose Tomb: The Brutal Bounty of the Korean Campaigns',
+      vi: 'Cồn Mũi Mimizuka: Tội Ác Cắt Mũi Lấy Thưởng Thời Hideyoshi',
+      era: '1592–1598 (耳塚・鼻切り)',
+      status: 'record',
+      desc: 'Mệnh lệnh cắt mũi và tai của hàng vạn nạn nhân ngâm muối chuyển về kinh đô tính chiến công, để lại gò chôn bi phẫn tại Kyōto.'
+    },
+    {
+      id: 7,
+      text: 'Ashikaga Yoshinori: The Mad Terror of the Lottery Shogun',
+      vi: 'Ashikaga Yoshinori: Triều Đại Khủng Bố Của Tướng Quân Cuồng Sát',
+      era: '1429–1441 (足利義教・万人恐怖)',
+      status: 'record',
+      desc: 'Vị Tướng quân độc tài gieo rắc nỗi kinh hoàng tột độ khắp kinh thành: chém đầu xử tử bất kỳ ai chỉ vì một lời nói lỡ hay một nụ cười.'
+    },
+    {
+      id: 8,
+      text: 'Minamoto no Yoritomo: The Bloody Purge of His Own Brothers',
+      vi: 'Minamoto no Yoritomo: Cuộc Tàn Sát Huynh Đệ Ruột Thịt',
+      era: '1185–1193 (義経・範頼の粛清)',
+      status: 'record',
+      desc: 'Để củng cố quyền lực tối thượng của Mạc phủ Kamakura, Yoritomo lạnh lùng truy sát và tiêu diệt các em ruột đã lập công đầu là Yoshitsune và Noriyori.'
+    }
   ]
 };
 

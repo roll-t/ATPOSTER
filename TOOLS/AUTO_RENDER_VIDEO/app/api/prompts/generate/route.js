@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/lib/db.js';
 import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCoverPrompts } from '@/lib/prompts/index.js';
-import { generateSegmentedScript, translateAndExpandInputs } from '@/lib/prompts/gemini/index.js';
+import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta } from '@/lib/prompts/gemini/index.js';
 import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
 import { getSkill } from '@/lib/skills/index.js';
 
@@ -124,6 +124,33 @@ export async function POST(request) {
         isSegmented: false,
         createdAt: new Date().toISOString(),
       };
+    }
+
+    // KHỐI ĐĂNG VIDEO — tiêu đề + hashtag + mô tả, sinh tự động cho MỌI skill.
+    //
+    // Chỉ hai skill Nhật tự viết khối này trong kịch bản (mục 7 của japaneseHistory.js /
+    // buddhistWisdom.js), với luật riêng rất chặt. Tám skill còn lại trước đây không có gì cả:
+    // kịch bản viết xong là người dùng phải tự nghĩ tiêu đề. Lượt gọi phụ này đọc lại chính kịch
+    // bản vừa viết rồi rút ra tiêu đề + hashtag + mô tả bằng ĐÚNG ngôn ngữ của lời thoại.
+    //
+    // Điều kiện `!record.youtubeTitle` giữ nguyên bản do kịch bản tự viết khi đã có — vừa để hai
+    // skill Nhật không bị luật chung ghi đè, vừa để lượt này trở thành lưới đỡ khi model bỏ sót
+    // khối đó.
+    //
+    // KHÔNG chặn cả lượt tạo kịch bản nếu bước này hỏng: caption là phần làm-tốt-thêm, còn kịch
+    // bản + prompt ảnh mới là thứ người dùng chờ. Hỏng thì ghi log rồi đi tiếp.
+    if (record.isSegmented && !record.youtubeTitle && apiKeys.length > 0) {
+      try {
+        const meta = await generatePublishMeta({
+          title: record.title,
+          segments: record.segments,
+          isLandscape: (processedInput.aspectRatio || '16:9') === '16:9',
+          apiKey: apiKeys,
+        });
+        if (meta) Object.assign(record, meta);
+      } catch (err) {
+        console.warn('[Viết tiêu đề & hashtag] Bỏ qua, kịch bản vẫn dùng được:', err.message);
+      }
     }
 
     // Skill tự xây remotionConfig nếu có (slideshows & reading-page).

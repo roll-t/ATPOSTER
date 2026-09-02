@@ -146,8 +146,8 @@ ${SECTION_JSON_RULES}
   "coverPrompts": {
     "landscape": "On the muddy bank of a swollen river in old Japan. On the right, an older monk with a shaved head in a faded ochre robe crouches low with a young woman in a pale kimono stepping onto his back. On the left, wide open water running white over half-submerged stepping stones toward a far treeline. Bright overcast morning, soft even light.",
     "portrait": "Close-up in the courtyard of an old Japanese temple. A pair of open hands held palm up at chest height, a single wet maple leaf resting in one palm. Behind them, out of focus, the deep tiled eaves of a wooden temple and one pine. Early morning, soft grey mist above and worn stone below.",
-    "headline": "川を渡る",
-    "sub": "背負ったまま歩いた午後",
+    "headline": "まだ背負っている",
+    "sub": "川を渡って半日たっても怒っていた",
     "kicker": "ある夏の朝 山寺"
   },
   "totalSegments": 25,
