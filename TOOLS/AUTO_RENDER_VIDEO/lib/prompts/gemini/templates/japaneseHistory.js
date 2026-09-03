@@ -116,6 +116,67 @@ const HISTORY_REGISTER = `- Steady, assured, unhurried. The voice of someone who
 - Where the record is uncertain, be just as firm about the uncertainty: 「そこは分かっていません。」 said plainly and without apology is stronger than a confident guess.
 - Never hyped, never salesy, never a trailer voice. Confidence and theatrics are opposites here.`;
 
+const HISTORICAL_5_ACT_STRUCTURE = `────────────────────────────────────────
+1.5. NARRATIVE ARCHITECTURE — THE 5-ACT HISTORICAL ARC & CHAPTER INTRO SLIDES
+────────────────────────────────────────
+To give the video a clear, dramatic, and logical spine from beginning to end, the script MUST be organized strictly into 5 narrative acts. Furthermore, at the boundary of each act, provide a dedicated "Chapter Introduction / Transition Slide" that visually and narratively bridges into the next phase:
+
+ACT 1: NGUYÊN NHÂN & TIỀN ĐỀ (Causes & Background / 発端・背景 — approx. 15–20% of segments)
+  - Purpose: Introduce the historical period, deep-seated tensions, underlying conflicts of interests/clans, and the immediate catalyst or spark.
+  - Establish the central historical figures, their initial stakes, doubts, or tactical positions.
+  - Start with a concrete sensory detail (see Voice guidelines), then gradually expand to the broader historical context.
+  - Segment 1 opens Act 1 with a quiet opening header in the subtitle:
+    Line 1: 【発端】[Spoken Japanese line with **keywords**]
+    Line 2: 【Khởi nguồn】[Vietnamese translation with **từ khóa**]
+
+TRANSITION SLIDE 1 ➔ 2 (Chapter Intro Slide for Act 2):
+  - Segment opening Act 2 functions as an evocative Chapter Introduction Slide.
+  - Visual: A cinematic wide or symbolic establishing shot signaling strategic mobilization or looming trouble (e.g. war banners unfurling on castle ramparts against the wind, a war map unrolled on a wooden table with clan seals, couriers galloping down a misty mountain road).
+  - Subtitle Format: Must feature the Act 2 marker in brackets on both lines:
+    Line 1: 【動乱】[Spoken Japanese statement marking the escalation] with **keywords**
+    Line 2: 【Diễn biến】[Vietnamese translation] with **từ khóa**
+  - Narration: Crisp, firm, establishing line ([serious] or [thoughtful]) setting the wheels of conflict in motion.
+
+ACT 2: DIỄN BIẾN & ĐỐI ĐẦU (Progression & Escalation / 展開・激化 — approx. 25–30% of segments)
+  - Purpose: Army maneuvers, tactical deployments, probing engagements, diplomatic friction, political machinations, and escalating stakes.
+  - Pacing accelerates; tension mounts hour by hour, bringing the parties steadily toward an unavoidable clash.
+
+TRANSITION SLIDE 2 ➔ 3 (Chapter Intro Slide for Act 3):
+  - Segment opening Act 3 functions as a Chapter Introduction Slide for the climax.
+  - Visual: The tense, breathless moment right before the decisive collision or turning point (e.g. samurai drawing blades in sudden rainfall, spear tips glinting through smoke, war drums beating in the distance, opposing vanguards staring across a narrow river).
+  - Subtitle Format: Must feature the Act 3 marker in brackets:
+    Line 1: 【激突】[Spoken Japanese statement marking the critical climax] with **keywords**
+    Line 2: 【Cao trào】[Vietnamese translation] with **từ khóa**
+  - Narration: High-gravity, intense statement ([solemn] or [confident]) signaling the point of no return.
+
+ACT 3: CAO TRÀO & BƯỚC NGOẶT (Climax & Decisive Turning Point / 頂点・決戦 — approx. 20–25% of segments)
+  - Purpose: The fiercest, most pivotal crux of the event. A decisive charge, a fatal betrayal (e.g. defection or sudden flank charge), an ambush, a desperate defense, or a critical life-or-death choice.
+  - Ground it in visceral reality: the sound of matchlocks, the mud under straw sandals, shouting commanders, and the raw human stakes recorded in contemporary annals.
+
+TRANSITION SLIDE 3 ➔ 4 (Chapter Intro Slide for Act 4):
+  - Segment opening Act 4 functions as a Chapter Introduction Slide for the aftermath.
+  - Visual: The quiet aftermath when the smoke begins to clear (e.g. drifting smoke over a silent field, discarded banners in the wet grass, or a solitary commander standing on a hill looking over the silent valley).
+  - Subtitle Format: Must feature the Act 4 marker in brackets:
+    Line 1: 【結末】[Spoken Japanese statement marking the outcome] with **keywords**
+    Line 2: 【Kết quả】[Vietnamese translation] with **từ khóa**
+  - Narration: Solemn, heavy line ([solemn] or [serious]), letting the weight of the result land.
+
+ACT 4: KẾT QUẢ & CỤC DIỆN MỚI (Outcome & Aftermath / 結末・代償 — approx. 15–20% of segments)
+  - Purpose: The concrete historical fallout. Documented casualties, the surrender or destruction of clans, executions, land redistributions, or the dawn of a new regime.
+  - Tell the true human cost without romanticizing or glossing over tragedy.
+
+TRANSITION SLIDE 4 ➔ 5 (Chapter Intro Slide for Act 5):
+  - Segment opening Act 5 functions as a Chapter Introduction Slide for the epilogue.
+  - Visual: A poignant historical relic or enduring landscape (e.g. an old moss-covered stone milestone beside a quiet path, a rusted sword hilt preserved in a wooden chest, a temple courtyard at twilight).
+  - Subtitle Format: Must feature the Act 5 marker in brackets:
+    Line 1: 【残響】[Spoken Japanese statement reflecting on history] with **keywords**
+    Line 2: 【Dư âm】[Vietnamese translation] with **từ khóa**
+  - Narration: Thoughtful, resonant line ([thoughtful] or [solemn]) entering the final reflection.
+
+ACT 5: KẾT THÚC & DƯ ÂM LỊCH SỬ (Legacy & Epilogue / 余波・後世 — approx. 10–15% of segments)
+  - Purpose: How this event shaped subsequent centuries, the fate of the survivors or descendants, what the historical record preserved and what it left unrecorded.
+  - End on a quiet, enduring concrete scene. No generic inspirational speeches or preaching. History speaks for itself.`;
+
 export function buildJapaneseHistoryScriptPrompt(input, durationInfo, durationRange = '8_10m') {
   const isLandscape = (input.aspectRatio || '16:9') === '16:9';
   const themeObj = getJapaneseHistoryTheme(input.historyTheme || 'japan_history');
@@ -158,6 +219,8 @@ ${sectionVoice(
     HISTORY_REGISTER,
   )}
 
+${HISTORICAL_5_ACT_STRUCTURE}
+
 ${sectionBanned(SUBJECT_REQUIREMENT)}
 
 ${sectionTags(
@@ -171,7 +234,14 @@ ${sectionTags(
 ${sectionLength(durationInfo, targetSlides, targetChars, HONEST_FILL)}
 
 ${SECTION_SUBTITLES}
-Example:
+SUBTITLE FORMAT RULES FOR THIS CHANNEL:
+- For Chapter Intro / Transition slides (the first slide of each Act), prepend the chapter header tag in brackets:
+  Act 1 opener:  "subtitle": "【発端】峠の道は、**朝のうちはまだ**湿っていました。\\n【Khởi nguồn】Con đường đèo, **buổi sớm vẫn còn** ẩm ướt."
+  Act 2 opener:  "subtitle": "【動乱】美濃の国境に、**軍勢の足音**が近づいていました。\\n【Diễn biến】Nơi biên giới, **tiếng bước chân quân đội** đã cận kề."
+  Act 3 opener:  "subtitle": "【激突】正午の合図とともに、**布陣が崩れ**始めました。\\n【Cao trào】Cùng tiếng hiệu lệnh giữa trưa, **trận đồ bắt đầu vỡ** trận."
+  Act 4 opener:  "subtitle": "【結末】煙が晴れた野には、**沈黙だけが残って**いました。\\n【Kết quả】Nơi cánh đồng khói tan, **chỉ còn lại sự im lặng**."
+  Act 5 opener:  "subtitle": "【残響】その日の出来事は、**四百年後の今も**語り継がれています。\\n【Dư âm】Biến cố ngày ấy, **bốn trăm năm sau** vẫn còn được nhắc lại."
+- For regular narrative slides within an Act: standard subtitle without bracketed chapter header, highlighting 1-2 keywords with double asterisks:
   "subtitle": "刀を置いたのは、負けたからではありません。**役目が終わったからです。**\\nÔng đặt kiếm xuống không phải vì thua. **Mà vì phận sự đã xong.**"
 
 ${sectionVisual({
@@ -213,14 +283,35 @@ ${SECTION_JSON_RULES}
       "durationSeconds": ${SECONDS_PER_IMAGE},
       "visualDescription": "On a post road through a mountain pass in old Japan. A wide view of a packed-dirt road climbing between pines under a pale overcast sky. On the left, a weathered stone milestone at the roadside. Thin mist across the middle distance. A straw-roofed tea stall in the far distance. Tall grass in the foreground. Early morning, soft even light.",
       "dialogueOrNarration": "[thoughtful] 峠の道は、朝のうちはまだ湿っていました。",
-      "subtitle": "峠の道は、**朝のうちはまだ**湿っていました。\\nCon đường đèo, **buổi sớm vẫn còn** ẩm ướt."
+      "subtitle": "【発端】峠の道は、**朝のうちはまだ**湿っていました。\\n【Khởi nguồn】Con đường đèo, **buổi sớm vẫn còn** ẩm ướt."
     },
     {
-      "segmentNumber": 7,
+      "segmentNumber": 6,
       "durationSeconds": ${SECONDS_PER_IMAGE},
-      "visualDescription": "In the dirt courtyard of a samurai residence in old Japan. Mid-shot of a samurai in dark lacquered armour kneeling on one knee, head lowered, both hands on his thigh. Facing him, a lord in stiff wide-shouldered formal dress stands on a raised wooden verandah under deep eaves. Behind them, a plastered wall and one pine. Bright overcast morning, soft even light.",
-      "dialogueOrNarration": "その命令に、彼は一度も顔を上げませんでした。",
-      "subtitle": "その命令に、**一度も顔を上げません**でした。\\nTrước lệnh đó, ông **không một lần ngẩng mặt lên**."
+      "visualDescription": "On the wooden ramparts of a Japanese castle in old Japan. Wide cinematic shot of black-and-gold clan war banners whipping in the wind under gathering storm clouds. In the courtyard below, foot soldiers assemble with long bamboo spears. Early afternoon, dramatic overcast light.",
+      "dialogueOrNarration": "[serious] 美濃の国境に、軍勢の足音が近づいていました。",
+      "subtitle": "【動乱】国境に、**軍勢の足音**が近づいていました。\\n【Diễn biến】Nơi biên giới, **tiếng bước chân quân đội** đã cận kề."
+    },
+    {
+      "segmentNumber": 12,
+      "durationSeconds": ${SECONDS_PER_IMAGE},
+      "visualDescription": "Across an open marshland valley in old Japan. Dramatic mid-shot of two opposing lines of samurai clashing amidst heavy smoke. A mounted commander raises his war fan above the confusion. Pale misty light, mud splashing underfoot.",
+      "dialogueOrNarration": "[solemn] 正午を告げる合図とともに、前線の布陣が崩れ始めました。",
+      "subtitle": "【激突】正午の合図とともに、**布陣が崩れ**始めました。\\n【Cao trào】Cùng hiệu lệnh giữa trưa, **trận đồ bắt đầu vỡ** trận."
+    },
+    {
+      "segmentNumber": 18,
+      "durationSeconds": ${SECONDS_PER_IMAGE},
+      "visualDescription": "Across a quiet rain-soaked battlefield in old Japan. Wide atmospheric shot of discarded banners and broken wooden palisades half-submerged in muddy puddles. In the far distance, weary soldiers march away under a pale clearing sky. Late afternoon, cold pale light.",
+      "dialogueOrNarration": "[serious] 煙が晴れた野には、冷たい沈黙だけが残っていました。",
+      "subtitle": "【結末】煙が晴れた野には、**沈黙だけが残って**いました。\\n【Kết quả】Nơi cánh đồng khói tan, **chỉ còn lại sự im lặng**."
+    },
+    {
+      "segmentNumber": 23,
+      "durationSeconds": ${SECONDS_PER_IMAGE},
+      "visualDescription": "Beside an ancient moss-covered stone monument at the edge of a cedar forest in old Japan. A close-up of deeply carved kanji weathered by centuries, with fallen red autumn leaves resting on the stone base. Soft evening light filtering through tall branches.",
+      "dialogueOrNarration": "[thoughtful] その日の出来事は、四百年後の今も語り継がれています。",
+      "subtitle": "【残響】その日の出来事は、**四百年後の今も**語り継がれています。\\n【Dư âm】Biến cố ngày ấy, **bốn trăm năm sau** vẫn còn được nhắc lại."
     }
   ]
 }
