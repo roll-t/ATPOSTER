@@ -53,6 +53,26 @@ const DEFAULT_PEXELS_KEYWORDS = [
   'golden hour sky', 'slow clouds timelapse',
 ];
 
+const ACT_METADATA = {
+  1: { label: 'HỒI 1: KHỞI NGUỒN & BỐI CẢNH', jp: '第一幕：発端', icon: '🏛️', color: '#f59e0b' },
+  2: { label: 'HỒI 2: DIỄN BIẾN & ĐỐI ĐẦU', jp: '第二幕：動乱', icon: '⚔️', color: '#3b82f6' },
+  3: { label: 'HỒI 3: CAO TRÀO & BƯỚC NGOẶT', jp: '第三幕：激突', icon: '🔥', color: '#ef4444' },
+  4: { label: 'HỒI 4: KẾT QUẢ & CỤC DIỆN MỚI', jp: '第四幕：結末', icon: '⚖️', color: '#10b981' },
+  5: { label: 'HỒI 5: DƯ ÂM & BÀI HỌC LỊCH SỬ', jp: '第五幕：残響', icon: '🍃', color: '#a855f7' }
+};
+
+function getSegmentActMeta(seg) {
+  let actNum = seg.act ? Number(seg.act) : null;
+  if (!actNum && seg.subtitle) {
+    if (seg.subtitle.includes('第一幕') || seg.subtitle.includes('Hồi 1') || seg.subtitle.includes('Hồi I')) actNum = 1;
+    else if (seg.subtitle.includes('第二幕') || seg.subtitle.includes('Hồi 2') || seg.subtitle.includes('Hồi II')) actNum = 2;
+    else if (seg.subtitle.includes('第三幕') || seg.subtitle.includes('Hồi 3') || seg.subtitle.includes('Hồi III')) actNum = 3;
+    else if (seg.subtitle.includes('第四幕') || seg.subtitle.includes('Hồi 4') || seg.subtitle.includes('Hồi IV')) actNum = 4;
+    else if (seg.subtitle.includes('第五幕') || seg.subtitle.includes('Hồi 5') || seg.subtitle.includes('Hồi V')) actNum = 5;
+  }
+  return actNum ? (ACT_METADATA[actNum] || null) : null;
+}
+
 function deriveThemeKeywords(result) {
   const theme = result.input?.moralTheme;
   return THEME_PEXELS_KEYWORDS[theme] || DEFAULT_PEXELS_KEYWORDS;
@@ -4668,6 +4688,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               const isThumb = seg.isThumbnail || (seg.dialogueOrNarration && seg.dialogueOrNarration.includes('Thumbnail'));
               const isSegDirty = dirtySegments.some(d => d.segmentNumber === seg.segmentNumber);
               const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
+              const isChapterTitle = seg.layout === 'chapter-title';
+              const actMeta = getSegmentActMeta(seg);
               const editStyle = {
                 width: '100%',
                 boxSizing: 'border-box',
@@ -4683,29 +4705,82 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 marginTop: '4px'
               };
               return (
-                <div
-                  key={idx}
-                  className="timeline-card"
-                  style={
-                    // Slide đang có sửa chưa lưu được viền vàng để tìm lại được ngay trong một
-                    // kịch bản dài 20-30 slide, khỏi phải cuộn dò từng cái.
-                    isSegDirty
-                      ? { border: '1.5px solid var(--warning)', background: 'rgba(255, 193, 7, 0.05)', boxShadow: '0 4px 20px rgba(255, 193, 7, 0.12)' }
-                      : isThumb
-                        ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' }
-                        : undefined
-                  }
-                >
-                  <div className="timeline-meta">
-                    <strong style={{ color: isThumb ? 'var(--secondary)' : 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>{isThumb ? '🖼️' : '🎬'}</span>
-                      <span>{isThumb ? 'Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)' : `Slide ${seg.segmentNumber}`}</span>
-                      {isSegDirty && (
-                        <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(255,193,7,0.18)', color: 'var(--warning)', fontWeight: 700 }}>
-                          chưa lưu
-                        </span>
-                      )}
-                    </strong>
+                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {isChapterTitle && actMeta && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 18px',
+                      background: `linear-gradient(90deg, ${actMeta.color}26 0%, rgba(18,18,18,0.92) 100%)`,
+                      borderLeft: `4px solid ${actMeta.color}`,
+                      borderTop: `1px solid ${actMeta.color}44`,
+                      borderRight: `1px solid ${actMeta.color}22`,
+                      borderBottom: `1px solid ${actMeta.color}22`,
+                      borderRadius: '10px',
+                      marginTop: idx > 0 ? '14px' : '0',
+                      boxShadow: `0 4px 18px ${actMeta.color}18`
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.25rem' }}>{actMeta.icon}</span>
+                        <div>
+                          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: actMeta.color, letterSpacing: '0.5px' }}>
+                            【{actMeta.jp}】 {actMeta.label}
+                          </span>
+                          {seg.actTitle && (
+                            <span style={{ marginLeft: '12px', fontSize: '0.82rem', color: '#e2e8f0', fontWeight: 600 }}>
+                              — {seg.actTitle}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        color: actMeta.color,
+                        background: `${actMeta.color}18`,
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                        border: `1px solid ${actMeta.color}44`,
+                        fontWeight: 700
+                      }}>
+                        🌟 Tiêu đề hồi (Đặt ở phía trên)
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    className="timeline-card"
+                    style={
+                      // Slide đang có sửa chưa lưu được viền vàng để tìm lại được ngay trong một
+                      // kịch bản dài 20-30 slide, khỏi phải cuộn dò từng cái.
+                      isSegDirty
+                        ? { border: '1.5px solid var(--warning)', background: 'rgba(255, 193, 7, 0.05)', boxShadow: '0 4px 20px rgba(255, 193, 7, 0.12)' }
+                        : isThumb
+                          ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' }
+                          : isChapterTitle
+                            ? { border: `1.5px solid ${actMeta ? actMeta.color : '#f59e0b'}`, background: `linear-gradient(135deg, ${actMeta ? actMeta.color : '#f59e0b'}12 0%, rgba(20, 16, 12, 0.65) 100%)`, boxShadow: `0 4px 20px ${actMeta ? actMeta.color : '#f59e0b'}20` }
+                            : undefined
+                    }
+                  >
+                    <div className="timeline-meta">
+                      <strong style={{ color: isThumb ? 'var(--secondary)' : isChapterTitle ? (actMeta ? actMeta.color : '#f59e0b') : 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{isThumb ? '🖼️' : isChapterTitle ? (actMeta ? actMeta.icon : '👑') : '🎬'}</span>
+                        <span>{isThumb ? 'Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)' : `Slide ${seg.segmentNumber}`}</span>
+                        {idx === 0 && !isThumb && !isChapterTitle && (
+                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.4)', fontWeight: 700 }}>
+                            🎯 MỞ ĐẦU &amp; DẪN CHUYỆN (HOOK)
+                          </span>
+                        )}
+                        {isChapterTitle && (
+                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                            👑 TIÊU ĐỀ HỒI (TĨNH LẶNG 3S)
+                          </span>
+                        )}
+                        {isSegDirty && (
+                          <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(255,193,7,0.18)', color: 'var(--warning)', fontWeight: 700 }}>
+                            chưa lưu
+                          </span>
+                        )}
+                      </strong>
                     {isThumb && (
                       <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(37, 244, 238, 0.15)', color: 'var(--secondary)', border: '1px solid rgba(37, 244, 238, 0.3)', fontWeight: 700 }}>
                         📌 Tóm tắt nội dung video &amp; Tăng tỷ lệ nhấp xem (CTR)
@@ -4826,6 +4901,24 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
                         )}
 
+                        {isChapterTitle && !(seg.dialogueOrNarration || '').trim() && !isEditingScript && (
+                          <div style={{
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: 'rgba(245, 158, 11, 0.08)',
+                            border: '1px dashed rgba(245, 158, 11, 0.35)',
+                            color: '#fbbf24',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
+                          }}>
+                            <span style={{ fontSize: '1.2rem' }}>🤫</span>
+                            <span><strong>Slide Tiêu đề Hồi (Khoảng lặng 3 giây):</strong> Không có giọng đọc để người xem tập trung đọc tiêu đề ở phía trên và thưởng thức tranh bìa hồi kết hợp nhạc nền.</span>
+                          </div>
+                        )}
+
                         {/* Nền riêng của slide này — clip được chọn theo đúng câu bên trên */}
                         {isPexelsTalkVideo && !isThumb && (() => {
                           const bg = segmentBg[seg.segmentNumber];
@@ -4934,8 +5027,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
           </div>
         </>
       )}

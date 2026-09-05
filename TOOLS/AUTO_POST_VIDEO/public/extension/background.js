@@ -1,25 +1,25 @@
-// Cấu hình để khi click vào Action Icon thì mở Side Panel thay vì mở popup
+// Cấu hình để khi click vào Action Icon thì mở Side Panel trên tab hiện tại
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
   .catch((error) => console.error('[Background] Lỗi cấu hình sidePanel behavior:', error));
 
-// Khóa sidePanel mặc định trên mọi trang
+// Cho phép mở sidePanel trên mọi trang (kể cả localhost, dashboard, Google Flow...)
 chrome.sidePanel
-  .setOptions({ enabled: false })
+  .setOptions({ path: 'sidepanel.html', enabled: true })
   .catch((error) => console.error('[Background] Lỗi cấu hình sidePanel mặc định:', error));
 
-const FLOW_TABS_PATTERN = '*://labs.google/fx/*';
-const FLOW_DEFAULT_URL = 'https://labs.google/fx/vi/tools/flow';
+const FLOW_TABS_PATTERNS = [
+  '*://flow.google.com/*',
+  '*://labs.google/fx/*'
+];
+const FLOW_DEFAULT_URL = 'https://flow.google.com/';
+
+function isFlowUrl(url) {
+  if (!url) return false;
+  return url.includes('flow.google.com') || url.includes('labs.google/fx');
+}
 
 // Mở 1 URL trong cửa sổ trình duyệt THÔNG THƯỜNG (có thanh tab).
-// Lý do cần hàm riêng: khi app AutoPoster được khởi động dưới dạng "desktop app" (StartApp.bat
-// dùng `chrome/msedge --app=...`), cửa sổ đó là kiểu "app window" không có thanh tab hiển thị.
-// Nếu gọi thẳng chrome.tabs.create({url}) mà không chỉ định windowId, Chrome sẽ nhét tab mới
-// vào ngay cửa sổ app-mode đang focus đó -> tab được tạo ra thật nhưng người dùng không có
-// cách nào thấy/chuyển sang nó (không có tab bar), nên bấm nút "Đẩy sang..." sẽ trông như
-// không có phản ứng gì. Ở đây ta dò xem có cửa sổ 'normal' (loại có thanh tab) nào đang mở
-// không; nếu có thì mở tab vào đó, còn không thì tạo hẳn 1 cửa sổ 'normal' mới để đảm bảo
-// luôn nhìn thấy được.
 function openInNormalWindow(url) {
   chrome.windows.getAll({ populate: false }, (windows) => {
     const normalWindow = (windows || []).find(w => w.type === 'normal');
@@ -33,32 +33,9 @@ function openInNormalWindow(url) {
   });
 }
 
-// Mở thẳng trang dashboard Flow (sẽ tự động bấm "Dự án mới" - xem handleDashboardAutoCreate
-// trong content-flow.js). Dùng cho các lối vào KHÔNG gắn với 1 kịch bản/folderPath cụ thể (bấm
-// icon toolbar, message OPEN_FLOW_TAB) - không có căn cứ để biết nên mở lại dự án nào.
-// Cho luồng "Đẩy sang Google Flow" gắn với 1 kịch bản cụ thể, xem logic chọn URL riêng theo
-// folderPath trong handler START_QUEUE bên dưới.
 function openFlowTab() {
   openInNormalWindow(FLOW_DEFAULT_URL);
 }
-
-// Bật sidePanel riêng cho các tab Google Flow
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!tab.url) return;
-
-  if (tab.url.includes('labs.google/fx')) {
-    chrome.sidePanel.setOptions({
-      tabId,
-      path: 'sidepanel.html',
-      enabled: true
-    }).catch((error) => console.error('[Background] Lỗi bật sidePanel:', error));
-  } else {
-    chrome.sidePanel.setOptions({
-      tabId,
-      enabled: false
-    }).catch((error) => console.error('[Background] Lỗi tắt sidePanel:', error));
-  }
-});
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let attachedTab = null;
@@ -79,20 +56,56 @@ function sendCmd(tabId, method, params) {
   });
 }
 
-async function ensureAttached(tabId) {
-  if (attachedTab === tabId) return;
-  if (attachedTab !== null) {
-    try {
-      await chrome.debugger.detach({ tabId: attachedTab });
-    } catch (_) {}
-    attachedTab = null;
+/**
+ * Hỏi CHÍNH Chrome xem tab này đã bị extension gắn debugger chưa.
+ *
+ * KHÔNG được tin biến `attachedTab` trong bộ nhớ: đây là service worker Manifest V3, Chrome tự
+ * TẮT nó sau ~30 giây không có việc. Một lượt sinh ảnh của Flow kéo dài vài phút, nên service
+ * worker gần như chắc chắn bị tắt giữa chừng. Khi nó khởi động lại, `attachedTab` về null trong
+ * khi phiên debugger CŨ vẫn còn gắn trên tab — lần gửi kế tiếp gọi attach lần nữa và Chrome trả
+ * "Another debugger is already attached", lệnh gõ prompt không bao giờ chạy, còn giao diện thì cứ
+ * quay vòng chờ. Đây là nguyên nhân trực tiếp của hiện tượng "lâu lâu không tạo được, loading mãi".
+ */
+async function isDebuggerAttached(tabId) {
+  try {
+    const targets = await chrome.debugger.getTargets();
+    return (targets || []).some((t) => t.tabId === tabId && t.attached);
+  } catch (_) {
+    return false;
   }
-  await new Promise((resolve, reject) => {
-    chrome.debugger.attach({ tabId }, "1.3", () => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve();
+}
+
+async function ensureAttached(tabId) {
+  if (attachedTab === tabId && await isDebuggerAttached(tabId)) return;
+
+  // Gỡ phiên cũ trên tab KHÁC (nếu có) để không giữ thanh "đang gỡ lỗi" thừa.
+  if (attachedTab !== null && attachedTab !== tabId) {
+    try { await chrome.debugger.detach({ tabId: attachedTab }); } catch (_) {}
+  }
+  attachedTab = null;
+
+  try {
+    await new Promise((resolve, reject) => {
+      chrome.debugger.attach({ tabId }, '1.3', () => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve();
+      });
     });
-  });
+  } catch (err) {
+    const msg = String(err.message || err);
+    // Phiên cũ còn sót lại sau khi service worker bị tắt: gỡ ra rồi gắn lại đúng một lần.
+    if (/already attached/i.test(msg)) {
+      try { await chrome.debugger.detach({ tabId }); } catch (_) {}
+      await new Promise((resolve, reject) => {
+        chrome.debugger.attach({ tabId }, '1.3', () => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve();
+        });
+      });
+    } else {
+      throw err;
+    }
+  }
   attachedTab = tabId;
 }
 
@@ -178,7 +191,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'START_QUEUE') {
-    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category } = message.payload;
+    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category, origin } = message.payload;
     const resolvedFolderPath = folderPath || 'example';
 
     // Lưu vào bộ nhớ cục bộ của extension
@@ -192,6 +205,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         category: category || '',
         aspectRatio: aspectRatio || (orientation === 'landscape' ? '16:9' : '9:16'),
         orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
+        origin: origin || 'http://localhost:3001',
         segments: segments.map(s => ({
           ...s,
           status: 'pending' // pending, processing, completed, error
@@ -208,15 +222,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const targetUrl = FLOW_DEFAULT_URL;
 
       // Tìm tab Google Flow đang mở
-      chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
+      chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
         if (tabs && tabs.length > 0) {
           const targetTab = tabs[0];
-          chrome.tabs.update(targetTab.id, { url: targetUrl, active: true }, () => {
+          // Focus tab Flow đang có
+          chrome.tabs.update(targetTab.id, { active: true }, () => {
             chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
+          });
+          // Gửi thông báo RELOAD_QUEUE để content script nạp ngay kịch bản mới
+          chrome.tabs.sendMessage(targetTab.id, { action: 'RELOAD_QUEUE' }, () => {
+            if (chrome.runtime.lastError) { /* tab có thể đang tải lại, không sao */ }
           });
           sendResponse({ success: true, status: 'tab_focused' });
         } else {
-          // Chưa mở tab Flow -> mở tab mới thẳng vào dashboard gốc
+          // Chưa mở tab Flow -> mở tab mới thẳng vào Google Flow
           openInNormalWindow(targetUrl);
           console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
           sendResponse({ success: true, status: 'new_tab_opened' });
@@ -229,26 +248,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SAVE_IMAGE_LOCAL') {
     const { folderPath, filename, srcUrl, dataUrl, category, origin } = message.payload;
 
-    // Hàm chuyển đổi Uint8Array sang Base64 an toàn cho Service Worker
+    /**
+     * Đổi Uint8Array sang Base64 trong Service Worker.
+     *
+     * Bản cũ tự cài thuật toán base64 bằng JavaScript và nối chuỗi từng 4 ký tự một: với ảnh 2MB
+     * là hơn 700 nghìn lần nối chuỗi, chạy đồng bộ ngay trong service worker. Dùng btoa() theo
+     * từng khối để phần mã hoá chạy ở tầng C++ của trình duyệt, chỉ còn vài chục lần nối chuỗi.
+     *
+     * Phải chia khối: String.fromCharCode.apply với mảng vài triệu phần tử sẽ tràn ngăn xếp lời
+     * gọi. FileReader không dùng được ở đây — Service Worker không có API đó.
+     */
     const bufferToBase64 = (bytes) => {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      let base64 = '';
-      const len = bytes.length;
-      for (let i = 0; i < len; i += 3) {
-        const b1 = bytes[i];
-        const b2 = i + 1 < len ? bytes[i + 1] : 0;
-        const b3 = i + 2 < len ? bytes[i + 2] : 0;
-
-        const c1 = b1 >> 2;
-        const c2 = ((b1 & 3) << 4) | (b2 >> 4);
-        const c3 = i + 1 < len ? (((b2 & 15) << 2) | (b3 >> 6)) : 64;
-        const c4 = i + 2 < len ? (b3 & 63) : 64;
-
-        base64 += chars.charAt(c1) + chars.charAt(c2) +
-                  (c3 === 64 ? '=' : chars.charAt(c3)) +
-                  (c4 === 64 ? '=' : chars.charAt(c4));
+      const CHUNK = 0x8000; // 32KB mỗi lượt, đủ nhỏ để không tràn ngăn xếp
+      const parts = [];
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK)));
       }
-      return base64;
+      return btoa(parts.join(''));
     };
 
     const sendToApi = (base64Url) => {
@@ -314,16 +330,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Lắng nghe khi người dùng click vào biểu tượng Logo trên thanh công cụ
-chrome.action.onClicked.addListener((tab) => {
-  chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
-    if (tabs && tabs.length > 0) {
-      const targetTab = tabs[0];
-      chrome.tabs.update(targetTab.id, { active: true }, () => {
-        chrome.windows.update(targetTab.windowId, { focused: true });
-      });
-    } else {
-      openFlowTab();
+// Lắng nghe khi người dùng click vào biểu tượng Logo trên thanh công cụ (dự phòng mở side panel)
+chrome.action.onClicked.addListener(async (tab) => {
+  if (chrome.sidePanel && typeof chrome.sidePanel.open === 'function') {
+    try {
+      if (tab?.windowId) {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+      } else if (tab?.id) {
+        await chrome.sidePanel.open({ tabId: tab.id });
+      }
+    } catch (err) {
+      console.warn('[Background] Không thể mở side panel bằng chrome.sidePanel.open:', err);
     }
-  });
+  }
 });

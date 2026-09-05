@@ -69,21 +69,36 @@ function findElementInShadows(root, selectorPredicate) {
   return null;
 }
 
+// Kiểm tra URL có thuộc Google Flow hay không (hỗ trợ cả domain mới flow.google.com và domain cũ labs.google/fx)
+function isFlowUrl(url) {
+  const target = url || window.location.href;
+  return target.includes('flow.google.com') || target.includes('labs.google/fx');
+}
+
+// Kiểm tra xem hiện có đang ở trang chủ (dashboard) của Google Flow hay không
+function isDashboardPage() {
+  const { hostname, pathname } = window.location;
+  if (hostname.includes('flow.google.com')) {
+    const cleanPath = (pathname || '').replace(/\/+$/, '');
+    return cleanPath === '' || cleanPath === '/' || cleanPath === '/tools/flow' || cleanPath === '/project';
+  }
+  const currentUrl = window.location.href;
+  return currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || (currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]);
+}
+
 // Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
 function handleDashboardAutoCreate() {
-  const currentUrl = window.location.href;
-  if (currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]) {
+  if (isDashboardPage()) {
     console.log('[Flow Helper] Đang ở trang chủ Google Flow. Tìm nút tạo Dự án mới (bao gồm Shadow DOM)...');
 
     const matchesText = (el) => {
-      const text = (el.textContent || el.innerText || '').trim();
-      return text.includes('Dự án mới') || text.toLowerCase().includes('dự án mới') || text.includes('New project');
+      const text = (el.textContent || el.innerText || '').trim().toLowerCase();
+      const aria = (el.getAttribute && el.getAttribute('aria-label') || '').trim().toLowerCase();
+      const title = (el.getAttribute && el.getAttribute('title') || '').trim().toLowerCase();
+      const check = (str) => str.includes('dự án mới') || str.includes('tạo dự án') || str.includes('new project') || str.includes('create project');
+      return check(text) || check(aria) || check(title);
     };
 
-    // Tìm phần tử CỤ THỂ NHẤT (lá) chứa chữ "Dự án mới"/"New project" — không thể chỉ kiểm tra
-    // "textContent chứa chữ này" vì document.body luôn chứa chữ đó ở đâu đó trên trang, khiến
-    // findElementInShadows (duyệt tiền thứ tự, kiểm tra node hiện tại trước khi vào con) khớp
-    // trúng chính document.body ngay từ đầu -> body.click() không làm gì cả, dashboard đứng yên.
     const textNode = findElementInShadows(document.body, (el) => {
       const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
       if (!hasHeight || !matchesText(el)) return false;
@@ -253,19 +268,18 @@ function selectFlowMode(isImage, targetRatioInput) {
 
 // Tải hàng đợi từ storage khi load trang
 function init() {
-  if (!window.location.href.includes('/flow')) {
+  if (!isFlowUrl()) {
     return;
   }
 
-  // Tự động kích hoạt bấm nút Dự án mới
+  // Tự động kích hoạt bấm nút Dự án mới nếu đang ở trang chủ
   handleDashboardAutoCreate();
   const checkDashboardInterval = setInterval(() => {
     if (!isExtensionAlive()) {
       clearInterval(checkDashboardInterval);
       return;
     }
-    const currentUrl = window.location.href;
-    if (currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]) {
+    if (isDashboardPage()) {
       handleDashboardAutoCreate();
     } else {
       clearInterval(checkDashboardInterval);
@@ -866,6 +880,7 @@ function findInputField() {
 
     const isInput = tagName === 'TEXTAREA' ||
       (tagName === 'INPUT' && el.type === 'text') ||
+      el.isContentEditable === true ||
       (el.getAttribute && el.getAttribute('contenteditable') === 'true');
 
     if (!isInput) return false;
@@ -892,6 +907,7 @@ function findInputField() {
   findElementInShadows(document.body, (el) => {
     const tagName = el.tagName;
     const isInput = tagName === 'TEXTAREA' ||
+      el.isContentEditable === true ||
       (el.getAttribute && el.getAttribute('contenteditable') === 'true');
 
     if (isInput) {

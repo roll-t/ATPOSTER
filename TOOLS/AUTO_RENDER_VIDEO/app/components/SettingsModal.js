@@ -20,6 +20,30 @@ export default function SettingsModal({
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [testingGemini, setTestingGemini] = useState(false);
+  const [geminiTestResults, setGeminiTestResults] = useState(null);
+
+  const handleTestGeminiKeys = async () => {
+    setTestingGemini(true);
+    setGeminiTestResults(null);
+    try {
+      const res = await fetch('/api/prompts/gemini-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ geminiApiKey: settings.geminiApiKey || '' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGeminiTestResults(data.results || []);
+      } else {
+        alert(data.error || 'Lỗi kiểm tra Gemini Key');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối khi kiểm tra Gemini Key: ' + err.message);
+    } finally {
+      setTestingGemini(false);
+    }
+  };
 
   // Quét danh sách thư mục Drive khi mở settings và tài khoản đã được liên kết
   useEffect(() => {
@@ -219,6 +243,27 @@ export default function SettingsModal({
                 </span>
                 <button
                   type="button"
+                  onClick={handleTestGeminiKeys}
+                  disabled={testingGemini}
+                  style={{
+                    background: 'rgba(0, 242, 254, 0.12)',
+                    border: '1px solid rgba(0, 242, 254, 0.35)',
+                    borderRadius: '6px',
+                    color: '#00f2fe',
+                    fontSize: '0.75rem',
+                    padding: '4px 10px',
+                    cursor: testingGemini ? 'not-allowed' : 'pointer',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Gửi request test thử từng Key để xem Key nào còn sống / hết quota"
+                >
+                  {testingGemini ? '⏳ Đang test...' : '⚡ Kiểm tra Key'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setApiKeyVisible(!apiKeyVisible)}
                   style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: 600 }}
                 >
@@ -229,6 +274,7 @@ export default function SettingsModal({
                   onClick={() => {
                     const current = settings.geminiApiKey ? settings.geminiApiKey.split('\n') : [''];
                     setSettings(prev => ({ ...prev, geminiApiKey: [...current, ''].join('\n') }));
+                    setGeminiTestResults(null);
                   }}
                   style={{ background: 'rgba(46, 213, 115, 0.15)', border: '1px solid rgba(46, 213, 115, 0.3)', borderRadius: '6px', color: '#2ed573', fontSize: '0.75rem', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
                 >
@@ -272,6 +318,40 @@ export default function SettingsModal({
                         fontFamily: apiKeyVisible ? 'monospace' : 'inherit'
                       }}
                     />
+                    {geminiTestResults && geminiTestResults[idx] && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          whiteSpace: 'nowrap',
+                          background:
+                            geminiTestResults[idx].status === 'active'
+                              ? 'rgba(46, 213, 115, 0.15)'
+                              : geminiTestResults[idx].status === 'exhausted'
+                              ? 'rgba(255, 165, 2, 0.15)'
+                              : 'rgba(255, 71, 87, 0.15)',
+                          color:
+                            geminiTestResults[idx].status === 'active'
+                              ? '#2ed573'
+                              : geminiTestResults[idx].status === 'exhausted'
+                              ? '#ffa502'
+                              : '#ff4757',
+                          border: `1px solid ${
+                            geminiTestResults[idx].status === 'active'
+                              ? 'rgba(46, 213, 115, 0.35)'
+                              : geminiTestResults[idx].status === 'exhausted'
+                              ? 'rgba(255, 165, 2, 0.35)'
+                              : 'rgba(255, 71, 87, 0.35)'
+                          }`
+                        }}
+                        title={geminiTestResults[idx].message}
+                      >
+                        {geminiTestResults[idx].status === 'active' ? '✓ ' : '✕ '}
+                        {geminiTestResults[idx].message}
+                      </span>
+                    )}
                     {arr.length > 1 && (
                       <button
                         type="button"

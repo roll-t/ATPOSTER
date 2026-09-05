@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb, getUploadsDir } from '@/lib/db.js';
+import { resetGeminiRotationState } from '@/lib/prompts/gemini/callGeminiApi.js';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -163,6 +164,11 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 
     db.settings = updatedSettings;
     await writeDb(db);
+
+    // Nếu cấu hình có cập nhật geminiApiKey, làm mới ngay bộ nhớ xoay Key/Model
+    if ('geminiApiKey' in body) {
+      resetGeminiRotationState();
+    }
 
     return NextResponse.json({ 
       success: true, 

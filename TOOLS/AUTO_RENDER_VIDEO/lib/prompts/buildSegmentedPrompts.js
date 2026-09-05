@@ -519,6 +519,19 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       // không thành ".." như bản cũ.
       const scene = easternizeScene(stripNegativeClauses(seg.visualDescription));
 
+      const isChapterTitle = seg.layout === 'chapter-title';
+      let chapterLettering = '';
+      if (isChapterTitle) {
+        const rawTitle = seg.actTitle || (seg.subtitle ? seg.subtitle.split('\n')[0].replace(/\*\*/g, '').trim() : '');
+        chapterLettering = rawTitle
+          ? `Across the upper portion of the image, elegant traditional Japanese calligraphy chapter title lettering reading: 「${rawTitle}」. `
+          : 'Across the upper portion of the image, an elegant traditional Japanese calligraphy chapter title header. ';
+      }
+
+      const chapterTitleIntro = isChapterTitle
+        ? `Monumental Japanese historical chapter title card artwork. ${chapterLettering}Below the title area in the main composition:`
+        : '';
+
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
         category: categoryKey === 'japanese_history'
@@ -528,7 +541,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
         aspect_ratio: selectedAspectRatio,
         // scene đứng trước style, cùng lý do với textPrompt ở trên.
         scene: {
-          setting: scene,
+          setting: isChapterTitle ? `${chapterTitleIntro} ${scene}` : scene,
           world: worldClause,
           ...(moodClause ? { mood: themeObj.mood } : {})
         },
@@ -536,7 +549,9 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
           visual_style: styleClause,
           paper: 'Smooth bright white paper, left bare across large parts of the image.',
           format: formatClause,
-          text: textRule
+          text: isChapterTitle
+            ? 'The chapter title is positioned prominently across the upper portion of the composition in Japanese calligraphy. No modern Latin alphabet text.'
+            : textRule
         },
         audio: {
           narration: seg.dialogueOrNarration
@@ -547,26 +562,30 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       };
 
       const textPrompt = [
+        chapterTitleIntro,
         `${scene}.`,
         worldClause,
         moodClause,
         styleClause,
-        textRule,
+        isChapterTitle
+          ? 'The chapter title is positioned prominently across the upper portion of the composition. No modern Latin alphabet text.'
+          : textRule,
         formatClause
       ].filter(Boolean).join(' ');
 
       return {
         segmentNumber: seg.segmentNumber,
-        // Con số ƯỚC LƯỢNG, ghi vào manifest để hiển thị và thống kê. KHÔNG phải thời gian hiển
-        // thị thật: render-project.mjs cố tình không truyền durationSeconds xuống scene Remotion,
-        // nên Root.tsx đo file audio/scene-NN.* của chính slide đó và cho ảnh đúng ngần ấy giây.
-        durationSeconds: seg.durationSeconds || 5,
+        // Con số ƯỚC LƯỢNG, ghi vào manifest để hiển thị và thống kê.
+        durationSeconds: isChapterTitle ? (Number(seg.durationSeconds) || 3) : (seg.durationSeconds || 5),
         visualDescription: seg.visualDescription,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,
         aspectRatio: selectedAspectRatio,
         jsonPrompt,
-        textPrompt
+        textPrompt,
+        ...(seg.layout ? { layout: seg.layout } : {}),
+        ...(seg.act ? { act: seg.act } : {}),
+        ...(seg.actTitle ? { actTitle: seg.actTitle } : {})
       };
     });
   }

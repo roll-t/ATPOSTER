@@ -10,26 +10,25 @@ export const AI_CONFIG = {
   // Fallback API Key from ENV if not configured in DB settings
   DEFAULT_API_KEY: ENV_CONFIG.GEMINI_API_KEY,
 
-  // Model Tiers for different workloads
+  // Model Tiers for different workloads (cập nhật theo Google Generative Language API v1beta)
   MODEL_TIERS: {
     // Sáng tạo nội dung (viết kịch bản, sinh ý tưởng, đạo lý, phân cảnh)
     quality: [
+      'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
-      'gemini-flash-lite-latest',
-      'gemini-pro-latest',
       'gemini-flash-latest',
+      'gemini-flash-lite-latest',
     ],
     // Tác vụ nhanh / cơ học (dịch thuật, phiên âm, chuẩn hoá chuỗi, sinh từ khoá)
     fast: [
       'gemini-flash-lite-latest',
+      'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash-lite',
       'gemini-flash-latest',
     ],
     // Xử lý hình ảnh / multimodal vision
     vision: [
-      'gemini-2.5-flash',
+      'gemini-3.6-flash',
       'gemini-flash-latest',
     ],
   },

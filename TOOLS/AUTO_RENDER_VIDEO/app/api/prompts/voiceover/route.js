@@ -34,6 +34,19 @@ function getEdgeVoiceForText(dialogueText, edgeVoiceMappings) {
   return mappings.narrator || DEFAULT_EDGE_FEMALE_VOICE;
 }
 
+/**
+ * Tạo buffer MP3 tĩnh lặng (silence) chuẩn MPEG-1 Layer 3, 128kbps, 44.1kHz.
+ * Dùng cho các slide không có lời thoại (ví dụ Slide Tiêu đề Hồi 2-3s).
+ */
+function createSilentMp3Buffer(durationSeconds = 3) {
+  const header = Buffer.from([0xFF, 0xFB, 0x90, 0x64]);
+  const frame = Buffer.alloc(417, 0);
+  header.copy(frame, 0);
+  const frameDuration = 1152 / 44100;
+  const numFrames = Math.max(1, Math.round(durationSeconds / frameDuration));
+  return Buffer.concat(Array(numFrames).fill(frame));
+}
+
 // Bản tương đương cho VieNeu-TTS — cùng cách suy luận, chỉ khác bảng mapping và giọng mặc định.
 function getVieneuVoiceForText(dialogueText, vieneuVoiceMappings) {
   const mappings = vieneuVoiceMappings || {};
@@ -265,24 +278,27 @@ export async function POST(request) {
             const { segmentNumber, dialogueOrNarration } = scene;
             const text = (dialogueOrNarration || '').trim();
 
-            if (!text) {
-              continue;
-            }
-
-            const sceneVoice = voiceByNumber.get(segmentNumber);
-            const sceneProvider = sceneVoice?.provider || provider;
-            const sceneReadingSpeed = sceneVoice?.readingSpeed || readingSpeed;
-
-            // Edge & CapCut TTS: Xoá hoàn toàn các [thẻ cảm xúc] trong ngoặc vuông
-            // để tránh việc các công cụ đọc to chúng lên hoặc gây lỗi định dạng âm thanh.
-            const textForEdge = normalizeTtsText(text);
-
             const paddedNum = String(segmentNumber).padStart(2, '0');
             const filename = `scene-${paddedNum}.${audioExt}`;
             if (!fs.existsSync(audioDir)) {
               fs.mkdirSync(audioDir, { recursive: true });
             }
             const filePath = path.join(audioDir, filename);
+
+            if (!text) {
+              // Slide không có lời thoại (ví dụ Slide Tiêu đề Hồi 2-3s tĩnh lặng)
+              const silenceSeconds = Number(scene.durationSeconds) || (scene.layout === 'chapter-title' ? 3 : 3);
+              const silentBuffer = createSilentMp3Buffer(silenceSeconds);
+              fs.writeFileSync(filePath, silentBuffer);
+              send({
+                type: 'slide_done',
+                segmentNumber,
+                usedVoice: { provider: 'silence', voiceId: 'none', readingSpeed: null },
+                isFallback: false
+              });
+              results.push({ segmentNumber, audioFile: filename, usedVoice: { provider: 'silence', voiceId: 'none' } });
+              continue;
+            }
 
             let buffer;
             let wordTimings = null;

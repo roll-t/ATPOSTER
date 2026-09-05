@@ -189,6 +189,7 @@ const scenes = manifest.segments.map((seg) => {
     // xuống khi manifest THẬT SỰ có, để mọi project cũ (không có 3 trường này) giữ nguyên
     // layout mặc định và render ra đúng như trước.
     ...(seg.layout ? { layout: seg.layout } : {}),
+    ...(seg.durationSeconds ? { durationSeconds: Number(seg.durationSeconds) } : (seg.layout === 'chapter-title' ? { durationSeconds: 3 } : {})),
     ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
     ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
   };

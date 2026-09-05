@@ -1,8 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
-import { Caption } from "@atposter/remotion-shared";
-import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "@atposter/remotion-shared";
+import { Caption, BulletsLayout, SplitLayout, CaptionLeftOverlay, ChapterTitleOverlay } from "@atposter/remotion-shared";
 import { Sfx } from "@atposter/remotion-shared";
 import { Arrows } from "@atposter/remotion-shared";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
@@ -228,7 +227,18 @@ export const Scene: React.FC<{
       {/* captionStyle "none" đứng TRƯỚC mọi nhánh bố cục: nó là lệnh "video này không có chữ",
           nên phải thắng cả "caption-left". Đặt sau thì một slide lỡ mang layout caption-left vẫn
           vẽ chữ ra, và đó đúng là loại lỗi chỉ lộ ra sau khi render xong cả video. */}
-      {captionStyle === "none" ? null : layout === "caption-left" ? (
+      {captionStyle === "none" ? null : layout === "chapter-title" ? (
+        <ChapterTitleOverlay
+          caption={scene.caption}
+          fontFamily={fontFamily}
+          captionFont={captionFont}
+          fontSize={layoutFontSize}
+          secondaryFontSize={layoutSecondaryFontSize}
+          textColor={layoutTextColor}
+          highlightColor={layoutHighlightColor}
+          showBilingual={showBilingual}
+        />
+      ) : layout === "caption-left" ? (
         <CaptionLeftOverlay
           caption={scene.caption}
           fontFamily={fontFamily}

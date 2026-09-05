@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getMongoClientDb, readDb } from '@/lib/db.js';
 import { STICK_FIGURE_CHARACTERS } from '@/lib/prompts/characters.js';
+import { callGeminiWithKeyRotation } from '@/lib/prompts/gemini/callGeminiApi.js';
+import { parseApiKeys } from '@/config/ai.config.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -65,8 +67,8 @@ export async function GET() {
 export async function POST(request) {
   try {
     const dbSettings = await readDb();
-    const apiKey = dbSettings.settings?.geminiApiKey;
-    if (!apiKey) {
+    const apiKeys = parseApiKeys(dbSettings.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
+    if (apiKeys.length === 0) {
       return NextResponse.json({ error: 'Cấu hình thiếu Gemini API Key trong phần Cài đặt. Vui lòng thêm API Key trước.' }, { status: 400 });
     }
 
@@ -120,27 +122,12 @@ ${JSON.stringify(fieldsToTranslate, null, 2)}
 `;
 
     let enData = {};
-    if (apiKey) {
+    if (apiKeys.length > 0) {
       try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        const translationRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: translationPrompt }] }],
-            generationConfig: { responseMimeType: 'application/json' }
-          })
+        enData = await callGeminiWithKeyRotation(translationPrompt, apiKeys, {
+          tier: 'fast',
+          label: 'Dịch nhân vật',
         });
-
-        if (translationRes.ok) {
-          const trData = await translationRes.json();
-          const trText = trData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (trText) {
-            try {
-              enData = JSON.parse(trText);
-            } catch (e) {}
-          }
-        }
       } catch (err) {
         console.warn('[Gemini Translation Error] POST Bypass:', err.message);
       }
@@ -208,7 +195,7 @@ export async function DELETE(request) {
 export async function PUT(request) {
   try {
     const dbSettings = await readDb();
-    const apiKey = dbSettings.settings?.geminiApiKey;
+    const apiKeys = parseApiKeys(dbSettings.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
 
     const formData = await request.formData();
     const id = formData.get('id');
@@ -270,32 +257,17 @@ export async function PUT(request) {
 
     // Dịch sang Tiếng Anh
     let enData = {};
-    if (apiKey) {
+    if (apiKeys.length > 0) {
       try {
         const fieldsToTranslate = { personality, trait, role, voiceHint };
         const translationPrompt = `
 Translate character traits from Vietnamese to English. Do NOT translate JSON keys. Respond only in raw JSON:
 ${JSON.stringify(fieldsToTranslate, null, 2)}
 `;
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        const translationRes = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: translationPrompt }] }],
-            generationConfig: { responseMimeType: 'application/json' }
-          })
+        enData = await callGeminiWithKeyRotation(translationPrompt, apiKeys, {
+          tier: 'fast',
+          label: 'Cập nhật nhân vật',
         });
-
-        if (translationRes.ok) {
-          const trData = await translationRes.json();
-          const trText = trData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (trText) {
-            try {
-              enData = JSON.parse(trText);
-            } catch(e) {}
-          }
-        }
       } catch (err) {
         console.warn('[Gemini Translation Error] PUT Bypass:', err.message);
       }

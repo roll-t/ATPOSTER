@@ -32,7 +32,7 @@ export const TTS_CONFIG = {
   // Gemini TTS Config
   GEMINI: {
     DEFAULT_VOICE: 'Puck',
-    MODEL: 'gemini-2.5-flash',
+    MODEL: 'gemini-3.6-flash',
     VOICES: ['Puck', 'Charon', 'Kore', 'Fenrir', 'Aoede'],
   },
 

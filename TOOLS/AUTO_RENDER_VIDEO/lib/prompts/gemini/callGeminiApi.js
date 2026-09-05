@@ -66,22 +66,16 @@ const MODEL_TIMEOUT_COOLDOWN_MS = 5 * 60_000;
 let roundRobinCursor = 0;
 
 /**
- * Thứ tự thử key trong một lượt quét: KEY #1 LUÔN ĐI ĐẦU, các key còn lại mới xoay vòng.
+ * Thứ tự thử key trong một lượt quét: Xoay vòng Round-Robin chân chính trải đều trên mọi Key.
  *
- * Vì sao phải phá vòng xoay đều: các key không còn ngang hàng nhau nữa. Một key trả phí có hạn mức
- * cao gấp nhiều lần key free, nên đáng được dùng trước; trải đều sang key free chỉ tổ làm chúng cạn
- * quota sớm trong khi key mạnh nhất vẫn còn nguyên. Quy ước: key đứng ĐẦU trong ô cài đặt là key
- * ưu tiên.
- *
- * Vẫn giữ round-robin cho phần đuôi vì lý do cũ vẫn đúng với nhóm key free ngang hàng: không xoay
- * thì key #2 luôn cạn trước trong khi #3 gần như không được đụng tới.
- *
- * Nếu key ưu tiên đang nghỉ (429) thì buildAttemptPlan tự xếp nó xuống nhóm `cooling`, các key khác
- * vẫn được dùng ngay — ưu tiên không có nghĩa là đứng chờ nó.
+ * Mỗi lệnh gọi bắt đầu từ key tiếp theo (Key 1 -> Key 2 -> Key 3 -> Key 4 -> Key 1...)
+ * giúp trải đều 100% hạn mức RPM/RPD, tránh việc dồn tải vào Key #1 dẫn đến cạn quota 429 sớm.
+ * Nếu một key đang dính 429 (cooldown), buildAttemptPlan sẽ tự động đẩy nó xuống nhóm cooling
+ * và ưu tiên các key đang sẵn sàng (ready) ngay lập tức mà không phải chờ đợi.
  */
 function resolveKeyIndex(n, keyCount, offset) {
-  if (n === 0 || keyCount < 2) return 0;
-  return 1 + ((offset + n - 1) % (keyCount - 1));
+  if (keyCount <= 1) return 0;
+  return (offset + n) % keyCount;
 }
 
 // Trần thời gian NGỦ mỗi lần chờ. Tách bạch với `cooldownUntil`: cooldown có thể đặt xa cả tiếng
@@ -632,3 +626,18 @@ export function getGeminiRotationStatus() {
   }
   return { deadKeyCount: deadKeys.size, deadModels: [...deadModels], cooling };
 }
+
+/**
+ * Làm mới toàn bộ trạng thái xoay vòng (xóa danh sách key chết, model chết và cooldown).
+ * Được gọi khi người dùng cập nhật cấu hình API Key trong Settings hoặc khi bấm kiểm tra lại.
+ */
+export function resetGeminiRotationState() {
+  cooldownUntil.clear();
+  deadKeys.clear();
+  deadModels.clear();
+  modelSlowUntil.clear();
+  roundRobinCursor = 0;
+  console.log('[Gemini Rotation] Đã làm mới toàn bộ bộ nhớ xoay vòng và danh sách Key/Model.');
+  return { success: true, timestamp: Date.now() };
+}
+

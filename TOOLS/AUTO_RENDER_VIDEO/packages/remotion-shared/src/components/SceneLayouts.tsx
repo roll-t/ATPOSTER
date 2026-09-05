@@ -262,3 +262,115 @@ export const CaptionLeftOverlay: React.FC<{
     </AbsoluteFill>
   );
 };
+
+export const ChapterTitleOverlay: React.FC<{
+  caption: string;
+  fontFamily: string;
+  captionFont?: CaptionFont;
+  fontSize: number;
+  secondaryFontSize: number;
+  textColor: string;
+  highlightColor: string;
+  showBilingual: boolean;
+}> = ({ caption, fontFamily, captionFont, fontSize, secondaryFontSize, textColor, highlightColor, showBilingual }) => {
+  const frame = useCurrentFrame();
+  const resolvedFont = resolveCaptionFontFamily(captionFont, fontFamily);
+  const primary = primaryLine(caption);
+  const secondary = secondaryLine(caption);
+  if (!primary) return null;
+
+  const p = interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const scale = interpolate(p, [0, 1], [0.93, 1]);
+
+  // Tách tag hồi trong ngoặc vuông 【...】 nếu có (vd: 【第一幕：発端】 hoặc 【Hồi I: Khởi Nguồn】)
+  const actTagMatch = primary.match(/^【([^】]+)】/);
+  const actTag = actTagMatch ? `【${actTagMatch[1]}】` : null;
+  const mainText = actTag ? primary.replace(/^【[^】]+】\s*/, "") : primary;
+
+  const secActTagMatch = secondary ? secondary.match(/^【([^】]+)】/) : null;
+  const secActTag = secActTagMatch ? `【${secActTagMatch[1]}】` : null;
+  const secMainText = secondary ? (secActTag ? secondary.replace(/^【[^】]+】\s*/, "") : secondary) : "";
+
+  const resolvedHighlight = highlightColor || "#f59e0b";
+  const primaryColor = textColor || "#FFFFFF";
+
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: "flex-start",
+        alignItems: "center",
+        padding: "60px 80px 0 80px",
+        pointerEvents: "none",
+        zIndex: 10,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "88%",
+          opacity: p,
+          transform: `scale(${scale}) translateY(${interpolate(p, [0, 1], [-18, 0])}px)`,
+          background: "rgba(10, 8, 7, 0.86)",
+          backdropFilter: "blur(16px)",
+          border: `1.5px solid ${resolvedHighlight}`,
+          borderRadius: 24,
+          padding: "26px 48px",
+          boxShadow: `0 20px 56px rgba(0, 0, 0, 0.8), 0 0 32px rgba(245, 158, 11, 0.22)`,
+          textAlign: "center",
+        }}
+      >
+        {(actTag || secActTag) && (
+          <div style={{ marginBottom: 16 }}>
+            <span
+              style={{
+                display: "inline-block",
+                fontFamily: resolvedFont,
+                fontSize: Math.round(fontSize * 0.78),
+                fontWeight: 900,
+                color: resolvedHighlight,
+                letterSpacing: "1.5px",
+                padding: "6px 20px",
+                background: "rgba(245, 158, 11, 0.14)",
+                borderRadius: 30,
+                border: "1px solid rgba(245, 158, 11, 0.35)",
+                textTransform: "uppercase",
+              }}
+            >
+              {secActTag && actTag ? `${secActTag} • ${actTag}` : (secActTag || actTag)}
+            </span>
+          </div>
+        )}
+
+        <div
+          style={{
+            fontFamily: resolvedFont,
+            fontSize: Math.round(fontSize * 1.08),
+            fontWeight: 800,
+            color: primaryColor,
+            lineHeight: 1.35,
+            letterSpacing: "0.5px",
+          }}
+        >
+          {withHighlights(mainText, resolvedHighlight)}
+        </div>
+
+        {showBilingual && secMainText ? (
+          <div
+            style={{
+              fontFamily: resolvedFont,
+              fontSize: Math.round(secondaryFontSize * 1.12),
+              fontWeight: 500,
+              color: "rgba(255, 255, 255, 0.86)",
+              lineHeight: 1.42,
+              marginTop: 18,
+              borderTop: "1px solid rgba(255, 255, 255, 0.12)",
+              paddingTop: 16,
+            }}
+          >
+            {withHighlights(secMainText, resolvedHighlight)}
+          </div>
+        ) : null}
+      </div>
+    </AbsoluteFill>
+  );
+};
+

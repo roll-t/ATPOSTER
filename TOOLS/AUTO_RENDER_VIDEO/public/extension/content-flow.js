@@ -111,52 +111,63 @@ function findElementInShadows(root, selectorPredicate) {
 }
 
 // Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
-function handleDashboardAutoCreate() {
+// Kiểm tra URL có thuộc Google Flow hay không (hỗ trợ cả domain mới flow.google.com và domain cũ labs.google/fx)
+function isFlowUrl(url) {
+  const target = url || window.location.href;
+  return target.includes('flow.google.com') || target.includes('labs.google/fx');
+}
+
+// Kiểm tra xem hiện có đang ở trang chủ (dashboard) của Google Flow hay không
+function isDashboardPage() {
+  const { hostname, pathname } = window.location;
+  if (hostname.includes('flow.google.com')) {
+    const cleanPath = (pathname || '').replace(/\/+$/, '');
+    return cleanPath === '' || cleanPath === '/' || cleanPath === '/tools/flow' || cleanPath === '/project';
+  }
   const currentUrl = window.location.href;
-  if (currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]) {
+  return currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || (currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]);
+}
+
+// Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
+function handleDashboardAutoCreate() {
+  if (isDashboardPage()) {
     console.log('[Flow Helper] Đang ở trang chủ Google Flow. Tìm nút tạo Dự án mới (bao gồm Shadow DOM)...');
 
     const matchesText = (el) => {
-      const text = (el.textContent || el.innerText || '').trim();
-      return text.includes('Dự án mới') || text.toLowerCase().includes('dự án mới') || text.includes('New project');
+      const text = (el.textContent || el.innerText || '').trim().toLowerCase();
+      const aria = (el.getAttribute && el.getAttribute('aria-label') || '').trim().toLowerCase();
+      const title = (el.getAttribute && el.getAttribute('title') || '').trim().toLowerCase();
+      const check = (str) => str.includes('dự án mới') || str.includes('tạo dự án') || str.includes('new project') || str.includes('create project');
+      return check(text) || check(aria) || check(title);
     };
 
-    // Tìm phần tử CỤ THỂ NHẤT (lá) chứa chữ "Dự án mới"/"New project" — không thể chỉ kiểm tra
-    // "textContent chứa chữ này" vì document.body luôn chứa chữ đó ở đâu đó trên trang, khiến
-    // findElementInShadows (duyệt tiền thứ tự, kiểm tra node hiện tại trước khi vào con) khớp
-    // trúng chính document.body ngay từ đầu -> body.click() không làm gì cả, dashboard đứng yên.
-    // Chỉ xét node LÁ rồi mới đo kích thước. Bản cũ đọc textContent của MỌI node (textContent tự
-    // duyệt cả cây con -> chi phí bình phương) VÀ gọi getBoundingClientRect cho từng node khớp chữ
-    // -> mỗi lần đều ép trình duyệt tính lại layout. Hàm này nằm trong setInterval 1.5 giây, nên
-    // trong lúc chờ ở trang dashboard nó chạy lại liên tục và là một nguồn giật lag thường trực.
-    let textNode = null;
+    let clickTarget = null;
     for (const el of collectAllElements(document.body)) {
-      if (el.children.length > 0) continue;
-      const text = el.textContent;
-      if (!text || text.length > 200 || !matchesText(el)) continue;
+      if (!matchesText(el)) continue;
       const rect = el.getBoundingClientRect();
-      if (rect.height > 0) { textNode = el; break; }
-    }
-
-    if (!textNode) {
-      console.log('[Flow Helper] Không tìm thấy chữ "Dự án mới" trên trang.');
-      return;
-    }
-
-    // Từ phần tử lá đó, đi ngược lên tìm phần tử thật sự bấm được gần nhất (button/role=button/con trỏ tay)
-    let clickTarget = textNode;
-    let hops = 0;
-    while (clickTarget && hops < 6) {
-      const tag = clickTarget.tagName;
-      const role = clickTarget.getAttribute ? clickTarget.getAttribute('role') : null;
-      const cursor = clickTarget.nodeType === Node.ELEMENT_NODE ? getComputedStyle(clickTarget).cursor : '';
-      if (tag === 'BUTTON' || tag === 'A' || role === 'button' || cursor === 'pointer') {
+      if (rect.height > 0 && rect.width > 0) {
+        let target = el;
+        let hops = 0;
+        while (target && hops < 6) {
+          const tag = target.tagName;
+          const role = target.getAttribute ? target.getAttribute('role') : null;
+          const cursor = target.nodeType === Node.ELEMENT_NODE ? getComputedStyle(target).cursor : '';
+          if (tag === 'BUTTON' || tag === 'A' || role === 'button' || cursor === 'pointer') {
+            break;
+          }
+          if (!target.parentElement || target.parentElement === document.body) break;
+          target = target.parentElement;
+          hops++;
+        }
+        clickTarget = target || el;
         break;
       }
-      clickTarget = clickTarget.parentElement;
-      hops++;
     }
-    if (!clickTarget) clickTarget = textNode;
+
+    if (!clickTarget) {
+      console.log('[Flow Helper] Không tìm thấy nút "Dự án mới" / "New project" trên trang.');
+      return;
+    }
 
     console.log('[Flow Helper] Đã tìm thấy nút tạo Dự án mới. Đang tự động click...', clickTarget);
     simulateClick(clickTarget);
@@ -178,22 +189,20 @@ function simulateClick(el) {
   }
 }
 
-
 // Tải hàng đợi từ storage khi load trang
 function init() {
-  if (!window.location.href.includes('/flow')) {
+  if (!isFlowUrl()) {
     return;
   }
 
-  // Tự động kích hoạt bấm nút Dự án mới
+  // Tự động kích hoạt bấm nút Dự án mới nếu đang ở trang chủ
   handleDashboardAutoCreate();
   const checkDashboardInterval = setInterval(() => {
     if (!isExtensionAlive()) {
       clearInterval(checkDashboardInterval);
       return;
     }
-    const currentUrl = window.location.href;
-    if (currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]) {
+    if (isDashboardPage()) {
       handleDashboardAutoCreate();
     } else {
       clearInterval(checkDashboardInterval);
@@ -870,6 +879,7 @@ function findInputField() {
 
     const isInput = tagName === 'TEXTAREA' ||
       (tagName === 'INPUT' && el.type === 'text') ||
+      el.isContentEditable === true ||
       (el.getAttribute && el.getAttribute('contenteditable') === 'true');
 
     if (!isInput) return false;
@@ -896,6 +906,7 @@ function findInputField() {
   findElementInShadows(document.body, (el) => {
     const tagName = el.tagName;
     const isInput = tagName === 'TEXTAREA' ||
+      el.isContentEditable === true ||
       (el.getAttribute && el.getAttribute('contenteditable') === 'true');
 
     if (isInput) {

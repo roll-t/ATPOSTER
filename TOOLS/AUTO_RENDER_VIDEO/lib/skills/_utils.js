@@ -69,6 +69,7 @@ export function buildSlideshowRemotionConfig(record, processedInput, bgColor) {
           image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
           audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
           caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ''),
+          ...(seg.layout ? { layout: seg.layout } : {}),
         };
       }),
   };

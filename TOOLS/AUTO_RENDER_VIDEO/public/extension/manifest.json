@@ -38,7 +38,8 @@
     },
     {
       "matches": [
-        "https://labs.google/fx/*"
+        "*://flow.google.com/*",
+        "*://labs.google/fx/*"
       ],
       "js": ["content-flow.js"]
     }

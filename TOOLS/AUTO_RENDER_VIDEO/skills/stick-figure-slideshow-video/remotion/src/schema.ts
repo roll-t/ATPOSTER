@@ -98,8 +98,9 @@ export const sceneSchema = z.object({
   //                    splitSide). Hình được thu nhỏ vừa nửa khung thay vì phủ kín.
   //   "bullets"      : slide CHỮ THUẦN, không hình: liệt kê các ý trong `bullets` theo dạng gạch
   //                    đầu dòng, hiện dần từng dòng theo tiến độ lời kể.
+  //   "chapter-title": slide TIÊU ĐỀ HỒI (ở phía trên màn hình), có khung mờ sang trọng và viền nổi bật.
   layout: z
-    .enum(["default", "image-only", "caption-left", "split", "bullets"])
+    .enum(["default", "image-only", "caption-left", "split", "bullets", "chapter-title"])
     .optional(),
 
   // Chỉ dùng khi layout = "split": hình nằm bên nào. Mặc định "right" (chữ trái / hình phải).

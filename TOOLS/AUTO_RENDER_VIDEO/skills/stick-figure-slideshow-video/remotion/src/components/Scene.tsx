@@ -4,7 +4,7 @@ import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
 import { RevealMask, RevealLayout } from "./RevealMask";
 import { SceneCanvas } from "./SceneCanvas";
 import { Caption } from "@atposter/remotion-shared";
-import { BulletsLayout, SplitLayout, CaptionLeftOverlay } from "@atposter/remotion-shared";
+import { BulletsLayout, SplitLayout, CaptionLeftOverlay, ChapterTitleOverlay } from "@atposter/remotion-shared";
 import { Sfx } from "@atposter/remotion-shared";
 import { Arrows } from "@atposter/remotion-shared";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
@@ -212,7 +212,18 @@ export const Scene: React.FC<{
         <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
         <Sfx cues={scene.sfx} />
         <Arrows cues={scene.arrows} />
-        {layout === "caption-left" ? (
+        {layout === "chapter-title" ? (
+          <ChapterTitleOverlay
+            caption={scene.caption}
+            fontFamily={fontFamily}
+            captionFont={captionFont}
+            fontSize={layoutFontSize}
+            secondaryFontSize={layoutSecondaryFontSize}
+            textColor={layoutTextColor}
+            highlightColor={layoutHighlightColor}
+            showBilingual={showBilingual}
+          />
+        ) : layout === "caption-left" ? (
           <CaptionLeftOverlay
             caption={scene.caption}
             fontFamily={fontFamily}
@@ -277,7 +288,18 @@ export const Scene: React.FC<{
           Khác với việc để caption rỗng ở khâu viết kịch bản: caption vẫn cần giữ nguyên vì lời kể
           (dialogueOrNarration) và phụ đề là 2 trường tách biệt, xoá caption đi thì mất luôn dữ
           liệu, còn ở đây chỉ là không VẼ nó ra. */}
-      {layout === "caption-left" ? (
+      {layout === "chapter-title" ? (
+        <ChapterTitleOverlay
+          caption={scene.caption}
+          fontFamily={fontFamily}
+          captionFont={captionFont}
+          fontSize={layoutFontSize}
+          secondaryFontSize={layoutSecondaryFontSize}
+          textColor={layoutTextColor}
+          highlightColor={layoutHighlightColor}
+          showBilingual={showBilingual}
+        />
+      ) : layout === "caption-left" ? (
         <CaptionLeftOverlay
           caption={scene.caption}
           fontFamily={fontFamily}

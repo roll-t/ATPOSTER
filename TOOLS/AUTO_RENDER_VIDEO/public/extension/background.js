@@ -8,8 +8,16 @@ chrome.sidePanel
   .setOptions({ enabled: false })
   .catch((error) => console.error('[Background] Lỗi cấu hình sidePanel mặc định:', error));
 
-const FLOW_TABS_PATTERN = '*://labs.google/fx/*';
-const FLOW_DEFAULT_URL = 'https://labs.google/fx/vi/tools/flow';
+const FLOW_TABS_PATTERNS = [
+  '*://flow.google.com/*',
+  '*://labs.google/fx/*'
+];
+const FLOW_DEFAULT_URL = 'https://flow.google.com/';
+
+function isFlowUrl(url) {
+  if (!url) return false;
+  return url.includes('flow.google.com') || url.includes('labs.google/fx');
+}
 
 // Mở 1 URL trong cửa sổ trình duyệt THÔNG THƯỜNG (có thanh tab).
 // Lý do cần hàm riêng: khi app AutoPoster được khởi động dưới dạng "desktop app" (StartApp.bat
@@ -33,11 +41,7 @@ function openInNormalWindow(url) {
   });
 }
 
-// Mở thẳng trang dashboard Flow (sẽ tự động bấm "Dự án mới" - xem handleDashboardAutoCreate
-// trong content-flow.js). Dùng cho các lối vào KHÔNG gắn với 1 kịch bản/folderPath cụ thể (bấm
-// icon toolbar, message OPEN_FLOW_TAB) - không có căn cứ để biết nên mở lại dự án nào.
-// Cho luồng "Đẩy sang Google Flow" gắn với 1 kịch bản cụ thể, xem logic chọn URL riêng theo
-// folderPath trong handler START_QUEUE bên dưới.
+// Mở thẳng trang Google Flow (sẽ tự động bấm "Dự án mới" nếu ở trang chủ dashboard)
 function openFlowTab() {
   openInNormalWindow(FLOW_DEFAULT_URL);
 }
@@ -46,7 +50,7 @@ function openFlowTab() {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!tab.url) return;
 
-  if (tab.url.includes('labs.google/fx')) {
+  if (isFlowUrl(tab.url)) {
     chrome.sidePanel.setOptions({
       tabId,
       path: 'sidepanel.html',
@@ -245,15 +249,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const targetUrl = FLOW_DEFAULT_URL;
 
       // Tìm tab Google Flow đang mở
-      chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
+      chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
         if (tabs && tabs.length > 0) {
           const targetTab = tabs[0];
-          chrome.tabs.update(targetTab.id, { url: targetUrl, active: true }, () => {
+          // Focus tab Flow đang có
+          chrome.tabs.update(targetTab.id, { active: true }, () => {
             chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
+          });
+          // Gửi thông báo RELOAD_QUEUE để content script nạp ngay kịch bản mới
+          chrome.tabs.sendMessage(targetTab.id, { action: 'RELOAD_QUEUE' }, () => {
+            if (chrome.runtime.lastError) { /* tab có thể đang tải lại, không sao */ }
           });
           sendResponse({ success: true, status: 'tab_focused' });
         } else {
-          // Chưa mở tab Flow -> mở tab mới thẳng vào dashboard gốc
+          // Chưa mở tab Flow -> mở tab mới thẳng vào Google Flow
           openInNormalWindow(targetUrl);
           console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
           sendResponse({ success: true, status: 'new_tab_opened' });
@@ -348,9 +357,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Lắng nghe khi người dùng click vào biểu tượng Logo trên thanh công cụ
-chrome.action.onClicked.addListener((tab) => {
-  chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
+// Lắng nghe khi người dùng click vào biểu tượng Logo trên thanh công cụ (dự phòng mở side panel hoặc focus Flow tab)
+chrome.action.onClicked.addListener(async (tab) => {
+  if (chrome.sidePanel && typeof chrome.sidePanel.open === 'function') {
+    try {
+      if (tab?.windowId) {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+        return;
+      } else if (tab?.id) {
+        await chrome.sidePanel.open({ tabId: tab.id });
+        return;
+      }
+    } catch (err) {
+      console.warn('[Background] Không thể mở side panel bằng chrome.sidePanel.open:', err);
+    }
+  }
+
+  chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
     if (tabs && tabs.length > 0) {
       const targetTab = tabs[0];
       chrome.tabs.update(targetTab.id, { active: true }, () => {

@@ -45,7 +45,7 @@ export async function synthesizeGeminiTts({ text, apiKey, voice = DEFAULT_GEMINI
   }
 
   const keys = Array.isArray(apiKey) ? apiKey : String(apiKey).split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
-  const modelsToTry = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts', 'gemini-2.0-flash'];
+  const modelsToTry = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts', 'gemini-3.6-flash', 'gemini-3.5-flash'];
   let response = null;
   let lastError = null;
 

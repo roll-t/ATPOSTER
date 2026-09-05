@@ -2,9 +2,12 @@ let queue = null;
 let autoRun = false;
 let currentLang = 'vi';
 
-const FLOW_TABS_PATTERN = '*://labs.google/fx/*';
+const FLOW_TABS_PATTERNS = [
+  '*://flow.google.com/*',
+  '*://labs.google/fx/*'
+];
 function isFlowTabUrl(url) {
-  return !!url && url.includes('labs.google/fx');
+  return !!url && (url.includes('flow.google.com') || url.includes('labs.google/fx'));
 }
 
 const i18n = {
@@ -62,20 +65,22 @@ const i18n = {
   }
 };
 
-// Tự động đẩy tab sang Google Flow khi sidepanel được mở
-chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (tabs) => {
-  if (tabs && tabs.length > 0) {
-    const targetTab = tabs[0];
-    chrome.tabs.update(targetTab.id, { active: true }, () => {
-      chrome.windows.update(targetTab.windowId, { focused: true });
+// Mở hoặc chuyển sang tab Google Flow khi người dùng chủ động click nút "Flow" trên header
+const btnOpenFlow = document.getElementById('btn-open-flow');
+if (btnOpenFlow) {
+  btnOpenFlow.onclick = () => {
+    chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
+      if (tabs && tabs.length > 0) {
+        const targetTab = tabs[0];
+        chrome.tabs.update(targetTab.id, { active: true }, () => {
+          chrome.windows.update(targetTab.windowId, { focused: true });
+        });
+      } else {
+        chrome.runtime.sendMessage({ action: 'OPEN_FLOW_TAB' });
+      }
     });
-  } else {
-    // Dùng background.js để mở tab mới (nó tự chọn URL dự án Flow gần nhất nếu có, và đảm bảo
-    // mở trong cửa sổ trình duyệt bình thường có thanh tab, tránh trường hợp app đang chạy dưới
-    // dạng "desktop app" khiến tab mới bị tạo ra nhưng không thể nhìn thấy/chuyển sang được).
-    chrome.runtime.sendMessage({ action: 'OPEN_FLOW_TAB' });
-  }
-});
+  };
+}
 
 function loadAndRender() {
   chrome.storage.local.get(['flowQueue', 'autoRunActive', 'lang'], (result) => {
@@ -225,7 +230,7 @@ function render() {
         if (targetTab) {
           chrome.tabs.sendMessage(targetTab.id, { action: 'RELOAD_QUEUE' });
         } else {
-          chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (flowTabs) => {
+          chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (flowTabs) => {
             if (flowTabs && flowTabs.length > 0) {
               chrome.tabs.sendMessage(flowTabs[0].id, { action: 'RELOAD_QUEUE' });
             }
@@ -286,7 +291,7 @@ function render() {
           });
         } else {
           // Tìm bất kỳ tab Google Flow nào đang mở
-          chrome.tabs.query({ url: FLOW_TABS_PATTERN }, (flowTabs) => {
+          chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (flowTabs) => {
             if (flowTabs && flowTabs.length > 0) {
               const activeTab = flowTabs[0];
               chrome.tabs.update(activeTab.id, { active: true }, () => {
