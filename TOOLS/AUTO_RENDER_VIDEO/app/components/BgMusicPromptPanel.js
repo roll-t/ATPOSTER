@@ -6,7 +6,7 @@ import {
   BG_MUSIC_EXCLUDE_STYLES,
   BG_MUSIC_SUNO_SETTINGS,
   BG_MUSIC_CONSTRAINTS,
-} from '@/lib/prompts/bgMusicPrompts.js';
+} from '@/src/domain/content/bgMusicPrompts.js';
 
 // Một nút chép dùng lại nhiều chỗ. Tự đổi nhãn 1.6 giây rồi trả về như cũ — đủ để thấy đã bấm
 // trúng mà không cần thêm toast hay state toàn trang.

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 // Route này không chỉ nhận ảnh: saveManifest() trong content-flow.js gửi CẢ manifest.json
 // qua cùng đường này (action SAVE_IMAGE_LOCAL). Thiếu 'json' trong danh sách là manifest bị

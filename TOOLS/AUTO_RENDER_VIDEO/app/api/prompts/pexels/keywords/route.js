@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/lib/db';
-import { callGeminiWithKeyRotation } from '@/lib/prompts/gemini/callGeminiApi';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
+import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
 
 /**
  * Sinh danh sách từ khoá tìm video nền Pexels BÁM THEO NỘI DUNG KỊCH BẢN.

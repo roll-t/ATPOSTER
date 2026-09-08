@@ -3,8 +3,8 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import VoiceSplitPanel from './VoiceSplitPanel.js';
-import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
-import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
+import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
+import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/infrastructure/tts/geminiVoices.js';
 
 import SceneCanvasEditor from './SceneCanvasEditor.js';
 import AudioWaveformPlayer from './SegmentedResultView/AudioWaveformPlayer.js';
@@ -18,7 +18,7 @@ import {
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
   CATEGORY_STYLE_OVERRIDES, SYSTEM_READING_PRESETS
 } from './SegmentedResultView/constants.js';
-import { WORDS_PER_SECOND_EN_SLOW, CHARS_PER_SECOND_JA_SLOW, countNarrationUnits, isJapaneseText } from '@/lib/speechRate.js';
+import { WORDS_PER_SECOND_EN_SLOW, CHARS_PER_SECOND_JA_SLOW, countNarrationUnits, isJapaneseText } from '@/src/domain/narration/speech-rate.js';
 import {
   stripEmotionTagsForDisplay, cleanNarrationText, hasEmotionTags,
   countWords, estimateSpeechSeconds, formatDuration,
@@ -3067,7 +3067,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
       checkAssets();
     }
-  }, [extQueueState?.queue?.completed, extQueueState?.queue?.phase]);
+  }, [flowStatus?.completed, flowStatus?.phase]);
 
   // Lắng nghe trạng thái hàng đợi được content-bridge.js của extension đẩy ngược lại (nếu có
   // cài extension), để hiển thị tiến độ chạy thật ngay trên trang thay vì phải mở side panel.
@@ -4772,7 +4772,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                         )}
                         {isChapterTitle && (
                           <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
-                            👑 TIÊU ĐỀ HỒI (TĨNH LẶNG 3S)
+                            👑 TIÊU ĐỀ HỒI
                           </span>
                         )}
                         {isSegDirty && (
@@ -4877,7 +4877,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           )}
                         </div>
 
-                        {(seg.dialogueOrNarration || isEditingScript) && !isThumb && (
+                        {(seg.dialogueOrNarration || isEditingScript || isChapterTitle) && !isThumb && (
                           <div>
                             <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                               <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>

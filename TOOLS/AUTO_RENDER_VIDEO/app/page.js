@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 
 import { usePromptStudio } from './usePromptStudio.js';
 import VideoCategoryGrid from './components/VideoCategoryGrid.js';

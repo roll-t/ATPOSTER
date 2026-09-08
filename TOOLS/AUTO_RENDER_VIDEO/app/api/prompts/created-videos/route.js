@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getAllSkillPublicDirs } from '@/lib/remotionPaths';
-import { getMongoClientDb } from '@/lib/db.js';
+import { getAllSkillPublicDirs } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 
 // 1 thư mục cấp-1 dưới public/ của 1 skill là project THẬT (kiểu phẳng cũ, trước khi tách theo
 // category) nếu nó có bất kỳ dấu hiệu nào dưới đây ngay bên trong nó. Nếu KHÔNG có dấu hiệu nào,

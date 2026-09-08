@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
-import { getMongoClientDb } from '@/lib/db.js';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 
 export async function POST(req) {
   try {

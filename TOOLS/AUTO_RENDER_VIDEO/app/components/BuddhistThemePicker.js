@@ -1,6 +1,6 @@
 'use client';
 
-import { BUDDHIST_THEMES } from '@/lib/prompts/buddhistThemes.js';
+import { BUDDHIST_THEMES } from '@/src/domain/content/buddhistThemes.js';
 
 export default function BuddhistThemePicker({ value, onChange }) {
   const currentKey = value || 'zen_stories';

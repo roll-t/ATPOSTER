@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb, readDb } from '@/lib/db.js';
-import { STICK_FIGURE_CHARACTERS } from '@/lib/prompts/characters.js';
-import { callGeminiWithKeyRotation } from '@/lib/prompts/gemini/callGeminiApi.js';
+import { getMongoClientDb, readDb } from '@/src/infrastructure/persistence/index.js';
+import { STICK_FIGURE_CHARACTERS } from '@/src/domain/content/characters.js';
+import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
 import { parseApiKeys } from '@/config/ai.config.js';
 import path from 'path';
 import fs from 'fs';

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUploadsDir, getMongoClientDb } from '@/lib/db.js';
+import { getUploadsDir, getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import fs from 'fs';
 import path from 'path';
 

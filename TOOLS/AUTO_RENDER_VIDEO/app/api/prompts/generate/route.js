@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb } from '@/lib/db.js';
-import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCoverPrompts } from '@/lib/prompts/index.js';
-import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta } from '@/lib/prompts/gemini/index.js';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
-import { getSkill } from '@/lib/skills/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCoverPrompts } from '@/src/domain/content/index.js';
+import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta } from '@/src/infrastructure/composition/video-studio.js';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { getSkill } from '@/src/application/video-studio/skills/index.js';
 
 export async function POST(request) {
   try {
@@ -92,7 +92,7 @@ export async function POST(request) {
           ? { hashtags: geminiResult.hashtags }
           : {}),
         ...(geminiResult.youtubeDescription ? { youtubeDescription: geminiResult.youtubeDescription } : {}),
-        ...(geminiResult.coverPrompts ? { coverPrompts: buildBuddhistCoverPrompts(category, geminiResult.coverPrompts) } : {}),
+        ...(geminiResult.coverPrompts ? { coverPrompts: buildBuddhistCoverPrompts(category, geminiResult.coverPrompts, processedInput) } : {}),
         segments: segmentedPrompts,
         isSegmented: true,
         createdAt: new Date().toISOString(),

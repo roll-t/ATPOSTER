@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   STICK_FIGURE_LONGFORM_GROUPS,
   STICK_FIGURE_LONGFORM_TOPIC_COUNT
-} from '@/lib/prompts/stickFigureLongFormTopics.js';
+} from '@/src/domain/content/stickFigureLongFormTopics.js';
 
 /**
  * Kho chủ đề dành cho VIDEO DÀI của skill "Kịch Bản & Slide Ảnh Người Que".

@@ -41,6 +41,9 @@ function updateSegmentStatus(segmentNumber, status) {
   }
   liveSegment.status = status;
   saveQueueState();
+  if (status === 'completed' || status === 'error' || status === 'pending') {
+    saveManifest();
+  }
   renderSidebar();
   return liveSegment;
 }
@@ -58,6 +61,7 @@ function failSegment(segmentNumber, reason) {
     liveSegment.status = 'error';
     liveSegment.errorReason = reason || '';
     saveQueueState();
+    saveManifest();
     renderSidebar();
   }
   showToast(`⚠️ Phân đoạn #${segmentNumber}: ${reason || 'thất bại'}`, 'error');
@@ -261,6 +265,17 @@ async function runSegmentViaDebugger(segment, callback) {
     const x = Math.round(r.left + r.width / 2);
     const y = Math.round(r.top + r.height / 2);
 
+    let submitX = null;
+    let submitY = null;
+    const submitBtn = findSubmitButton(freshInput);
+    if (submitBtn) {
+      const sbRect = submitBtn.getBoundingClientRect();
+      if (sbRect.width > 0 && sbRect.height > 0) {
+        submitX = Math.round(sbRect.left + sbRect.width / 2);
+        submitY = Math.round(sbRect.top + sbRect.height / 2);
+      }
+    }
+
     // Chụp lại các ảnh đang có TRƯỚC khi gửi, để sau này biết ảnh nào là ảnh MỚI Flow vừa vẽ ra
     const baselineSrcs = snapshotImageSrcs();
     const baselineErrorCount = getPolicyErrorNodes().length;
@@ -285,7 +300,9 @@ async function runSegmentViaDebugger(segment, callback) {
       payload: {
         x,
         y,
-        prompt: segment.textPrompt
+        prompt: segment.textPrompt,
+        submitX,
+        submitY
       }
     }, (res) => {
       clearTimeout(watchdog);
@@ -923,6 +940,52 @@ function findInputField() {
   return bestInput;
 }
 
+// Tìm nút gửi/tạo (nút mũi tên -> hoặc nút Tạo/Submit) ở cụm ô nhập Google Flow
+function findSubmitButton(inputEl) {
+  if (!inputEl) return null;
+  const inputRect = inputEl.getBoundingClientRect();
+
+  // Dò trong các phần tử cha gần nhất (lên tối đa 6 cấp)
+  let parent = inputEl.parentElement;
+  let hops = 0;
+  while (parent && hops < 6) {
+    const all = collectAllElements(parent);
+    const buttons = all.filter(el => {
+      const tag = el.tagName;
+      const role = el.getAttribute ? el.getAttribute('role') : null;
+      return tag === 'BUTTON' || role === 'button';
+    });
+
+    // 1. Tìm nút có aria-label/title/text liên quan đến Tạo/Gửi/Submit/Generate/Arrow
+    for (const btn of buttons) {
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+      const title = (btn.getAttribute('title') || '').toLowerCase();
+      const text = (btn.textContent || '').trim().toLowerCase();
+      if (aria.includes('tạo') || aria.includes('create') || aria.includes('gửi') || aria.includes('send') || aria.includes('submit') || aria.includes('generate') ||
+          title.includes('tạo') || title.includes('create') || title.includes('gửi') || title.includes('send') || title.includes('submit') ||
+          text === 'tạo' || text === 'create' || text === 'generate' || text === 'send') {
+        const r = btn.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return btn;
+      }
+    }
+
+    // 2. Tìm nút nằm ở rìa phải của thanh nhập liệu (chính là nút mũi tên -> ở góc phải)
+    const rightCandidates = buttons.filter(btn => {
+      const r = btn.getBoundingClientRect();
+      return r.width > 12 && r.height > 12 && r.left >= inputRect.left && r.bottom >= inputRect.top - 20;
+    });
+    if (rightCandidates.length > 0) {
+      // Chọn nút có toạ độ right lớn nhất (nằm ngoài cùng bên phải)
+      rightCandidates.sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right);
+      return rightCandidates[0];
+    }
+
+    parent = parent.parentElement;
+    hops++;
+  }
+  return null;
+}
+
 // Kiểm tra xem hệ thống có đang vẽ/sinh video không
 const GENERATING_TEXT_RE = /creating|generating|đang tạo|đang xử lý|đang vẽ/i;
 
@@ -1046,7 +1109,6 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
 
     if (downloadSuccess) {
       saveQueueState();
-      saveManifest();
       return true;
     } else {
       return false;

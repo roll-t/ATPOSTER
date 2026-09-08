@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getRemotionPublicDir } from '@/lib/remotionPaths';
-import { readDb } from '@/lib/db.js';
+import { getRemotionPublicDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { readDb } from '@/src/infrastructure/persistence/index.js';
 
 const SAFE_FOLDER_RE = /^[A-Za-z0-9_-]+$/;
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/lib/db.js';
-import { listDriveFolders, createDriveFolder } from '@/lib/googleDrive.js';
+import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { listDriveFolders, createDriveFolder } from '@/src/infrastructure/integrations/google-drive.js';
 
 export async function GET() {
   try {

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MORAL_SYLLABUS } from '@/lib/prompts/moralSyllabus.js';
-import { MORAL_THEMES } from '@/lib/prompts/moralThemes.js';
+import { MORAL_SYLLABUS } from '@/src/domain/content/moralSyllabus.js';
+import { MORAL_THEMES } from '@/src/domain/content/moralThemes.js';
 
 // Nguồn duy nhất: moralThemes.js — thêm 1 nhóm chủ đề ở đó là tab ở đây tự có, không phải nhớ
 // sửa thêm chỗ nào.

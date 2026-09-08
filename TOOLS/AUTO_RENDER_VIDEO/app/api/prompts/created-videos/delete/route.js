@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir, getAllSkillPublicDirs } from '@/lib/remotionPaths';
+import { resolveProjectDir, getAllSkillPublicDirs } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 

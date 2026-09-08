@@ -1,6 +1,6 @@
 'use client';
 
-import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 
 // --- PREVIEW COMPONENTS FOR DYNAMIC THUMBNAILS ---
 

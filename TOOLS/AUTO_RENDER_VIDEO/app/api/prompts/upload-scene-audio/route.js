@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 const SAFE_FOLDER_RE = /^[A-Za-z0-9_-]+$/;
 const ALLOWED_EXT = ['wav', 'mp3', 'm4a', 'ogg', 'aac'];

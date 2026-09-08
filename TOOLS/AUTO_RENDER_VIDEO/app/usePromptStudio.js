@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
+import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
 

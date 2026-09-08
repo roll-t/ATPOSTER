@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { readDb, getMongoClientDb } from '@/lib/db.js';
-import { resolveProjectDir } from '@/lib/remotionPaths.js';
-import { uploadFileToDrive } from '@/lib/googleDrive.js';
+import { readDb, getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { uploadFileToDrive } from '@/src/infrastructure/integrations/google-drive.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 

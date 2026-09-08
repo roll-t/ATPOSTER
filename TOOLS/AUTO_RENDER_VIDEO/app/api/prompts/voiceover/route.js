@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb } from '@/lib/db.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import path from 'path';
 import fs from 'fs';
-import { resolveProjectDir } from '@/lib/remotionPaths';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
-import { synthesizeEdgeTts } from '@/lib/tts/edgeTts.js';
-import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
-import { synthesizeGeminiTts } from '@/lib/tts/geminiTts.js';
-import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/lib/tts/geminiVoices.js';
-import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
-import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } from '@/lib/tts/englishPhoneticVi.js';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { synthesizeEdgeTts } from '@/src/infrastructure/tts/edgeTts.js';
+import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
+import { synthesizeGeminiTts } from '@/src/infrastructure/tts/geminiTts.js';
+import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/infrastructure/tts/geminiVoices.js';
+import { synthesizeCapcutTts, isCapcutVoice } from '@/src/infrastructure/tts/capcutTts.js';
+import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } from '@/src/infrastructure/tts/englishPhoneticVi.js';
+import { createSilentMp3Buffer } from '@/src/infrastructure/tts/silence.js';
 
 // Default voice fallbacks for VieNeu-TTS (local python server)
 const DEFAULT_VIENEU_MALE_VOICE = 'Phạm Tuyên';
@@ -34,18 +35,6 @@ function getEdgeVoiceForText(dialogueText, edgeVoiceMappings) {
   return mappings.narrator || DEFAULT_EDGE_FEMALE_VOICE;
 }
 
-/**
- * Tạo buffer MP3 tĩnh lặng (silence) chuẩn MPEG-1 Layer 3, 128kbps, 44.1kHz.
- * Dùng cho các slide không có lời thoại (ví dụ Slide Tiêu đề Hồi 2-3s).
- */
-function createSilentMp3Buffer(durationSeconds = 3) {
-  const header = Buffer.from([0xFF, 0xFB, 0x90, 0x64]);
-  const frame = Buffer.alloc(417, 0);
-  header.copy(frame, 0);
-  const frameDuration = 1152 / 44100;
-  const numFrames = Math.max(1, Math.round(durationSeconds / frameDuration));
-  return Buffer.concat(Array(numFrames).fill(frame));
-}
 
 // Bản tương đương cho VieNeu-TTS — cùng cách suy luận, chỉ khác bảng mapping và giọng mặc định.
 function getVieneuVoiceForText(dialogueText, vieneuVoiceMappings) {

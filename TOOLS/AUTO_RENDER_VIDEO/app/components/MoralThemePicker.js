@@ -1,6 +1,6 @@
 'use client';
 
-import { MORAL_THEMES, DEFAULT_MORAL_THEME } from '@/lib/prompts/moralThemes.js';
+import { MORAL_THEMES, DEFAULT_MORAL_THEME } from '@/src/domain/content/moralThemes.js';
 
 // auto-fill thay cho repeat(3, 1fr) cố định: số nhóm chủ đề giờ do registry quyết định,
 // khoá cứng 3 cột sẽ bóp mỗi thẻ xuống quá hẹp để đọc được nhãn.

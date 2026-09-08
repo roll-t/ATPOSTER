@@ -188,10 +188,14 @@ const scenes = manifest.segments.map((seg) => {
 
   // Detect audio extension (fallback to mp3)
   let audExt = "mp3";
+  let hasAudio = false;
   if (fs.existsSync(audioDir)) {
     const files = fs.readdirSync(audioDir);
     const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`) || f.startsWith(`scene-${paddedNum}_`));
-    if (match) audExt = match.split(".").pop();
+    if (match) {
+      audExt = match.split(".").pop();
+      hasAudio = true;
+    }
   }
 
   // Composed scene: elements[] drives Remotion directly, no image file needed
@@ -220,7 +224,9 @@ const scenes = manifest.segments.map((seg) => {
     // xuống khi manifest THẬT SỰ có, để mọi project cũ (không có 3 trường này) giữ nguyên
     // layout mặc định và render ra đúng như trước.
     ...(seg.layout ? { layout: seg.layout } : {}),
-    ...(seg.durationSeconds ? { durationSeconds: Number(seg.durationSeconds) } : (seg.layout === 'chapter-title' ? { durationSeconds: 3 } : {})),
+    // Chỉ gán durationSeconds khi slide KHÔNG có file audio. Nếu có audio, để Root.tsx tự tính
+    // thời lượng chuẩn từ file audio để khớp nhịp đọc và không bị cắt ngắn giọng.
+    ...(!hasAudio ? { durationSeconds: Number(seg.durationSeconds) || (seg.layout === 'chapter-title' ? 4 : 5) } : {}),
     ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
     ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
 

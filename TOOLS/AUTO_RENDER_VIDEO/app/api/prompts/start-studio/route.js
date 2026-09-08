@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import net from 'net';
 import path from 'path';
 import fs from 'fs';
-import { resolveSkillRemotionDir } from '@/lib/remotionPaths';
+import { resolveSkillRemotionDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 const PORT_MAPPING = {
   'moral_talk_slideshow': 3010,

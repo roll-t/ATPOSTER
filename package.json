@@ -16,6 +16,8 @@
     "studio:pexels": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion",
     "build:agent": "npm run build --prefix TOOLS/AUTO_POST_VIDEO",
     "build:render": "npm run build --prefix TOOLS/AUTO_RENDER_VIDEO",
-    "render:video": "npm run render --prefix TOOLS/AUTO_RENDER_VIDEO"
+    "render:video": "npm run render --prefix TOOLS/AUTO_RENDER_VIDEO",
+    "audit:architecture": "node scripts/audit-architecture.mjs",
+    "check": "npm run audit:architecture && npm run build:agent && npm run build:render"
   }
 }

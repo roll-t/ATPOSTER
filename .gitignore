@@ -3,6 +3,8 @@ node_modules/
 
 # Next.js build output
 .next/
+/TOOLS/AUTO_POST_VIDEO/.next/
+/TOOLS/AUTO_RENDER_VIDEO/.next/
 /AGENT_TOOL/out/
 /AGENT_TOOL/build/
 /TOOLS/AUTO_RENDER_VIDEO/out/
@@ -65,3 +67,8 @@ coverage/
 
 # Agent customizations
 .agents/
+
+# Editor/agent scratch files and interrupted media fragments
+.claude/worktrees/
+/TOOLS/AUTO_RENDER_VIDEO/c/
+*.tmp-Frag*

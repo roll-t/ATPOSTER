@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getMongoClientDb } from '@/lib/db.js';
-import { resolveProjectDir } from '@/lib/remotionPaths';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
-import { regenerateNarrationScript } from '@/lib/prompts/gemini/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { regenerateNarrationScript } from '@/src/infrastructure/composition/video-studio.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 const SUPPORTED_CATEGORIES = new Set(['stick_figure_slideshow', 'moral_talk_slideshow']);

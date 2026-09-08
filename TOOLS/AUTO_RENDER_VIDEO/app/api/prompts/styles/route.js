@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb } from '@/lib/db.js';
-import { PROMPT_CATEGORIES } from '@/lib/prompts/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 
 export async function GET() {
   try {

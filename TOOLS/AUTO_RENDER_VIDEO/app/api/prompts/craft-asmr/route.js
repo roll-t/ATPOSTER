@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb } from '@/lib/db.js';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
-import { callGeminiWithKeyRotation } from '@/lib/prompts/gemini/callGeminiApi.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
 import {
   buildCraftAsmrGeminiPrompt,
   buildCraftAsmrClips,
@@ -10,7 +10,7 @@ import {
   buildCraftAsmrSocialCopy,
   normalizeCraftAsmrSpec,
   CRAFT_ASMR_DEFAULTS,
-} from '@/lib/prompts/craftAsmr.js';
+} from '@/src/domain/content/craftAsmr.js';
 
 const COLLECTION = 'craftAsmrPrompts';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { STICK_FIGURE_LONGFORM_GROUPS } from '@/lib/prompts/stickFigureLongFormTopics.js';
+import { STICK_FIGURE_LONGFORM_GROUPS } from '@/src/domain/content/stickFigureLongFormTopics.js';
 
 export default function StickFigureThemePicker({ value, onChange }) {
   const currentVal = value || STICK_FIGURE_LONGFORM_GROUPS[0].key;

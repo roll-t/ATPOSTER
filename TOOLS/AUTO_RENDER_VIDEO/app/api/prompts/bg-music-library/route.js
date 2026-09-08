@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getMongoClientDb } from '@/lib/db.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 
 // Đuôi file nhạc nền được chấp nhận — cùng danh sách với select-default-music/route.js (nhánh
 // tải file nhạc của người dùng), giữ 2 nơi khớp nhau vì mọi bản ghi thư viện đều đi qua đường

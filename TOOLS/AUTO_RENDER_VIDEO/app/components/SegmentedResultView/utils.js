@@ -1,5 +1,5 @@
-import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/lib/tts/edgeVoices.js';
-import { wordsPerSecond, isJapaneseText } from '@/lib/speechRate.js';
+import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
+import { wordsPerSecond, isJapaneseText } from '@/src/domain/narration/speech-rate.js';
 
 // [tag cảm xúc] (vd "[pause]", "[softly]") không có tác dụng gì với giọng đọc thật — API tổng
 // hợp giọng (voiceover/route.js) đã tự strip sạch trước khi gửi đi, tag chỉ còn sót lại ở các ô
@@ -49,7 +49,7 @@ export function hasEmotionTags(segments) {
 // Tốc độ lấy từ lib/speechRate.js — nguồn duy nhất, đo trên chính file mp3 mà pipeline TTS sinh ra.
 // Trước đây chỗ này gõ cứng 2.5 từ/giây, thấp hơn thực tế 1.75 lần, nên dòng "đọc khoảng ... phút"
 // báo dài gần gấp đôi sự thật (940 chữ hiện "6 phút 16 giây" trong khi audio thật chỉ 3 phút 34).
-export { WORDS_PER_SECOND_VI, WORDS_PER_SECOND_EN } from '@/lib/speechRate.js';
+export { WORDS_PER_SECOND_VI, WORDS_PER_SECOND_EN } from '@/src/domain/narration/speech-rate.js';
 
 export function countWords(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean).length;

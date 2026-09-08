@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/lib/db.js';
+import { readDb } from '@/src/infrastructure/persistence/index.js';
 
 global.lastHeartbeat = Date.now();
 

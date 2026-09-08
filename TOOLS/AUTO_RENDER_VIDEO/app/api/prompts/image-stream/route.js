@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 export async function GET(request) {
   try {

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { getJapaneseHistoryTheme } from '@/lib/prompts/japaneseHistoryThemes.js';
-import { JAPANESE_HISTORY_SYLLABUS } from '@/lib/prompts/japaneseHistorySyllabus.js';
+import { getJapaneseHistoryTheme } from '@/src/domain/content/japaneseHistoryThemes.js';
+import { JAPANESE_HISTORY_SYLLABUS } from '@/src/domain/content/japaneseHistorySyllabus.js';
 
 // Nhãn trạng thái sử liệu. Đây là thứ phân biệt modal này với modal Phật giáo: người dùng phải
 // thấy NGAY một chủ đề là chính sử hay giai thoại TRƯỚC khi chọn, chứ không phải sau khi Gemini

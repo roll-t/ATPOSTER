@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUploadsDir } from '@/lib/db.js';
+import { getUploadsDir } from '@/src/infrastructure/persistence/index.js';
 import fs from 'fs';
 import path from 'path';
 

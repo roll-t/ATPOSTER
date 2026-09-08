@@ -8,7 +8,7 @@ import {
   CRAFT_ASMR_FPS,
   CRAFT_ASMR_FIDELITY_OPTIONS,
   CRAFT_ASMR_DEFAULTS,
-} from '@/lib/prompts/craftAsmr.js';
+} from '@/src/domain/content/craftAsmr.js';
 
 // Gợi ý bấm-là-điền. Cố tình để vật liệu và thành phẩm ở 2 danh sách RỜI nhau thay vì ghép sẵn
 // từng cặp: cái hay của dòng video này nằm ở chỗ ghép chéo (vỏ lon → giáp samurai, ống nhựa →

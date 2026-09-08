@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getMongoClientDb } from '@/lib/db.js';
-import { resolveProjectDir, getAllSkillPublicDirs } from '@/lib/remotionPaths.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { resolveProjectDir, getAllSkillPublicDirs } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 export async function GET(request) {
   try {

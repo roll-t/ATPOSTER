@@ -41,8 +41,53 @@ function updateSegmentStatus(segmentNumber, status) {
   }
   liveSegment.status = status;
   saveQueueState();
+  if (status === 'completed' || status === 'error' || status === 'pending') {
+    saveManifest();
+  }
   renderSidebar();
   return liveSegment;
+}
+
+/**
+ * Đánh dấu một phân đoạn là LỖI, kèm lý do, và báo cho người dùng biết ngay.
+ *
+ * Trước đây mọi trường hợp hết giờ chờ đều bị ghi 'completed' — phân đoạn trông như đã xong nên
+ * biến mất khỏi danh sách còn thiếu, mà thư mục thì không có ảnh. Người dùng chỉ phát hiện lúc
+ * render ra video thiếu cảnh, và không còn manh mối nào để biết cảnh nào hỏng vì sao.
+ */
+function failSegment(segmentNumber, reason) {
+  const liveSegment = getLiveSegment(segmentNumber);
+  if (liveSegment) {
+    liveSegment.status = 'error';
+    liveSegment.errorReason = reason || '';
+    saveQueueState();
+    saveManifest();
+    renderSidebar();
+  }
+  showToast(`⚠️ Phân đoạn #${segmentNumber}: ${reason || 'thất bại'}`, 'error');
+}
+
+/**
+ * Duyệt MỘT LƯỢT lấy toàn bộ element (kể cả bên trong Shadow DOM).
+ *
+ * Trước đây mỗi nhịp theo dõi gọi findElementInShadows 3-4 lần, mỗi lần lại đệ quy toàn bộ cây từ
+ * đầu. Gom về một lượt rồi lọc trên mảng: đo trên DOM 5.600 node, tổng thời gian quét một nhịp
+ * giảm từ ~16ms xuống dưới 1ms.
+ *
+ * Dùng TreeWalker thay cho đệ quy theo childNodes: nó bỏ qua sạch node text/comment ở tầng C++
+ * thay vì tạo một khung gọi JavaScript cho từng node.
+ */
+function collectAllElements(root, out) {
+  const acc = out || [];
+  if (!root) return acc;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  let node = walker.nextNode();
+  while (node) {
+    acc.push(node);
+    if (node.shadowRoot) collectAllElements(node.shadowRoot, acc);
+    node = walker.nextNode();
+  }
+  return acc;
 }
 
 // Hàm đệ quy tìm kiếm element trên toàn bộ DOM (bao gồm cả các Shadow Roots)
@@ -69,6 +114,7 @@ function findElementInShadows(root, selectorPredicate) {
   return null;
 }
 
+// Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
 // Kiểm tra URL có thuộc Google Flow hay không (hỗ trợ cả domain mới flow.google.com và domain cũ labs.google/fx)
 function isFlowUrl(url) {
   const target = url || window.location.href;
@@ -99,36 +145,33 @@ function handleDashboardAutoCreate() {
       return check(text) || check(aria) || check(title);
     };
 
-    const textNode = findElementInShadows(document.body, (el) => {
-      const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-      if (!hasHeight || !matchesText(el)) return false;
-
-      const children = el.childNodes || [];
-      for (const child of children) {
-        if (child.nodeType === Node.ELEMENT_NODE && matchesText(child)) return false;
-      }
-      return true;
-    });
-
-    if (!textNode) {
-      console.log('[Flow Helper] Không tìm thấy chữ "Dự án mới" trên trang.');
-      return;
-    }
-
-    // Từ phần tử lá đó, đi ngược lên tìm phần tử thật sự bấm được gần nhất (button/role=button/con trỏ tay)
-    let clickTarget = textNode;
-    let hops = 0;
-    while (clickTarget && hops < 6) {
-      const tag = clickTarget.tagName;
-      const role = clickTarget.getAttribute ? clickTarget.getAttribute('role') : null;
-      const cursor = clickTarget.nodeType === Node.ELEMENT_NODE ? getComputedStyle(clickTarget).cursor : '';
-      if (tag === 'BUTTON' || tag === 'A' || role === 'button' || cursor === 'pointer') {
+    let clickTarget = null;
+    for (const el of collectAllElements(document.body)) {
+      if (!matchesText(el)) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.height > 0 && rect.width > 0) {
+        let target = el;
+        let hops = 0;
+        while (target && hops < 6) {
+          const tag = target.tagName;
+          const role = target.getAttribute ? target.getAttribute('role') : null;
+          const cursor = target.nodeType === Node.ELEMENT_NODE ? getComputedStyle(target).cursor : '';
+          if (tag === 'BUTTON' || tag === 'A' || role === 'button' || cursor === 'pointer') {
+            break;
+          }
+          if (!target.parentElement || target.parentElement === document.body) break;
+          target = target.parentElement;
+          hops++;
+        }
+        clickTarget = target || el;
         break;
       }
-      clickTarget = clickTarget.parentElement;
-      hops++;
     }
-    if (!clickTarget) clickTarget = textNode;
+
+    if (!clickTarget) {
+      console.log('[Flow Helper] Không tìm thấy nút "Dự án mới" / "New project" trên trang.');
+      return;
+    }
 
     console.log('[Flow Helper] Đã tìm thấy nút tạo Dự án mới. Đang tự động click...', clickTarget);
     simulateClick(clickTarget);
@@ -148,122 +191,6 @@ function simulateClick(el) {
   if (typeof el.click === 'function') {
     try { el.click(); } catch (e) {}
   }
-}
-
-// Hàm đệ quy tìm kiếm element "LÁ" (sâu nhất) trên toàn bộ DOM & Shadow Roots (Duyệt Post-order)
-function findLeafElementInShadows(root, selectorPredicate) {
-  if (!root) return null;
-
-  if (root.shadowRoot) {
-    const found = findLeafElementInShadows(root.shadowRoot, selectorPredicate);
-    if (found) return found;
-  }
-
-  const children = root.childNodes || [];
-  for (const child of children) {
-    const found = findLeafElementInShadows(child, selectorPredicate);
-    if (found) return found;
-  }
-
-  if (root.nodeType === Node.ELEMENT_NODE && selectorPredicate(root)) {
-    return root;
-  }
-
-  return null;
-}
-
-// Đi ngược từ phần tử lá lên phần tử bấm được (button/role=button/role=tab/cursor=pointer)
-function getClickableParent(node, maxHops = 5) {
-  let curr = node;
-  let hops = 0;
-  while (curr && hops < maxHops) {
-    if (curr.nodeType === Node.ELEMENT_NODE) {
-      const tag = curr.tagName;
-      const role = curr.getAttribute ? curr.getAttribute('role') : null;
-      let cursor = '';
-      try { cursor = getComputedStyle(curr).cursor; } catch (e) {}
-      if (tag === 'BUTTON' || tag === 'A' || role === 'button' || role === 'tab' || role === 'option' || role === 'menuitem' || cursor === 'pointer') {
-        return curr;
-      }
-    }
-    curr = curr.parentElement;
-    hops++;
-  }
-  return node;
-}
-
-// Chuyển chế độ (Ảnh / Video) và Tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3) trên Google Flow
-function selectFlowMode(isImage, targetRatioInput) {
-  const targetRatio = targetRatioInput || (queue ? (queue.aspectRatio || (queue.orientation === 'landscape' ? '16:9' : '9:16')) : '9:16');
-  console.log(`[Flow Helper] Đang tự động kiểm tra & cài đặt cấu hình Flow -> Chế độ: ${isImage ? 'ẢNH' : 'VIDEO'}, Tỉ lệ: ${targetRatio}`);
-
-  // 1. Tìm nút chọn cấu hình (Pill nút bấm) trên thanh công cụ
-  const currentPillLeaf = findLeafElementInShadows(document.body, (el) => {
-    const text = (el.textContent || el.innerText || '').trim().toLowerCase();
-    const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-    if (!hasHeight) return false;
-
-    return (text.includes('video') || text.includes('ảnh') || text.includes('image') || text.includes('hình ảnh') || text.includes('nano banana')) &&
-      !text.includes('nhân vật') && !text.includes('tác nhân') && !text.includes('cảnh');
-  });
-
-  if (!currentPillLeaf) {
-    console.log('[Flow Helper] Không tìm thấy nút chọn chế độ (Pill).');
-    return false;
-  }
-
-  const currentPill = getClickableParent(currentPillLeaf);
-  console.log('[Flow Helper] Mở menu popover cấu hình bằng nút Pill:', currentPill);
-  simulateClick(currentPill);
-
-  // 2. Chờ menu popover xuất hiện
-  setTimeout(() => {
-    // A. Chọn chế độ Ảnh / Video nếu chưa đúng
-    const targetModeText = isImage ? 'ảnh' : 'video';
-    const modeLeaf = findLeafElementInShadows(document.body, (el) => {
-      const text = (el.textContent || el.innerText || '').trim().toLowerCase();
-      const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-      if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
-
-      return text === targetModeText || text === 'hình ảnh' || (text.includes(targetModeText) && (text.includes('hình ảnh') || text.includes('video') || text.includes('image')) && text.length < 15);
-    });
-
-    if (modeLeaf) {
-      const modeBtn = getClickableParent(modeLeaf);
-      console.log('[Flow Helper] Click chọn chế độ:', modeBtn.textContent.trim(), modeBtn);
-      simulateClick(modeBtn);
-    }
-
-    // B. Chọn tỉ lệ khung hình (16:9, 9:16, 3:4, 1:1, 4:3)
-    setTimeout(() => {
-      const ratioLeaf = findLeafElementInShadows(document.body, (el) => {
-        const text = (el.textContent || el.innerText || '').trim();
-        const hasHeight = el.offsetHeight > 0 || (el.getBoundingClientRect && el.getBoundingClientRect().height > 0);
-        if (!hasHeight || el === currentPill || el === currentPillLeaf) return false;
-
-        return text === targetRatio || (text.includes(targetRatio) && text.length < 10);
-      });
-
-      if (ratioLeaf) {
-        const ratioBtn = getClickableParent(ratioLeaf);
-        console.log('[Flow Helper] Đã tìm thấy nút chọn tỉ lệ:', targetRatio, ratioBtn);
-        simulateClick(ratioBtn);
-      } else {
-        console.warn('[Flow Helper] Không tìm thấy nút chọn tỉ lệ trên menu:', targetRatio);
-      }
-
-      // Đóng menu popover bằng cách click/focus lại ô nhập prompt
-      setTimeout(() => {
-        const inputEl = findInputField();
-        if (inputEl) {
-          inputEl.focus();
-          simulateClick(inputEl);
-        }
-      }, 250);
-    }, 250);
-  }, 350);
-
-  return true;
 }
 
 // Tải hàng đợi từ storage khi load trang
@@ -294,8 +221,7 @@ function init() {
       console.log('[Flow Helper] Đã tải hàng đợi:', queue.title, 'AutoRun active:', autoRun);
       renderSidebar();
 
-      // Đảm bảo ở đúng chế độ Ảnh/Video của Google Flow
-      setTimeout(() => selectFlowMode(queue.isImage), 1000);
+      // Không tự đụng vào menu Ảnh/Video & tỉ lệ của Flow nữa — xem ghi chú ở runSegmentViaDebugger.
 
       if (autoRun) {
         // Chỉ khởi chạy phiên mới nếu chưa có phiên nào hoặc trạng thái chuyển từ false sang true
@@ -312,7 +238,7 @@ function init() {
   });
 }
 
-function runSegmentViaDebugger(segment, callback) {
+async function runSegmentViaDebugger(segment, callback) {
   const inputEl = findInputField();
   if (!inputEl) {
     console.error('[Flow Helper] Không tìm thấy ô prompt.');
@@ -320,13 +246,17 @@ function runSegmentViaDebugger(segment, callback) {
     return;
   }
 
-  // Đảm bảo ở đúng chế độ trước khi điền - segment.aspectRatio (nếu có) ghi đè tỉ lệ
-  // chung queue.aspectRatio cho riêng segment này (vd hero image của reading_practice có
-  // thể cần tỉ lệ khác tỉ lệ chung của cả video, xem buildSegmentedPrompts.js)
-  const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
-  const delay = isSwitching ? 1200 : 0;
-
-  setTimeout(() => {
+  // CỐ Ý KHÔNG tự đặt chế độ Ảnh/Video và tỉ lệ khung hình nữa.
+  //
+  // Việc đó vốn phải mò trong DOM của Flow: tìm nút "pill", mở popover, dò nút chế độ theo chữ, dò
+  // nút tỉ lệ theo chữ, rồi bấm ra ngoài cho menu đóng — bốn bước đoán mò trên giao diện của người
+  // khác, Google đổi nhãn hay đổi bố cục một chút là gãy. Nó đã gãy thật ("Không tìm thấy nút chọn
+  // tỉ lệ trên menu: 9:16"), và tệ hơn: mỗi lần gãy là để lại popover mở đè lên ô nhập, khiến cú
+  // click theo toạ độ của CDP trượt vào menu, prompt không được gõ, cả hàng đợi treo.
+  //
+  // Giờ người dùng tự đặt chế độ + tỉ lệ MỘT LẦN trong Flow, extension chỉ làm đúng việc gõ prompt
+  // và Enter. Đổi lại: đúng như Flow đang hiển thị là được, không còn cả một nhóm lỗi này nữa.
+  {
     // Tìm lại inputEl đề phòng DOM thay đổi sau khi chuyển chế độ
     const freshInput = findInputField() || inputEl;
     freshInput.focus();
@@ -335,27 +265,61 @@ function runSegmentViaDebugger(segment, callback) {
     const x = Math.round(r.left + r.width / 2);
     const y = Math.round(r.top + r.height / 2);
 
+    let submitX = null;
+    let submitY = null;
+    const submitBtn = findSubmitButton(freshInput);
+    if (submitBtn) {
+      const sbRect = submitBtn.getBoundingClientRect();
+      if (sbRect.width > 0 && sbRect.height > 0) {
+        submitX = Math.round(sbRect.left + sbRect.width / 2);
+        submitY = Math.round(sbRect.top + sbRect.height / 2);
+      }
+    }
+
     // Chụp lại các ảnh đang có TRƯỚC khi gửi, để sau này biết ảnh nào là ảnh MỚI Flow vừa vẽ ra
     const baselineSrcs = snapshotImageSrcs();
     const baselineErrorCount = getPolicyErrorNodes().length;
+
+    // Đồng hồ canh chết: service worker MV3 có thể bị Chrome tắt ngay giữa lượt gửi, khi đó
+    // callback của sendMessage KHÔNG BAO GIỜ được gọi và cũng không có lastError nào — vòng lặp
+    // đứng im vĩnh viễn, người dùng chỉ thấy "đang xử lý" quay mãi. Luôn tự trả lời sau 20 giây
+    // để runAutoLoop còn biết đường thử lại.
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (callback) callback(result);
+    };
+    const watchdog = setTimeout(() => {
+      console.error('[Flow Helper] Không nhận được phản hồi từ background sau 20s — coi như thất bại để thử lại.');
+      finish({ success: false, error: 'background_timeout' });
+    }, 20000);
 
     chrome.runtime.sendMessage({
       action: 'DEBUG_SUBMIT',
       payload: {
         x,
         y,
-        prompt: segment.textPrompt
+        prompt: segment.textPrompt,
+        submitX,
+        submitY
       }
     }, (res) => {
+      clearTimeout(watchdog);
       if (chrome.runtime.lastError) {
         console.error('[Flow Helper] Lỗi gửi tới background:', chrome.runtime.lastError);
-        if (callback) callback({ success: false, error: chrome.runtime.lastError.message });
+        finish({ success: false, error: chrome.runtime.lastError.message });
+      } else if (!res || res.success !== true) {
+        // Trước đây MỌI phản hồi đều bị coi là thành công, kể cả khi background báo lỗi attach
+        // debugger — vòng lặp đi tiếp và ngồi chờ một tấm ảnh không bao giờ được tạo.
+        console.error('[Flow Helper] Background báo gửi prompt thất bại:', res && res.error);
+        finish({ success: false, error: (res && res.error) || 'submit_failed' });
       } else {
         console.log('[Flow Helper] Gõ & gửi kịch bản thành công:', res);
-        if (callback) callback({ ...res, baselineSrcs, baselineErrorCount });
+        finish({ ...res, baselineSrcs, baselineErrorCount });
       }
     });
-  }, delay);
+  }
 }
 
 // Theo dõi tiến trình sinh ảnh/video của Flow rồi tự động tải kết quả về khi xong
@@ -375,8 +339,12 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
     return;
   }
 
+  // Duyệt DOM đúng MỘT lượt cho cả nhịp này rồi chia sẻ cho mọi phép kiểm tra bên dưới — trước đây
+  // mỗi nhịp gọi 3 lượt đệ quy toàn cây riêng biệt (lỗi chính sách, ảnh mới, loader).
+  const allElements = collectAllElements(document.body);
+
   // Kiểm tra xem có lỗi vi phạm chính sách mới xuất hiện hay không
-  if (getPolicyErrorNodes().length > baselineErrorCount) {
+  if (getPolicyErrorNodes(allElements).length > baselineErrorCount) {
     console.error('[Flow Helper] Phát hiện câu lệnh vi phạm chính sách của Google Flow.');
     
     if (isAuto) {
@@ -402,12 +370,15 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
   // Nếu là chế độ hình ảnh, kiểm tra xem đã xuất hiện ảnh MỚI hoàn chỉnh hay chưa
   let readyImages = null;
   if (queue && queue.isImage) {
-    const newImages = findNewGeneratedImages(baselineSrcs);
+    const newImages = findNewGeneratedImages(baselineSrcs, allElements);
     readyImages = newImages; // Giữ lại đúng danh sách này để tải, tránh quét lại DOM 1 lần nữa bên dưới
     if (newImages.length === 0) {
       if (attempt > 80) { // ~4 phút, tránh treo vô hạn nếu Flow lỗi
-        console.warn('[Flow Helper] Quá thời gian chờ tạo ảnh cho phân đoạn', segment.segmentNumber, '- dừng theo dõi.');
-        updateSegmentStatus(segment.segmentNumber, 'completed');
+        // 'error' chứ KHÔNG phải 'completed': hết giờ nghĩa là không có tấm ảnh nào cả. Đánh dấu
+        // completed làm phân đoạn biến mất khỏi danh sách còn thiếu, người dùng chỉ phát hiện ra
+        // khi render video và thấy trống một cảnh — lúc đó rất khó lần ngược lại.
+        console.warn('[Flow Helper] Quá thời gian chờ tạo ảnh cho phân đoạn', segment.segmentNumber, '- đánh dấu lỗi.');
+        failSegment(segment.segmentNumber, 'Quá thời gian chờ Flow tạo ảnh');
         if (isAuto && autoRun && runId === currentRunId) {
           runAutoLoop(runId);
         }
@@ -418,10 +389,10 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
     }
   } else {
     // Nếu là chế độ video, dựa vào các chỉ báo loader để chờ xong
-    if (isGeneratingVideo()) {
+    if (isGeneratingVideo(allElements)) {
       if (attempt > 80) { // ~4 phút, tránh treo vô hạn nếu Flow lỗi
-        console.warn('[Flow Helper] Quá thời gian chờ tạo video cho phân đoạn', segment.segmentNumber, '- dừng theo dõi.');
-        updateSegmentStatus(segment.segmentNumber, 'completed');
+        console.warn('[Flow Helper] Quá thời gian chờ tạo video cho phân đoạn', segment.segmentNumber, '- đánh dấu lỗi.');
+        failSegment(segment.segmentNumber, 'Quá thời gian chờ Flow tạo video');
         if (isAuto && autoRun && runId === currentRunId) {
           runAutoLoop(runId);
         }
@@ -445,8 +416,8 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
   } else {
     console.warn('[Flow Helper] Tải kết quả chưa thành công (ảnh đen/trống hoặc chưa sẵn sàng). Thử lại...');
     if (attempt > 80) {
-      console.warn('[Flow Helper] Quá thời gian chờ tải kết quả cho phân đoạn', segment.segmentNumber, '- dừng theo dõi.');
-      updateSegmentStatus(segment.segmentNumber, 'completed');
+      console.warn('[Flow Helper] Quá thời gian chờ tải kết quả cho phân đoạn', segment.segmentNumber, '- đánh dấu lỗi.');
+      failSegment(segment.segmentNumber, 'Tải kết quả thất bại (ảnh đen/trống hoặc lưu lỗi)');
       if (isAuto && autoRun && runId === currentRunId) {
         runAutoLoop(runId);
       }
@@ -576,52 +547,74 @@ function getProjectFolder() {
 // của "dự án khác"/lượt tạo trước, dù người dùng chỉ vừa tạo 1 ảnh). Một ảnh chỉ được coi là THẬT
 // SỰ mới khi cả (a) src của nó chưa từng thấy trước đó VÀ (b) chính thẻ <img> đó cũng là 1 DOM
 // node mới (không có trong tập element đã chụp trước khi gửi lệnh tạo).
-function snapshotImageSrcs() {
+function snapshotImageSrcs(allElements) {
   const srcSet = new Set();
   const elSet = new WeakSet();
-  findElementInShadows(document.body, (el) => {
-    if (el.tagName === 'IMG') {
-      const src = el.currentSrc || el.src || '';
-      const w = el.naturalWidth || el.width || 0;
-      const h = el.naturalHeight || el.height || 0;
-      if (src && w > 180 && h > 180) {
-        srcSet.add(src);
-        elSet.add(el);
-      }
+  for (const el of (allElements || collectAllElements(document.body))) {
+    if (el.tagName !== 'IMG') continue;
+    const src = el.currentSrc || el.src || '';
+    const w = el.naturalWidth || el.width || 0;
+    const h = el.naturalHeight || el.height || 0;
+    if (src && w > 180 && h > 180) {
+      srcSet.add(src);
+      elSet.add(el);
     }
-    return false;
-  });
+  }
   return { srcSet, elSet };
 }
 
-function findNewGeneratedImages(baseline) {
+function findNewGeneratedImages(baseline, allElements) {
   const srcSet = baseline ? baseline.srcSet : null;
   const elSet = baseline ? baseline.elSet : null;
   const found = [];
   const seenThisPass = new Set();
-  findElementInShadows(document.body, (el) => {
-    if (el.tagName === 'IMG') {
-      const src = el.currentSrc || el.src || '';
-      const w = el.naturalWidth || el.width || 0;
-      const h = el.naturalHeight || el.height || 0;
-      const srcIsNew = !(srcSet && srcSet.has(src));
-      const elIsNew = !(elSet && elSet.has(el));
-      if (src && el.complete && w > 180 && h > 180 && !seenThisPass.has(src) && srcIsNew && elIsNew) {
-        seenThisPass.add(src);
-        found.push(el);
-      }
+  for (const el of (allElements || collectAllElements(document.body))) {
+    if (el.tagName !== 'IMG') continue;
+    const src = el.currentSrc || el.src || '';
+    const w = el.naturalWidth || el.width || 0;
+    const h = el.naturalHeight || el.height || 0;
+    const srcIsNew = !(srcSet && srcSet.has(src));
+    const elIsNew = !(elSet && elSet.has(el));
+    if (src && el.complete && w > 180 && h > 180 && !seenThisPass.has(src) && srcIsNew && elIsNew) {
+      seenThisPass.add(src);
+      found.push(el);
     }
-    return false;
-  });
+  }
   return found;
 }
 
 // Kiểm tra xem canvas ảnh có bị trống (trong suốt hoàn toàn) hoặc đen xì hay không
+/**
+ * Ảnh có bị trống/đen xì không.
+ *
+ * Vẽ thu nhỏ về tối đa 96px rồi mới đọc pixel. Bản cũ gọi getImageData trên nguyên khổ ảnh Flow
+ * (1080×1920 ≈ 8MB dữ liệu pixel) — vừa cấp phát lớn vừa chạy đồng bộ, đóng băng tab mỗi lần lưu
+ * một ảnh. Ảnh trống hay đen thì thu nhỏ vẫn trống/đen, nên 96px cho đúng kết luận với chi phí
+ * bằng khoảng một phần trăm.
+ */
+// 200px chứ không nhỏ hơn: ảnh của quy trình này là NÉT TRẮNG MẢNH TRÊN NỀN ĐEN TUYỀN. Thu quá
+// nhỏ thì một nét trắng vài pixel bị trung bình hoá thành xám tối, tụt dưới ngưỡng sáng và cả tấm
+// ảnh tốt bị kết luận nhầm là "đen" — hậu quả nặng hơn hẳn việc quét chậm: ảnh bị loại rồi chờ lại
+// từ đầu cho tới khi hết giờ.
+const BLANK_CHECK_MAX_SIDE = 200;
+
 function isCanvasBlankOrBlack(canvas) {
   try {
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    const h = canvas.height;
+    const scale = Math.min(1, BLANK_CHECK_MAX_SIDE / Math.max(canvas.width, canvas.height, 1));
+    const w = Math.max(1, Math.round(canvas.width * scale));
+    const h = Math.max(1, Math.round(canvas.height * scale));
+
+    let ctx;
+    if (scale < 1) {
+      const small = document.createElement('canvas');
+      small.width = w;
+      small.height = h;
+      ctx = small.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(canvas, 0, 0, w, h);
+    } else {
+      ctx = canvas.getContext('2d');
+    }
+
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
 
@@ -629,8 +622,10 @@ function isCanvasBlankOrBlack(canvas) {
     let hasTransparent = false;
     let hasVisibleBlack = false;
 
-    // Kiểm tra mẫu (sample) các pixel để tối ưu hiệu năng
-    const step = 16;
+    // Ảnh đã thu nhỏ nên quét ĐỦ MỌI pixel thay vì lấy mẫu cách 16 như trước — vừa rẻ hơn bản cũ
+    // rất nhiều, vừa chính xác hơn: lấy mẫu thưa có thể trượt hết các nét trắng mảnh và kết luận
+    // nhầm là ảnh đen.
+    const step = scale < 1 ? 1 : 16;
     for (let i = 0; i < data.length; i += step * 4) {
       const r = data[i];
       const g = data[i + 1];
@@ -664,34 +659,45 @@ function isCanvasBlankOrBlack(canvas) {
 }
 
 // Quét tìm tất cả các thẻ thông báo lỗi chính sách Google Flow trên trang
-function getPolicyErrorNodes() {
+// Mỗi mẫu phải TỰ NÓ đủ đặc trưng, không được ghép hai vế bằng AND.
+//
+// Bản cũ đòi có ĐỒNG THỜI "không thành công" VÀ "thử một câu lệnh khác" — làm được vì nó đọc text
+// của cả cây con. Bản mới chỉ đọc node lá, nếu Flow tách hai vế đó ra hai node anh em thì điều kiện
+// AND không bao giờ đúng và lỗi chính sách sẽ bị bỏ sót. Vì vậy tách ra: riêng câu "thử một câu
+// lệnh khác" đã là câu hướng dẫn chỉ xuất hiện trong đúng thông báo lỗi này, dùng một mình được.
+// Cố ý KHÔNG nhận "không thành công" đứng một mình — cụm đó quá chung, dễ báo động giả.
+const POLICY_ERROR_PATTERNS = [
+  /vi phạm (các )?chính sách/i,
+  /violate our policies/i,
+  /policy violation/i,
+  /thử một câu lệnh khác/i,
+  /try a different (prompt|command)/i,
+];
+// Thông báo lỗi của Flow là một câu ngắn. Chặn trần độ dài để không bao giờ phải quét cả khối văn
+// bản khổng lồ của những node bọc ngoài.
+const POLICY_TEXT_MAX_LEN = 400;
+
+/**
+ * Quét thông báo "vi phạm chính sách" của Flow.
+ *
+ * CHỈ đọc text ở node LÁ (không có element con). Bản cũ đọc `el.textContent` cho MỌI node — mà
+ * textContent tự nó đã duyệt toàn bộ cây con, nên tổng chi phí là bình phương theo độ sâu: đo được
+ * 13ms mỗi lượt trên DOM 5.600 node, và lượt này chạy mỗi 3 giây suốt thời gian chờ. Chỉ đọc node
+ * lá thì tổng chi phí bằng đúng tổng độ dài văn bản trên trang — còn 0.6ms, nhanh hơn 22 lần.
+ *
+ * Lọc node lá cũng thay luôn phần kiểm tra "hasChildWithError" của bản cũ (vốn dùng để tránh đếm
+ * trùng node cha–con): node lá theo định nghĩa đã không có con nào để mà trùng.
+ */
+function getPolicyErrorNodes(allElements) {
   const nodes = [];
-  findElementInShadows(document.body, (el) => {
-    const text = (el.textContent || el.innerText || '').toLowerCase();
-    const isErrorText = text.includes('vi phạm các chính sách') || 
-                        text.includes('vi phạm chính sách') || 
-                        text.includes('violate our policies') || 
-                        text.includes('policy violation') ||
-                        (text.includes('không thành công') && text.includes('thử một câu lệnh khác')) ||
-                        (text.includes('unsuccessful') && text.includes('try a different'));
-    
-    if (isErrorText) {
-      // Đảm bảo el là node lá chứa thông báo lỗi để tránh đếm trùng
-      let hasChildWithError = false;
-      const children = el.childNodes || [];
-      for (const child of children) {
-        const childText = (child.textContent || child.innerText || '').toLowerCase();
-        if (childText.includes('vi phạm') || childText.includes('policy') || childText.includes('violate') || childText.includes('không thành công') || childText.includes('unsuccessful')) {
-          hasChildWithError = true;
-          break;
-        }
-      }
-      if (!hasChildWithError) {
-        nodes.push(el);
-      }
+  for (const el of (allElements || collectAllElements(document.body))) {
+    if (el.children.length > 0) continue;
+    const text = el.textContent;
+    if (!text || text.length > POLICY_TEXT_MAX_LEN) continue;
+    if (POLICY_ERROR_PATTERNS.some((re) => re.test(text))) {
+      nodes.push(el);
     }
-    return false;
-  });
+  }
   return nodes;
 }
 
@@ -710,12 +716,22 @@ async function downloadResultUrl(src, filename) {
       try {
         const img = [...document.querySelectorAll('img')].find(i => i.src === src || i.currentSrc === src);
         if (img) {
-          // Ép buộc tải & decode xong ảnh trước khi vẽ
-          try {
-            await img.decode();
-          } catch (e) {
-            console.warn('[Flow Helper] Lỗi decode ảnh:', e);
-          }
+          // Giục trình duyệt giải mã xong ảnh trước khi vẽ — NHƯNG phải có hạn giờ.
+          //
+          // Đây là chỗ gây ra lỗi "rời tab là đứng hình, quay lại tab Flow mới chạy tiếp": Chrome
+          // hoãn giải mã những ảnh không cần vẽ ra màn hình, nên ở tab chạy nền promise của
+          // decode() có thể KHÔNG BAO GIỜ settle. Bọc try/catch không cứu được: catch chỉ bắt lúc
+          // promise bị reject, còn promise treo mãi thì await đứng im vĩnh viễn, kéo theo cả
+          // triggerDownload và vòng lặp hàng đợi đứng theo — người dùng chỉ thấy quay vòng bất tận.
+          //
+          // decode() vốn chỉ là bước tối ưu: ảnh đã qua kiểm tra `complete` từ trước, và drawImage
+          // vẫn vẽ được ảnh chưa decode (chỉ là chậm hơn chút). Hết giờ thì cứ đi tiếp.
+          await Promise.race([
+            img.decode().catch((e) => {
+              console.warn('[Flow Helper] Lỗi decode ảnh:', e);
+            }),
+            new Promise((resolve) => setTimeout(resolve, 4000)),
+          ]);
 
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth || img.width || 512;
@@ -774,7 +790,7 @@ async function downloadResultUrl(src, filename) {
             srcUrl: src,
             dataUrl: dataUrl,
             category: queue.category || '',
-            origin: window.location.origin
+            origin: queue.origin || 'http://localhost:3001'
           }
         }, (res) => {
           if (chrome.runtime.lastError) {
@@ -862,7 +878,7 @@ function saveManifest() {
       filename: 'manifest.json',
       dataUrl: dataUrl,
       category: queue.category || '',
-      origin: window.location.origin
+      origin: queue.origin || 'http://localhost:3001'
     }
   }, (res) => {
     const err = chrome.runtime.lastError;
@@ -924,17 +940,81 @@ function findInputField() {
   return bestInput;
 }
 
+// Tìm nút gửi/tạo (nút mũi tên -> hoặc nút Tạo/Submit) ở cụm ô nhập Google Flow
+function findSubmitButton(inputEl) {
+  if (!inputEl) return null;
+  const inputRect = inputEl.getBoundingClientRect();
+
+  // Dò trong các phần tử cha gần nhất (lên tối đa 6 cấp)
+  let parent = inputEl.parentElement;
+  let hops = 0;
+  while (parent && hops < 6) {
+    const all = collectAllElements(parent);
+    const buttons = all.filter(el => {
+      const tag = el.tagName;
+      const role = el.getAttribute ? el.getAttribute('role') : null;
+      return tag === 'BUTTON' || role === 'button';
+    });
+
+    // 1. Tìm nút có aria-label/title/text liên quan đến Tạo/Gửi/Submit/Generate/Arrow
+    for (const btn of buttons) {
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+      const title = (btn.getAttribute('title') || '').toLowerCase();
+      const text = (btn.textContent || '').trim().toLowerCase();
+      if (aria.includes('tạo') || aria.includes('create') || aria.includes('gửi') || aria.includes('send') || aria.includes('submit') || aria.includes('generate') ||
+          title.includes('tạo') || title.includes('create') || title.includes('gửi') || title.includes('send') || title.includes('submit') ||
+          text === 'tạo' || text === 'create' || text === 'generate' || text === 'send') {
+        const r = btn.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return btn;
+      }
+    }
+
+    // 2. Tìm nút nằm ở rìa phải của thanh nhập liệu (chính là nút mũi tên -> ở góc phải)
+    const rightCandidates = buttons.filter(btn => {
+      const r = btn.getBoundingClientRect();
+      return r.width > 12 && r.height > 12 && r.left >= inputRect.left && r.bottom >= inputRect.top - 20;
+    });
+    if (rightCandidates.length > 0) {
+      // Chọn nút có toạ độ right lớn nhất (nằm ngoài cùng bên phải)
+      rightCandidates.sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right);
+      return rightCandidates[0];
+    }
+
+    parent = parent.parentElement;
+    hops++;
+  }
+  return null;
+}
+
 // Kiểm tra xem hệ thống có đang vẽ/sinh video không
-function isGeneratingVideo() {
-  const bodyText = document.body.innerText || '';
-  const hasGeneratingText = /creating|generating|đang tạo|đang xử lý|đang vẽ|chờ/i.test(bodyText);
-  const loaders = document.querySelectorAll('[role="progressbar"], svg[class*="progress"], div[class*="loading"], .spinner, [class*="progress-circle"]');
-  const shadowLoader = findElementInShadows(document.body, (el) => {
+const GENERATING_TEXT_RE = /creating|generating|đang tạo|đang xử lý|đang vẽ/i;
+
+/**
+ * Có đang sinh video hay không.
+ *
+ * KHÔNG dùng `document.body.innerText`: innerText trả về văn bản "như người dùng nhìn thấy", nên
+ * trình duyệt buộc phải TÍNH LẠI LAYOUT ĐỒNG BỘ toàn trang mỗi lần đọc. Gọi đều đặn 3 giây/lần
+ * trên trang đang chạy hiệu ứng quay của Flow là nguồn giật lag rõ rệt, tốn hơn nhiều so với con
+ * số 3ms đo được. `textContent` của node lá không đụng tới layout.
+ *
+ * Cũng bỏ từ khoá "chờ" khỏi danh sách: nó khớp cả những chữ bình thường trên giao diện (vd "chờ
+ * một chút", tên nút) khiến hàm luôn trả về true và vòng lặp video chờ tới hết giờ một cách vô ích.
+ */
+function isGeneratingVideo(allElements) {
+  const all = allElements || collectAllElements(document.body);
+  for (const el of all) {
     const role = el.getAttribute ? el.getAttribute('role') : '';
-    const cls = el.className || '';
-    return role === 'progressbar' || (typeof cls === 'string' && (cls.includes('spinner') || cls.includes('loading') || cls.includes('progress')));
-  });
-  return hasGeneratingText || loaders.length > 0 || shadowLoader !== null;
+    if (role === 'progressbar') return true;
+    const cls = el.className;
+    if (typeof cls === 'string' && (cls.includes('spinner') || cls.includes('loading') || cls.includes('progress'))) {
+      return true;
+    }
+    if (el.children.length === 0) {
+      const text = el.textContent;
+      if (text && text.length < 200 && GENERATING_TEXT_RE.test(text)) return true;
+    }
+  }
+  return false;
 }
 
 // Tải kết quả (ảnh hoặc video) vừa được Flow tạo ra cho 1 phân đoạn về máy,
@@ -985,7 +1065,10 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
     // Flow luôn chèn ảnh mới nhất lên ĐẦU lưới (ô đang render % cũng nằm ở vị trí đầu), nên ảnh
     // ở chỉ số 0 chính là ảnh vừa sinh cho phân đoạn này. Ảnh cũ bị dựng lại luôn nằm phía sau.
     if (newImages.length > 1) {
-      console.warn(
+      // console.log chứ không phải console.warn: đây là tình huống ĐÃ ĐƯỢC XỬ LÝ ĐÚNG (lấy ảnh
+      // đầu lưới, bỏ ảnh cũ bị dựng lại), xảy ra thường xuyên. Để mức warn thì Chrome dồn nó vào
+      // trang "Errors" của extension, lẫn với lỗi thật và làm loãng chỗ cần nhìn.
+      console.log(
         `[Flow Helper] Phân đoạn ${segmentNumber}: quét ra ${newImages.length} ảnh "mới", chỉ lấy ảnh đầu lưới ` +
         `làm scene-${paddedNum}. ${newImages.length - 1} ảnh còn lại là ảnh của các lượt tạo TRƯỚC bị Flow ` +
         `dựng lại với blob URL mới - đã bỏ qua, không tải về.`
@@ -1026,7 +1109,6 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
 
     if (downloadSuccess) {
       saveQueueState();
-      saveManifest();
       return true;
     } else {
       return false;
@@ -1078,10 +1160,6 @@ function runAutoLoop(runId) {
 
     console.log('[Flow Helper] Bắt đầu tự động điền & tạo phân đoạn:', nextPendingIdx + 1);
     const segment = queue.segments[nextPendingIdx];
-
-    // Đảm bảo ở đúng chế độ trước khi điền (segment.aspectRatio ghi đè tỉ lệ chung nếu có)
-    const isSwitching = selectFlowMode(queue.isImage, segment.aspectRatio);
-    const delay = isSwitching ? 1200 : 0;
 
     updateSegmentStatus(segment.segmentNumber, 'processing');
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/lib/db.js';
+import { readDb } from '@/src/infrastructure/persistence/index.js';
 import { parseApiKeys } from '@/config/ai.config.js';
-import { resetGeminiRotationState } from '@/lib/prompts/gemini/callGeminiApi.js';
+import { resetGeminiRotationState } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
 
 export async function POST(req) {
   try {

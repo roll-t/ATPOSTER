@@ -103,7 +103,10 @@ async function isDebuggerAttached(tabId) {
 }
 
 async function ensureAttached(tabId) {
-  if (attachedTab === tabId && await isDebuggerAttached(tabId)) return;
+  if (await isDebuggerAttached(tabId)) {
+    attachedTab = tabId;
+    return;
+  }
 
   // Gỡ phiên cũ trên tab KHÁC (nếu có) để không giữ thanh "đang gỡ lỗi" thừa.
   if (attachedTab !== null && attachedTab !== tabId) {
@@ -145,7 +148,7 @@ async function detach() {
   }
 }
 
-async function debugTypeAndSubmit(tabId, x, y, prompt) {
+async function debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY) {
   await ensureAttached(tabId);
 
   // 1) Click để focus thật
@@ -157,18 +160,34 @@ async function debugTypeAndSubmit(tabId, x, y, prompt) {
   });
   await wait(180);
 
-  // 2) Chọn tất cả (Ctrl+A) để xoá cũ
+  // 2) Chọn tất cả để xoá cũ:
+  // Hỗ trợ cả Windows/Linux (Ctrl+A: modifiers: 2) lẫn Mac (Cmd+A: modifiers: 4)
   await sendCmd(tabId, "Input.dispatchKeyEvent", {
     type: "keyDown", modifiers: 2, key: "a", code: "KeyA", windowsVirtualKeyCode: 65,
   });
   await sendCmd(tabId, "Input.dispatchKeyEvent", {
     type: "keyUp", modifiers: 2, key: "a", code: "KeyA", windowsVirtualKeyCode: 65,
   });
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "keyDown", modifiers: 4, key: "a", code: "KeyA", windowsVirtualKeyCode: 65,
+  });
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "keyUp", modifiers: 4, key: "a", code: "KeyA", windowsVirtualKeyCode: 65,
+  });
+  await wait(80);
+
+  // Xoá nội dung cũ bằng Backspace
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "rawKeyDown", key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8,
+  });
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "keyUp", key: "Backspace", code: "Backspace", windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8,
+  });
   await wait(60);
 
   // 3) Gõ chữ thật qua CDP
   await sendCmd(tabId, "Input.insertText", { text: prompt });
-  await wait(250);
+  await wait(300);
 
   // 4) Enter thật
   await sendCmd(tabId, "Input.dispatchKeyEvent", {
@@ -179,13 +198,24 @@ async function debugTypeAndSubmit(tabId, x, y, prompt) {
     type: "keyUp", key: "Enter", code: "Enter",
     windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
   });
+
+  // 5) Nếu có toạ độ nút Tạo / Mũi tên (submitX, submitY), click thêm nút Tạo để đảm bảo gửi thành công
+  if (typeof submitX === 'number' && typeof submitY === 'number' && submitX > 0 && submitY > 0) {
+    await wait(200);
+    await sendCmd(tabId, "Input.dispatchMouseEvent", {
+      type: "mousePressed", x: submitX, y: submitY, button: "left", clickCount: 1,
+    });
+    await sendCmd(tabId, "Input.dispatchMouseEvent", {
+      type: "mouseReleased", x: submitX, y: submitY, button: "left", clickCount: 1,
+    });
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'DEBUG_SUBMIT') {
-    const { x, y, prompt } = message.payload;
+    const { x, y, prompt, submitX, submitY } = message.payload;
     const tabId = sender.tab.id;
-    debugTypeAndSubmit(tabId, x, y, prompt)
+    debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY)
       .then(() => sendResponse({ success: true }))
       .catch((e) => sendResponse({ success: false, error: String(e.message || e) }));
     return true;

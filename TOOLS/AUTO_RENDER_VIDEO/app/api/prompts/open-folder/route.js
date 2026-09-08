@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
-import { getMongoClientDb } from '@/lib/db.js';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 
 // Đuôi file nhạc nền được chấp nhận khi người dùng tự tải lên — chặn việc đặt tên file kiểu
 // "bg-music.exe" rồi ghi bừa vào thư mục project.

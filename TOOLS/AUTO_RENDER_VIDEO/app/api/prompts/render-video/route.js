@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { getRemotionDir, getRemotionPublicDir, resolveProjectDir, getEffectiveFolderPath } from '@/lib/remotionPaths';
-import { getSkill } from '@/lib/skills/index.js';
+import { getRemotionDir, getRemotionPublicDir, resolveProjectDir, getEffectiveFolderPath } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getSkill } from '@/src/application/video-studio/skills/index.js';
 
 // Tên thư mục project chỉ được chứa chữ/số/gạch dưới/gạch ngang — khớp với cách
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn

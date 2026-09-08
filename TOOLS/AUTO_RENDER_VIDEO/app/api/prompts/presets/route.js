@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb } from '@/lib/db.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 
 export async function GET(request) {
   try {

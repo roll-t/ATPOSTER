@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { READING_SYLLABUS } from '@/lib/prompts/readingSyllabus';
+import { READING_SYLLABUS } from '@/src/domain/content/readingSyllabus';
 
 const LEVEL_TABS = [
   { key: 'a1', label: 'A1', sub: 'Mới bắt đầu', icon: '🌱' },

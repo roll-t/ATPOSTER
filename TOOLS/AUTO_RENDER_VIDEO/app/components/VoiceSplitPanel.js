@@ -2,13 +2,14 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { buildTtsSlideParts, stripEmotionTagsForDisplay, ttsChunkLimitFor } from './SegmentedResultView/utils.js';
-import { countNarrationUnits } from '@/lib/speechRate.js';
+import { countNarrationUnits } from '@/src/domain/narration/speech-rate.js';
 import {
   decodeAudioFile,
   autoDetectBoundaries,
   proportionalBoundaries,
   slicesFromBoundaries,
   encodeWavSlice,
+  createSilentWavBlob,
   formatSeconds,
 } from './SegmentedResultView/audioSlicer.js';
 
@@ -41,6 +42,15 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
     () => new Map((segments || []).map((s) => [Number(s.segmentNumber), s])),
     [segments]
   );
+
+  // Các slide không có lời thoại (tiêu đề hồi chapter-title hoặc slide tĩnh 3s):
+  // ElevenLabs không đọc chúng, nhưng Remotion đòi mỗi slide một file audio để chạy timeline.
+  const silentSegments = useMemo(() => {
+    const spokenSet = new Set(parts.flatMap((p) => p.segmentNumbers));
+    return (segments || []).filter(
+      (s) => !s.isThumbnail && !spokenSet.has(Number(s.segmentNumber)) && Number.isFinite(Number(s.segmentNumber))
+    );
+  }, [segments, parts]);
 
   // state[i] = { name, buffer, silences, indexes, fallback, settings, error }
   const [state, setState] = useState({});
@@ -125,6 +135,16 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
     }
     if (!jobs.length) return;
 
+    // Tự động bổ sung file audio khoảng lặng cho các slide không có lời thoại (tiêu đề hồi chapter-title)
+    for (const seg of silentSegments) {
+      const dur = Number(seg.durationSeconds) || 3;
+      jobs.push({
+        segmentNumber: Number(seg.segmentNumber),
+        isSilent: true,
+        durationSeconds: dur,
+      });
+    }
+
     setBusy('Đang ghi file...');
     setProgress({ done: 0, total: jobs.length });
     let done = 0;
@@ -134,7 +154,9 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
       while (queue.length) {
         const job = queue.shift();
         try {
-          const blob = encodeWavSlice(state[job.partIndex].buffer, job.slice.start, job.slice.end);
+          const blob = job.isSilent
+            ? createSilentWavBlob(job.durationSeconds || 3)
+            : encodeWavSlice(state[job.partIndex].buffer, job.slice.start, job.slice.end);
           const form = new FormData();
           form.append('folderPath', folderPath);
           if (category) form.append('category', category);
@@ -164,7 +186,8 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
   };
 
   const readyCount = parts.reduce((sum, _, i) => sum + (boundariesOf(i) ? 1 : 0), 0);
-  const totalSlides = parts.reduce((sum, p) => sum + p.segmentNumbers.length, 0);
+  const totalSpokenSlides = parts.reduce((sum, p) => sum + p.segmentNumbers.length, 0);
+  const totalSlides = totalSpokenSlides + silentSegments.length;
 
   const copyPart = async (i) => {
     try {
@@ -177,10 +200,11 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        Bản dưới đây <strong>mỗi slide một đoạn</strong>, khác bản &quot;Copy giọng đọc&quot; ở dưới trang
+        Bản dưới đây <strong>mỗi slide một đoạn</strong> ({totalSpokenSlides} slide có lời thoại
+        {silentSegments.length > 0 ? `, ${silentSegments.length} slide tiêu đề tự bù khoảng lặng 3s` : ''}),
+        khác bản &quot;Copy giọng đọc&quot; ở dưới trang
         (bản kia gộp cả bài rồi chia lại theo câu, nên chỗ nghỉ hơi không trùng ranh giới slide).
-        Copy từng phần đem render ở ElevenLabs, tải file về rồi thả lại vào đây — tool sẽ cắt theo
-        đúng {totalSlides} slide.
+        Copy từng phần đem render ở ElevenLabs, tải file về rồi thả lại vào đây — tool sẽ cắt và ghi đủ {totalSlides} slide vào audio/.
       </div>
 
       {parts.map((part, i) => {
@@ -368,6 +392,11 @@ export default function VoiceSplitPanel({ segments, folderPath, category, keepTa
         {progress && (
           <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
             {progress.done}/{progress.total} file
+          </span>
+        )}
+        {silentSegments.length > 0 && !busy && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            ({totalSpokenSlides} file thoại + {silentSegments.length} file tiêu đề khoảng lặng)
           </span>
         )}
         {readyCount < parts.length && !busy && (

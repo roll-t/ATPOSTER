@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { readDb, writeDb, getUploadsDir } from '@/lib/db.js';
-import { resetGeminiRotationState } from '@/lib/prompts/gemini/callGeminiApi.js';
+import { readDb, writeDb, getUploadsDir } from '@/src/infrastructure/persistence/index.js';
+import { resetGeminiRotationState } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';

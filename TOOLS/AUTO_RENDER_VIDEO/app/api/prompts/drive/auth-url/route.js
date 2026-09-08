@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb, writeDb } from '@/lib/db.js';
+import { readDb, writeDb } from '@/src/infrastructure/persistence/index.js';
 
 export async function POST(req) {
   try {

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getMongoClientDb, getUploadsDir } from '@/lib/db.js';
-import { synthesizeEdgeTts } from '@/lib/tts/edgeTts.js';
-import { parseApiKeys } from '@/lib/prompts/gemini/apiKeys.js';
-import { synthesizeCapcutTts, isCapcutVoice } from '@/lib/tts/capcutTts.js';
-import { transliterateEnglishForVietnameseTts } from '@/lib/tts/englishPhoneticVi.js';
+import { getMongoClientDb, getUploadsDir } from '@/src/infrastructure/persistence/index.js';
+import { synthesizeEdgeTts } from '@/src/infrastructure/tts/edgeTts.js';
+import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { synthesizeCapcutTts, isCapcutVoice } from '@/src/infrastructure/tts/capcutTts.js';
+import { transliterateEnglishForVietnameseTts } from '@/src/infrastructure/tts/englishPhoneticVi.js';
 
 // Câu mẫu ngắn để "nghe thử" 1 giọng trước khi dùng thật cho cả video — không ghi ra đĩa,
 // không đụng tới project/manifest nào, chỉ trả thẳng audio base64 để phát ngay trên trình duyệt.

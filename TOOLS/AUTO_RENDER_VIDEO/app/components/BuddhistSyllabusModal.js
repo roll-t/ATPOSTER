@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { BUDDHIST_THEMES, getBuddhistTheme } from '@/lib/prompts/buddhistThemes.js';
-import { BUDDHIST_SYLLABUS } from '@/lib/prompts/buddhistSyllabus.js';
+import { BUDDHIST_THEMES, getBuddhistTheme } from '@/src/domain/content/buddhistThemes.js';
+import { BUDDHIST_SYLLABUS } from '@/src/domain/content/buddhistSyllabus.js';
 
 export default function BuddhistSyllabusModal({
   isOpen,

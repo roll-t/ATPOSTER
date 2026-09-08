@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectDir } from '@/lib/remotionPaths';
+import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { createSilentMp3Buffer, createSilentWavBuffer } from '@/src/infrastructure/tts/silence.js';
 
 export async function POST(req) {
   try {
@@ -29,6 +30,45 @@ export async function POST(req) {
     // render-project.mjs vốn đã dò đuôi thật (`match.split('.').pop()`), nên chỗ ĐẾM này mới là
     // nơi duy nhất còn gắn cứng .mp3.
     const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg', '.aac'];
+
+    // Tự động bù file âm thanh khoảng lặng cho các slide không có lời thoại (ví dụ slide tiêu đề hồi chapter-title)
+    // nếu các slide có thoại khác đã có audio trên đĩa. Giúp luồng lồng tiếng ngoài (ElevenLabs) hoặc copy thủ công
+    // không bị kẹt vì thiếu file audio ở những slide vốn dĩ không có giọng đọc.
+    const manifestFile = path.join(targetDir, 'manifest.json');
+    if (fs.existsSync(manifestFile)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+        if (Array.isArray(manifest.segments) && fs.existsSync(audioDir)) {
+          const existingAudioFiles = fs.readdirSync(audioDir);
+          const hasAnyAudio = existingAudioFiles.some(f => f.startsWith('scene-') && AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
+
+          if (hasAnyAudio) {
+            const firstAudio = existingAudioFiles.find(f => f.startsWith('scene-') && AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
+            const preferredExt = firstAudio ? path.extname(firstAudio).toLowerCase() : '.wav';
+
+            for (const seg of manifest.segments) {
+              const segNum = Number(seg.segmentNumber);
+              const text = (seg.dialogueOrNarration || '').replace(/^[A-Za-z0-9\s]+:\s*/, '').trim();
+              const isSilentSlide = !text || seg.layout === 'chapter-title';
+              if (isSilentSlide && Number.isFinite(segNum) && !seg.isThumbnail) {
+                const pad = String(segNum).padStart(2, '0');
+                const hasFile = existingAudioFiles.some(f => f.startsWith(`scene-${pad}.`) && AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
+                if (!hasFile) {
+                  const silenceSeconds = Number(seg.durationSeconds) || (seg.layout === 'chapter-title' ? 3 : 3);
+                  const silentBuffer = preferredExt === '.mp3'
+                    ? createSilentMp3Buffer(silenceSeconds)
+                    : createSilentWavBuffer(silenceSeconds);
+                  fs.writeFileSync(path.join(audioDir, `scene-${pad}${preferredExt}`), silentBuffer);
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Không làm hỏng flow check-assets nếu manifest lỗi
+      }
+    }
+
     let audioCount = 0;
     // Đuôi THẬT của file giọng đọc trên đĩa — trả về để giao diện xin đúng tên khi nghe thử,
     // thay vì đoán 'mp3' rồi nhận 404.

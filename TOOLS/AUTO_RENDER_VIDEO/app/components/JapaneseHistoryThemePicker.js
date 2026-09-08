@@ -1,6 +1,6 @@
 'use client';
 
-import { JAPANESE_HISTORY_THEMES } from '@/lib/prompts/japaneseHistoryThemes.js';
+import { JAPANESE_HISTORY_THEMES } from '@/src/domain/content/japaneseHistoryThemes.js';
 
 export default function JapaneseHistoryThemePicker({ value, onChange }) {
   const currentKey = value || 'japan_history';
