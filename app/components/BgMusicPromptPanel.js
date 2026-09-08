@@ -90,9 +90,61 @@ function PromptBox({ text }) {
   );
 }
 
-export default function BgMusicPromptPanel() {
+export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selectedTheme } = {}) {
+  // Ưu tiên hiển thị bản nhạc thuộc chủ đề được chọn lên đầu
+  const sortedPrompts = [...BG_MUSIC_PROMPTS].sort((a, b) => {
+    if (selectedTheme) {
+      if (a.id === selectedTheme || a.themeKey === selectedTheme) return -1;
+      if (b.id === selectedTheme || b.themeKey === selectedTheme) return 1;
+    }
+    return 0;
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {onBackToGrid && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={onBackToGrid}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              lineHeight: 1,
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Chọn thể loại Nhạc khác</span>
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>{categoryInfo?.icon || '🎵'}</span>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+              {categoryInfo?.label || 'Kho Prompt Nhạc Nền Suno'}
+            </h2>
+          </div>
+        </div>
+      )}
 
       {/* Tiêu đề */}
       <div className="glass-card" style={{ padding: '24px' }}>
@@ -169,9 +221,23 @@ export default function BgMusicPromptPanel() {
         </div>
       </div>
 
-      {/* Sáu bản nhạc */}
-      {BG_MUSIC_PROMPTS.map((item, idx) => (
-        <div key={item.id} className="glass-card" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {/* Các bản nhạc */}
+      {sortedPrompts.map((item, idx) => {
+        const isHighlighted = selectedTheme && (item.id === selectedTheme || item.themeKey === selectedTheme);
+        return (
+          <div
+            key={item.id}
+            className="glass-card"
+            style={{
+              padding: '22px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              border: isHighlighted ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: isHighlighted ? '0 0 25px rgba(168, 85, 247, 0.25)' : 'none',
+              background: isHighlighted ? 'rgba(30, 20, 50, 0.7)' : undefined,
+            }}
+          >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{
               fontSize: '0.7rem',
@@ -207,7 +273,8 @@ export default function BgMusicPromptPanel() {
             </p>
           </div>
         </div>
-      ))}
+      );
+    })}
 
       {/* Ràng buộc bắt buộc giữ lại */}
       <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>

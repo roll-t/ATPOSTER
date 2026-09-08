@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-heart" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d3748"/>
+      <stop offset="60%" stop-color="#1a202c"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="terracotta" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-heart)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.25)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  
+  <!-- Zen Circle & Heart Motif -->
+  <g transform="translate(100, 100)">
+    <!-- Enso / Zen brush circle -->
+    <circle cx="0" cy="0" r="32" fill="none" stroke="url(#terracotta)" stroke-width="2.5" stroke-dasharray="160, 40" stroke-linecap="round"/>
+    <!-- Gentle heart in center -->
+    <path d="M0 8 C-12 -6 -18 -18 -6 -20 C0 -20 0 -12 0 -12 C0 -12 0 -20 6 -20 C18 -18 12 -6 0 8 Z" fill="#ffffff" opacity="0.9"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="166" fill="#f8fafc" font-size="16" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1">HIỂU VỀ</text>
+  <text x="100" y="190" fill="url(#terracotta)" font-size="20" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1.5">TRÁI TIM</text>
+  
+  <text x="100" y="212" fill="#cbd5e1" font-size="8" font-family="Georgia, serif" font-style="italic" text-anchor="middle">Nghệ Thuật Sống Bình An &amp; Hạnh Phúc</text>
+  
+  <line x1="55" y1="230" x2="145" y2="230" stroke="url(#terracotta)" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Author -->
+  <text x="100" y="254" fill="#ffffff" font-size="13" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1">MINH NIỆM</text>
+  <text x="100" y="270" fill="#94a3b8" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">CHỮA LÀNH MỌI VẾT THƯƠNG TÂM HỒN</text>
+</svg>

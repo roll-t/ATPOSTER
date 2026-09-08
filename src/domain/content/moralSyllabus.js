@@ -861,148 +861,1086 @@ export const MORAL_SYLLABUS = {
   // Mỗi chủ đề được thiết kế chuẩn bán sách: Vấn đề nhức nhối ➔ Tên cuốn sách & bài học đắt giá.
   // -----------------------------------------------------------------------------------------------
   book_tiktok_trending: [
-    { id: 1, text: "Combo Sách: Tư Duy Ngược + Tư Duy Mở (Nguyễn Anh Dũng) — Mắc kẹt trong lối mòn tư duy và định kiến cũ", desc: "Dạy cách lội ngược dòng suy nghĩ, phá vỡ định kiến hạn hẹp và mở rộng góc nhìn để nắm bắt cơ hội bứt phá" },
-    { id: 2, text: "Stop Overthinking (Ngừng Suy Nghĩ Quá Nhiều - Nick Trenton) — Não không chịu tắt, dằn vặt lo âu nửa đêm", desc: "Dạy 4 kỹ thuật giải phóng tâm trí khỏi mớ bòng bong suy nghĩ, quản lý căng thẳng và neo mình vào hiện tại" },
-    { id: 3, text: "Sức Mạnh Của EQ (Trí Tuệ Cảm Xúc) — Nóng nảy bộc phát phá hỏng mối quan hệ và sự nghiệp", desc: "Dạy cách làm chủ cảm xúc, đọc vị đối phương và ứng xử thấu tình đạt lý giúp ai gặp cũng quý mến" },
-    { id: 4, text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Nói chuyện vụng về, hay lỡ lời làm mất lòng người khác", desc: "Dạy nghệ thuật giao tiếp duyên dáng, kỹ năng mở lời tạo thiện cảm và từ chối khéo léo trong công việc" },
-    { id: 5, text: "Dám Bị Ghét (Kishimi & Koga) — Sợ mất lòng người khác, sống để làm hài lòng thiên hạ", desc: "Dạy cách phân chia nhiệm vụ và dũng cảm sống cuộc đời tự do không phụ thuộc ánh nhìn ai" },
-    { id: 6, text: "Càng Kỷ Luật Càng Tự Do (Vãn Tình) — Thường xuyên trì hoãn và sống buông thả", desc: "Dạy cách làm chủ cảm xúc và duy trì kỷ luật để tự nắm giữ vận mệnh của mình" },
-    { id: 7, text: "Bạn Đắt Giá Bao Nhiêu? (Vãn Tình) — Hy sinh vì người khác nhưng không được coi trọng", desc: "Dạy phụ nữ cách nâng cao giá trị bản thân, độc lập tự chủ và sống kiêu hãnh" },
-    { id: 8, text: "Atomic Habits (Thay Đổi Tí Hon) — Muốn bỏ thói quen xấu nhưng 3 ngày là nản", desc: "Dạy quy tắc 2 phút và gom thói quen để duy trì kỷ luật bền bỉ mỗi ngày" },
-    { id: 9, text: "Thao Túng Tâm Lý (Shannon Thomas) — Bị người độc hại thao túng, luôn tự trách bản thân", desc: "Dạy nhận diện chiêu bài Gaslighting và thiết lập ranh giới bảo vệ tâm lý chính mình" },
-    { id: 10, text: "Tâm Lý Học Về Tiền (Morgan Housel) — Kiếm nhiều nhưng không giữ được tiền", desc: "Dạy sự khác biệt cốt lõi giữa giàu có thực sự và lối sống khoe mẽ bề ngoài" },
-    { id: 11, text: "Đọc Vị Bất Kỳ Ai (David Lieberman) — Dễ bị người khác nói dối và lừa gạt", desc: "Dạy cách đọc vị suy nghĩ qua ánh mắt, ngôn ngữ cơ thể và phản xạ vô thức" },
-    { id: 12, text: "Đừng Lựa Chọn An Nhàn Khi Còn Trẻ (Cảnh Thiên) — Sợ cực khổ, thích nằm yên lướt mạng", desc: "Dạy bài học thức tỉnh: mồ hôi của tuổi trẻ hôm nay là sự an yên và tự do ngày mai" },
-    { id: 13, text: "Hiểu Về Trái Tim (Minh Niệm) — Cảm xúc bất an, vết thương lòng tích tụ lâu ngày", desc: "Dạy cách ôm ấp nỗi đau, chuyển hóa cơn giận và tìm về bình an nội tại" },
-    { id: 14, text: "Chiến Thắng Con Quỷ Trong Bạn (Napoleon Hill) — Bị sự sợ hãi và thói quen trì trệ kìm hãm", desc: "Dạy cách làm chủ tâm trí và giải thoát bản thân khỏi cạm bẫy buông xuôi cuộc đời" },
-    { id: 15, text: "Chủ Nghĩa Khắc Kỷ (Stoicism) — Dễ suy sụp trước những chuyện bất như ý", desc: "Dạy cách chỉ tập trung vào thứ trong tầm tay và bình thản bước qua giông bão" },
-    { id: 16, text: "Sức Mạnh Của Tiềm Thức (Joseph Murphy) — Bị niềm tin giới hạn và âu lo vây quanh", desc: "Dạy cài đặt lại tiềm thức để khai mở nguồn năng lượng thu hút thành công" },
-    { id: 17, text: "Không Tự Khinh Bỉ Không Cùng Đường Tuyệt Lộ (Vãn Tình) — Bế tắc muốn bỏ cuộc", desc: "Dạy bản lĩnh tự lập, kiên cường đứng lên từ những lần vấp ngã cay đắng" },
-    { id: 18, text: "Cây Cam Ngọt Của Tôi (José Mauro) — Cảm giác cô đơn, thiếu thốn tình yêu thương", desc: "Cuốn sách chạm tới trái tim hàng triệu bạn trẻ, dạy về lòng trắc ẩn và sự thấu cảm sâu sắc" },
-    { id: 19, text: "Cân Bằng Cảm Xúc Cả Lúc Bão Giông — Dễ bốc hỏa, mất kiểm soát tâm trạng", desc: "Dạy cách lắng dịu cảm xúc tiêu cực và giữ tâm tĩnh lặng trước áp lực cuộc sống" },
-    { id: 20, text: "Tâm Lý Học Tội Phạm (Diệp Hồng Vũ) — Quá ngây thơ, không nhìn thấu lòng dạ con người", desc: "Dạy cách phân tích hành vi bất thường để bảo vệ bản thân an toàn trước mọi hiểm nguy" },
-    { id: 21, text: "Khi Bạn Đang Mơ Thì Người Khác Đang Nỗ Lực — Ảo tưởng thành công nhưng lười hành động", desc: "Dạy quy tắc kỷ luật thép của sinh viên Harvard để đánh bại sự trì hoãn" },
-    { id: 22, text: "Muôn Kiếp Nhân Sinh (Nguyên Phong) — Mất phương hướng sống, hoang mang về tương lai", desc: "Dạy quy luật nhân quả vũ trụ và cách sống tỉnh thức, gieo mầm bình an" }
+    {
+      id: 1,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Trì hoãn & Quy tắc 2 phút",
+      painPoint: "Muốn bỏ lười nhưng 3 ngày là nản",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Trì hoãn & Quy tắc 2 phút — Muốn bỏ thói quen lười nhưng 3 ngày là nản",
+      desc: "Dạy quy tắc 2 phút đánh lừa não bộ bắt đầu hành động ngay mà không cảm thấy áp lực hay lười biếng",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 2,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Gom thói quen (Habit Stacking)",
+      painPoint: "Hay quên và khó duy trì thói quen mới",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Gom thói quen (Habit Stacking) — Hay quên và khó duy trì thói quen mới",
+      desc: "Dạy kỹ thuật gắn thói quen mới ngay sau một thói quen cũ đã có sẵn để biến nó thành phản xạ tự nhiên",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 3,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Hiệu ứng cộng dồn 1% mỗi ngày",
+      painPoint: "Nản lòng vì cố gắng mãi chưa thấy kết quả ngay",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Tích lũy 1% mỗi ngày — Nản lòng vì cố gắng mãi chưa thấy kết quả ngay",
+      desc: "Dạy bài học lãi kép hành vi: Tiến bộ 1% mỗi ngày sau một năm bạn sẽ giỏi hơn gấp 37 lần",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 4,
+      bookTitle: "Tâm Lý Học Về Tiền",
+      author: "Morgan Housel",
+      angle: "Giàu có (Wealth) vs Sang chảnh (Rich)",
+      painPoint: "Kiếm nhiều tiền nhưng cuối tháng rỗng ví",
+      text: "Tâm Lý Học Về Tiền (Morgan Housel) — Góc nhìn: Giàu có vs Sang chảnh — Kiếm nhiều tiền nhưng cuối tháng rỗng ví",
+      desc: "Dạy sự khác biệt cốt lõi: Giàu có thực sự là những thứ bạn không mua, không phải những thứ bạn phô trương bề ngoài",
+      coverImage: "/images/books/psychology-of-money.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#fbbf24", icon: "💰" }
+    },
+    {
+      id: 5,
+      bookTitle: "Tâm Lý Học Về Tiền",
+      author: "Morgan Housel",
+      angle: "Tự do thời gian là cổ tức cao nhất",
+      painPoint: "Làm việc kiệt sức không có thời gian cho bản thân",
+      text: "Tâm Lý Học Về Tiền (Morgan Housel) — Góc nhìn: Tự do thời gian — Làm việc kiệt sức không có thời gian cho bản thân",
+      desc: "Dạy bài học sâu sắc: Giá trị cao nhất của tiền bạc là quyền được thức dậy mỗi sáng và tự quyết định ngày hôm nay làm gì",
+      coverImage: "/images/books/psychology-of-money.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#fbbf24", icon: "💰" }
+    },
+    {
+      id: 6,
+      bookTitle: "Dám Bị Ghét",
+      author: "Kishimi & Koga",
+      angle: "Phân chia nhiệm vụ cuộc đời",
+      painPoint: "Sống cả nể, luôn cố gắng làm hài lòng mọi người",
+      text: "Dám Bị Ghét (Kishimi & Koga) — Góc nhìn: Phân chia nhiệm vụ — Sống cả nể, luôn cố gắng làm hài lòng mọi người",
+      desc: "Dạy triết lý tâm lý học Adler: Người khác nghĩ gì về bạn là nhiệm vụ của họ, không phải gánh nặng của bạn",
+      coverImage: "/images/books/dam-bi-ghet.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #312e81)", accent: "#38bdf8", icon: "🌿" }
+    },
+    {
+      id: 7,
+      bookTitle: "Dám Bị Ghét",
+      author: "Kishimi & Koga",
+      angle: "Dũng cảm sống cuộc đời tự do",
+      painPoint: "Sợ bị phán xét, không dám làm điều mình thích",
+      text: "Dám Bị Ghét (Kishimi & Koga) — Góc nhìn: Dũng cảm bị ghét — Sợ bị phán xét, không dám làm điều mình thích",
+      desc: "Dạy lòng dũng cảm: Tự do thực sự chỉ bắt đầu khi bạn dám bị người khác ghét vì sống đúng với chính mình",
+      coverImage: "/images/books/dam-bi-ghet.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #312e81)", accent: "#38bdf8", icon: "🌿" }
+    },
+    {
+      id: 8,
+      bookTitle: "Đắc Nhân Tâm",
+      author: "Dale Carnegie",
+      angle: "Không chỉ trích oán trách",
+      painPoint: "Nói chuyện vô ý hay làm mất lòng người khác",
+      text: "Đắc Nhân Tâm (Dale Carnegie) — Góc nhìn: Đừng chỉ trích oán trách — Nói chuyện vô ý hay làm mất lòng người khác",
+      desc: "Dạy nghệ thuật giao tiếp kinh điển: Bất kỳ kẻ ngốc nào cũng có thể chỉ trích, nhưng người bản lĩnh chọn thấu hiểu và tha thứ",
+      coverImage: "/images/books/dac-nhan-tam.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#facc15", icon: "🤝" }
+    },
+    {
+      id: 9,
+      bookTitle: "Đắc Nhân Tâm",
+      author: "Dale Carnegie",
+      angle: "Nghệ thuật khen ngợi chân thành",
+      painPoint: "Khó kết nối và tạo thiện cảm với người mới quen",
+      text: "Đắc Nhân Tâm (Dale Carnegie) — Góc nhìn: Khen ngợi chân thành — Khó kết nối và tạo thiện cảm với người mới quen",
+      desc: "Dạy bí quyết chiếm trọn lòng tin: Hãy hào phóng trong lời khen ngợi chân thành và ghi nhận nỗ lực của người đối diện",
+      coverImage: "/images/books/dac-nhan-tam.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#facc15", icon: "🤝" }
+    },
+    {
+      id: 10,
+      bookTitle: "Tư Duy Ngược",
+      author: "Nguyễn Anh Dũng",
+      angle: "Lội ngược dòng suy nghĩ",
+      painPoint: "Mắc kẹt trong lối mòn tư duy và định kiến cũ",
+      text: "Tư Duy Ngược (Nguyễn Anh Dũng) — Góc nhìn: Lội ngược dòng suy nghĩ — Mắc kẹt trong lối mòn tư duy và định kiến cũ",
+      desc: "Dạy cách phá vỡ định kiến hạn hẹp, nhìn sự việc dưới góc độ đối lập để nhìn ra cơ hội lớn mà số đông bỏ lỡ",
+      coverImage: "/images/books/tu-duy-nguoc.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #7f1d1d, #450a0a)", accent: "#f59e0b", icon: "🚀" }
+    },
+    {
+      id: 11,
+      bookTitle: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ",
+      author: "Trác Nhã",
+      angle: "Phá băng cuộc trò chuyện với người lạ",
+      painPoint: "Gặp người lạ là ngắc ngứ không biết mở lời",
+      text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Góc nhìn: Phá băng giao tiếp — Gặp người lạ là ngắc ngứ không biết mở lời",
+      desc: "Dạy công thức mở đầu cuộc hội thoại duyên dáng trong 3 phút đầu tiên giúp xóa tan bầu không khí gượng gạo",
+      coverImage: "/images/books/kheo-an-noi.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🗣️" }
+    },
+    {
+      id: 12,
+      bookTitle: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ",
+      author: "Trác Nhã",
+      angle: "Nghệ thuật từ chối khéo léo",
+      painPoint: "Cả nể không dám nói Không, ôm việc rồi kiệt sức",
+      text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Góc nhìn: Từ chối khéo léo — Cả nể không dám nói Không, ôm việc rồi kiệt sức",
+      desc: "Dạy kỹ thuật từ chối nhẹ nhàng, giữ trọn sự tôn trọng và hòa khí mà không cần phải gánh chịu thiệt thòi",
+      coverImage: "/images/books/kheo-an-noi.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🗣️" }
+    },
+    {
+      id: 13,
+      bookTitle: "Hiểu Về Trái Tim",
+      author: "Minh Niệm",
+      angle: "Nhận diện và ôm ấp cơn giận",
+      painPoint: "Dễ bốc hỏa, mất kiểm soát làm tổn thương người thân",
+      text: "Hiểu Về Trái Tim (Minh Niệm) — Góc nhìn: Ôm ấp cơn giận — Dễ bốc hỏa, mất kiểm soát làm tổn thương người thân",
+      desc: "Dạy nghệ thuật dừng lại, quan sát cơn giận như một đứa trẻ đang khóc để chuyển hóa nó thành sự bao dung",
+      coverImage: "/images/books/hieu-ve-trai-tim.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #2d3748, #1a202c)", accent: "#ea580c", icon: "🌿" }
+    },
+    {
+      id: 14,
+      bookTitle: "Hiểu Về Trái Tim",
+      author: "Minh Niệm",
+      angle: "Chữa lành tổn thương tâm lý tích tụ",
+      painPoint: "Mang nặng vết thương quá khứ, luôn thấy bất an",
+      text: "Hiểu Về Trái Tim (Minh Niệm) — Góc nhìn: Chữa lành nội tại — Mang nặng vết thương quá khứ, luôn thấy bất an",
+      desc: "Dạy cách quay về chăm sóc chính mình, buông bỏ sự oán trách để tìm lại sự an yên và tự tại trong tâm hồn",
+      coverImage: "/images/books/hieu-ve-trai-tim.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #2d3748, #1a202c)", accent: "#ea580c", icon: "🌿" }
+    },
+    {
+      id: 15,
+      bookTitle: "Stop Overthinking",
+      author: "Nick Trenton",
+      angle: "Kỹ thuật 5-4-3-2-1 neo tâm trí",
+      painPoint: "Não không chịu tắt, dằn vặt lo âu nửa đêm",
+      text: "Stop Overthinking (Nick Trenton) — Góc nhìn: Kỹ thuật 5-4-3-2-1 neo tâm trí — Não không chịu tắt, dằn vặt lo âu nửa đêm",
+      desc: "Dạy 4 bước khoa học kéo tâm trí về hiện tại, chấm dứt vòng lặp suy nghĩ tiêu cực trước khi đi ngủ",
+      coverTheme: { bg: "linear-gradient(135deg, #312e81, #1e1b4b)", accent: "#a855f7", icon: "🌀" }
+    },
+    {
+      id: 16,
+      bookTitle: "Bạn Đắt Giá Bao Nhiêu?",
+      author: "Vãn Tình",
+      angle: "Nâng cao giá trị bản thân",
+      painPoint: "Hy sinh vì người khác nhưng không được coi trọng",
+      text: "Bạn Đắt Giá Bao Nhiêu? (Vãn Tình) — Góc nhìn: Nâng cao giá trị bản thân — Hy sinh vì người khác nhưng không được coi trọng",
+      desc: "Dạy phụ nữ cách tự yêu lấy mình, bồi đắp khí chất độc lập và sống một cuộc đời kiêu hãnh rạng ngời",
+      coverTheme: { bg: "linear-gradient(135deg, #831843, #500724)", accent: "#f472b6", icon: "👑" }
+    },
+    {
+      id: 17,
+      bookTitle: "Càng Kỷ Luật Càng Tự Do",
+      author: "Vãn Tình",
+      angle: "Kỷ luật mở cánh cửa tự do",
+      painPoint: "Thường xuyên trì hoãn, buông thả cảm xúc",
+      text: "Càng Kỷ Luật Càng Tự Do (Vãn Tình) — Góc nhìn: Kỷ luật mở lối tự do — Thường xuyên trì hoãn, buông thả cảm xúc",
+      desc: "Dạy bài học thức tỉnh: Kỷ luật không phải là sự gò bó ép buộc, mà là con đường duy nhất để bạn làm chủ vận mệnh",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#38bdf8", icon: "⚡" }
+    },
+    {
+      id: 18,
+      bookTitle: "Đọc Vị Bất Kỳ Ai",
+      author: "David Lieberman",
+      angle: "Nhận diện dấu hiệu nói dối",
+      painPoint: "Quá ngây thơ, hay bị người khác lừa gạt và dẫn dụ",
+      text: "Đọc Vị Bất Kỳ Ai (David Lieberman) — Góc nhìn: Nhận diện nói dối — Quá ngây thơ, hay bị người khác lừa gạt và dẫn dụ",
+      desc: "Dạy các dấu hiệu tâm lý vô thức qua ánh mắt, ngữ điệu và phản xạ cơ thể để bảo vệ bản thân trước kẻ giả tạo",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #0f172a)", accent: "#c084fc", icon: "🧠" }
+    },
+    {
+      id: 19,
+      bookTitle: "Muôn Kiếp Nhân Sinh",
+      author: "Nguyên Phong",
+      angle: "Quy luật nhân quả vũ trụ",
+      painPoint: "Mất phương hướng sống, hoang mang về tương lai",
+      text: "Muôn Kiếp Nhân Sinh (Nguyên Phong) — Góc nhìn: Quy luật nhân quả — Mất phương hướng sống, hoang mang về tương lai",
+      desc: "Dạy bài học tỉnh thức về luật nhân quả luân hồi và tầm quan trọng của việc gieo những hạt mầm thiện lành",
+      coverImage: "/images/books/muon-kiep-nhan-sinh.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #090d16, #1e1b4b)", accent: "#fbbf24", icon: "📜" }
+    }
   ],
+
   book_discipline: [
-    { id: 1, text: "Atomic Habits (Thay Đổi Tí Hon) — Bỏ thói quen lười biếng và trì hoãn", desc: "Dạy quy tắc 2 phút và gom thói quen để duy trì kỷ luật mỗi ngày không cần nỗ lực" },
-    { id: 2, text: "Sức Mạnh Của Thói Quen (Charles Duhigg) — Thoát khỏi vòng lặp thói quen xấu", desc: "Dạy cơ chế Gợi ý - Hành động - Phần thưởng để thay thế thói quen tiêu cực" },
-    { id: 3, text: "Quy Tắc 5 Giây (Mel Robbins) — Đập tan sự chần chừ và sợ hãi", desc: "Dạy kỹ thuật đếm ngược 5-4-3-2-1 để kích hoạt hành động ngay trước khi não kịp viện cớ" },
-    { id: 4, text: "Kỷ Luật Tự Giác (Brian Tracy) — Chấm dứt thói quen làm việc nửa vời", desc: "Dạy cách ăn con ếch khó nhất vào buổi sáng và thiết lập mục tiêu không thể chối từ" },
-    { id: 5, text: "Tập Trung Hay Là Chết (Gary Keller) — Quá tải vì làm nhiều việc cùng lúc", desc: "Dạy tìm ra một việc duy nhất tạo ra 80% kết quả để tập trung cao độ" },
-    { id: 6, text: "Thay Đổi Nhỏ Kết Quả Lớn (Jeff Olson) — Nản lòng vì chưa thấy tiến bộ", desc: "Dạy hiệu ứng tích lũy (The Slight Edge) — kiên trì 1% mỗi ngày tạo nên kỳ tích" },
-    { id: 7, text: "Hoàn Thành Mọi Việc Không Hề Khó (GTD - David Allen) — Đầu óc ngập tràn việc tồn đọng", desc: "Dạy hệ thống xử lý công việc 5 bước giải phóng não bộ" },
-    { id: 8, text: "Không Thể Làm Tổn Thương Tôi (David Goggins) — Thường bỏ cuộc khi gặp khó khăn", desc: "Dạy quy tắc 40% sức chịu đựng để bứt phá giới hạn ý chí" },
-    { id: 9, text: "Bắt Đầu Với Câu Hỏi Tại Sao (Simon Sinek) — Mất động lực mỗi sáng thức dậy", desc: "Dạy cách tìm lại lý do cốt lõi thôi thúc hành động bền bỉ" },
-    { id: 10, text: "Thói Quen Thành Công Của Triệu Phú (Thomas Corley) — Thói quen hàng ngày nghèo nàn", desc: "Dạy cắt bỏ 30 phút lướt web vô bổ và thay bằng việc đọc sách tích lũy" }
+    {
+      id: 1,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Trì hoãn & Quy tắc 2 phút",
+      painPoint: "Muốn bắt đầu nhưng luôn chần chừ viện cớ",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Trì hoãn & Quy tắc 2 phút — Muốn bắt đầu nhưng luôn chần chừ viện cớ",
+      desc: "Dạy cách chia nhỏ hành động sao cho chỉ mất đúng 2 phút để hoàn thành, loại bỏ hoàn toàn sự kháng cự của não bộ",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 2,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Thiết kế môi trường sống",
+      painPoint: "Dựa vào ý chí để chống lại cám dỗ và luôn thất bại",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Thiết kế môi trường sống — Dựa vào ý chí để chống lại cám dỗ và luôn thất bại",
+      desc: "Dạy nguyên tắc: Người kỷ luật nhất không phải người có ý chí thép, mà là người biết tạo ra môi trường không có cám dỗ",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 3,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Định hình bản sắc (Identity Habits)",
+      painPoint: "Đặt mục tiêu lớn nhưng bỏ cuộc sau vài tuần",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Định hình bản sắc — Đặt mục tiêu lớn nhưng bỏ cuộc sau vài tuần",
+      desc: "Dạy thay đổi thói quen từ gốc rễ: Đừng tập trung vào việc bạn muốn đạt được gì, hãy tập trung vào mẫu người bạn muốn trở thành",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 4,
+      bookTitle: "Atomic Habits",
+      author: "James Clear",
+      angle: "Gom thói quen (Habit Stacking)",
+      painPoint: "Thường xuyên quên tập luyện hay đọc sách",
+      text: "Atomic Habits (James Clear) — Góc nhìn: Gom thói quen (Habit Stacking) — Thường xuyên quên tập luyện hay đọc sách",
+      desc: "Dạy công thức: Sau khi [Hành động hiện tại], tôi sẽ [Hành động mới] để gắn kết chặt chẽ vào nếp sống quen thuộc",
+      coverImage: "/images/books/atomic-habits.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ffffff, #f1f5f9)", accent: "#f59e0b", icon: "⚡" }
+    },
+    {
+      id: 5,
+      bookTitle: "Sức Mạnh Của Thói Quen",
+      author: "Charles Duhigg",
+      angle: "Vòng lặp thói quen sinh học",
+      painPoint: "Bất lực trước những thói quen xấu lặp đi lặp lại",
+      text: "Sức Mạnh Của Thói Quen (Charles Duhigg) — Góc nhìn: Vòng lặp thói quen — Bất lực trước những thói quen xấu lặp đi lặp lại",
+      desc: "Dạy cơ chế 3 bước: Gợi ý - Hành động - Phần thưởng. Bạn không thể xóa thói quen xấu, bạn chỉ có thể thay thế hành động",
+      coverImage: "/images/books/power-of-habit.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ea580c, #7c2d12)", accent: "#fde047", icon: "🔄" }
+    },
+    {
+      id: 6,
+      bookTitle: "Sức Mạnh Của Thói Quen",
+      author: "Charles Duhigg",
+      angle: "Thói quen then chốt (Keystone Habits)",
+      painPoint: "Cuộc sống rối ren không biết bắt đầu sửa từ đâu",
+      text: "Sức Mạnh Của Thói Quen (Charles Duhigg) — Góc nhìn: Thói quen then chốt — Cuộc sống rối ren không biết bắt đầu sửa từ đâu",
+      desc: "Dạy tìm ra một thói quen nền tảng duy nhất (như tập thể dục 20 phút) kích hoạt hiệu ứng domino thay đổi toàn bộ nếp sống",
+      coverImage: "/images/books/power-of-habit.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #ea580c, #7c2d12)", accent: "#fde047", icon: "🔄" }
+    },
+    {
+      id: 7,
+      bookTitle: "Quy Tắc 5 Giây",
+      author: "Mel Robbins",
+      angle: "Đếm ngược 5-4-3-2-1 hành động",
+      painPoint: "Thói quen đắn đo, chần chừ trước mọi cơ hội",
+      text: "Quy Tắc 5 Giây (Mel Robbins) — Góc nhìn: Đếm ngược 5-4-3-2-1 — Thói quen đắn đo, chần chừ trước mọi cơ hội",
+      desc: "Dạy kỹ thuật đếm ngược 5-4-3-2-1 để kích hoạt vỏ não trước trán, hành động ngay trước khi não kịp sinh ra lý do thoái thác",
+      coverTheme: { bg: "linear-gradient(135deg, #dc2626, #991b1b)", accent: "#fef08a", icon: "⏱️" }
+    },
+    {
+      id: 8,
+      bookTitle: "Quy Tắc 5 Giây",
+      author: "Mel Robbins",
+      angle: "Thức dậy ngay không bấm nút hoãn báo thức",
+      painPoint: "Mê mệt buổi sáng, bấm hoãn báo thức 5 lần",
+      text: "Quy Tắc 5 Giây (Mel Robbins) — Góc nhìn: Thức dậy buổi sáng — Mê mệt buổi sáng, bấm hoãn báo thức 5 lần",
+      desc: "Dạy cách đếm 5-4-3-2-1 tung chăn bước ra khỏi giường để chấm dứt quán tính giấc ngủ và khởi đầu ngày mới tràn đầy năng lượng",
+      coverTheme: { bg: "linear-gradient(135deg, #dc2626, #991b1b)", accent: "#fef08a", icon: "⏱️" }
+    },
+    {
+      id: 9,
+      bookTitle: "Thay Đổi Nhỏ Kết Quả Lớn",
+      author: "Jeff Olson",
+      angle: "Triết lý The Slight Edge",
+      painPoint: "Thấy những việc nhỏ mỗi ngày là vô nghĩa",
+      text: "Thay Đổi Nhỏ Kết Quả Lớn (Jeff Olson) — Góc nhìn: Triết lý The Slight Edge — Thấy những việc nhỏ mỗi ngày là vô nghĩa",
+      desc: "Dạy chân lý: Những việc đơn giản dễ làm cũng rất dễ không làm. Người kiên trì làm việc đơn giản mỗi ngày sẽ tạo nên kỳ tích",
+      coverTheme: { bg: "linear-gradient(135deg, #0284c7, #0369a1)", accent: "#facc15", icon: "📈" }
+    },
+    {
+      id: 10,
+      bookTitle: "Không Thể Làm Tổn Thương Tôi",
+      author: "David Goggins",
+      angle: "Quy tắc 40% sức chịu đựng",
+      painPoint: "Hay bỏ cuộc ngay khi cảm thấy mệt mỏi khó khăn",
+      text: "Không Thể Làm Tổn Thương Tôi (David Goggins) — Góc nhìn: Quy tắc 40% — Hay bỏ cuộc ngay khi cảm thấy mệt mỏi khó khăn",
+      desc: "Dạy bí quyết Navy SEAL: Khi tâm trí bạn gào thét muốn bỏ cuộc, bạn thực chất mới chỉ chạm vào 40% sức mạnh tiềm ẩn của mình",
+      coverImage: "/images/books/cant-hurt-me.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#ef4444", icon: "🛡️" }
+    },
+    {
+      id: 11,
+      bookTitle: "Kỷ Luật Tự Giác",
+      author: "Brian Tracy",
+      angle: "Ăn con ếch khó nhất vào buổi sáng",
+      painPoint: "Né tránh việc quan trọng, sa đà vào việc lặt vặt",
+      text: "Kỷ Luật Tự Giác (Brian Tracy) — Góc nhìn: Ăn con ếch khó nhất — Né tránh việc quan trọng, sa đà vào việc lặt vặt",
+      desc: "Dạy nguyên tắc: Giải quyết việc khó khăn và có giá trị cao nhất ngay đầu ngày, phần còn lại của ngày sẽ trở nên nhẹ nhàng",
+      coverTheme: { bg: "linear-gradient(135deg, #1e3a8a, #172554)", accent: "#60a5fa", icon: "🐸" }
+    }
   ],
+
   book_psychology: [
-    { id: 1, text: "Đọc Vị Bất Kỳ Ai (David Lieberman) — Bị thao túng tâm lý mà không hay biết", desc: "Dạy nhận biết dấu hiệu nói dối qua ánh mắt, giọng điệu và cử chỉ vô thức" },
-    { id: 2, text: "Phi Lý Trí (Dan Ariely) — Luôn đưa ra quyết định mua sắm và đầu tư sai lầm", desc: "Dạy nhận diện các điểm mù tâm lý và cạm bẫy miễn phí của não bộ" },
-    { id: 3, text: "Những Đòn Tâm Lý Trong Thuyết Phục (Robert Cialdini) — Dễ bị người khác dẫn dụ chốt đơn", desc: "Dạy 6 nguyên tắc ảnh hưởng tâm lý để bảo vệ bản thân và thuyết phục người khác" },
-    { id: 4, text: "Đọc Vị Ngôn Ngữ Cơ Thể (Joe Navarro) — Không biết đối phương đang nghĩ gì về mình", desc: "Dạy cựu mật vụ FBI cách quan sát bàn chân, bàn tay và cử chỉ an ủi bản thân" },
-    { id: 5, text: "Thao Túng Tâm Lý (Gaslighting) — Nghi ngờ chính mình vì bị người độc hại thao túng", desc: "Dạy nhận diện kỹ thuật thao túng tinh vi và thiết lập ranh giới bảo vệ cảm xúc" },
-    { id: 6, text: "Trí Tuệ Xúc Cảm (EQ - Daniel Goleman) — Nóng giận bộc phát làm hỏng việc lớn", desc: "Dạy cách làm chủ cảm xúc trước khi hành động và thấu cảm người khác" },
-    { id: 7, text: "Nghệ Thuật Quyền Lực (The 48 Laws of Power) — Ngây thơ nơi công sở bị chèn ép", desc: "Dạy giải mã các quy luật quyền lực ngầm để không trở thành nạn nhân" },
-    { id: 8, text: "Tâm Lý Học Đám Đông (Gustave Le Bon) — Hay bị FOMO, hùa theo số đông", desc: "Dạy giữ vững tư duy phản biện độc lập trước những cơn sốt ảo" },
-    { id: 9, text: "Tâm Lý Học Tội Phạm & Hành Vi — Khó nhận ra lòng dạ người khác", desc: "Dạy cách quan sát động cơ ẩn giấu sau những hành vi bất thường" },
-    { id: 10, text: "Thao Túng Cảm Xúc Nơi Công Sở — Bị đồng nghiệp chơi xấu ngầm", desc: "Dạy kỹ thuật phản đòn thanh lịch và giữ mình chuyên nghiệp" }
+    {
+      id: 1,
+      bookTitle: "Đọc Vị Bất Kỳ Ai",
+      author: "David Lieberman",
+      angle: "Nhận diện dấu hiệu nói dối",
+      painPoint: "Hay bị người khác qua mặt và che giấu sự thật",
+      text: "Đọc Vị Bất Kỳ Ai (David Lieberman) — Góc nhìn: Nhận diện nói dối — Hay bị người khác qua mặt và che giấu sự thật",
+      desc: "Dạy nhận biết phản xạ vô thức khi nói dối qua hướng nhìn ánh mắt, sự thay đổi tần suất nuốt nước bọt và cử chỉ tay",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #0f172a)", accent: "#c084fc", icon: "🧠" }
+    },
+    {
+      id: 2,
+      bookTitle: "Đọc Vị Bất Kỳ Ai",
+      author: "David Lieberman",
+      angle: "Phát hiện sự bất an sau vẻ tự phụ",
+      painPoint: "Bị người tự cao tự đại lấn lướt trong giao tiếp",
+      text: "Đọc Vị Bất Kỳ Ai (David Lieberman) — Góc nhìn: Nhìn thấu sự bất an — Bị người tự cao tự đại lấn lướt trong giao tiếp",
+      desc: "Dạy cách bóc tách lớp mặt nạ kiêu ngạo để nhìn ra nỗi sợ bị phơi bày sự yếu kém bên trong đối phương",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #0f172a)", accent: "#c084fc", icon: "🧠" }
+    },
+    {
+      id: 3,
+      bookTitle: "Phi Lý Trí",
+      author: "Dan Ariely",
+      angle: "Cạm bẫy của từ 'Miễn Phí'",
+      painPoint: "Luôn mua những món đồ vô dụng chỉ vì được tặng kèm",
+      text: "Phi Lý Trí (Dan Ariely) — Góc nhìn: Cạm bẫy Miễn Phí — Luôn mua những món đồ vô dụng chỉ vì được tặng kèm",
+      desc: "Dạy cách não bộ bị tê liệt tư duy phản biện trước chữ Free và phương pháp bảo vệ ví tiền trước các chiêu trò marketing",
+      coverTheme: { bg: "linear-gradient(135deg, #047857, #064e3b)", accent: "#34d399", icon: "💡" }
+    },
+    {
+      id: 4,
+      bookTitle: "Phi Lý Trí",
+      author: "Dan Ariely",
+      angle: "Hiệu ứng mỏ neo giá (Price Anchoring)",
+      painPoint: "Bị dẫn dụ cảm thấy món hàng đắt tiền là món hời",
+      text: "Phi Lý Trí (Dan Ariely) — Góc nhìn: Hiệu ứng mỏ neo giá — Bị dẫn dụ cảm thấy món hàng đắt tiền là món hời",
+      desc: "Dạy nhận diện chiêu bài mỏ neo giá cả mà các thương hiệu lớn áp dụng để khiến bạn tự nguyện chi nhiều tiền hơn",
+      coverTheme: { bg: "linear-gradient(135deg, #047857, #064e3b)", accent: "#34d399", icon: "💡" }
+    },
+    {
+      id: 5,
+      bookTitle: "Những Đòn Tâm Lý Trong Thuyết Phục",
+      author: "Robert Cialdini",
+      angle: "Nguyên tắc Đáp trả (Reciprocity)",
+      painPoint: "Cảm thấy áy náy buộc phải mua hàng khi nhận quà tặng",
+      text: "Những Đòn Tâm Lý Trong Thuyết Phục (Robert Cialdini) — Góc nhìn: Nguyên tắc Đáp trả — Cảm thấy áy náy buộc phải mua hàng",
+      desc: "Dạy giải mã quy luật tâm lý vô thức: Con người luôn cảm thấy có nghĩa vụ phải đền đáp ân huệ dù là nhỏ nhất",
+      coverTheme: { bg: "linear-gradient(135deg, #431407, #292524)", accent: "#fb923c", icon: "🎯" }
+    },
+    {
+      id: 6,
+      bookTitle: "Những Đòn Tâm Lý Trong Thuyết Phục",
+      author: "Robert Cialdini",
+      angle: "Hiệu ứng Bằng chứng xã hội (Social Proof)",
+      painPoint: "Thói quen chạy theo trào lưu số đông (FOMO)",
+      text: "Những Đòn Tâm Lý Trong Thuyết Phục (Robert Cialdini) — Góc nhìn: Bằng chứng xã hội — Thói quen chạy theo trào lưu số đông",
+      desc: "Dạy cách giữ vững tư duy độc lập khi thấy mọi người ùa vào mua sắm hoặc đầu tư theo đám đông",
+      coverTheme: { bg: "linear-gradient(135deg, #431407, #292524)", accent: "#fb923c", icon: "🎯" }
+    },
+    {
+      id: 7,
+      bookTitle: "Thao Túng Tâm Lý",
+      author: "Shannon Thomas",
+      angle: "Nhận diện chiêu bài Gaslighting",
+      painPoint: "Bị người độc hại thao túng khiến bạn luôn tự trách mình",
+      text: "Thao Túng Tâm Lý (Shannon Thomas) — Góc nhìn: Nhận diện Gaslighting — Bị người độc hại thao túng khiến bạn luôn tự trách mình",
+      desc: "Dạy 5 dấu hiệu kẻ thao túng bẻ cong sự thật để khiến bạn nghi ngờ trí nhớ và năng lực phán đoán của chính mình",
+      coverTheme: { bg: "linear-gradient(135deg, #262626, #0a0a0a)", accent: "#a855f7", icon: "🎭" }
+    },
+    {
+      id: 8,
+      bookTitle: "48 Nguyên Tắc Quyền Lực",
+      author: "Robert Greene",
+      angle: "Đừng bao giờ tỏa sáng hơn sếp",
+      painPoint: "Làm việc giỏi nhưng bị chèn ép và cô lập nơi công sở",
+      text: "48 Nguyên Tắc Quyền Lực (Robert Greene) — Góc nhìn: Đừng tỏa sáng hơn sếp — Làm việc giỏi nhưng bị chèn ép nơi công sở",
+      desc: "Dạy nguyên tắc sinh tồn nơi quyền lực: Khiến cấp trên cảm thấy an toàn và thông tuệ hơn bạn để bảo vệ sự nghiệp của chính mình",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#eab308", icon: "👑" }
+    },
+    {
+      id: 9,
+      bookTitle: "Trí Tuệ Cảm Xúc EQ",
+      author: "Daniel Goleman",
+      angle: "Làm chủ cơn giận trước khi hành động",
+      painPoint: "Nóng nảy bộc phát phá hỏng cơ hội thăng tiến",
+      text: "Trí Tuệ Cảm Xúc EQ (Daniel Goleman) — Góc nhìn: Làm chủ cảm xúc — Nóng nảy bộc phát phá hỏng cơ hội thăng tiến",
+      desc: "Dạy cách nhận diện khoảnh khắc não hạch hạnh nhân (Amygdala) bắt cóc lý trí để kịp thời hít thở sâu và lấy lại bình tĩnh",
+      coverTheme: { bg: "linear-gradient(135deg, #0e7490, #155e75)", accent: "#22d3ee", icon: "🧠" }
+    }
   ],
+
   book_finance: [
-    { id: 1, text: "Tâm Lý Học Về Tiền (Morgan Housel) — Kiếm nhiều nhưng rỗng ví cuối tháng", desc: "Dạy sự khác biệt cốt lõi giữa giàu có (wealth) và sang chảnh (rich) để giữ tiền bền vững" },
-    { id: 2, text: "Cha Giàu Cha Nghèo (Robert Kiyosaki) — Cày cuốc cả đời đóng thuế", desc: "Dạy phân biệt chính xác tài sản và tiêu sản để tiền làm việc cho bạn" },
-    { id: 3, text: "Người Giàu Có Nhất Thành Babylon (George Clason) — Tiền vào tay là trôi đi hết", desc: "Dạy trích 1/10 thu nhập trả cho chính mình trước để tạo lập quỹ vàng" },
-    { id: 4, text: "Bí Mật Tư Duy Triệu Phú (T. Harv Eker) — Có ác cảm ngầm với tiền bạc", desc: "Dạy cài đặt lại nhiệt kế tài chính trong tâm thức và phương pháp 6 chiếc lọ" },
-    { id: 5, text: "Nghĩ Giàu Và Làm Giàu (Napoleon Hill) — Muốn làm giàu nhưng chỉ dám ước", desc: "Dạy 13 nguyên tắc vàng biến khát khao làm giàu thành hiện thực" },
-    { id: 6, text: "Kế Hoạch Tài Chính Cá Nhân — Vay nợ thẻ tín dụng bủa vây", desc: "Dạy phương pháp quả cầu tuyết trả sạch nợ và thiết lập quỹ khẩn cấp 6 tháng" },
-    { id: 7, text: "Tiền Làm Chủ Cuộc Chơi (Tony Robbins) — Sợ rủi ro mất tiền đầu tư", desc: "Dạy chiến lược phân bổ tài sản thông minh của các chuyên gia phố Wall" },
-    { id: 8, text: "Triệu Phú Khu Ổ Chuột (The Millionaire Next Door) — Nhìn bề ngoài đánh giá sự giàu có", desc: "Dạy thói quen sống dưới mức thu nhập của những triệu phú thực thụ" },
-    { id: 9, text: "Dạy Con Làm Giàu (Kim Tứ Đồ) — Mắc kẹt ở nhóm làm thuê ăn lương", desc: "Dạy lộ trình chuyển dịch sang nhóm kinh doanh và đầu tư độc lập" },
-    { id: 10, text: "Trí Tuệ Quản Lý Tài Chính Của Vua Solomon — Lãng phí vào những cuộc vui bốc đồng", desc: "Dạy nguyên tắc kiềm chế ham muốn và tích lũy tạo sự thịnh vượng lâu dài" }
+    {
+      id: 1,
+      bookTitle: "Tâm Lý Học Về Tiền",
+      author: "Morgan Housel",
+      angle: "Giàu có (Wealth) vs Sang chảnh (Rich)",
+      painPoint: "Kiếm nhiều tiền nhưng tài khoản tiết kiệm luôn trống rỗng",
+      text: "Tâm Lý Học Về Tiền (Morgan Housel) — Góc nhìn: Giàu có vs Sang chảnh — Kiếm nhiều tiền nhưng tiết kiệm luôn trống rỗng",
+      desc: "Dạy sự khác biệt: Sang chảnh là số tiền bạn đã tiêu ra ngoài cho thiên hạ thấy, còn Giàu có là sự tự do từ số tiền bạn giữ lại",
+      coverImage: "/images/books/psychology-of-money.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#fbbf24", icon: "💰" }
+    },
+    {
+      id: 2,
+      bookTitle: "Tâm Lý Học Về Tiền",
+      author: "Morgan Housel",
+      angle: "Căn bệnh 'Không bao giờ là Đủ'",
+      painPoint: "Tham lam lao vào các canh bạc đầu tư rủi ro",
+      text: "Tâm Lý Học Về Tiền (Morgan Housel) — Góc nhìn: Không bao giờ là Đủ — Tham lam lao vào các canh bạc đầu tư rủi ro",
+      desc: "Dạy bài học về giới hạn: Đừng đem thứ bạn cần và quý giá ra đánh cược chỉ vì muốn có thêm thứ bạn chẳng thực sự cần",
+      coverImage: "/images/books/psychology-of-money.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#fbbf24", icon: "💰" }
+    },
+    {
+      id: 3,
+      bookTitle: "Tâm Lý Học Về Tiền",
+      author: "Morgan Housel",
+      angle: "Sức mạnh phi thường của Lãi kép",
+      painPoint: "Nóng vội muốn làm giàu sau một đêm",
+      text: "Tâm Lý Học Về Tiền (Morgan Housel) — Góc nhìn: Sức mạnh của Lãi kép — Nóng vội muốn làm giàu sau một đêm",
+      desc: "Dạy bí mật của Warren Buffett: 99% tài sản của ông được tạo ra sau tuổi 50 nhờ vào việc kiên nhẫn để thời gian làm việc",
+      coverImage: "/images/books/psychology-of-money.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#fbbf24", icon: "💰" }
+    },
+    {
+      id: 4,
+      bookTitle: "Cha Giàu Cha Nghèo",
+      author: "Robert Kiyosaki",
+      angle: "Phân biệt Tài sản và Tiêu sản",
+      painPoint: "Cày cuốc cả đời mua nhà xe nhưng nợ ngập đầu",
+      text: "Cha Giàu Cha Nghèo (Robert Kiyosaki) — Góc nhìn: Tài sản vs Tiêu sản — Cày cuốc cả đời mua nhà xe nhưng nợ ngập đầu",
+      desc: "Dạy quy tắc vàng: Tài sản bỏ tiền vào túi bạn, Tiêu sản rút tiền ra khỏi túi bạn. Người giàu chỉ tập trung mua tài sản",
+      coverImage: "/images/books/cha-giau-cha-ngheo.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #581c87, #3b0764)", accent: "#facc15", icon: "💵" }
+    },
+    {
+      id: 5,
+      bookTitle: "Cha Giàu Cha Nghèo",
+      author: "Robert Kiyosaki",
+      angle: "Thoát khỏi vòng xoáy chuột chạy (Rat Race)",
+      painPoint: "Lương tăng bao nhiêu chi tiêu tăng bấy nhiêu, mãi không dư",
+      text: "Cha Giàu Cha Nghèo (Robert Kiyosaki) — Góc nhìn: Vòng xoáy Rat Race — Lương tăng bao nhiêu chi tiêu tăng bấy nhiêu",
+      desc: "Dạy cách phá vỡ bẫy tâm lý sợ hãi và tham lam khiến người làm công ăn lương cắm đầu làm việc đóng thuế cả đời",
+      coverImage: "/images/books/cha-giau-cha-ngheo.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #581c87, #3b0764)", accent: "#facc15", icon: "💵" }
+    },
+    {
+      id: 6,
+      bookTitle: "Cha Giàu Cha Nghèo",
+      author: "Robert Kiyosaki",
+      angle: "Kim Tứ Đồ (CASHFLOW Quadrant)",
+      painPoint: "Bị mắc kẹt ở góc phần tư người làm thuê",
+      text: "Cha Giàu Cha Nghèo (Robert Kiyosaki) — Góc nhìn: Kim Tứ Đồ — Bị mắc kẹt ở góc phần tư người làm thuê",
+      desc: "Dạy lộ trình dịch chuyển tư duy từ làm công (E) sang làm chủ hệ thống (B) và nhà đầu tư độc lập (I)",
+      coverImage: "/images/books/cha-giau-cha-ngheo.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #581c87, #3b0764)", accent: "#facc15", icon: "💵" }
+    },
+    {
+      id: 7,
+      bookTitle: "Người Giàu Có Nhất Thành Babylon",
+      author: "George Clason",
+      angle: "Quy tắc trích 1/10 thu nhập trả cho mình trước",
+      painPoint: "Có tiền là tiêu hết, không giữ lại được đồng nào",
+      text: "Người Giàu Có Nhất Thành Babylon (George Clason) — Góc nhìn: Trả cho mình trước 1/10 — Có tiền là tiêu hết",
+      desc: "Dạy bài học cổ xưa: Giữ lại ít nhất 10% thu nhập ngay khi nhận lương để xây dựng quỹ vàng tích lũy thịnh vượng",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🏺" }
+    },
+    {
+      id: 8,
+      bookTitle: "Người Giàu Có Nhất Thành Babylon",
+      author: "George Clason",
+      angle: "Nói không với làm giàu nhanh và bảo toàn vốn",
+      painPoint: "Ham lời cao bị các dự án lừa đảo chiếm đoạt tiền bạc",
+      text: "Người Giàu Có Nhất Thành Babylon (George Clason) — Góc nhìn: Bảo toàn vốn — Ham lời cao bị lừa đảo mất tiền",
+      desc: "Dạy quy luật vàng thứ ba của tiền bạc: Tiền sẽ chạy trốn khỏi người ép nó sinh lợi bất khả thi hoặc tin lời kẻ lừa đảo",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🏺" }
+    },
+    {
+      id: 9,
+      bookTitle: "Bí Mật Tư Duy Triệu Phú",
+      author: "T. Harv Eker",
+      angle: "Phương pháp quản lý tài chính 6 chiếc lọ",
+      painPoint: "Không có hệ thống quản lý chi tiêu rõ ràng",
+      text: "Bí Mật Tư Duy Triệu Phú (T. Harv Eker) — Góc nhìn: 6 Chiếc Lọ tài chính — Không có hệ thống quản lý chi tiêu rõ ràng",
+      desc: "Dạy chia thu nhập vào 6 quỹ: Nhu cầu thiết yếu, Tự do tài chính, Giáo dục, Tiết kiệm dài hạn, Hưởng thụ và Cho đi",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #312e81)", accent: "#fbbf24", icon: "🏺" }
+    },
+    {
+      id: 10,
+      bookTitle: "Nghĩ Giàu Và Làm Giàu",
+      author: "Napoleon Hill",
+      angle: "Khát khao cháy bỏng và biến ý nghĩ thành của cải",
+      painPoint: "Muốn giàu có nhưng chỉ dừng lại ở ước mơ suông",
+      text: "Nghĩ Giàu Và Làm Giàu (Napoleon Hill) — Góc nhìn: Khát khao cháy bỏng — Muốn giàu có nhưng chỉ ước mơ suông",
+      desc: "Dạy 6 bước cụ thể biến mục tiêu tài chính thành hiện thực thông qua việc ám thị mục tiêu và hành động kiên trì",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#ca8a04", icon: "💎" }
+    }
   ],
+
   book_communication: [
-    { id: 1, text: "Đắc Nhân Tâm (Dale Carnegie) — Cảm thấy không ai muốn kết nối với mình", desc: "Dạy lắng nghe chân thành, nhớ tên người đối diện và khen ngợi thật lòng" },
-    { id: 2, text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Gặp người lạ là ngắc ngứ không biết nói gì", desc: "Dạy bí quyết mở đầu câu chuyện duyên dáng và cách đối đáp thông minh" },
-    { id: 3, text: "Nói Thế Nào Để Được Chào Đón — Nói chuyện vô ý bị ghét ngầm", desc: "Dạy nghệ thuật giao tiếp tế nhị và tránh chạm vào vết thương của người khác" },
-    { id: 4, text: "Đàm Phán Bất Kỳ Ai (Chris Voss) — Luôn phải chịu thiệt thòi khi thương lượng", desc: "Dạy cựu đàm phán viên FBI kỹ thuật phản chiếu (Mirroring) và dán nhãn cảm xúc" },
-    { id: 5, text: "Thu Hút Người Đối Diện Trong 90 Giây — Khó tạo ấn tượng ban đầu", desc: "Dạy kỹ thuật đồng điệu ánh mắt, nụ cười và ngôn ngữ hình thể trong 90 giây đầu" },
-    { id: 6, text: "Giao Tiếp Bất Bạo Động (Marshall Rosenberg) — Cứ mở miệng là cãi vã với người thân", desc: "Dạy cách bày tỏ nhu cầu và cảm xúc mà không mang tính phán xét hay đổ lỗi" },
-    { id: 7, text: "Nói Nhiều Không Bằng Nói Đúng — Trả lời dài dòng lan man bị sếp cắt lời", desc: "Dạy công thức PREP trả lời ngắn gọn, thuyết phục, đi thẳng vào trọng tâm trong 1 phút" },
-    { id: 8, text: "Thôi Miên Bằng Ngôn Từ (Joe Vitale) — Viết tin nhắn hay chào hàng không ai đọc", desc: "Dạy cách dùng từ ngữ gợi cảm xúc và trí tò mò để giữ chân người đọc" },
-    { id: 9, text: "Nghệ Thuật Lắng Nghe Trong Giao Tiếp — Thói quen cướp lời người khác", desc: "Dạy cách lắng nghe chủ động để đối phương tự mở lòng chia sẻ" },
-    { id: 10, text: "Ứng Xử Tinh Tế Nơi Công Sở — Bị cô lập và khó hòa nhập với đồng nghiệp", desc: "Dạy các quy tắc ứng xử lịch thiệp giúp được mọi người quý mến" }
+    {
+      id: 1,
+      bookTitle: "Đắc Nhân Tâm",
+      author: "Dale Carnegie",
+      angle: "Không bao giờ chỉ trích hay than phiền",
+      painPoint: "Thói quen bắt lỗi người khác khiến ai cũng xa lánh",
+      text: "Đắc Nhân Tâm (Dale Carnegie) — Góc nhìn: Đừng chỉ trích — Thói quen bắt lỗi người khác khiến ai cũng xa lánh",
+      desc: "Dạy chân lý: Chỉ trích làm tổn thương lòng tự trọng của con người và thổi bùng ngọn lửa thù hận, không giải quyết được vấn đề",
+      coverImage: "/images/books/dac-nhan-tam.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#facc15", icon: "🤝" }
+    },
+    {
+      id: 2,
+      bookTitle: "Đắc Nhân Tâm",
+      author: "Dale Carnegie",
+      angle: "Nghệ thuật nhớ tên người đối diện",
+      painPoint: "Gặp người ta vài lần vẫn không nhớ nổi tên",
+      text: "Đắc Nhân Tâm (Dale Carnegie) — Góc nhìn: Nghệ thuật nhớ tên — Gặp người ta vài lần vẫn không nhớ nổi tên",
+      desc: "Dạy bài học tinh tế: Tên của một người là âm thanh êm đềm và quan trọng nhất đối với họ trong mọi ngôn ngữ",
+      coverImage: "/images/books/dac-nhan-tam.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#facc15", icon: "🤝" }
+    },
+    {
+      id: 3,
+      bookTitle: "Đắc Nhân Tâm",
+      author: "Dale Carnegie",
+      angle: "Nhìn vấn đề từ góc nhìn của đối phương",
+      painPoint: "Luôn áp đặt suy nghĩ của mình lên người khác",
+      text: "Đắc Nhân Tâm (Dale Carnegie) — Góc nhìn: Đặt mình vào vị trí người khác — Luôn áp đặt suy nghĩ lên người khác",
+      desc: "Dạy bí quyết thành công duy nhất trong giao tiếp: Năng lực nhìn nhận sự việc thấu đáo từ lăng kính của đối phương",
+      coverImage: "/images/books/dac-nhan-tam.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#facc15", icon: "🤝" }
+    },
+    {
+      id: 4,
+      bookTitle: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ",
+      author: "Trác Nhã",
+      angle: "Mở đầu câu chuyện duyên dáng trong 3 phút",
+      painPoint: "Gặp đối tác hay người lạ chỉ biết ngồi im ngượng nghịu",
+      text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Góc nhìn: Mở đầu duyên dáng — Gặp đối tác chỉ biết ngồi im ngượng nghịu",
+      desc: "Dạy nghệ thuật tìm kiếm điểm chung, quan sát chi tiết tinh tế để khơi gợi niềm hứng khởi trò chuyện",
+      coverImage: "/images/books/kheo-an-noi.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🗣️" }
+    },
+    {
+      id: 5,
+      bookTitle: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ",
+      author: "Trác Nhã",
+      angle: "Từ chối khéo léo không làm phật lòng ai",
+      painPoint: "Sợ mất lòng nên luôn nhận lời rồi làm việc bực bội",
+      text: "Khéo Ăn Nói Sẽ Có Được Thiên Hạ (Trác Nhã) — Góc nhìn: Từ chối khéo léo — Sợ mất lòng nên luôn nhận lời rồi bực bội",
+      desc: "Dạy công thức: Đồng cảm trước ➔ Nêu rõ giới hạn ➔ Đưa ra giải pháp thay thế tinh tế",
+      coverImage: "/images/books/kheo-an-noi.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #78350f, #451a03)", accent: "#fde047", icon: "🗣️" }
+    },
+    {
+      id: 6,
+      bookTitle: "Đàm Phán Bất Kỳ Ai",
+      author: "Chris Voss",
+      angle: "Kỹ thuật Phản chiếu (Mirroring)",
+      painPoint: "Luôn bị đối phương dồn ép chịu thiệt khi thương lượng",
+      text: "Đàm Phán Bất Kỳ Ai (Chris Voss) — Góc nhìn: Kỹ thuật Phản chiếu — Luôn bị dồn ép chịu thiệt khi thương lượng",
+      desc: "Dạy cựu đàm phán viên FBI kỹ thuật lặp lại 3 từ then chốt cuối câu với tông giọng trầm ấm để khiến đối phương tự giải thích sâu hơn",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#ef4444", icon: "🤝" }
+    },
+    {
+      id: 7,
+      bookTitle: "Đàm Phán Bất Kỳ Ai",
+      author: "Chris Voss",
+      angle: "Dán nhãn cảm xúc (Tactical Empathy)",
+      painPoint: "Đối phương đang giận dữ, phòng thủ không chịu lắng nghe",
+      text: "Đàm Phán Bất Kỳ Ai (Chris Voss) — Góc nhìn: Dán nhãn cảm xúc — Đối phương đang giận dữ, phòng thủ không lắng nghe",
+      desc: "Dạy dùng các mẫu câu: 'Dường như bạn đang cảm thấy...', 'Có vẻ như điều này khiến bạn lo lắng...' để hóa giải tức thì sự phòng thủ",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#ef4444", icon: "🤝" }
+    },
+    {
+      id: 8,
+      bookTitle: "Giao Tiếp Bất Bạo Động",
+      author: "Marshall Rosenberg",
+      angle: "4 bước biểu đạt nhu cầu không phán xét",
+      painPoint: "Cứ mở miệng nói chuyện với người thân là thành cãi vã",
+      text: "Giao Tiếp Bất Bạo Động (Marshall Rosenberg) — Góc nhìn: 4 bước biểu đạt — Cứ mở miệng với người thân là cãi vã",
+      desc: "Dạy cách truyền đạt mong muốn theo 4 tầng: Quan sát sự thật ➔ Bộc lộ cảm xúc ➔ Nói rõ nhu cầu ➔ Đưa ra đề nghị nhẹ nhàng",
+      coverTheme: { bg: "linear-gradient(135deg, #065f46, #064e3b)", accent: "#6ee7b7", icon: "🕊️" }
+    },
+    {
+      id: 9,
+      bookTitle: "Nói Nhiều Không Bằng Nói Đúng",
+      author: "Sakai Jiro",
+      angle: "Công thức PREP trình bày trong 1 phút",
+      painPoint: "Trình bày dài dòng lan man bị sếp và đồng nghiệp cắt lời",
+      text: "Nói Nhiều Không Bằng Nói Đúng (Sakai Jiro) — Góc nhìn: Công thức PREP — Trình bày dài dòng lan man bị sếp cắt lời",
+      desc: "Dạy cấu trúc: Point (Điểm chính) ➔ Reason (Lý do) ➔ Example (Ví dụ chứng minh) ➔ Point (Khẳng định lại) trong vòng 60 giây",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#38bdf8", icon: "🎯" }
+    }
   ],
+
   book_healing: [
-    { id: 1, text: "Dám Bị Ghét (Kishimi & Koga) — Mệt mỏi vì cố làm hài lòng thiên hạ", desc: "Dạy triết lý Adler về phân chia nhiệm vụ và dũng cảm sống cuộc đời của chính mình" },
-    { id: 2, text: "Dám Không Được Lòng Người — Áp lực phải trở nên hoàn hảo", desc: "Dạy cách chấp nhận khuyết điểm bản thân và từ bỏ gánh nặng kỳ vọng từ người khác" },
-    { id: 3, text: "Chủ Nghĩa Khắc Kỷ (Stoicism - Marcus Aurelius) — Dễ suy sụp trước biến cố cuộc đời", desc: "Dạy cách phân biệt thứ trong tầm kiểm soát và buông bỏ phần còn lại" },
-    { id: 4, text: "Hiểu Về Trái Tim (Minh Niệm) — Tổn thương tâm lý và cơn giận âm ỉ", desc: "Dạy cách ôm ấp nỗi đau, nuôi dưỡng tâm từ bi và tìm lại bình an nội tại" },
-    { id: 5, text: "Đại Dương Đen (Đặng Hoàng Giang) — Rơi vào trầm cảm và bóng tối tâm lý", desc: "Dạy thấu hiểu những vết thương vô hình và tìm lại ánh sáng hy vọng" },
-    { id: 6, text: "Sức Mạnh Của Hiện Tại (Eckhart Tolle) — Dằn vặt quá khứ và lo sợ tương lai", desc: "Dạy kỹ thuật tách mình khỏi dòng suy nghĩ và neo tâm trí vào giây phút hiện tại" },
-    { id: 7, text: "Đi Tìm Lẽ Sống (Viktor Frankl) — Rơi vào tuyệt vọng cùng cực không lối thoát", desc: "Dạy tìm thấy ý nghĩa và nghị lực sống ngay trong những hoàn cảnh khốc liệt nhất" },
-    { id: 8, text: "Khi Hơi Thở Hóa Thinh Không (Paul Kalanithi) — Mất phương hướng và ý nghĩa cuộc sống", desc: "Dạy đối diện với sự hữu hạn của đời người để trân trọng từng ngày đang thở" },
-    { id: 9, text: "Cứ An Nhiên Rồi Sẽ Bình Yên — Overthinking nửa đêm không ngủ được", desc: "Dạy cách buông bỏ những lo lắng viển vông và sống nhẹ nhàng như mây trời" },
-    { id: 10, text: "Buông Bỏ Để Hạnh Phúc — Giữ mãi oán hận chuyện xưa", desc: "Dạy tha thứ cho người khác chính là món quà giải thoát cho tâm hồn mình" }
+    {
+      id: 1,
+      bookTitle: "Dám Bị Ghét",
+      author: "Kishimi & Koga",
+      angle: "Phân chia nhiệm vụ cuộc đời",
+      painPoint: "Mệt mỏi kiệt sức vì gánh vác kỳ vọng của cha mẹ và xã hội",
+      text: "Dám Bị Ghét (Kishimi & Koga) — Góc nhìn: Phân chia nhiệm vụ — Mệt mỏi vì gánh vác kỳ vọng của cha mẹ và xã hội",
+      desc: "Dạy nguyên tắc phân chia nhiệm vụ: Đừng can thiệp vào nhiệm vụ của người khác và đừng để người khác can thiệp vào cuộc đời bạn",
+      coverImage: "/images/books/dam-bi-ghet.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #312e81)", accent: "#38bdf8", icon: "🌿" }
+    },
+    {
+      id: 2,
+      bookTitle: "Dám Bị Ghét",
+      author: "Kishimi & Koga",
+      angle: "Thuyết mục đích (Không bị quá khứ trói buộc)",
+      painPoint: "Luôn đổ lỗi cho hoàn cảnh quá khứ để biện minh cho hiện tại",
+      text: "Dám Bị Ghét (Kishimi & Koga) — Góc nhìn: Thuyết mục đích — Luôn đổ lỗi cho quá khứ biện minh cho hiện tại",
+      desc: "Dạy tư duy Adler giải thoát: Không phải quá khứ tạo nên hiện tại của bạn, mà là mục đích bạn chọn ở giây phút này",
+      coverImage: "/images/books/dam-bi-ghet.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #312e81)", accent: "#38bdf8", icon: "🌿" }
+    },
+    {
+      id: 3,
+      bookTitle: "Hiểu Về Trái Tim",
+      author: "Minh Niệm",
+      angle: "Nhận diện cơn giận và nuôi dưỡng lòng từ bi",
+      painPoint: "Cơn giận âm ỉ thiêu đốt tâm can và sự bình yên",
+      text: "Hiểu Về Trái Tim (Minh Niệm) — Góc nhìn: Nhận diện cơn giận — Cơn giận âm ỉ thiêu đốt tâm can và bình yên",
+      desc: "Dạy cách dừng lại, quay về với hơi thở, nhìn sâu vào bản chất của sự tổn thương để tha thứ và giải thoát cho chính mình",
+      coverImage: "/images/books/hieu-ve-trai-tim.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #2d3748, #1a202c)", accent: "#ea580c", icon: "🌿" }
+    },
+    {
+      id: 4,
+      bookTitle: "Hiểu Về Trái Tim",
+      author: "Minh Niệm",
+      angle: "Lắng nghe sâu và thấu cảm người thương",
+      painPoint: "Khoảng cách thế hệ và sự lạnh nhạt trong gia đình",
+      text: "Hiểu Về Trái Tim (Minh Niệm) — Góc nhìn: Lắng nghe sâu — Khoảng cách thế hệ và sự lạnh nhạt trong gia đình",
+      desc: "Dạy nghệ thuật lắng nghe bằng cả tấm lòng mà không phán xét, giúp hàn gắn những rạn nứt tưởng chừng không thể cứu vãn",
+      coverImage: "/images/books/hieu-ve-trai-tim.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #2d3748, #1a202c)", accent: "#ea580c", icon: "🌿" }
+    },
+    {
+      id: 5,
+      bookTitle: "Chủ Nghĩa Khắc Kỷ",
+      author: "Marcus Aurelius",
+      angle: "Vòng tròn kiểm soát (Control Circle)",
+      painPoint: "Dễ suy sụp trước những biến cố và chuyện bất như ý",
+      text: "Chủ Nghĩa Khắc Kỷ (Marcus Aurelius) — Góc nhìn: Vòng tròn kiểm soát — Dễ suy sụp trước biến cố và chuyện bất như ý",
+      desc: "Dạy triết lý Stoic: Chia thế giới làm hai nửa — thứ bạn kiểm soát được (suy nghĩ, phản ứng) và thứ bạn không kiểm soát được",
+      coverImage: "/images/books/suy-tuong.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1f2937, #111827)", accent: "#f59e0b", icon: "🏛️" }
+    },
+    {
+      id: 6,
+      bookTitle: "Sức Mạnh Của Hiện Tại",
+      author: "Eckhart Tolle",
+      angle: "Neo tâm trí vào giây phút bây giờ",
+      painPoint: "Trằn trọc thâu đêm vì dằn vặt quá khứ và lo âu tương lai",
+      text: "Sức Mạnh Của Hiện Tại (Eckhart Tolle) — Góc nhìn: Giây phút bây giờ — Dằn vặt quá khứ và lo âu tương lai",
+      desc: "Dạy kỹ thuật tách biệt bản thân khỏi dòng suy nghĩ huyên náo trong đầu, trở về với hiện tại để tìm thấy sự tĩnh lặng tối hậu",
+      coverTheme: { bg: "linear-gradient(135deg, #065f46, #047857)", accent: "#a7f3d0", icon: "🕯️" }
+    },
+    {
+      id: 7,
+      bookTitle: "Đi Tìm Lẽ Sống",
+      author: "Viktor Frankl",
+      angle: "Tìm thấy ý nghĩa trong nghịch cảnh",
+      painPoint: "Rơi vào tuyệt vọng cùng cực, cảm thấy cuộc đời vô nghĩa",
+      text: "Đi Tìm Lẽ Sống (Viktor Frankl) — Góc nhìn: Ý nghĩa trong nghịch cảnh — Rơi vào tuyệt vọng, thấy đời vô nghĩa",
+      desc: "Dạy bài học từ trại tập trung Auschwitz: Người có một lý do để sống (Why) có thể chịu đựng được hầu hết mọi nghịch cảnh (How)",
+      coverTheme: { bg: "linear-gradient(135deg, #27272a, #09090b)", accent: "#e4e4e7", icon: "🕊️" }
+    },
+    {
+      id: 8,
+      bookTitle: "Cây Cam Ngọt Của Tôi",
+      author: "José Mauro",
+      angle: "Sự dịu dàng cứu rỗi tâm hồn cô độc",
+      painPoint: "Cảm giác cô đơn, thiếu thốn tình thương từ gia đình",
+      text: "Cây Cam Ngọt Của Tôi (José Mauro) — Góc nhìn: Sự dịu dàng chữa lành — Cảm giác cô đơn, thiếu thốn tình thương",
+      desc: "Cuốn sách chạm tới trái tim hàng triệu người, nhắc nhở chúng ta về sức mạnh của lòng trắc ẩn và sự bao dung với trẻ thơ",
+      coverTheme: { bg: "linear-gradient(135deg, #c2410c, #7c2d12)", accent: "#fed7aa", icon: "🍊" }
+    }
   ],
+
   book_mindset: [
-    { id: 1, text: "Tư Duy Nhanh Và Chậm (Daniel Kahneman) — Đưa ra quyết định bốc đồng theo cảm tính", desc: "Dạy nhận diện Hệ thống 1 (trực giác) và Hệ thống 2 (logic) để tránh bẫy thiên kiến" },
-    { id: 2, text: "Thiết Kế Cuộc Đời Đáng Sống (Bill Burnett) — Mắc kẹt trong công việc bế tắc", desc: "Dạy phương pháp Design Thinking của Đại học Stanford để thử nghiệm cuộc đời mới" },
-    { id: 3, text: "Tư Duy Đột Phá (Mindset - Carol Dweck) — Tự ti nghĩ mình không có năng khiếu", desc: "Dạy chuyển hóa từ Tư duy cố định (Fixed) sang Tư duy phát triển (Growth Mindset)" },
-    { id: 4, text: "Tư Duy Đảo Ngược (Inversion Thinking) — Muốn thành công nhưng không biết làm gì", desc: "Dạy cách liệt kê những điều gây thất bại trước để chủ động né tránh" },
-    { id: 5, text: "Nghệ Thuật Tư Duy Rành Mạch (Rolf Dobelli) — 52 cạm bẫy tư duy đời thường", desc: "Dạy nhận diện bẫy chi phí chìm và thiên kiến xác nhận để suy nghĩ sáng suốt" },
-    { id: 6, text: "Tuần Làm Việc 4 Giờ (Tim Ferriss) — Cắm đầu làm việc 14 tiếng mỗi ngày vẫn nghèo", desc: "Dạy nghệ thuật ủy quyền, tự động hóa và loại bỏ những việc vô bổ" },
-    { id: 7, text: "Thiên Nga Đen (The Black Swan - Nassim Taleb) — Bị bất ngờ trước khủng hoảng", desc: "Dạy tư duy phản mong manh (Antifragile) để hưởng lợi từ những biến động bất ngờ" },
-    { id: 8, text: "Điểm Bùng Phát (Malcolm Gladwell) — Ý tưởng hay nhưng không lan tỏa", desc: "Dạy 3 quy luật biến một thông điệp nhỏ thành làn sóng lan truyền mạnh mẽ" },
-    { id: 9, text: "Tư Duy Như Một Kẻ Điên (Think Like a Freak) — Tư duy theo lối mòn", desc: "Dạy cách đặt câu hỏi khác biệt và bóc trần những niềm tin ngây thơ của số đông" },
-    { id: 10, text: "Lập Trình Ngôn Ngữ Tư Duy (NLP Căn Bản) — Niềm tin giới hạn kìm hãm bản thân", desc: "Dạy kỹ thuật tái định hình tư duy và neo cảm xúc chiến thắng của NLP" }
+    {
+      id: 1,
+      bookTitle: "Tư Duy Nhanh Và Chậm",
+      author: "Daniel Kahneman",
+      angle: "Hệ thống 1 và Hệ thống 2",
+      painPoint: "Đưa ra quyết định bốc đồng theo cảm tính để rồi hối hận",
+      text: "Tư Duy Nhanh Và Chậm (Daniel Kahneman) — Góc nhìn: Hệ thống 1 và Hệ thống 2 — Quyết định bốc đồng theo cảm tính",
+      desc: "Dạy nhận diện Hệ thống 1 (trực giác nhanh, nhiều thiên kiến) và kích hoạt Hệ thống 2 (suy nghĩ chậm, logic) khi gặp việc lớn",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#38bdf8", icon: "⚡" }
+    },
+    {
+      id: 2,
+      bookTitle: "Tư Duy Nhanh Và Chậm",
+      author: "Daniel Kahneman",
+      angle: "Bẫy chi phí chìm (Sunk Cost Fallacy)",
+      painPoint: "Cố đấm ăn xôi theo đuổi dự án hay mối quan hệ tồi tệ",
+      text: "Tư Duy Nhanh Và Chậm (Daniel Kahneman) — Góc nhìn: Bẫy chi phí chìm — Cố đấm ăn xôi theo đuổi dự án tồi tệ",
+      desc: "Dạy dũng khí cắt lỗ: Đừng tiếp tục lãng phí tương lai chỉ vì tiếc nuối những công sức và tiền bạc đã trót bỏ ra trong quá khứ",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#38bdf8", icon: "⚡" }
+    },
+    {
+      id: 3,
+      bookTitle: "Tư Duy Đột Phá",
+      author: "Carol Dweck",
+      angle: "Tư duy phát triển (Growth Mindset)",
+      painPoint: "Tự ti nghĩ mình không có năng khiếu, sợ hãi thất bại",
+      text: "Tư Duy Đột Phá (Carol Dweck) — Góc nhìn: Tư duy phát triển — Tự ti nghĩ mình không có năng khiếu, sợ thất bại",
+      desc: "Dạy chuyển hóa từ Tư duy cố định sang Tư duy phát triển: Tài năng không phải bẩm sinh, mọi kỹ năng đều rèn luyện được",
+      coverTheme: { bg: "linear-gradient(135deg, #047857, #065f46)", accent: "#a7f3d0", icon: "🌱" }
+    },
+    {
+      id: 4,
+      bookTitle: "Tư Duy Đột Phá",
+      author: "Carol Dweck",
+      angle: "Sức mạnh kỳ diệu của từ 'Chưa'",
+      painPoint: "Nản chí bỏ cuộc ngay khi gặp bài toán khó",
+      text: "Tư Duy Đột Phá (Carol Dweck) — Góc nhìn: Sức mạnh của từ Chưa — Nản chí bỏ cuộc ngay khi gặp bài toán khó",
+      desc: "Dạy cách thay đổi câu nói trong tâm trí: Từ 'Tôi không làm được' thành 'Tôi CHƯA làm được' để mở ra cơ hội học tập",
+      coverTheme: { bg: "linear-gradient(135deg, #047857, #065f46)", accent: "#a7f3d0", icon: "🌱" }
+    },
+    {
+      id: 5,
+      bookTitle: "Thiết Kế Cuộc Đời Đáng Sống",
+      author: "Bill Burnett",
+      angle: "Thử nghiệm mẫu trước khi chuyển việc",
+      painPoint: "Mắc kẹt trong công việc bế tắc nhưng không dám nhảy việc",
+      text: "Thiết Kế Cuộc Đời Đáng Sống (Bill Burnett) — Góc nhìn: Thử nghiệm mẫu cuộc đời — Mắc kẹt trong công việc bế tắc",
+      desc: "Dạy phương pháp Design Thinking của ĐH Stanford: Tạo ra 3 phiên bản kế hoạch 5 năm và thử nghiệm nhỏ trước khi liều lĩnh",
+      coverTheme: { bg: "linear-gradient(135deg, #ea580c, #9a3412)", accent: "#ffedd5", icon: "📐" }
+    },
+    {
+      id: 6,
+      bookTitle: "Chiến Thắng Con Quỷ Trong Bạn",
+      author: "Napoleon Hill",
+      angle: "Nhận diện cạm bẫy buông trôi (Drifting)",
+      painPoint: "Sống mông lung, ngày này qua ngày khác không mục tiêu",
+      text: "Chiến Thắng Con Quỷ Trong Bạn (Napoleon Hill) — Góc nhìn: Cạm bẫy buông trôi — Sống mông lung không mục tiêu",
+      desc: "Dạy bóc trần chiêu bài nguy hiểm nhất của sự lười biếng: Khiến con người trôi dạt theo dòng đời mà không tự suy nghĩ",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #000000)", accent: "#ef4444", icon: "⚔️" }
+    },
+    {
+      id: 7,
+      bookTitle: "Tuần Làm Việc 4 Giờ",
+      author: "Tim Ferriss",
+      angle: "Định nghĩa lại sự giàu có và thời gian",
+      painPoint: "Làm việc 14 tiếng mỗi ngày vẫn nghèo và kiệt quệ",
+      text: "Tuần Làm Việc 4 Giờ (Tim Ferriss) — Góc nhìn: Tự do thời gian — Làm việc 14 tiếng mỗi ngày vẫn nghèo",
+      desc: "Dạy tư duy New Rich: Đo lường sự giàu có bằng quyền tự do lựa chọn thời gian và địa điểm sống, không chỉ bằng con số tài khoản",
+      coverTheme: { bg: "linear-gradient(135deg, #0284c7, #0369a1)", accent: "#bae6fd", icon: "🌴" }
+    }
   ],
+
   book_focus: [
-    { id: 1, text: "Digital Minimalism (Cal Newport) — Lướt điện thoại vô thức 6 tiếng mỗi ngày", desc: "Dạy lộ trình thanh lọc công nghệ 30 ngày để lấy lại tự do cho tâm trí" },
-    { id: 2, text: "Deep Work (Cal Newport) — Vừa làm việc 5 phút lại mở mạng xã hội", desc: "Dạy 4 nguyên tắc rèn luyện sự tập trung sâu để tạo ra giá trị đột phá" },
-    { id: 3, text: "Cai Nghiện Dopamine (Dopamine Detox) — Chán nản, mất hứng thú với việc khó", desc: "Dạy reset thụ thể dopamine để tìm lại niềm vui trong công việc và học tập" },
-    { id: 4, text: "Thoát Khỏi Chiếc Lồng Điện Thoại — Cảm giác trống rỗng sau hàng giờ xem video ngắn", desc: "Dạy cách thay thế lướt màn hình bằng vận động và đọc sách nâng cấp bản thân" },
-    { id: 5, text: "Tối Giản Cho Tâm Trí — Não bị quá tải thông tin rác mỗi ngày", desc: "Dạy chế độ ăn kiêng thông tin (Low-information diet) để bảo vệ năng lượng tư duy" },
-    { id: 6, text: "10 Phút Tĩnh Tâm Mỗi Ngày — Đầu óc như tổ ong vỡ không thể tập trung", desc: "Dạy kỹ thuật thở chánh niệm đưa tâm trí trở lại trạng thái tĩnh lặng, sáng tỏ" },
-    { id: 7, text: "Lấy Lại 4 Tiếng Mỗi Ngày — Lúc nào cũng thấy bận rộn nhưng không ra kết quả", desc: "Dạy cách chặt đứt thời gian chết và quản lý năng lượng thay vì quản lý thời gian" },
-    { id: 8, text: "Thiết Lập Không Gian Làm Việc — Góc làm việc bừa bộn gây phân tâm", desc: "Dạy dọn sạch không gian tạo dòng chảy tư duy thông suốt (Flow state)" },
-    { id: 9, text: "Xả Não Trước Giờ Ngủ — Căng thẳng trằn trọc vì quá nhiều ý nghĩ", desc: "Dạy kỹ thuật viết xả não ra giấy để có giấc ngủ sâu và tái tạo năng lượng" },
-    { id: 10, text: "Quy Tắc 3 Việc Quan Trọng Nhất (Top 3 MIT) — Bị lạc lối giữa hàng tá việc lặt vặt", desc: "Dạy tập trung toàn lực hoàn thành 3 việc quan trọng nhất trước 12h trưa" }
+    {
+      id: 1,
+      bookTitle: "Deep Work",
+      author: "Cal Newport",
+      angle: "4 chiến lược rèn luyện làm việc sâu",
+      painPoint: "Vừa ngồi vào bàn làm việc 5 phút lại mở điện thoại",
+      text: "Deep Work (Cal Newport) — Góc nhìn: 4 chiến lược làm việc sâu — Vừa làm việc 5 phút lại mở điện thoại",
+      desc: "Dạy cách cô lập không gian, thiết lập nghi thức tập trung cao độ để tạo ra những sản phẩm có giá trị đột phá",
+      coverImage: "/images/books/deep-work.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #0e7490, #083344)", accent: "#22d3ee", icon: "🎯" }
+    },
+    {
+      id: 2,
+      bookTitle: "Deep Work",
+      author: "Cal Newport",
+      angle: "Đóng máy tính sau 6 giờ chiều",
+      painPoint: "Mang việc về nhà làm thâu đêm suốt sáng",
+      text: "Deep Work (Cal Newport) — Góc nhìn: Đóng việc sau 6h chiều — Mang việc về nhà làm thâu đêm suốt sáng",
+      desc: "Dạy quy tắc: Kết thúc trọn vẹn công việc mỗi ngày để bộ não được nghỉ ngơi tuyệt đối, phục hồi năng lượng sáng tạo",
+      coverImage: "/images/books/deep-work.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #0e7490, #083344)", accent: "#22d3ee", icon: "🎯" }
+    },
+    {
+      id: 3,
+      bookTitle: "Digital Minimalism",
+      author: "Cal Newport",
+      angle: "Lộ trình 30 ngày thanh lọc công nghệ",
+      painPoint: "Dành 6 tiếng mỗi ngày lướt mạng xã hội vô thức",
+      text: "Digital Minimalism (Cal Newport) — Góc nhìn: 30 ngày thanh lọc công nghệ — Lướt mạng xã hội 6 tiếng vô thức",
+      desc: "Dạy quy trình detox màn hình số, xóa các ứng dụng gây nghiện để lấy lại thời gian cho những hoạt động ngoài đời thực",
+      coverImage: "/images/books/deep-work.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #155e75, #083344)", accent: "#38bdf8", icon: "📵" }
+    },
+    {
+      id: 4,
+      bookTitle: "Digital Minimalism",
+      author: "Cal Newport",
+      angle: "Để điện thoại ngoài phòng ngủ",
+      painPoint: "Cầm điện thoại đến 2h sáng rồi thức dậy mệt mỏi",
+      text: "Digital Minimalism (Cal Newport) — Góc nhìn: Điện thoại ngoài phòng ngủ — Cầm điện thoại đến 2h sáng rồi mệt mỏi",
+      desc: "Dạy thói quen đơn giản mang lại giấc ngủ sâu: Thay thế màn hình điện thoại bằng đồng hồ báo thức cơ và một cuốn sách gối đầu",
+      coverImage: "/images/books/deep-work.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #155e75, #083344)", accent: "#38bdf8", icon: "📵" }
+    },
+    {
+      id: 5,
+      bookTitle: "Cai Nghiện Dopamine",
+      author: "Thibaut Meurisse",
+      angle: "Reset thụ thể dopamine não bộ",
+      painPoint: "Mất hứng thú với việc học và việc khó",
+      text: "Cai Nghiện Dopamine (Thibaut Meurisse) — Góc nhìn: Reset thụ thể Dopamine — Mất hứng thú với việc học và việc khó",
+      desc: "Dạy cách cắt giảm các kích thích dopamine rẻ tiền (video ngắn, game) trong 48h để khôi phục khả năng tập trung làm việc bền bỉ",
+      coverTheme: { bg: "linear-gradient(135deg, #3b0764, #1e1b4b)", accent: "#c084fc", icon: "🧠" }
+    },
+    {
+      id: 6,
+      bookTitle: "Lấy Lại 4 Tiếng Mỗi Ngày",
+      author: "Jake Knapp",
+      angle: "Chọn một Điểm Nhấn (Highlight) mỗi ngày",
+      painPoint: "Lúc nào cũng bận rộn nhưng cuối ngày không thấy ra việc",
+      text: "Lấy Lại 4 Tiếng Mỗi Ngày (Jake Knapp) — Góc nhìn: Điểm Nhấn mỗi ngày — Lúc nào cũng bận nhưng không ra việc",
+      desc: "Dạy cựu kỹ sư Google cách chọn đúng một nhiệm vụ quan trọng nhất (60-90 phút) để ưu tiên hoàn thành trước mọi thứ khác",
+      coverTheme: { bg: "linear-gradient(135deg, #ea580c, #9a3412)", accent: "#fde047", icon: "⏰" }
+    }
   ],
+
   book_business: [
-    { id: 1, text: "Khởi Nghiệp Tinh Gọn (Eric Ries) — Sợ đổ hết vốn liếng kinh doanh bị phá sản", desc: "Dạy xây dựng sản phẩm khả dụng tối thiểu (MVP) để kiểm chứng thị trường với chi phí rẻ nhất" },
-    { id: 2, text: "Bí Mật Chuyên Gia (Russell Brunson) — Có chuyên môn giỏi nhưng không ai mua hàng", desc: "Dạy biến kiến thức thành sản phẩm số và xây dựng phễu bán hàng triệu đô" },
-    { id: 3, text: "Để Xây Dựng Doanh Nghiệp Hiệu Quả (Michael Gerber) — Tự mở quán rồi thành nô lệ cho quán", desc: "Dạy xây dựng hệ thống quy trình bài bản để quán tự vận hành không cần chủ" },
-    { id: 4, text: "Lời Đề Nghị Không Thể Từ Chối (Alex Hormozi - 100M Offers) — Khách liên tục chê đắt", desc: "Dạy tạo ra Grand Slam Offer khiến khách hàng cảm thấy ngu ngốc nếu từ chối" },
-    { id: 5, text: "Tử Huyệt Cảm Xúc (Roy Garn) — Nói lý lẽ với khách hàng nhưng không chốt được đơn", desc: "Dạy đánh trúng 4 tử huyệt cảm xúc: Tiền bạc, Danh tiếng, Tình ái và Sinh tồn" },
-    { id: 6, text: "Từ Không Đến Một (Zero to One - Peter Thiel) — Cạnh tranh khốc liệt trên thị trường đỏ", desc: "Dạy tư duy tạo ra giá trị độc quyền thay vì sao chép mù quáng" },
-    { id: 7, text: "Nghệ Thuật Bán Hàng Bậc Cao (Zig Ziglar) — Sợ bị khách hàng từ chối", desc: "Dạy đổi tâm thế từ người đi xin xỏ sang người giúp đỡ khách hàng giải quyết nỗi đau" },
-    { id: 8, text: "Dốc Hết Trái Tim (Starbucks) — Cạnh tranh về giá khiến biên lợi nhuận teo tóp", desc: "Dạy xây dựng trải nghiệm khách hàng cảm xúc để khách sẵn sàng trả giá cao" },
-    { id: 9, text: "Bán Hàng Giá Cao — Ngại ngùng không dám bán gói sản phẩm đắt tiền", desc: "Dạy định vị đẳng cấp và nghệ thuật chốt hợp đồng giá trị lớn" },
-    { id: 10, text: "Định Vị Thương Hiệu (Al Ries) — Khách hàng không nhớ tên thương hiệu của bạn", desc: "Dạy kỹ thuật chiếm lĩnh một từ khóa duy nhất trong tâm trí khách hàng" }
+    {
+      id: 1,
+      bookTitle: "Khởi Nghiệp Tinh Gọn",
+      author: "Eric Ries",
+      angle: "Vòng lặp Xây dựng - Đo lường - Học hỏi",
+      painPoint: "Đổ hàng trăm triệu tiền vốn kinh doanh rồi phá sản",
+      text: "Khởi Nghiệp Tinh Gọn (Eric Ries) — Góc nhìn: Xây dựng - Đo lường - Học hỏi — Đổ tiền vốn kinh doanh rồi phá sản",
+      desc: "Dạy phương pháp kiểm chứng ý tưởng kinh doanh với chi phí tối thiểu trước khi đổ tiền đầu tư quy mô lớn",
+      coverTheme: { bg: "linear-gradient(135deg, #065f46, #022c22)", accent: "#34d399", icon: "🚀" }
+    },
+    {
+      id: 2,
+      bookTitle: "Khởi Nghiệp Tinh Gọn",
+      author: "Eric Ries",
+      angle: "Sản phẩm khả dụng tối thiểu (MVP)",
+      painPoint: "Mất cả năm hoàn thiện sản phẩm nhưng không ai mua",
+      text: "Khởi Nghiệp Tinh Gọn (Eric Ries) — Góc nhìn: Sản phẩm khả dụng tối thiểu MVP — Sản phẩm làm ra không ai mua",
+      desc: "Dạy cách tung ra phiên bản sản phẩm đơn giản nhất có thể bán được để nhận phản hồi thực tế từ khách hàng ngay lập tức",
+      coverTheme: { bg: "linear-gradient(135deg, #065f46, #022c22)", accent: "#34d399", icon: "🚀" }
+    },
+    {
+      id: 3,
+      bookTitle: "Từ Không Đến Một",
+      author: "Peter Thiel",
+      angle: "Tạo ra thị trường độc quyền ngách",
+      painPoint: "Cạnh tranh khốc liệt về giá khiến biên lợi nhuận teo tóp",
+      text: "Từ Không Đến Một (Peter Thiel) — Góc nhìn: Thị trường độc quyền — Cạnh tranh khốc liệt về giá khiến lợi nhuận teo tóp",
+      desc: "Dạy tư duy huyền thoại của nhà sáng lập PayPal: Cạnh tranh là dành cho kẻ thua cuộc, hãy chiếm lĩnh một ngách nhỏ và mở rộng",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#38bdf8", icon: "1️⃣" }
+    },
+    {
+      id: 4,
+      bookTitle: "$100M Offers",
+      author: "Alex Hormozi",
+      angle: "Công thức Grand Slam Offer không thể từ chối",
+      painPoint: "Khách hàng liên tục chê sản phẩm đắt rồi bỏ đi",
+      text: "$100M Offers (Alex Hormozi) — Góc nhìn: Grand Slam Offer — Khách hàng liên tục chê sản phẩm đắt rồi bỏ đi",
+      desc: "Dạy công thức 4 yếu tố tạo ra lời chào hàng khiến khách hàng cảm thấy ngu ngốc nếu nói lời từ chối",
+      coverImage: "/images/books/100m-offers.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #09090b, #18181b)", accent: "#facc15", icon: "💵" }
+    },
+    {
+      id: 5,
+      bookTitle: "$100M Offers",
+      author: "Alex Hormozi",
+      angle: "Đảo ngược rủi ro (Risk Reversal)",
+      painPoint: "Khách hàng sợ rủi ro nên chần chừ không chốt đơn",
+      text: "$100M Offers (Alex Hormozi) — Góc nhìn: Đảo ngược rủi ro — Khách hàng sợ rủi ro nên chần chừ không chốt đơn",
+      desc: "Dạy cách thiết lập chính sách bảo hành và cam kết kết quả mạnh mẽ gánh trọn rủi ro giúp khách hàng ra quyết định tức thì",
+      coverImage: "/images/books/100m-offers.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #09090b, #18181b)", accent: "#facc15", icon: "💵" }
+    },
+    {
+      id: 6,
+      bookTitle: "Tử Huyệt Cảm Xúc",
+      author: "Roy Garn",
+      angle: "Đánh trúng 4 tử huyệt cảm xúc",
+      painPoint: "Nói lý lẽ với khách hàng nhưng mãi không bán được hàng",
+      text: "Tử Huyệt Cảm Xúc (Roy Garn) — Góc nhìn: 4 Tử huyệt cảm xúc — Nói lý lẽ với khách hàng mãi không chốt được đơn",
+      desc: "Dạy đánh trúng 4 động cơ ngầm của con người: Bản thân, Tiền bạc, Tình yêu và Danh vọng để thuyết phục bất kỳ ai",
+      coverTheme: { bg: "linear-gradient(135deg, #7f1d1d, #450a0a)", accent: "#fca5a5", icon: "🎯" }
+    },
+    {
+      id: 7,
+      bookTitle: "Dốc Hết Trái Tim",
+      author: "Howard Schultz",
+      angle: "Xây dựng trải nghiệm khách hàng cảm xúc",
+      painPoint: "Bán sản phẩm thông thường không tạo được lòng trung thành",
+      text: "Dốc Hết Trái Tim (Howard Schultz) — Góc nhìn: Trải nghiệm khách hàng — Không tạo được lòng trung thành thương hiệu",
+      desc: "Dạy câu chuyện Starbucks biến ly cà phê thành biểu tượng văn hóa và 'nơi chốn thứ ba' giữa nhà và nơi làm việc",
+      coverTheme: { bg: "linear-gradient(135deg, #064e3b, #022c22)", accent: "#6ee7b7", icon: "☕" }
+    }
   ],
+
   book_leadership: [
-    { id: 1, text: "Lãnh Đạo Không Chức Danh (Robin Sharma) — Nghĩ mình chỉ là nhân viên quèn không có tiếng nói", desc: "Dạy tinh thần làm việc xuất chúng như một nhà lãnh đạo ở mọi vị trí" },
-    { id: 2, text: "Từ Tốt Đến Vĩ Đại (Jim Collins) — Công ty bình bình không thể bứt phá", desc: "Dạy phẩm chất lãnh đạo cấp độ 5 và nguyên tắc chọn đúng người lên xe trước" },
-    { id: 3, text: "21 Nguyên Tắc Vàng Lãnh Đạo (John Maxwell) — Nhân viên làm việc đối phó, thiếu nhiệt huyết", desc: "Dạy lãnh đạo bằng tấm gương và nghệ thuật trao quyền nâng tầm người khác" },
-    { id: 4, text: "Lãnh Đạo Luôn Ăn Sau Cùng (Simon Sinek) — Đội nhóm chia rẽ, nghi kỵ nội bộ", desc: "Dạy tạo dựng Vòng tròn An toàn bảo vệ nhân viên để cùng nhau vượt giông bão" },
-    { id: 5, text: "Vị Giám Đốc Một Phút (Ken Blanchard) — Quá tải vì phải theo sát từng việc của nhân sự", desc: "Dạy công thức: Mục tiêu một phút, Khen ngợi một phút, Khiển trách một phút" },
-    { id: 6, text: "Nguyên Tắc Của Ray Dalio (Principles) — Ra quyết định theo cảm tính và thiên vị", desc: "Dạy xây dựng văn hóa minh bạch tuyệt đối và đưa ra quyết định dựa trên ý kiến trọng số" },
-    { id: 7, text: "Làm Ra Làm Chơi Ra Chơi (Netflix) — Quy trình cồng kềnh bóp nghẹt sáng tạo", desc: "Dạy văn hóa tăng mật độ nhân tài và trao tự do đi liền với trách nhiệm cao" },
-    { id: 8, text: "Nghệ Thuật Truyền Cảm Hứng Cho Đội Ngũ — Nhân viên giỏi dứt áo ra đi", desc: "Dạy cách thấu hiểu động lực nội tại và trao cơ hội phát triển sự nghiệp dài hạn" },
-    { id: 9, text: "Giao Việc Thông Minh Không Cần Quát Mắng — Giao việc xong nhân viên làm hỏng việc", desc: "Dạy quy trình 5 bước ủy quyền rõ ràng và kiểm soát tiến độ không gây áp lực" },
-    { id: 10, text: "Bản Lĩnh Người Đứng Đầu — Hoang mang mất phương hướng khi khủng hoảng xảy ra", desc: "Dạy giữ cái đầu lạnh và trái tim ấm để chèo lái con thuyền qua sóng lớn" }
+    {
+      id: 1,
+      bookTitle: "Lãnh Đạo Không Chức Danh",
+      author: "Robin Sharma",
+      angle: "Làm việc xuất chúng ở mọi vị trí",
+      painPoint: "Nghĩ mình chỉ là nhân viên quèn không có tiếng nói",
+      text: "Lãnh Đạo Không Chức Danh (Robin Sharma) — Góc nhìn: Tinh thần lãnh đạo nội tại — Nghĩ mình chỉ là nhân viên quèn",
+      desc: "Dạy tinh thần: Bạn không cần danh xưng để trở thành người xuất sắc nhất trong công việc của mình",
+      coverTheme: { bg: "linear-gradient(135deg, #1e1b4b, #0f172a)", accent: "#facc15", icon: "👑" }
+    },
+    {
+      id: 2,
+      bookTitle: "Từ Tốt Đến Vĩ Đại",
+      author: "Jim Collins",
+      angle: "Chọn đúng người lên xe trước",
+      painPoint: "Đội ngũ nhân sự làm việc đối phó, thiếu gắn kết",
+      text: "Từ Tốt Đến Vĩ Đại (Jim Collins) — Góc nhìn: Chọn đúng người lên xe — Đội ngũ nhân sự làm việc đối phó",
+      desc: "Dạy nguyên tắc lãnh đạo vĩ đại: Trước khi quyết định lái xe đi đâu, hãy đảm bảo bạn đã có đúng người trên xe và loại bỏ người sai",
+      coverImage: "/images/books/tu-tot-den-vi-dai.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#ef4444", icon: "🏆" }
+    },
+    {
+      id: 3,
+      bookTitle: "Từ Tốt Đến Vĩ Đại",
+      author: "Jim Collins",
+      angle: "Lãnh đạo cấp độ 5",
+      painPoint: "Sếp có cái tôi quá lớn cản trở sự phát triển của công ty",
+      text: "Từ Tốt Đến Vĩ Đại (Jim Collins) — Góc nhìn: Lãnh đạo cấp độ 5 — Sếp có cái tôi lớn cản trở công ty",
+      desc: "Dạy phẩm chất lãnh đạo đỉnh cao: Sự kết hợp hiếm có giữa đức tính khiêm nhường tột độ và ý chí quyết tâm sắt đá",
+      coverImage: "/images/books/tu-tot-den-vi-dai.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1e293b, #0f172a)", accent: "#ef4444", icon: "🏆" }
+    },
+    {
+      id: 4,
+      bookTitle: "Bắt Đầu Với Câu Hỏi Tại Sao",
+      author: "Simon Sinek",
+      angle: "Mô hình Vòng tròn vàng (The Golden Circle)",
+      painPoint: "Không thể truyền cảm hứng và động lực cho nhân viên",
+      text: "Bắt Đầu Với Câu Hỏi Tại Sao (Simon Sinek) — Góc nhìn: Vòng tròn vàng Why-How-What — Không truyền được cảm hứng cho nhân sự",
+      desc: "Dạy bí quyết truyền cảm hứng: Người ta không mua những gì bạn làm, người ta mua LÝ DO tại sao bạn làm điều đó",
+      coverTheme: { bg: "linear-gradient(135deg, #312e81, #1e1b4b)", accent: "#fbbf24", icon: "🎯" }
+    },
+    {
+      id: 5,
+      bookTitle: "Lãnh Đạo Luôn Ăn Sau Cùng",
+      author: "Simon Sinek",
+      angle: "Xây dựng Vòng tròn An toàn (Circle of Safety)",
+      painPoint: "Nội bộ nghi kỵ, đấu đá, sợ hãi bị sa thải",
+      text: "Lãnh Đạo Luôn Ăn Sau Cùng (Simon Sinek) — Góc nhìn: Vòng tròn An toàn — Nội bộ nghi kỵ, đấu đá tranh giành",
+      desc: "Dạy trách nhiệm của người lãnh đạo: Bảo vệ nhân viên trước những hiểm nguy bên ngoài để họ an tâm cống hiến hết mình",
+      coverTheme: { bg: "linear-gradient(135deg, #172554, #0f172a)", accent: "#38bdf8", icon: "🛡️" }
+    },
+    {
+      id: 6,
+      bookTitle: "Nguyên Tắc Của Ray Dalio",
+      author: "Ray Dalio",
+      angle: "Văn hóa minh bạch tuyệt đối",
+      painPoint: "Quyết định kinh doanh theo cảm tính và bảo thủ",
+      text: "Nguyên Tắc Của Ray Dalio (Ray Dalio) — Góc nhìn: Minh bạch tuyệt đối — Quyết định kinh doanh theo cảm tính",
+      desc: "Dạy phương pháp ra quyết định dựa trên ý kiến có trọng số và sẵn sàng đối diện với sự thật trần trụi để học hỏi",
+      coverTheme: { bg: "linear-gradient(135deg, #18181b, #09090b)", accent: "#f59e0b", icon: "📊" }
+    }
   ],
+
   book_philosophy: [
-    { id: 1, text: "Trí Tuệ Do Thái — Nghĩ người Do Thái giàu có do may mắn", desc: "Dạy triết lý xem tri thức là tài sản duy nhất không ai cướp được và tư duy kinh doanh sắc bén" },
-    { id: 2, text: "Cổ Học Tinh Hoa — Lạc lối trước những thị phi của thói đời", desc: "Dạy những bài học nhân nghĩa, giữ mình thanh sạch và cách nhìn người thấu đáo của tiền nhân" },
-    { id: 3, text: "Binh Pháp Tôn Tử Đời Nay — Bị tiểu nhân hãm hại sau lưng", desc: "Dạy triết lý Biết người biết ta trăm trận không nguy và nghệ thuật thắng không cần giao tranh" },
-    { id: 4, text: "Đạo Đức Kinh (Lão Tử) — Tranh giành bon chen khiến tâm trí kiệt quệ", desc: "Dạy triết lý Vô Vi — thuận theo tự nhiên, mềm dẻo như nước để chiến thắng cái cứng rắn" },
-    { id: 5, text: "Suy Tưởng (Marcus Aurelius) — Cảm thấy cuộc đời bất công và đầy thị phi", desc: "Dạy vị hoàng đế La Mã cách bình thản trước sinh tử, khen chê và tập trung giữ đạo đức" },
-    { id: 6, text: "Thư Gửi Lucilius (Seneca) — Sợ hãi tuổi già và tiếc nuối thời gian đã mất", desc: "Dạy bài học sâu sắc: Cuộc đời không hề ngắn, chỉ là chúng ta lãng phí quá nhiều" },
-    { id: 7, text: "Trang Tử Tâm Đắc — Tâm trí bị trói buộc bởi danh lợi tầm thường", desc: "Dạy tinh thần Tiêu Dao Du — vượt lên trên định kiến thế gian để sống tự do phóng khoáng" },
-    { id: 8, text: "Nghệ Thuật Sống Của Schopenhauer — Tìm kiếm hạnh phúc bên ngoài thất vọng", desc: "Dạy triết lý hạnh phúc chân thật bắt nguồn từ một tâm hồn tự tại và phong phú" },
-    { id: 9, text: "Trí Tuệ Cổ Nhân Trong Xử Thế — Bị người đời ganh ghét vì quá thể hiện", desc: "Dạy thuật giấu tài, khiêm nhường như bông lúa chín cúi đầu để đi đường dài" },
-    { id: 10, text: "Luận Ngữ Khổng Tử Thời Hiện Đại — Lúng túng trong các mối quan hệ xã hội", desc: "Dạy chữ Tín, chữ Lễ và đạo tu thân làm gốc để được mọi người kính nể" }
+    {
+      id: 1,
+      bookTitle: "Suy Tưởng",
+      author: "Marcus Aurelius",
+      angle: "Bình thản trước thị phi người đời",
+      painPoint: "Dễ bị tổn thương bởi những lời phán xét và ganh ghét",
+      text: "Suy Tưởng (Marcus Aurelius) — Góc nhìn: Bình thản trước thị phi — Dễ bị tổn thương bởi phán xét và ganh ghét",
+      desc: "Dạy vị hoàng đế La Mã cách tự vấn mỗi sáng: Người khác cư xử vô ơn là việc của họ, giữ tâm mình trong sạch là việc của bạn",
+      coverImage: "/images/books/suy-tuong.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1f2937, #030712)", accent: "#fde68a", icon: "🏛️" }
+    },
+    {
+      id: 2,
+      bookTitle: "Suy Tưởng",
+      author: "Marcus Aurelius",
+      angle: "Lời nhắc nhở Memento Mori",
+      painPoint: "Lãng phí thời gian vào những cuộc tranh cãi vô bổ",
+      text: "Suy Tưởng (Marcus Aurelius) — Góc nhìn: Nhắc nhở Memento Mori — Lãng phí thời gian vào tranh cãi vô bổ",
+      desc: "Dạy bài học về cái chết: Bạn có thể rời bỏ cuộc đời bất cứ lúc nào, hãy để ý nghĩ đó quyết định những gì bạn làm và nghĩ hôm nay",
+      coverImage: "/images/books/suy-tuong.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #1f2937, #030712)", accent: "#fde68a", icon: "🏛️" }
+    },
+    {
+      id: 3,
+      bookTitle: "Muôn Kiếp Nhân Sinh",
+      author: "Nguyên Phong",
+      angle: "Luân hồi nhân quả và bài học linh hồn",
+      painPoint: "Oán trách cuộc đời bất công khi gặp hoạn nạn",
+      text: "Muôn Kiếp Nhân Sinh (Nguyên Phong) — Góc nhìn: Nhân quả luân hồi — Oán trách cuộc đời bất công khi gặp hoạn nạn",
+      desc: "Dạy góc nhìn sâu sắc: Mọi biến cố xảy đến đều mang theo bài học giúp linh hồn trưởng thành và hoàn thiện lòng trắc ẩn",
+      coverImage: "/images/books/muon-kiep-nhan-sinh.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #090d16, #1e1b4b)", accent: "#fbbf24", icon: "📜" }
+    },
+    {
+      id: 4,
+      bookTitle: "Muôn Kiếp Nhân Sinh",
+      author: "Nguyên Phong",
+      angle: "Sức mạnh chuyển hóa của tình yêu thương",
+      painPoint: "Cảm thấy bất an và lo sợ trước những biến động thời cuộc",
+      text: "Muôn Kiếp Nhân Sinh (Nguyên Phong) — Góc nhìn: Sức mạnh tình thương — Bất an lo sợ trước biến động thời cuộc",
+      desc: "Dạy chân lý: Tình thương chân thật và tâm từ bi là nguồn năng lượng duy nhất có thể hóa giải nghiệp chướng và chữa lành",
+      coverImage: "/images/books/muon-kiep-nhan-sinh.svg",
+      coverTheme: { bg: "linear-gradient(135deg, #090d16, #1e1b4b)", accent: "#fbbf24", icon: "📜" }
+    },
+    {
+      id: 5,
+      bookTitle: "Đạo Đức Kinh",
+      author: "Lão Tử",
+      angle: "Triết lý Vô Vi (Thuận theo tự nhiên)",
+      painPoint: "Tranh giành bon chen khiến thân tâm kiệt quệ",
+      text: "Đạo Đức Kinh (Lão Tử) — Góc nhìn: Triết lý Vô Vi — Tranh giành bon chen khiến thân tâm kiệt quệ",
+      desc: "Dạy bài học Vô Vi: Không phải là không làm gì, mà là làm việc thuận theo quy luật tự nhiên, không cưỡng cầu, vạn sự tự khắc thành",
+      coverTheme: { bg: "linear-gradient(135deg, #0f172a, #020617)", accent: "#94a3b8", icon: "☯️" }
+    },
+    {
+      id: 6,
+      bookTitle: "Đạo Đức Kinh",
+      author: "Lão Tử",
+      angle: "Mềm dẻo như nước (Thượng thiện nhược thủy)",
+      painPoint: "Cố chấp cứng nhắc dễ bị gãy đổ trước áp lực",
+      text: "Đạo Đức Kinh (Lão Tử) — Góc nhìn: Mềm mại như nước — Cố chấp cứng nhắc dễ bị gãy đổ trước áp lực",
+      desc: "Dạy đạo của nước: Nước ở chỗ thấp, mềm mại nhưng có thể chảy mòn đá tảng. Người biết khiêm nhường mềm mỏng sẽ chiến thắng kẻ hung hăng",
+      coverTheme: { bg: "linear-gradient(135deg, #0f172a, #020617)", accent: "#94a3b8", icon: "☯️" }
+    },
+    {
+      id: 7,
+      bookTitle: "Binh Pháp Tôn Tử",
+      author: "Tôn Vũ",
+      angle: "Biết người biết ta trăm trận không nguy",
+      painPoint: "Hấp tấp hành động thiếu sự chuẩn bị và quan sát",
+      text: "Binh Pháp Tôn Tử (Tôn Vũ) — Góc nhìn: Biết người biết ta — Hấp tấp hành động thiếu chuẩn bị và quan sát",
+      desc: "Dạy nghệ thuật phân tích tương quan lực lượng và địa thế trước khi bước vào bất kỳ cuộc đàm phán hay thương trường nào",
+      coverTheme: { bg: "linear-gradient(135deg, #450a0a, #1c1917)", accent: "#f59e0b", icon: "⚔️" }
+    },
+    {
+      id: 8,
+      bookTitle: "Thư Gửi Lucilius",
+      author: "Seneca",
+      angle: "Thời gian là tài sản quý giá nhất",
+      painPoint: "Tiếc nuối thanh xuân trôi qua mà chưa làm được gì",
+      text: "Thư Gửi Lucilius (Seneca) — Góc nhìn: Quý trọng thời gian — Tiếc nuối thanh xuân trôi qua chưa làm được gì",
+      desc: "Dạy bài học bất hủ: Đời người không hề ngắn ngủi, chỉ là chúng ta đã ném bỏ quá nhiều thời gian vào những việc phù phiếm",
+      coverTheme: { bg: "linear-gradient(135deg, #1c1917, #0c0a09)", accent: "#e7e5e4", icon: "⏳" }
+    }
   ]
 };
 

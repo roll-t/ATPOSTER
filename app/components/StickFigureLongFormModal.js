@@ -14,9 +14,15 @@ import {
  * theo NHÓM tự chọn ngay trong modal, không bám theo một lựa chọn ngoài form như moralTheme —
  * skill này không có khái niệm "nhóm chủ đề" ở form chính, nên tab nhóm phải nằm ngay đây.
  */
-export default function StickFigureLongFormModal({ isOpen, onClose, onSelectTopic, history = [] }) {
+export default function StickFigureLongFormModal({
+  isOpen,
+  onClose,
+  currentGroup,
+  onSelectTopic,
+  history = []
+}) {
   const [createdVideoTitles, setCreatedVideoTitles] = useState([]);
-  const [activeGroup, setActiveGroup] = useState(STICK_FIGURE_LONGFORM_GROUPS[0].key);
+  const [activeGroup, setActiveGroup] = useState(currentGroup || STICK_FIGURE_LONGFORM_GROUPS[0].key);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'completed' | 'uncompleted'
   const [mounted, setMounted] = useState(false);
@@ -24,6 +30,12 @@ export default function StickFigureLongFormModal({ isOpen, onClose, onSelectTopi
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && currentGroup) {
+      setActiveGroup(currentGroup);
+    }
+  }, [isOpen, currentGroup]);
 
   // Đối chiếu với video ĐÃ RENDER (không chỉ lịch sử kịch bản) để biết chủ đề nào thực sự đã ra
   // thành phẩm — cùng cách MoralSyllabusModal đang làm.

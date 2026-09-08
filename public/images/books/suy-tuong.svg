@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-stoic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f2937"/>
+      <stop offset="60%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </linearGradient>
+    <linearGradient id="gold-stoic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="50%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-stoic)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  
+  <rect x="18" y="18" width="164" height="264" fill="none" stroke="url(#gold-stoic)" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Laurel Wreath Motif -->
+  <g transform="translate(100, 95)">
+    <circle cx="0" cy="0" r="26" fill="none" stroke="url(#gold-stoic)" stroke-width="1.2" stroke-dasharray="8,4"/>
+    <text x="0" y="6" fill="url(#gold-stoic)" font-size="16" font-family="Georgia, serif" font-weight="700" text-anchor="middle">🏛️</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="160" fill="#f9fafb" font-size="20" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="3">SUY TƯỞNG</text>
+  <text x="100" y="182" fill="url(#gold-stoic)" font-size="9" font-family="Georgia, serif" font-style="italic" text-anchor="middle" letter-spacing="2">MEDITATIONS</text>
+  
+  <text x="100" y="206" fill="#9ca3af" font-size="7.5" font-family="system-ui, sans-serif" text-anchor="middle">Kinh Điển Của Chủ Nghĩa Khắc Kỷ</text>
+  
+  <line x1="55" y1="226" x2="145" y2="226" stroke="url(#gold-stoic)" stroke-width="0.6" opacity="0.6"/>
+  
+  <!-- Author -->
+  <text x="100" y="248" fill="#ffffff" font-size="11" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1">MARCUS AURELIUS</text>
+  <text x="100" y="264" fill="#9ca3af" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">HOÀNG ĐẾ LA MÃ</text>
+</svg>

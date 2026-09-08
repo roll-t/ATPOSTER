@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   MORAL_THEMES, 
   DEFAULT_MORAL_THEME, 
@@ -8,7 +8,7 @@ import {
   isBookMoralTheme 
 } from '@/src/domain/content/moralThemes.js';
 
-export default function MoralThemePicker({ value, onChange, themeKeys }) {
+export default function MoralThemePicker({ value, onChange, onSelect, themeKeys }) {
   // Lọc theo themeKeys nếu có truyền vào
   const availableThemes = useMemo(() => {
     return themeKeys
@@ -19,22 +19,21 @@ export default function MoralThemePicker({ value, onChange, themeKeys }) {
   const moralThemes = useMemo(() => availableThemes.filter(t => (t.group || 'moral') === 'moral'), [availableThemes]);
   const bookThemes = useMemo(() => availableThemes.filter(t => t.group === 'book'), [availableThemes]);
 
-  const currentVal = value || DEFAULT_MORAL_THEME;
-  const isCurrentBook = isBookMoralTheme(currentVal);
+  const currentVal = value || null;
+  const isCurrentBook = value ? isBookMoralTheme(value) : false;
 
   // Tab hiện tại ('moral' | 'book')
   const [activeTab, setActiveTab] = useState(() => (isCurrentBook ? 'book' : 'moral'));
+
+  // Số lượng hiển thị ban đầu tối đa 6 nhóm
+  const [visibleCount, setVisibleCount] = useState(6);
 
   // Đồng bộ tab nếu value từ ngoài truyền vào thay đổi nhóm
   const currentTab = isCurrentBook ? 'book' : (activeTab === 'book' && bookThemes.length > 0 ? 'book' : 'moral');
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'book' && !isBookMoralTheme(currentVal)) {
-      onChange(bookThemes[0]?.key || DEFAULT_BOOK_THEME);
-    } else if (tab === 'moral' && isBookMoralTheme(currentVal)) {
-      onChange(moralThemes[0]?.key || DEFAULT_MORAL_THEME);
-    }
+    setVisibleCount(6);
   };
 
   // Nếu chỉ có đúng 1 nhóm (ví dụ pexels_talk_video chỉ có moralThemes), không cần hiện tab bar
@@ -47,6 +46,18 @@ export default function MoralThemePicker({ value, onChange, themeKeys }) {
     sublabel: t.sub, 
     icon: t.icon 
   }));
+
+  // Tự động mở rộng số lượng hiển thị nếu giá trị đang chọn nằm ở trang sau
+  useEffect(() => {
+    if (value) {
+      const idx = options.findIndex(o => o.value === value);
+      if (idx >= 0 && idx >= visibleCount) {
+        setVisibleCount(Math.ceil((idx + 1) / 6) * 6);
+      }
+    }
+  }, [value, options]);
+
+  const displayedOptions = options.slice(0, visibleCount);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -157,8 +168,8 @@ export default function MoralThemePicker({ value, onChange, themeKeys }) {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-        {options.map(opt => {
-          const isSelected = currentVal === opt.value;
+        {displayedOptions.map(opt => {
+          const isSelected = Boolean(currentVal && currentVal === opt.value);
           const isBook = currentTab === 'book';
           const highlightBorder = isBook ? '2px solid #fbbf24' : '2px solid var(--secondary)';
           const highlightBg = isBook ? 'rgba(245, 158, 11, 0.18)' : 'rgba(37, 244, 238, 0.15)';
@@ -169,7 +180,10 @@ export default function MoralThemePicker({ value, onChange, themeKeys }) {
             <button
               type="button"
               key={opt.value}
-              onClick={() => onChange(opt.value)}
+              onClick={() => {
+                onChange(opt.value);
+                if (onSelect) onSelect(opt.value);
+              }}
               style={{
                 padding: '10px 4px',
                 borderRadius: '10px',
@@ -201,6 +215,74 @@ export default function MoralThemePicker({ value, onChange, themeKeys }) {
           );
         })}
       </div>
+
+      {options.length > 6 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '4px' }}>
+          {visibleCount < options.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(prev => prev + 6)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '6px 14px',
+                color: currentTab === 'book' ? '#fbbf24' : 'var(--secondary, #25F4EE)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+                fontFamily: 'inherit'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = currentTab === 'book' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(37, 244, 238, 0.12)';
+                e.currentTarget.style.borderColor = currentTab === 'book' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(37, 244, 238, 0.35)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+            >
+              <span>{`▼ Xem thêm 6 nhóm khác (${displayedOptions.length}/${options.length})`}</span>
+            </button>
+          )}
+
+          {visibleCount > 6 && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(6)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '6px 14px',
+                color: 'rgba(255, 255, 255, 0.65)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+                fontFamily: 'inherit'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
+              }}
+            >
+              <span>▲ Thu gọn</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

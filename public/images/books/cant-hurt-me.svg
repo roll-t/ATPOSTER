@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-goggins" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="50%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-goggins)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <rect x="25" y="24" width="150" height="18" rx="4" fill="#ef4444"/>
+  <text x="100" y="36" fill="#ffffff" font-size="8" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">NAVY SEAL VĨ ĐẠI NHẤT</text>
+  
+  <!-- Fist / Shield Motif -->
+  <g transform="translate(100, 95)">
+    <circle cx="0" cy="0" r="26" fill="none" stroke="#ef4444" stroke-width="2"/>
+    <text x="0" y="8" fill="#ffffff" font-size="20" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">40%</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="152" fill="#ffffff" font-size="15" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">KHÔNG THỂ</text>
+  <text x="100" y="176" fill="#ef4444" font-size="15" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">LÀM TỔN THƯƠNG TÔI</text>
+  
+  <text x="100" y="200" fill="#e4e4e7" font-size="8" font-family="system-ui, sans-serif" font-weight="700" text-anchor="middle">Can't Hurt Me</text>
+  <text x="100" y="214" fill="#a1a1aa" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">Làm Chủ Tâm Trí &amp; Bứt Phá Giới Hạn</text>
+  
+  <line x1="55" y1="230" x2="145" y2="230" stroke="#ef4444" stroke-width="0.8" opacity="0.6"/>
+  
+  <!-- Author -->
+  <text x="100" y="254" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="1">DAVID GOGGINS</text>
+  <text x="100" y="270" fill="#71717a" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">CHIẾN BINH THÉP</text>
+</svg>

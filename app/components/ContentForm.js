@@ -1,19 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CharacterPicker from './CharacterPicker.js';
 import SyllabusModal from './SyllabusModal.js';
 import MoralSyllabusModal from './MoralSyllabusModal.js';
 import BuddhistSyllabusModal from './BuddhistSyllabusModal.js';
 import JapaneseHistorySyllabusModal from './JapaneseHistorySyllabusModal.js';
+import { JAPANESE_HISTORY_SYLLABUS } from '@/src/domain/content/japaneseHistorySyllabus.js';
 import StickFigureLongFormModal from './StickFigureLongFormModal.js';
-import { STICK_FIGURE_LONGFORM_GROUPS, STICK_FIGURE_LONGFORM_TOPIC_COUNT } from '@/src/domain/content/stickFigureLongFormTopics.js';
+import { STICK_FIGURE_LONGFORM_GROUPS } from '@/src/domain/content/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/src/domain/content/moralSyllabus.js';
-import { getMoralThemeLabel, isBookMoralTheme } from '@/src/domain/content/moralThemes.js';
-import { getMoralSyllabusCount } from '@/src/domain/content/moralSyllabus.js';
-import { BUDDHIST_SYLLABUS, getBuddhistSyllabusCount } from '@/src/domain/content/buddhistSyllabus.js';
-import { getJapaneseHistorySyllabusCount } from '@/src/domain/content/japaneseHistorySyllabus.js';
-import { getBuddhistThemeLabel } from '@/src/domain/content/buddhistThemes.js';
+import { isBookMoralTheme } from '@/src/domain/content/moralThemes.js';
+import { BUDDHIST_SYLLABUS } from '@/src/domain/content/buddhistSyllabus.js';
 import { getBuddhistDurationOptions } from '@/src/domain/prompt-templates/gemini/buddhistWisdom.js';
 import LevelPicker from './LevelPicker.js';
 import MoralThemePicker from './MoralThemePicker.js';
@@ -36,11 +34,69 @@ function pickRandomSubset(pool, count) {
   return shuffled.slice(0, count);
 }
 
+function findJapaneseHistoryThemeForTopic(text) {
+  if (!text) return '';
+  const lower = text.toLowerCase().trim();
+  for (const [themeKey, topics] of Object.entries(JAPANESE_HISTORY_SYLLABUS)) {
+    for (const t of topics) {
+      if (!t.text) continue;
+      const full = `${t.text} (${t.vi || ''})`.toLowerCase();
+      if (lower === full || lower === t.text.toLowerCase() || (t.vi && lower === t.vi.toLowerCase()) || lower.includes(t.text.toLowerCase())) {
+        return themeKey;
+      }
+    }
+  }
+  return '';
+}
+
+function findBuddhistThemeForTopic(text) {
+  if (!text) return '';
+  const lower = text.toLowerCase().trim();
+  for (const [themeKey, topics] of Object.entries(BUDDHIST_SYLLABUS)) {
+    for (const t of topics) {
+      if (!t.text) continue;
+      const full = `${t.text} (${t.vi || ''})`.toLowerCase();
+      if (lower === full || lower === t.text.toLowerCase() || (t.vi && lower === t.vi.toLowerCase()) || lower.includes(t.text.toLowerCase())) {
+        return themeKey;
+      }
+    }
+  }
+  return '';
+}
+
+function findMoralThemeForTopic(text) {
+  if (!text) return '';
+  const lower = text.toLowerCase().trim();
+  for (const [themeKey, topics] of Object.entries(MORAL_SYLLABUS)) {
+    for (const t of topics) {
+      if (!t.text) continue;
+      if (lower === t.text.toLowerCase() || lower.includes(t.text.toLowerCase())) {
+        return themeKey;
+      }
+    }
+  }
+  return '';
+}
+
+function findStickFigureThemeForTopic(text) {
+  if (!text) return '';
+  const lower = text.toLowerCase().trim();
+  for (const group of STICK_FIGURE_LONGFORM_GROUPS) {
+    for (const t of group.topics || []) {
+      if (!t.text) continue;
+      if (lower === t.text.toLowerCase() || lower.includes(t.text.toLowerCase())) {
+        return group.key;
+      }
+    }
+  }
+  return '';
+}
+
 export default function ContentForm({
   category, activeCategory, currentInput,
   useGemini, setUseGemini, durationRange, setDurationRange,
   onFieldChange, onToggleCharacter,
-  errorMsg, isGenerating, onGenerate, onOpenStyleEditor,
+  errorMsg, isGenerating, onGenerate,
   characters = [], onDeleteCustomChar, onUploadChar, onUpdateChar,
   history = []
 }) {
@@ -206,7 +262,7 @@ export default function ContentForm({
         rawList = field.suggestions || [];
       }
     }
-    
+
     // Lọc loại bỏ hoàn toàn các kịch bản đã từng được tạo trong lịch sử
     const filtered = rawList.filter(sug => {
       const text = suggestionText(sug).trim().toLowerCase();
@@ -227,6 +283,52 @@ export default function ContentForm({
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isLongFormTopicsOpen, setIsLongFormTopicsOpen] = useState(false);
 
+  const [historyModalTheme, setHistoryModalTheme] = useState(
+    currentInput.historyTheme || 'japan_history'
+  );
+  const [buddhistModalTheme, setBuddhistModalTheme] = useState(
+    currentInput.buddhistTheme || 'zen_stories'
+  );
+  const [moralModalTheme, setMoralModalTheme] = useState(
+    currentInput.moralTheme || 'self_help'
+  );
+  const [stickFigureModalGroup, setStickFigureModalGroup] = useState(
+    currentInput.stickFigureTheme || 'habits'
+  );
+
+  const activeHistoryTheme = currentInput.scenario?.trim()
+    ? (currentInput.historyTheme || findJapaneseHistoryThemeForTopic(currentInput.syllabusTopic || currentInput.scenario) || '')
+    : '';
+
+  const activeBuddhistTheme = currentInput.scenario?.trim()
+    ? (currentInput.buddhistTheme || findBuddhistThemeForTopic(currentInput.syllabusTopic || currentInput.scenario) || '')
+    : '';
+
+  const activeMoralTheme = currentInput.scenario?.trim()
+    ? (currentInput.moralTheme || findMoralThemeForTopic(currentInput.syllabusTopic || currentInput.scenario) || '')
+    : '';
+
+  const activeStickFigureTheme = currentInput.scenario?.trim()
+    ? (currentInput.stickFigureTheme || findStickFigureThemeForTopic(currentInput.syllabusTopic || currentInput.scenario) || '')
+    : '';
+
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const descRef = useRef(null);
+
+  useEffect(() => {
+    setIsDescExpanded(false);
+  }, [category?.key, category?.label]);
+
+  useEffect(() => {
+    if (descRef.current) {
+      const el = descRef.current;
+      setHasOverflow(el.scrollHeight > el.clientHeight + 2);
+    }
+  }, [category?.description, category?.key]);
+
+  const showToggle = hasOverflow || (category?.description && category.description.length > 110);
+
   return (
     <div className="glass-card" style={{ padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '12px', minWidth: 0 }}>
@@ -234,19 +336,90 @@ export default function ContentForm({
           <span style={{ flexShrink: 0 }}>{category.icon}</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.label}</span>
         </h3>
-        {category && (
-          <button
-            type="button"
-            onClick={onOpenStyleEditor}
-            className="btn btn-secondary"
-            style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '8px', flexShrink: 0, fontWeight: 700 }}
-          >
-            🎨 Custom Style (Remotion)
-          </button>
-        )}
       </div>
 
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.45 }}>{category.description}</p>
+      <div style={{ position: 'relative', marginBottom: '24px' }}>
+        <p
+          ref={descRef}
+          style={{
+            color: 'var(--text-muted)',
+            fontSize: '0.85rem',
+            lineHeight: 1.45,
+            margin: 0,
+            display: isDescExpanded ? 'block' : '-webkit-box',
+            WebkitLineClamp: isDescExpanded ? 'unset' : 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: isDescExpanded ? 'visible' : 'hidden',
+            textOverflow: 'ellipsis',
+            wordBreak: 'break-word',
+          }}
+        >
+          {category.description}
+          {isDescExpanded && showToggle && (
+            <button
+              type="button"
+              onClick={() => setIsDescExpanded(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0 0 0 6px',
+                color: 'var(--secondary, #25F4EE)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline',
+                verticalAlign: 'baseline',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.textDecoration = 'none';
+              }}
+            >
+              Thu gọn ▴
+            </button>
+          )}
+        </p>
+
+        {!isDescExpanded && showToggle && (
+          <span
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              paddingLeft: '36px',
+              background: 'linear-gradient(90deg, rgba(19, 17, 32, 0) 0%, rgba(19, 17, 32, 0.88) 26%, #131120 48%, #131120 100%)',
+              lineHeight: 1.45,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setIsDescExpanded(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: 'var(--secondary, #25F4EE)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.textDecoration = 'none';
+              }}
+            >
+              ... Xem thêm
+            </button>
+          </span>
+        )}
+      </div>
 
       {/* 1. Chọn Dạng Video (Tỉ lệ 9:16 / 16:9) dạng 2 Option Card ở trên cùng */}
       {category.fields.some(f => f.key === 'aspectRatio') && (
@@ -308,88 +481,58 @@ export default function ContentForm({
         </div>
       )}
 
-      {/* AI Toggle & Cấu hình thời lượng — chỉ áp dụng cho chủ đề VIDEO */}
+      {/* Cấu hình thời lượng — chỉ áp dụng cho chủ đề VIDEO */}
       {!isImageCategory && (
         <div style={{ marginBottom: '24px' }}>
-          <div
-            className="custom-switch-container"
-            onClick={() => setUseGemini(!useGemini)}
-            style={{ cursor: 'pointer', userSelect: 'none' }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '8px' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>
-                Tự động tạo phân đoạn bằng Gemini
-              </span>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                Tự động viết kịch bản & phân chia cảnh slide ảnh tối ưu
-              </span>
-            </div>
-            <label className="custom-switch" onClick={(e) => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={useGemini}
-                onChange={(e) => setUseGemini(e.target.checked)}
-              />
-              <span className="switch-slider"></span>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label" style={{ fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 700, marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Thời lượng mục tiêu của video
             </label>
-          </div>
-
-          {useGemini && (
-            <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-              <label className="form-label">
-                THỜI LƯỢNG MỤC TIÊU CỦA VIDEO
-              </label>
-              <select
-                className="form-control"
-                value={durationRange}
-                onChange={(e) => setDurationRange(e.target.value)}
-              >
-                {['buddhist_wisdom', 'japanese_history'].includes(activeCategory) ? (
-                  <>
-                    {/* Nhãn SINH RA từ DURATION_TARGETS trong templates/buddhistWisdom.js, không gõ
-                        tay: bản trước gõ tay và đã lệch hẳn khỏi thực tế sau hai lần đổi thông số. */}
-                    {getBuddhistDurationOptions().map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </>
-                ) : activeCategory === 'stick_figure_slideshow' ? (
-                  <>
-                    <option value="under_1m">Dưới 1 phút</option>
-                    <option value="1_2m">Từ 1 - 2 phút</option>
-                    <option value="2_3m">Từ 2 - 3 phút</option>
-                    <option value="3_4m">Từ 3 - 4 phút</option>
-                    <option value="4_6m">Từ 4 - 6 phút</option>
-                    <option value="6_8m">Từ 6 - 8 phút</option>
-                    <option value="8_10m">Từ 8 - 10 phút</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '16 - 22 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
-                    <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '26 - 36 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
-                    <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '42 - 56 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
-                    <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '60 - 80 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
-                    {supportsLongForm && (
-                      <optgroup label="🎬 Video dài">
-                        <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '80 - 105 slide pictogram' : activeCategory === 'pexels_talk_video' ? '14 - 17 đoạn kể' : '35 - 48 slide'})</option>
-                        <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '115 - 145 slide pictogram' : activeCategory === 'pexels_talk_video' ? '20 - 24 đoạn kể' : '48 - 65 slide'})</option>
-                        <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '150 - 180 slide pictogram' : activeCategory === 'pexels_talk_video' ? '26 - 31 đoạn kể' : '60 - 82 slide'})</option>
-                        {/* 10-15 phút và 15-20 phút CỐ Ý chỉ có ở nhánh buddhist_wisdom bên trên.
-                            Template của các skill còn lại (moralTalkSlideshow, imageSlideshow,
-                            pexelsTalkVideo) chưa khai số slide cho 2 mốc này, chọn vào là rơi
-                            xuống nhánh mặc định — moral_talk_slideshow sẽ xin Gemini đúng 10-14
-                            slide cho một video 15 phút, mà không báo lỗi gì cả. */}
-                      </optgroup>
-                    )}
-                  </>
-                )}
-              </select>
-              {['4_6m', '6_8m', '8_10m', '10_15m', '15_20m'].includes(durationRange) && (
-                <span style={{ display: 'block', marginTop: '6px', fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                  Video càng dài càng cần nhiều ảnh minh hoạ + giọng đọc hơn — kịch bản có thể mất nhiều thời gian hơn để Gemini viết xong, và khâu sinh ảnh/lồng tiếng sau đó cũng lâu hơn tương ứng.
-                </span>
+            <select
+              className="form-control"
+              value={durationRange}
+              onChange={(e) => setDurationRange(e.target.value)}
+            >
+              {['buddhist_wisdom', 'japanese_history'].includes(activeCategory) ? (
+                <>
+                  {/* Nhãn SINH RA từ DURATION_TARGETS trong templates/buddhistWisdom.js, không gõ
+                      tay: bản trước gõ tay và đã lệch hẳn khỏi thực tế sau hai lần đổi thông số. */}
+                  {getBuddhistDurationOptions().map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </>
+              ) : activeCategory === 'stick_figure_slideshow' ? (
+                <>
+                  <option value="under_1m">Dưới 1 phút</option>
+                  <option value="1_2m">Từ 1 - 2 phút</option>
+                  <option value="2_3m">Từ 2 - 3 phút</option>
+                  <option value="3_4m">Từ 3 - 4 phút</option>
+                  <option value="4_6m">Từ 4 - 6 phút</option>
+                  <option value="6_8m">Từ 6 - 8 phút</option>
+                  <option value="8_10m">Từ 8 - 10 phút</option>
+                </>
+              ) : (
+                <>
+                  <option value="under_1m">Dưới 1 phút ({activeCategory === 'moral_talk_slideshow' ? '16 - 22 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn ngắn' : '3 - 5 slide'})</option>
+                  <option value="1_2m">Từ 1 - 2 phút ({activeCategory === 'moral_talk_slideshow' ? '26 - 36 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn vừa' : '6 - 11 slide'})</option>
+                  <option value="2_3m">Từ 2 - 3 phút ({activeCategory === 'moral_talk_slideshow' ? '42 - 56 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn dài' : '12 - 17 slide'})</option>
+                  <option value="3_4m">Từ 3 - 4 phút ({activeCategory === 'moral_talk_slideshow' ? '60 - 80 slide pictogram, 3-4s/ảnh' : activeCategory === 'reading_practice' ? '1 trang, đoạn văn rất dài' : '18 - 23 slide'})</option>
+                  {supportsLongForm && (
+                    <optgroup label="🎬 Video dài">
+                      <option value="4_6m">Từ 4 - 6 phút ({activeCategory === 'moral_talk_slideshow' ? '80 - 105 slide pictogram' : activeCategory === 'pexels_talk_video' ? '14 - 17 đoạn kể' : '35 - 48 slide'})</option>
+                      <option value="6_8m">Từ 6 - 8 phút ({activeCategory === 'moral_talk_slideshow' ? '115 - 145 slide pictogram' : activeCategory === 'pexels_talk_video' ? '20 - 24 đoạn kể' : '48 - 65 slide'})</option>
+                      <option value="8_10m">Từ 8 - 10 phút ({activeCategory === 'moral_talk_slideshow' ? '150 - 180 slide pictogram' : activeCategory === 'pexels_talk_video' ? '26 - 31 đoạn kể' : '60 - 82 slide'})</option>
+                      {/* 10-15 phút và 15-20 phút CỐ Ý chỉ có ở nhánh buddhist_wisdom bên trên.
+                          Template của các skill còn lại (moralTalkSlideshow, imageSlideshow,
+                          pexelsTalkVideo) chưa khai số slide cho 2 mốc này, chọn vào là rơi
+                          xuống nhánh mặc định — moral_talk_slideshow sẽ xin Gemini đúng 10-14
+                          slide cho một video 15 phút, mà không báo lỗi gì cả. */}
+                    </optgroup>
+                  )}
+                </>
               )}
-            </div>
-          )}
+            </select>
+          </div>
         </div>
       )}
 
@@ -423,110 +566,6 @@ export default function ContentForm({
                   {displayFieldLabel}
                   {field.required && <span style={{ color: 'var(--primary)', marginLeft: '4px' }}>*</span>}
                 </span>
-                {field.key === 'scenario' && activeCategory === 'buddhist_wisdom' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsBuddhistModalOpen(true)}
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.22))',
-                      border: '1px solid rgba(245, 158, 11, 0.45)',
-                      borderRadius: '8px',
-                      padding: '4px 12px',
-                      color: '#fbbf24',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 2px 10px rgba(245, 158, 11, 0.2)',
-                      flexShrink: 0
-                    }}
-                  >
-                    🪷 Lộ trình {getBuddhistSyllabusCount(currentInput.buddhistTheme)} chủ đề
-                  </button>
-                )}
-                {field.key === 'scenario' && activeCategory === 'japanese_history' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsHistoryModalOpen(true)}
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(168, 139, 250, 0.22), rgba(124, 58, 237, 0.22))',
-                      border: '1px solid rgba(168, 139, 250, 0.45)',
-                      borderRadius: '8px',
-                      padding: '4px 12px',
-                      color: '#c4b5fd',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 2px 10px rgba(168, 139, 250, 0.2)',
-                      flexShrink: 0
-                    }}
-                  >
-                    🏯 Kho {getJapaneseHistorySyllabusCount(currentInput.historyTheme || 'japan_history')} chủ đề lịch sử
-                  </button>
-                )}
-                {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory) && (
-                  <button
-                    type="button"
-                    onClick={() => setIsSyllabusModalOpen(true)}
-                    style={{
-                      background: isBookTheme 
-                        ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(254, 44, 85, 0.18))'
-                        : 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
-                      border: isBookTheme ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(37, 244, 238, 0.35)',
-                      borderRadius: '8px',
-                      padding: '4px 12px',
-                      color: isBookTheme ? '#fbbf24' : '#fff',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: isBookTheme ? '0 2px 10px rgba(245, 158, 11, 0.25)' : '0 2px 10px rgba(37, 244, 238, 0.2)',
-                      flexShrink: 0
-                    }}
-                  >
-                    {activeCategory === 'reading_practice'
-                      ? `📚 Lộ trình 50 bài (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                      : isBookTheme
-                        ? `📚 Lộ trình ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề sách (${getMoralThemeLabel(currentInput.moralTheme)})`
-                        : `📚 Lộ trình ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
-                    }
-                  </button>
-                )}
-                {/* Kho chủ đề Video Dài — LUÔN hiện cho skill Người Que, giống nút "Lộ trình 50
-                    chủ đề" của skill Đạo Lý. Bản đầu từng khoá nút này lại, chỉ cho hiện khi đã
-                    chọn sẵn một mốc thời lượng dài; hoá ra đó là cách chắc chắn khiến không ai tìm
-                    thấy nó — người dùng mở form ra ở mốc mặc định "Dưới 1 phút" và nút vô hình,
-                    không có gì gợi ý rằng phải đổi thời lượng trước thì nó mới xuất hiện. */}
-                {field.key === 'scenario' && activeCategory === 'stick_figure_slideshow' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsLongFormTopicsOpen(true)}
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(37, 244, 238, 0.18), rgba(254, 44, 85, 0.18))',
-                      border: '1px solid rgba(37, 244, 238, 0.35)',
-                      borderRadius: '8px',
-                      padding: '4px 12px',
-                      color: '#fff',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 2px 10px rgba(37, 244, 238, 0.2)',
-                      flexShrink: 0
-                    }}
-                  >
-                    🎬 Kho chủ đề Video Dài ({STICK_FIGURE_LONGFORM_TOPIC_COUNT})
-                  </button>
-                )}
                 {field.type === 'character-select' && (
                   <button
                     type="button"
@@ -555,7 +594,7 @@ export default function ContentForm({
                   </button>
                 )}
               </label>
-              
+
               {field.type === 'character-select' ? (
                 <CharacterPicker
                   field={field}
@@ -573,27 +612,58 @@ export default function ContentForm({
                   field={field}
                   value={currentInput[field.key]}
                   onChange={(val) => onFieldChange(field.key, val)}
+                  onSelect={(val) => {
+                    onFieldChange(field.key, val);
+                    setIsSyllabusModalOpen(true);
+                  }}
                 />
               ) : field.type === 'moral-theme-select' ? (
                 <MoralThemePicker
-                  value={currentInput[field.key]}
-                  onChange={(val) => onFieldChange(field.key, val)}
+                  value={activeMoralTheme}
+                  onChange={(val) => {
+                    setMoralModalTheme(val);
+                  }}
+                  onSelect={(val) => {
+                    setMoralModalTheme(val);
+                    setIsSyllabusModalOpen(true);
+                  }}
                   themeKeys={field.themeKeys}
                 />
               ) : field.type === 'buddhist-theme-select' ? (
                 <BuddhistThemePicker
-                  value={currentInput[field.key]}
-                  onChange={(val) => onFieldChange(field.key, val)}
+                  value={activeBuddhistTheme}
+                  onChange={(val) => {
+                    setBuddhistModalTheme(val);
+                    setIsBuddhistModalOpen(true);
+                  }}
+                  onSelect={(val) => {
+                    setBuddhistModalTheme(val);
+                    setIsBuddhistModalOpen(true);
+                  }}
                 />
               ) : field.type === 'japanese-history-theme-select' ? (
                 <JapaneseHistoryThemePicker
-                  value={currentInput[field.key]}
-                  onChange={(val) => onFieldChange(field.key, val)}
+                  value={activeHistoryTheme}
+                  onChange={(val) => {
+                    setHistoryModalTheme(val);
+                    setIsHistoryModalOpen(true);
+                  }}
+                  onSelect={(val) => {
+                    setHistoryModalTheme(val);
+                    setIsHistoryModalOpen(true);
+                  }}
                 />
               ) : field.type === 'stick-figure-theme-select' ? (
                 <StickFigureThemePicker
-                  value={currentInput[field.key]}
-                  onChange={(val) => onFieldChange(field.key, val)}
+                  value={activeStickFigureTheme}
+                  onChange={(val) => {
+                    setStickFigureModalGroup(val);
+                    setIsLongFormTopicsOpen(true);
+                  }}
+                  onSelect={(val) => {
+                    setStickFigureModalGroup(val);
+                    setIsLongFormTopicsOpen(true);
+                  }}
                 />
               ) : field.type === 'select' ? (
                 <select
@@ -625,92 +695,59 @@ export default function ContentForm({
                   onChange={(e) => onFieldChange(field.key, e.target.value)}
                 />
               )}
-              
+
               {((
                 (Array.isArray(field.suggestions) && field.suggestions.length > 0 && activeCategory !== 'moral_talk_slideshow' && activeCategory !== 'stick_figure_slideshow' && activeCategory !== 'reading_practice' && activeCategory !== 'buddhist_wisdom')
               ) && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
-                  {visibleSuggestions(field).map(sug => {
-                    const text = suggestionText(sug);
-                    const people = suggestionPeople(sug);
-                    const isSelected = currentInput[field.key] === text;
-                    return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
+                    {visibleSuggestions(field).map(sug => {
+                      const text = suggestionText(sug);
+                      const people = suggestionPeople(sug);
+                      const isSelected = currentInput[field.key] === text;
+                      return (
+                        <button
+                          type="button"
+                          key={text}
+                          onClick={() => onFieldChange(field.key, text)}
+                          className={`suggestion-pill ${isSelected ? 'active' : ''}`}
+                        >
+                          {text}{people ? ` · 👥 ${people}` : ''}
+                        </button>
+                      );
+                    })}
+                    {activeCategory !== 'stick_figure_slideshow' && (
                       <button
                         type="button"
-                        key={text}
-                        onClick={() => onFieldChange(field.key, text)}
-                        className={`suggestion-pill ${isSelected ? 'active' : ''}`}
+                        onClick={() => fetchMoreSuggestions(field)}
+                        disabled={loadingSuggestions[field.key]}
+                        title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
+                        className="suggestion-pill"
+                        style={{
+                          background: 'rgba(37, 244, 238, 0.08)',
+                          borderColor: 'rgba(37, 244, 238, 0.25)',
+                          color: 'var(--secondary)',
+                          fontWeight: 700,
+                          cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
+                        }}
                       >
-                        {text}{people ? ` · 👥 ${people}` : ''}
+                        {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
                       </button>
-                    );
-                  })}
-                  {activeCategory !== 'stick_figure_slideshow' && (
-                    <button
-                      type="button"
-                      onClick={() => fetchMoreSuggestions(field)}
-                      disabled={loadingSuggestions[field.key]}
-                      title="Tạo gợi ý chủ đề mới bằng Gemini AI (tự động lọc bỏ các kịch bản đã từng tạo)"
-                      className="suggestion-pill"
-                      style={{
-                        background: 'rgba(37, 244, 238, 0.08)',
-                        borderColor: 'rgba(37, 244, 238, 0.25)',
-                        color: 'var(--secondary)',
-                        fontWeight: 700,
-                        cursor: loadingSuggestions[field.key] ? 'wait' : 'pointer'
-                      }}
-                    >
-                      {loadingSuggestions[field.key] ? '⏳ Gemini đang gợi ý...' : '🔄 Đổi gợi ý (Gemini AI)'}
-                    </button>
-                  )}
-                  {field.key === 'scenario' && ['reading_practice', 'moral_talk_slideshow', 'pexels_talk_video', 'stick_figure_slideshow', 'buddhist_wisdom'].includes(activeCategory) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeCategory === 'buddhist_wisdom') {
-                          setIsBuddhistModalOpen(true);
-                        } else if (activeCategory === 'stick_figure_slideshow') {
-                          setIsLongFormTopicsOpen(true);
-                        } else {
-                          setIsSyllabusModalOpen(true);
-                        }
-                      }}
-                      className="suggestion-pill"
-                      style={{
-                        background: activeCategory === 'buddhist_wisdom' || isBookTheme ? 'rgba(245, 158, 11, 0.16)' : 'rgba(254, 44, 85, 0.14)',
-                        borderColor: activeCategory === 'buddhist_wisdom' || isBookTheme ? 'rgba(245, 158, 11, 0.4)' : 'rgba(254, 44, 85, 0.35)',
-                        color: activeCategory === 'buddhist_wisdom' || isBookTheme ? '#fbbf24' : 'var(--primary)',
-                        fontWeight: 800,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {activeCategory === 'buddhist_wisdom'
-                        ? `🪷 Xem danh sách ${getBuddhistSyllabusCount(currentInput.buddhistTheme)} chủ đề (${getBuddhistThemeLabel(currentInput.buddhistTheme)})`
-                        : activeCategory === 'reading_practice'
-                          ? `📚 Xem danh sách 50 bài học (${currentInput.level ? currentInput.level.toUpperCase() : 'CEFR'})`
-                          : ['moral_talk_slideshow', 'pexels_talk_video'].includes(activeCategory)
-                            ? isBookTheme
-                              ? `📚 Xem danh sách ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề sách (${getMoralThemeLabel(currentInput.moralTheme)})`
-                              : `📚 Xem danh sách ${getMoralSyllabusCount(currentInput.moralTheme)} chủ đề (${getMoralThemeLabel(currentInput.moralTheme)})`
-                            : `📚 Kho 200 Chủ Đề Video Dài (${STICK_FIGURE_LONGFORM_TOPIC_COUNT} chủ đề)`
-                      }
-                    </button>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
             </div>
           );
         })}
       </div>
 
       {errorMsg && (
-        <div style={{ 
-          color: 'var(--danger)', 
-          fontSize: '0.85rem', 
-          marginBottom: '20px', 
-          padding: '12px 14px', 
-          background: 'var(--danger-bg)', 
-          borderRadius: '10px', 
+        <div style={{
+          color: 'var(--danger)',
+          fontSize: '0.85rem',
+          marginBottom: '20px',
+          padding: '12px 14px',
+          background: 'var(--danger-bg)',
+          borderRadius: '10px',
           border: '1px solid rgba(255, 71, 87, 0.2)',
           display: 'flex',
           alignItems: 'center',
@@ -726,11 +763,11 @@ export default function ContentForm({
         onClick={onGenerate}
         disabled={isGenerating}
         className="btn btn-primary"
-        style={{ 
-          width: '100%', 
-          padding: '14px 20px', 
-          fontSize: '1rem', 
-          fontWeight: 700, 
+        style={{
+          width: '100%',
+          padding: '14px 20px',
+          fontSize: '1rem',
+          fontWeight: 700,
           borderRadius: '12px',
           display: 'flex',
           alignItems: 'center',
@@ -774,10 +811,11 @@ export default function ContentForm({
         <MoralSyllabusModal
           isOpen={isSyllabusModalOpen}
           onClose={() => setIsSyllabusModalOpen(false)}
-          currentTheme={currentInput.moralTheme || 'self_help'}
+          currentTheme={moralModalTheme || activeMoralTheme || 'self_help'}
           onSelectTopic={(topicText) => {
             onFieldChange('scenario', topicText);
             onFieldChange('syllabusTopic', topicText);
+            onFieldChange('moralTheme', moralModalTheme || 'self_help');
           }}
           history={history}
         />
@@ -788,10 +826,11 @@ export default function ContentForm({
         <BuddhistSyllabusModal
           isOpen={isBuddhistModalOpen}
           onClose={() => setIsBuddhistModalOpen(false)}
-          currentTheme={currentInput.buddhistTheme || 'zen_stories'}
+          currentTheme={buddhistModalTheme || activeBuddhistTheme || 'zen_stories'}
           onSelectTopic={(topicText) => {
             onFieldChange('scenario', topicText);
             onFieldChange('syllabusTopic', topicText);
+            onFieldChange('buddhistTheme', buddhistModalTheme || 'zen_stories');
           }}
           history={history}
         />
@@ -802,10 +841,11 @@ export default function ContentForm({
         <JapaneseHistorySyllabusModal
           isOpen={isHistoryModalOpen}
           onClose={() => setIsHistoryModalOpen(false)}
-          currentTheme={currentInput.historyTheme || 'japan_history'}
+          currentTheme={historyModalTheme || activeHistoryTheme || 'japan_history'}
           onSelectTopic={(topicText) => {
             onFieldChange('scenario', topicText);
             onFieldChange('syllabusTopic', topicText);
+            onFieldChange('historyTheme', historyModalTheme || 'japan_history');
           }}
           history={history}
         />
@@ -816,9 +856,11 @@ export default function ContentForm({
         <StickFigureLongFormModal
           isOpen={isLongFormTopicsOpen}
           onClose={() => setIsLongFormTopicsOpen(false)}
+          currentGroup={stickFigureModalGroup || activeStickFigureTheme || 'habits'}
           onSelectTopic={(topicText) => {
             onFieldChange('scenario', topicText);
             onFieldChange('syllabusTopic', topicText);
+            onFieldChange('stickFigureTheme', stickFigureModalGroup || 'habits');
           }}
           history={history}
         />

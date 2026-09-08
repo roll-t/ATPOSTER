@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-speech" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#78350f"/>
+      <stop offset="60%" stop-color="#451a03"/>
+      <stop offset="100%" stop-color="#1c1917"/>
+    </linearGradient>
+    <linearGradient id="gold-speech" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-speech)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.25)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Dialogue bubbles motif -->
+  <g transform="translate(100, 95)">
+    <rect x="-30" y="-20" width="40" height="24" rx="8" fill="#ffffff" opacity="0.9"/>
+    <path d="M-15 4 L-20 12 L-8 4 Z" fill="#ffffff" opacity="0.9"/>
+    
+    <rect x="-2" y="-5" width="40" height="24" rx="8" fill="url(#gold-speech)"/>
+    <path d="M22 19 L26 27 L15 19 Z" fill="url(#gold-speech)"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="155" fill="#fef08a" font-size="14" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1">KHÉO ĂN NÓI</text>
+  <text x="100" y="176" fill="#ffffff" font-size="13" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="0.5">SẼ CÓ ĐƯỢC</text>
+  <text x="100" y="200" fill="url(#gold-speech)" font-size="17" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1">THIÊN HẠ</text>
+  
+  <text x="100" y="222" fill="#cbd5e1" font-size="7.5" font-family="system-ui, sans-serif" text-anchor="middle">Giao Tiếp Tinh Tế &amp; Thuyết Phục</text>
+  
+  <line x1="55" y1="236" x2="145" y2="236" stroke="url(#gold-speech)" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Author -->
+  <text x="100" y="258" fill="#ffffff" font-size="12" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1">TRÁC NHÃ</text>
+  <text x="100" y="274" fill="#fde047" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">BÍ QUYẾT GIAO TIẾP ĐỈNH CAO</text>
+</svg>

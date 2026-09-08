@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
+import { showToast } from './components/Toast.js';
 
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
 
@@ -104,19 +105,11 @@ export function usePromptStudio(initialCategory) {
     return initial;
   });
 
-  const [styles, setStyles] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [result, setResult] = useState(null);
   const [showJson, setShowJson] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
-
-  const [showStyleEditor, setShowStyleEditor] = useState(false);
-  const [styleEditorText, setStyleEditorText] = useState('');
-  const [styleSaveError, setStyleSaveError] = useState('');
-  const [isSavingStyle, setIsSavingStyle] = useState(false);
-  const [isStyleRendering, setIsStyleRendering] = useState(false);
-  const [styleRenderMsg, setStyleRenderMsg] = useState('');
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -144,16 +137,6 @@ export function usePromptStudio(initialCategory) {
 
   const currentCategory = PROMPT_CATEGORIES[activeCategory];
   const currentInput = formValues[activeCategory];
-
-  const fetchStyles = async () => {
-    try {
-      const res = await fetch('/api/prompts/styles');
-      const data = await res.json();
-      if (data.success) setStyles(data.styles);
-    } catch (err) {
-      console.error('Lỗi tải style prompt:', err);
-    }
-  };
 
   const fetchSettings = async () => {
     try {
@@ -242,7 +225,6 @@ export function usePromptStudio(initialCategory) {
   };
 
   useEffect(() => {
-    fetchStyles();
     fetchSettings();
     fetchCharacters();
   }, []);
@@ -251,7 +233,6 @@ export function usePromptStudio(initialCategory) {
     fetchHistory(activeCategory);
     setResult(null);
     setErrorMsg('');
-    setShowStyleEditor(false);
     setSelectedHistoryIds([]);
     setIsFolderPathUserEdited(false); // Reset khi đổi danh mục
   }, [activeCategory]);
@@ -395,115 +376,7 @@ export function usePromptStudio(initialCategory) {
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(''), 2000);
     } catch (err) {
-      alert('Không thể sao chép, vui lòng copy thủ công.');
-    }
-  };
-
-  // Mở Video Editor
-  const handleOpenStyleEditor = () => {
-    setShowStyleEditor(true);
-  };
-
-  // Mở Remotion Studio trong tab mới — dùng từ nút bên trong StyleEditor
-  const handleOpenRemotionStudio = async () => {
-    try {
-      const aspect = currentInput['aspectRatio'] || '9:16';
-      const orientation = aspect === '16:9' ? 'landscape' : 'portrait';
-      const res = await fetch('/api/prompts/start-studio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: activeCategory, orientation })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        window.open(data.url, '_blank');
-      } else {
-        alert(data.error || 'Không thể khởi chạy Remotion Studio.');
-      }
-    } catch {
-      alert('Lỗi kết nối khi khởi chạy Remotion Studio.');
-    }
-  };
-
-  // Render video trực tiếp từ StyleEditor — dùng remotionConfig đã lưu của result hiện tại
-  const handleRenderFromStyle = async () => {
-    if (!result) {
-      setStyleRenderMsg('Lỗi: Chưa có kịch bản nào — hãy tạo kịch bản trước rồi mới render.');
-      return;
-    }
-    const folderPath = result.input?.folderPath;
-    if (!folderPath) {
-      setStyleRenderMsg('Lỗi: Không tìm thấy thư mục project của kịch bản hiện tại.');
-      return;
-    }
-    setIsStyleRendering(true);
-    setStyleRenderMsg('');
-    try {
-      const rc = result.remotionConfig || {};
-      const orientation = rc.orientation || (currentInput['aspectRatio'] === '16:9' ? 'landscape' : 'portrait');
-      const body = {
-        folderPath,
-        category: activeCategory,
-        orientation,
-        ...(rc.captionStyle        && { captionStyle:        rc.captionStyle }),
-        ...(rc.transitionStyle     && { transitionStyle:     rc.transitionStyle }),
-        ...(typeof rc.bilingual === 'boolean' && { bilingual: rc.bilingual }),
-        ...(rc.captionFont         && { captionFont:         rc.captionFont }),
-        ...(rc.captionFontSize     && { captionFontSize:     rc.captionFontSize }),
-        ...(rc.captionTextColor    && { captionTextColor:    rc.captionTextColor }),
-        ...(rc.captionBgColor      && { captionBgColor:      rc.captionBgColor }),
-        ...(rc.highlightColor      && { highlightColor:      rc.highlightColor }),
-        ...(typeof rc.bgMusicEnabled === 'boolean' && { bgMusicEnabled: rc.bgMusicEnabled }),
-        ...(rc.bgMusicVolume !== undefined && { bgMusicVolume: rc.bgMusicVolume }),
-        segments: result.segments,
-        title: result.title,
-      };
-      const res = await fetch('/api/prompts/render-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStyleRenderMsg('✓ Render thành công! Xem video trong tab "Video đã tạo".');
-      } else {
-        setStyleRenderMsg(`Lỗi: ${data.error || data.details || 'Render thất bại.'}`);
-      }
-    } catch (err) {
-      setStyleRenderMsg(`Lỗi: ${err.message}`);
-    } finally {
-      setIsStyleRendering(false);
-    }
-  };
-
-  const handleSaveStyle = async () => {
-    setStyleSaveError('');
-    let parsed;
-    try {
-      parsed = JSON.parse(styleEditorText);
-    } catch (err) {
-      setStyleSaveError('JSON không hợp lệ, vui lòng kiểm tra lại cú pháp.');
-      return;
-    }
-
-    setIsSavingStyle(true);
-    try {
-      const res = await fetch('/api/prompts/styles', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: activeCategory, style: parsed })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        await fetchStyles();
-        setShowStyleEditor(false);
-      } else {
-        setStyleSaveError(data.error || 'Không thể lưu style.');
-      }
-    } catch (err) {
-      setStyleSaveError('Lỗi kết nối máy chủ.');
-    } finally {
-      setIsSavingStyle(false);
+      showToast.warning('Không thể sao chép, vui lòng copy thủ công.');
     }
   };
 
@@ -517,12 +390,13 @@ export function usePromptStudio(initialCategory) {
         if (result?.id === id) {
           setResult(null);
         }
+        showToast.success('Đã xóa kịch bản thành công.');
       } else {
         const d = await res.json().catch(() => ({}));
-        alert(d.error || 'Lỗi khi xóa kịch bản.');
+        showToast.error(d.error || 'Lỗi khi xóa kịch bản.');
       }
     } catch (err) {
-      alert('Lỗi kết nối khi xóa.');
+      showToast.error('Lỗi kết nối khi xóa.');
     }
   };
 
@@ -564,12 +438,13 @@ export function usePromptStudio(initialCategory) {
           }
           return prev;
         });
+        showToast.success('Đã xóa nhân vật thành công.');
       } else {
         const d = await res.json();
-        alert(d.error || 'Lỗi khi xóa nhân vật.');
+        showToast.error(d.error || 'Lỗi khi xóa nhân vật.');
       }
     } catch (err) {
-      alert('Lỗi kết nối khi xóa nhân vật.');
+      showToast.error('Lỗi kết nối khi xóa nhân vật.');
     }
   };
 
@@ -600,12 +475,13 @@ export function usePromptStudio(initialCategory) {
           setResult(null);
         }
         setSelectedHistoryIds([]);
+        showToast.success(`Đã xóa ${selectedHistoryIds.length} kịch bản.`);
       } else {
         const d = await res.json().catch(() => ({}));
-        alert(d.error || 'Lỗi khi xóa các mục đã chọn.');
+        showToast.error(d.error || 'Lỗi khi xóa các mục đã chọn.');
       }
     } catch (err) {
-      alert('Lỗi kết nối khi xóa.');
+      showToast.error('Lỗi kết nối khi xóa.');
     }
   };
 
@@ -633,10 +509,7 @@ export function usePromptStudio(initialCategory) {
     visibleCategoryKeys: categoryKeysForType(promptType),
     activeCategory, setActiveCategory,
     currentCategory, currentInput,
-    styles,
     isGenerating, errorMsg, result, setResult, showJson, setShowJson, copiedKey,
-    showStyleEditor, setShowStyleEditor, styleEditorText, setStyleEditorText, styleSaveError, isSavingStyle,
-    isStyleRendering, styleRenderMsg, setStyleRenderMsg,
     history, historyLoading, selectedHistoryIds, fetchHistory,
     characters, charactersLoading,
     geminiApiKey, setGeminiApiKey, apiKeyVisible, setApiKeyVisible,
@@ -644,7 +517,7 @@ export function usePromptStudio(initialCategory) {
     fetchSettings, handleSaveSettings,
     useGemini, setUseGemini, durationRange, setDurationRange,
     handleFieldChange, handleToggleCharacter, handleGenerate, handleCopy,
-    handleOpenStyleEditor, handleOpenRemotionStudio, handleRenderFromStyle, handleSaveStyle, handleDeleteHistory,
+    handleDeleteHistory,
     handleToggleSelectHistory, handleToggleSelectAllHistory, handleDeleteSelectedHistory,
     handleUploadCharacter, handleDeleteCustomCharacter, handleUpdateCharacter
   };

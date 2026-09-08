@@ -4,33 +4,156 @@
  * Gemini chọn asset ID + toạ độ (x,y) cho từng slide; Remotion ghép chúng thành cảnh.
  */
 import { buildPunctuationRhythmGuidance } from './narrationPacing.js';
-import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
+import { buildHumanVoiceGuidance } from './humanVoice.js';
+
+const STICK_FIGURE_SLIDE_TIERS = {
+  'under_1m': { slides: '8 đến 12',  seconds: '4 đến 6 giây' },
+  '1_2m':     { slides: '14 đến 20', seconds: '5 đến 7 giây' },
+  '2_3m':     { slides: '20 đến 28', seconds: '5 đến 8 giây' },
+  '3_4m':     { slides: '28 đến 36', seconds: '6 đến 8 giây' },
+  '4_6m':     { slides: '36 đến 48', seconds: '6 đến 9 giây' },
+  '6_8m':     { slides: '48 đến 65', seconds: '6 đến 9 giây' },
+  '8_10m':    { slides: '60 đến 82', seconds: '7 đến 10 giây' },
+};
+
+function buildMackStickFigureStorytellingGuidance({ isVietnamese, topic, G }) {
+  if (isVietnamese) {
+    return `═══════════════════════════════════════════════════════
+CÔNG THỨC KỂ CHUYỆN & HOOK PHONG CÁCH "MACK / WHITEBOARD EXPLAINER" (BẮT BUỘC)
+═══════════════════════════════════════════════════════
+Video này đi theo đúng phong cách phim tài liệu hoạt hình người que nổi tiếng của kênh Mack (như video "How Did Ancient Humans Survive Freezing Winters?"):
+Người dẫn chuyện ngôi thứ ba hóm hỉnh, cuốn hút, thông minh dẫn dắt khán giả qua một vụ án điều tra khoa học / bí ẩn lịch sử / thử thách sinh tồn kỳ thú hoặc nghịch lý tâm lý đời thường, trong khi nhân vật người que đóng vai diễn xuất trực quan trên nền bảng trắng (whiteboard).
+
+1. HOOK 15 GIÂY ĐẦU (SLIDE 1 ĐẾN 3) — CÔNG THỨC "CỖ MÁY THỜI GIAN & TƯƠNG PHẢN THỜI HIỆN ĐẠI":
+   TUYỆT ĐỐI KHÔNG mở bài kiểu văn nghị luận sách giáo khoa ("Kỷ băng hà là thời kỳ...", "Trì hoãn là một vấn đề...").
+   Phải mở bài bằng 3 bước visual thought-experiment:
+
+   • BƯỚC 1: TÌNH HUỐNG TƯỞNG TƯỢNG GIÀU GIÁC QUAN ("Hãy tưởng tượng..." / "Imagine...")
+     Ném thẳng người xem vào một hoàn cảnh thực tế khốc liệt, trớ trêu hoặc kỳ lạ với chi tiết giác quan rõ mồn một. Cắt bỏ mọi tiện nghi hiện đại.
+     - Về sinh tồn / cổ đại / khoa học:
+       "Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông kỷ băng hà. Gió tuyết -30 độ rít gào buốt đến tận xương. Không lò sưởi, không áo phao lông vũ, không app giao đồ ăn — chỉ có bạn và một đốm lửa sắp tắt."
+     - Về thói quen / tâm lý đời sống:
+       "Hãy tưởng tượng lúc 2 giờ sáng. Còn 6 tiếng nữa là thi, nhưng bạn lại đang thức trắng xem người tiền sử mài rìu đá săn voi ma mút. Vì sao não bộ bạn lại làm thế?"
+
+   • BƯỚC 2: CÚ BẺ TƯƠNG PHẢN HÀI HƯỚC VỚI CON NGƯỜI HIỆN ĐẠI
+     So sánh ngay hoàn cảnh sinh tử đó với sự "mong manh, buồn cười" của con người thời hiện đại:
+     "Chúng ta ngày nay chỉ cần điện thoại tụt còn 5% pin hay phòng lạnh dưới 22 độ là đã than trời. Nếu thả một người hiện đại vào vùng băng tuyết đó, họ sẽ thành que kem hình người chỉ sau 45 phút."
+
+   • BƯỚC 3: MỞ NÚT THẮNG NGHỊCH LÝ CỐT LÕI (OPEN LOOP)
+     Đặt câu hỏi lớn khiến người xem không thể rời mắt:
+     "Thế nhưng tổ tiên chúng ta — những sinh vật không móng vuốt, chẳng có lông thú dày — lại thống trị cả mùa đông băng giá suốt hàng vạn năm. Làm thế nào họ làm được điều không tưởng đó?"
+
+2. ĐỘNG CƠ KỂ CHUYỆN: "ĐIỀU TRA PHÁ ÁN KHOA HỌC" THAY VÌ GIẢNG BÀI:
+   Mỗi phân đoạn phải được kể như một manh mối điều tra vụ án, hé lộ từng mảnh ghép bất ngờ:
+
+   • KỂ VỀ MANH MỐI BẤT NGỜ THAY VÌ KIẾN THỨC CHUNG CHUNG:
+     Đừng chỉ nói "người xưa mặc quần áo ấm". Hãy kể câu chuyện CÁCH KHOA HỌC TÌM RA:
+     "Quần áo da thú rục nát sau vài thế kỷ, vậy làm sao ta biết tổ tiên bắt đầu mặc đồ từ khi nào? Các nhà khoa học không tìm thấy áo... mà đi phân tích ADN của loài chấy rận! Chấy thân chỉ sống được trong thớ vải, và chúng tách khỏi chấy đầu đúng 100.000 năm trước."
+
+   • CHỨNG CỨ SINH HỌC & GIẢI PHẪU THỰC TẾ:
+     "Họ có đi giày không? Da giày không còn, nhưng xương ngón chân thì còn! Đi chân trần làm xương ngón chân to dày, đi giày cách nhiệt làm xương teo nhỏ. Hóa thạch 30.000 năm trước cho thấy ngón chân đã bắt đầu nhỏ lại — chứng minh họ đã có đôi giày tuyết đầu tiên!"
+
+   • NHÂN CÁCH HÓA CÁC KHÁI NIỆM (GIVING PERSONALITY):
+     Xem các yếu tố tự nhiên như một nhân vật sống động:
+     "Lửa không đơn thuần là công cụ. Lửa là đứa trẻ háu ăn và khó tính nhất bộ tộc, bắt bạn phải canh giữ suốt ngày đêm. Nếu đốm lửa tắt giữa bão tuyết, cả bộ tộc sẽ chết."
+
+   • ẨN DỤ HÀI HƯỚC BẰNG ĐỒ VẬT THỜI HIỆN ĐẠI:
+     - Tủy và mỡ voi ma mút = thanh năng lượng calo siêu cấp.
+     - Ống sừng rỗng chứa nấm mốc giữ than hồng = "cục sạc dự phòng" thời tiền sử.
+     - Lều làm từ xương voi ma mút = "căn hộ duplex cao cấp kỷ băng hà".
+     - Cả bộ tộc ôm nhau ngủ = "nhóm chat truyền nhiệt".
+
+   • NHỊP DẪN DẮT LY KỲ:
+     Dùng các câu chuyển tiếp lôi cuốn: "Và đây là lúc mọi chuyện trở nên điên rồ...", "Thế nhưng một thảm họa khác ập tới...", "Chìa khóa sinh tồn thực sự nằm ở chỗ không ai ngờ tới..."
+
+3. KẾT THÚC Ý NGHĨA & LIÊN HỆ THỜI HIỆN ĐẠI (CLIMAX & TAKEAWAY):
+   Không kết bài sáo rỗng. Kết bằng một liên tưởng sâu sắc nối liền quá khứ và hiện tại:
+   "Lần tới khi bạn rùng mình vì một cơn gió lạnh hay cáu kỉnh vì đợi lò vi sóng 2 phút, hãy nhớ rằng: chảy trong huyết quản bạn là dòng máu của những kẻ đã đánh bại kỷ băng hà chỉ bằng một mẩu đá nhọn và một đốm lửa hồng."
+
+4. BIÊN ĐẠO NHÂN VẬT NGƯỜI QUE TRỰC QUAN (WHITEBOARD ACTING):
+   Gemini PHẢI chọn tư thế và đạo cụ khớp chuẩn từng nhịp cảm xúc:
+   - Lạnh buốt, cùng cực: pose_sad_hugging_knees, pose_stressed, pose_exhausted (ở y=${G.ground}, anchor "bottom").
+   - Lười biếng thời hiện đại: pose_phone_sitting cùng prop_phone, prop_coffee_cup.
+   - Soi xét manh mối điều tra: pose_thinking, pose_reading, prop_notebook, prop_pencil, prop_hourglass.
+   - Ngọn lửa & sinh tồn: sym_fire, pose_meditating, pose_happy_arms_up.
+   - Kinh ngạc, cảnh báo nguy hiểm: pose_shocked, sym_warning, sym_exclamation, sym_lightning.
+   - Chiến thắng, làm chủ thiên nhiên: pose_celebrating, sym_star, sym_trophy.`;
+  }
+
+  return `═══════════════════════════════════════════════════════
+THE "MACK / WHITEBOARD EXPLAINER" STORYTELLING FORMULA (MANDATORY)
+═══════════════════════════════════════════════════════
+This video is built in the viral style of Mack / Kurzgesagt / MinutePhysics stick-figure documentaries (e.g. "How Did Ancient Humans Survive Freezing Winters?"):
+A witty, charismatic, highly knowledgeable third-person narrator walks the audience through a gripping mystery, prehistoric survival triumph, scientific phenomenon, or psychology paradox, while a stick-figure acts out the drama on a whiteboard.
+
+1. THE HOOK (FIRST 15 SECONDS — SLIDES 1 TO 3) — THE TIME-MACHINE & MODERN CONTRAST:
+   DO NOT open with a dry textbook statement or generic lecture ("Ancient humans lived in the Ice Age...", "Procrastination is bad...").
+   Follow the 3-Step Thought Experiment Hook:
+
+   • STEP 1: SENSORY TIME-MACHINE SCENARIO ("Imagine...")
+     Drop the viewer directly into a brutal, high-stakes, absurd, or tangible situation with sharp sensory details:
+     - Survival / History / Science:
+       "Imagine it's 40,000 years ago in northern Europe. The air hits your face like frozen needles at minus thirty degrees. No central heating, no goose-down jackets, no delivery apps — just you, a dying campfire, and a blizzard howling outside."
+     - Psychology / Habits:
+       "Imagine it's 2 AM. You have an exam in six hours, yet you're wide awake watching a twenty-minute documentary about how ancient humans hunted woolly mammoths. Why does your brain do this?"
+
+   • STEP 2: RELATABLE MODERN CONTRAST & COMEDIC PUNCHLINE
+     Immediately contrast that extreme struggle with modern human fragility:
+     "Most of us today start panicking when our phone hits 5% battery or when the AC drops below 20 degrees. If you dropped an average modern human into that tundra, they'd turn into a human popsicle in about 45 minutes."
+
+   • STEP 3: THE HIGH-STAKES OPEN LOOP / CENTRAL PARADOX
+     Ask the big question that makes clicking away impossible:
+     "Yet our ancestors — hairless, clawless tropical apes with stone knives — didn't just survive this frozen nightmare. They conquered the globe. How on earth did they pull it off?"
+
+2. THE INVESTIGATIVE STORYTELLING ENGINE (BODY CHAPTERS):
+   Treat each concept as a FORENSIC DETECTIVE INVESTIGATION solving progressive mysteries:
+
+   • FORENSIC CLUES OVER TEXTBOOK FACTS:
+     Don't just say "humans wore animal furs." Reveal the detective story of HOW SCIENTISTS DISCOVERED IT:
+     "Animal hides rot in a few hundred years. So how do archaeologists know when clothes were invented? They didn't find frozen coats — they sequenced the DNA of body lice! Head lice and body lice split 100,000 years ago because body lice can only live in clothing."
+
+   • ANATOMICAL & PHYSICAL EVIDENCE:
+     "Did they have shoes? Leather shoes don't survive. But toe bones do! Walking barefoot builds thick toe bones; wearing insulated boots makes them slender. Fossil toes from 30,000 years ago showed modern delicate bones — Arctic boots were already in use!"
+
+   • ANTHROPOMORPHISM (GIVING CONCEPTS PERSONALITY):
+     "Fire wasn't just a heat source. Fire was the hungriest, most demanding baby in the tribe that required 24/7 care. If it died in a blizzard, the whole bloodline died with it."
+
+   • RELATABLE MODERN ANALOGIES:
+     - Mammoth bone marrow = prehistoric high-octane energy bars.
+     - Fungus in a hollow horn = prehistoric thermos / power bank for embers.
+     - Mammoth bone tent = Ice Age luxury duplex.
+     - Sleeping huddled together = ancient human group chat for body heat.
+
+   • SUSPENSE & MOMENTUM:
+     Use punchy narrative bridges: "Here's where it gets crazy...", "And that led to an even deadlier problem...", "To solve this, they needed an evolutionary superpower..."
+
+3. MEMORABLE CLIMAX & TAKEAWAY:
+   End with a powerful, witty reflection bridging the ancient/scientific past to our modern lives:
+   "So the next time you shiver from a draft or complain about a cold room, remember: running through your veins is the DNA of survivors who stared down Ice Age blizzards with nothing but a chipped stone and a glowing ember."
+
+4. STICK FIGURE VISUAL CHOREOGRAPHY:
+   Every narration beat must be physically acted out by the stick figure on the whiteboard:
+   - Cold / misery / shivering: pose_sad_hugging_knees, pose_stressed, pose_exhausted (at y=${G.ground}, anchor "bottom").
+   - Modern laziness / distraction: pose_phone_sitting with prop_phone, prop_coffee_cup, or pose_lying_phone.
+   - Fire keeping / warmth: sym_fire floating near character, pose_meditating or pose_pointing_right.
+   - Scientific clue / detective investigation: pose_thinking, pose_reading, prop_notebook, prop_pencil, prop_hourglass.
+   - Shock / danger: pose_shocked, sym_warning, sym_exclamation, sym_lightning.
+   - Triumph / survival / mastery: pose_celebrating, sym_star, sym_trophy, pose_happy_arms_up.`;
+}
 
 export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isBilingual = true;
   const isVietnamese = (input.narrationLanguage || 'en') === 'vi';
 
-  const LONG_TIERS = {
-    '4_6m': { slides: '35 đến 48', seconds: '6 đến 10 giây' },
-    '6_8m': { slides: '48 đến 65', seconds: '6 đến 10 giây' },
-    '8_10m': { slides: '60 đến 82', seconds: '7 đến 11 giây' },
+  const tierConfig = STICK_FIGURE_SLIDE_TIERS[durationRange] || {
+    slides: durationInfo.segmentsCount || '10 đến 14',
+    seconds: '4 đến 7 giây',
   };
-  const longTier = LONG_TIERS[durationRange];
-  const targetSlides = longTier ? longTier.slides : durationInfo.segmentsCount;
-  const slideSecondsHint = longTier ? longTier.seconds : '3 đến 6 giây';
+  const targetSlides = tierConfig.slides;
+  const slideSecondsHint = tierConfig.seconds;
 
   // Hình học khung hình — phải tính sẵn rồi nhúng SỐ CỤ THỂ vào prompt. Để Gemini tự suy toạ độ
   // theo tỉ lệ thì nó đặt cảnh trí đè lên nhân vật (đúng lỗi đã gặp: nhân vật lọt trong toà nhà).
-  //
-  // Ràng buộc gốc: mỗi asset được vẽ trong một hộp VUÔNG cạnh = 32% CHIỀU CAO khung. Ảnh pose lại
-  // ĐỤC HOÀN TOÀN (ô trắng có hình vẽ bên trong, đo được 100% pixel alpha>0) và nằm ở zIndex 2 —
-  // trên cảnh trí zIndex 0 — nên bất cứ bg_* nào chạm vào hộp nhân vật đều bị ô trắng đó xoá mất.
-  // Ngược lại prop_*/sym_* trong suốt thật (13–32% pixel đục) và vẽ ĐÈ LÊN nhân vật, nên đứng gần
-  // vẫn an toàn.
-  //
-  // Hệ quả cho khung DỌC 9:16: hộp vuông tính theo chiều cao, mà khung chỉ rộng 1080px, nên riêng
-  // nhân vật đã chiếm ~60% chiều ngang — không còn chỗ đặt cảnh trí hai bên. Vì vậy 9:16 chỉ dùng
-  // nhân vật + vật thể trên trời/ký hiệu (đều trong suốt, nằm cao hơn hẳn đầu nhân vật).
   const isLandscape = (input.aspectRatio || '9:16') === '16:9';
   const G = isLandscape
     ? { frame: '16:9 landscape (1920×1080 px)', ground: 82, charScale: 1.35, charRange: '1.30 – 1.40',
@@ -51,7 +174,7 @@ NARRATION STYLE:
 ${buildHumanVoiceGuidance({ isVietnamese })}
 ${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
-${buildHookGuidance({ isVietnamese, topic: input.scenario })}
+${buildMackStickFigureStorytellingGuidance({ isVietnamese, topic: input.scenario, G })}
 
 ═══════════════════════════════════════════════════════
 PNG ASSET LIBRARY — use ONLY these exact IDs, no others
@@ -244,39 +367,51 @@ RETURN FORMAT — raw JSON only, no markdown code fences
 ═══════════════════════════════════════════════════════
 
 {
-  "title": "Episode title",
+  "title": "${isVietnamese ? 'Làm Sao Người Cổ Đại Sống Sót Qua Mùa Đông Kỷ Băng Hà?' : 'How Did Ancient Humans Survive Freezing Winters?'}",
   "segments": [
     {
       "segmentNumber": 1,
       "layout": "default",
-      "dialogueOrNarration": "Full narration line in third-person voiceover.",
-      "subtitle": "${isVietnamese ? 'Câu tiếng Việt.\\nEnglish translation.' : isBilingual ? 'English line.\\nVietnamese translation.' : 'Caption text.'}",
-      "durationSeconds": 5,
+      "dialogueOrNarration": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu. Gió tuyết âm ba mươi độ rít gào, không lò sưởi, không chăn điện, chỉ có bạn và một đốm lửa sắp tàn.' : 'Imagine it is 40,000 years ago in northern Europe. The icy wind hits your face like glass at minus thirty degrees, with no central heating and no delivery apps.'}",
+      "subtitle": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu.\\nImagine it is 40,000 years ago in northern Europe during an Ice Age winter.' : isBilingual ? 'Imagine it is 40,000 years ago in northern Europe.\\nHãy tưởng tượng bạn ở Bắc Âu 40.000 năm trước giữa mùa đông kỷ băng hà.' : 'Imagine it is 40,000 years ago in northern Europe.'}",
+      "durationSeconds": 6,
       "elements": [
-        { "asset": "pose_thinking", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 }
+        { "asset": "pose_sad_hugging_knees", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
+        { "asset": "sym_lightning", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.4 }
       ]
     },
     {
       "segmentNumber": 2,
       "layout": "caption-left",
-      "dialogueOrNarration": "Narration that names one concrete thing, balanced layout.",
-      "subtitle": "...",
-      "durationSeconds": 5,
+      "dialogueOrNarration": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm xuống dưới hai mươi độ là đã kêu trời. Nếu bị thả vào đó, đa số sẽ thành que kem hình người chỉ sau bốn mươi phút.' : 'Most modern humans panic when the room drops below twenty degrees. Dropped into that tundra, an average person becomes a human popsicle in forty minutes.'}",
+      "subtitle": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.\\nMost modern humans complain when the room drops below 20 degrees.' : isBilingual ? 'Most modern humans complain when the room drops below 20 degrees.\\nCon người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.' : 'Most modern humans complain when the room drops below 20 degrees.'}",
+      "durationSeconds": 6,
       "elements": [
-        { "asset": "pose_phone_sitting", "x": 78, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": true, "delay": 0    },
-        { "asset": "prop_desk_lamp",     "x": 22, "y": ${G.ground}, "scale": 0.5, "anchor": "bottom", "zIndex": 3, "flip": false, "delay": 0.3 }
+        { "asset": "pose_phone_sitting", "x": ${G.laneR}, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": true, "delay": 0 },
+        { "asset": "prop_coffee_cup",   "x": ${G.laneL}, "y": ${G.ground}, "scale": 0.5, "anchor": "bottom", "zIndex": 3, "flip": false, "delay": 0.3 }
       ]
     },
     {
       "segmentNumber": 3,
+      "layout": "default",
+      "dialogueOrNarration": "${isVietnamese ? 'Vậy làm sao các nhà khảo cổ biết người xưa bắt đầu mặc quần áo từ khi nào? Họ không tìm thấy áo da thú... mà đã giải mã ADN của loài chấy rận!' : 'So how do archaeologists know when humans first wore clothes? They did not find ancient jackets... they sequenced the DNA of body lice!'}",
+      "subtitle": "${isVietnamese ? 'Làm sao ta biết khi nào con người bắt đầu mặc quần áo?\\nHow do we know when humans first wore clothes?' : isBilingual ? 'How do we know when humans first wore clothes?\\nLàm sao ta biết khi nào con người bắt đầu mặc quần áo?' : 'How do we know when humans first wore clothes?'}",
+      "durationSeconds": 6,
+      "elements": [
+        { "asset": "pose_thinking", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
+        { "asset": "sym_thought_bubble", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.3 }
+      ]
+    },
+    {
+      "segmentNumber": 4,
       "layout": "bullets",
-      "dialogueOrNarration": "Here are three simple rules for better habits.",
-      "subtitle": "...",
+      "dialogueOrNarration": "${isVietnamese ? 'Để sinh tồn qua mùa đông băng giá, người cổ đại đã làm chủ ba vũ khí tiến hóa tối thượng.' : 'To survive the freezing winter, ancient humans mastered three evolutionary superpowers.'}",
+      "subtitle": "${isVietnamese ? 'Ba vũ khí sinh tồn tối thượng của người cổ đại.\\nThree evolutionary superpowers of ancient humans.' : isBilingual ? 'Three evolutionary superpowers of ancient humans.\\nBa vũ khí sinh tồn tối thượng của người cổ đại.' : 'Three evolutionary superpowers of ancient humans.'}",
       "durationSeconds": 6,
       "bullets": [
-        "**First**, put your phone away.",
-        "**Second**, sleep early.",
-        "**Finally**, stay consistent."
+        "${isVietnamese ? '**Một**, chế tạo kim may xương và quần áo may kín gió.' : '**First**, bone needles and windproof tailored clothing.'}",
+        "${isVietnamese ? '**Hai**, xem lửa như thành viên sống của bộ tộc.' : '**Second**, treating fire as a living tribal member.'}",
+        "${isVietnamese ? '**Ba**, nạp calo từ tủy và mỡ voi ma mút.' : '**Finally**, consuming dense calories from mammoth fat.'}"
       ]
     }
   ],

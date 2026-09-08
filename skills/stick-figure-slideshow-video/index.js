@@ -7,7 +7,7 @@ export default defineSkill({
   meta: {
     id: 'stick_figure_slideshow',
     name: 'Video Người Que Minh Họa (Stick Figure)',
-    description: 'Phong cách whiteboard vẽ tay nét đen trên nền trắng, giải thích các chủ đề đời sống, tâm lý, công việc.',
+    description: 'Phong cách phóng sự / tài liệu hoạt hình người que vẽ tay (Mack, Kurzgesagt) — giải thích khoa học, sinh tồn cổ đại, tâm lý và đời sống.',
     icon: 'Edit3',
     aspectRatio: '9:16',
     renderEngine: 'remotion',
@@ -29,7 +29,7 @@ export default defineSkill({
         label: 'Chủ đề / Vấn nạn muốn thuyết minh',
         type: 'textarea',
         required: true,
-        placeholder: 'Ví dụ: Tại sao người thông minh thường ít nói? Phân tích tâm lý...',
+        placeholder: 'Ví dụ: Làm sao người cổ đại sống sót qua mùa đông kỷ băng hà? Hoặc: Vì sao chúng ta hay trì hoãn?...',
       },
       {
         name: 'narrationLanguage',

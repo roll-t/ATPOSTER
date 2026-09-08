@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-karma" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="gold-karma" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-karma)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Lotus & Galaxy Spiral Motif -->
+  <g transform="translate(100, 95)">
+    <circle cx="0" cy="0" r="30" fill="none" stroke="url(#gold-karma)" stroke-width="1" opacity="0.6"/>
+    <circle cx="0" cy="0" r="22" fill="none" stroke="url(#gold-karma)" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.4"/>
+    <!-- Stylized Lotus / flame -->
+    <path d="M0 -15 C6 -6 12 6 0 16 C-12 6 -6 -6 0 -15 Z" fill="url(#gold-karma)"/>
+    <path d="M-8 -6 C-14 0 -18 10 -6 14" fill="none" stroke="url(#gold-karma)" stroke-width="1.2"/>
+    <path d="M8 -6 C14 0 18 10 6 14" fill="none" stroke="url(#gold-karma)" stroke-width="1.2"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="158" fill="#ffffff" font-size="16" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">MUÔN KIẾP</text>
+  <text x="100" y="184" fill="url(#gold-karma)" font-size="18" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">NHÂN SINH</text>
+  
+  <text x="100" y="208" fill="#e2e8f0" font-size="7.5" font-family="Georgia, serif" font-style="italic" text-anchor="middle">Many Lives — Many Times</text>
+  
+  <line x1="55" y1="228" x2="145" y2="228" stroke="url(#gold-karma)" stroke-width="0.8" opacity="0.6"/>
+  
+  <!-- Author -->
+  <text x="100" y="252" fill="#ffffff" font-size="13" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1.5">NGUYÊN PHONG</text>
+  <text x="100" y="268" fill="#fef08a" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">QUY LUẬT NHÂN QUẢ &amp; VŨ TRỤ</text>
+</svg>

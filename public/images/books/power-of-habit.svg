@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-poh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="60%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-poh)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.25)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Habit Loop Graphic: 3 arrows in circle -->
+  <g transform="translate(100, 95)">
+    <circle cx="0" cy="0" r="28" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="25, 10" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="10" fill="#fef08a"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="152" fill="#ffffff" font-size="14" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1">SỨC MẠNH CỦA</text>
+  <text x="100" y="178" fill="#fef08a" font-size="19" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="1.5">THÓI QUEN</text>
+  
+  <text x="100" y="202" fill="#ffedd5" font-size="8" font-family="system-ui, sans-serif" font-weight="700" text-anchor="middle">The Power of Habit</text>
+  <text x="100" y="216" fill="#fed7aa" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">Tại Sao Chúng Ta Làm Điều Ta Làm</text>
+  
+  <line x1="55" y1="232" x2="145" y2="232" stroke="#ffffff" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Author -->
+  <text x="100" y="254" fill="#ffffff" font-size="12" font-family="system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1">CHARLES DUHIGG</text>
+  <text x="100" y="270" fill="#fef08a" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">PHÓNG VIÊN ĐOẠT GIẢI PULITZER</text>
+</svg>

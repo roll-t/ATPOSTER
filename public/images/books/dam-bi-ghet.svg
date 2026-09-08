@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-dam" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="60%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-dam)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Minimalist Staircase & Silhouette -->
+  <g transform="translate(100, 95)">
+    <!-- Steps -->
+    <path d="M-40 25 L-20 25 L-20 10 L0 10 L0 -5 L20 -5 L20 -20 L40 -20" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.7"/>
+    <!-- Yellow light / moon -->
+    <circle cx="25" cy="-35" r="14" fill="#fbbf24" opacity="0.9"/>
+    <!-- Figure -->
+    <circle cx="0" cy="-16" r="3" fill="#ffffff"/>
+    <line x1="0" y1="-13" x2="0" y2="-2" stroke="#ffffff" stroke-width="1.5"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="155" fill="#38bdf8" font-size="12" font-family="system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="1">DŨNG CẢM ĐỂ HẠNH PHÚC</text>
+  <text x="100" y="185" fill="#ffffff" font-size="22" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">DÁM BỊ GHÉT</text>
+  
+  <text x="100" y="208" fill="#cbd5e1" font-size="7.5" font-family="system-ui, sans-serif" text-anchor="middle">Triết lý tâm lý học Alfred Adler</text>
+  
+  <line x1="55" y1="225" x2="145" y2="225" stroke="#38bdf8" stroke-width="0.75" opacity="0.4"/>
+  
+  <!-- Author -->
+  <text x="100" y="248" fill="#f8fafc" font-size="10" font-family="system-ui, sans-serif" font-weight="700" text-anchor="middle">KISHIMI ICHIRO</text>
+  <text x="100" y="262" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" font-weight="600" text-anchor="middle">&amp; KOGA FUMITAKE</text>
+</svg>

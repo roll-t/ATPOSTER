@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { showToast } from './Toast.js';
 
 export default function SettingsModal({
   show,
@@ -35,11 +36,12 @@ export default function SettingsModal({
       const data = await res.json();
       if (data.success) {
         setGeminiTestResults(data.results || []);
+        showToast.success('Kiểm tra Gemini Key thành công!');
       } else {
-        alert(data.error || 'Lỗi kiểm tra Gemini Key');
+        showToast.error(data.error || 'Lỗi kiểm tra Gemini Key');
       }
     } catch (err) {
-      alert('Lỗi kết nối khi kiểm tra Gemini Key: ' + err.message);
+      showToast.error('Lỗi kết nối khi kiểm tra Gemini Key: ' + err.message);
     } finally {
       setTestingGemini(false);
     }

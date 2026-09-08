@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-dac" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#172554"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="gold-dac" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#facc15"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-dac)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  
+  <rect x="20" y="18" width="160" height="264" fill="none" stroke="url(#gold-dac)" stroke-width="1" opacity="0.4"/>
+  <rect x="23" y="21" width="154" height="258" fill="none" stroke="url(#gold-dac)" stroke-width="0.5" opacity="0.3"/>
+  
+  <text x="100" y="52" fill="#93c5fd" font-size="8" font-family="system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="1.5">FIRST NEWS</text>
+  
+  <!-- Laurel / Emblem Motif -->
+  <g transform="translate(100, 100)">
+    <circle cx="0" cy="0" r="26" fill="none" stroke="url(#gold-dac)" stroke-width="1.5"/>
+    <circle cx="0" cy="0" r="22" fill="none" stroke="url(#gold-dac)" stroke-width="0.5" opacity="0.6"/>
+    <text x="0" y="6" fill="url(#gold-dac)" font-size="14" font-family="Georgia, serif" font-weight="700" text-anchor="middle">★</text>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="162" fill="url(#gold-dac)" font-size="22" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">ĐẮC</text>
+  <text x="100" y="188" fill="url(#gold-dac)" font-size="22" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">NHÂN TÂM</text>
+  
+  <text x="100" y="212" fill="#e2e8f0" font-size="7.5" font-family="Georgia, serif" font-style="italic" text-anchor="middle">How to Win Friends &amp; Influence People</text>
+  
+  <line x1="65" y1="230" x2="135" y2="230" stroke="url(#gold-dac)" stroke-width="0.8" opacity="0.5"/>
+  
+  <!-- Author -->
+  <text x="100" y="254" fill="#ffffff" font-size="13" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1">DALE CARNEGIE</text>
+  <text x="100" y="270" fill="#94a3b8" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">CUỐN SÁCH BÁN CHẠY MỌI THỜI ĐẠI</text>
+</svg>

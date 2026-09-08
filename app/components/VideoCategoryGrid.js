@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 
 // --- PREVIEW COMPONENTS FOR DYNAMIC THUMBNAILS ---
@@ -393,7 +394,7 @@ function BuddhistWisdomPreview() {
           padding: '2px 8px',
           borderRadius: '12px'
         }}>
-          100% ENGLISH · VIETSUB
+          100% TIẾNG NHẬT
         </div>
       </div>
 
@@ -474,6 +475,92 @@ function BuddhistWisdomPreview() {
   );
 }
 
+function JapaneseHistoryPreview() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      padding: '10px 12px 8px 12px',
+      boxSizing: 'border-box'
+    }}>
+      {/* Background Japanese History Artwork */}
+      <div
+        className="card-bg-layer"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url(/card-bg/japanese_history.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 42%',
+          transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+          zIndex: 0
+        }}
+      />
+
+      {/* Dark gradient overlay for text readability */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(180deg, rgba(8, 6, 12, 0.72) 0%, rgba(8, 6, 12, 0.15) 45%, rgba(8, 6, 12, 0.88) 100%)',
+        zIndex: 1,
+        pointerEvents: 'none'
+      }} />
+
+      {/* Top Header Label */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2, position: 'relative' }}>
+        <span style={{ fontSize: '8.5px', color: '#fda4af', fontWeight: 800, letterSpacing: '0.8px', textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
+          ⚔️ SENGOKU & SAMURAI
+        </span>
+        <div style={{
+          background: 'rgba(244, 63, 94, 0.28)',
+          border: '1px solid rgba(244, 63, 94, 0.5)',
+          color: '#fecdd3',
+          fontSize: '8.5px',
+          fontWeight: 900,
+          padding: '2px 8px',
+          borderRadius: '12px',
+          backdropFilter: 'blur(6px)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+        }}>
+          100% TIẾNG NHẬT
+        </div>
+      </div>
+
+      {/* Center spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* Bottom Floating Quote */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', zIndex: 2, position: 'relative' }}>
+        <div style={{
+          fontSize: '9.5px',
+          fontWeight: 800,
+          color: '#fff',
+          textAlign: 'center',
+          fontFamily: 'serif',
+          letterSpacing: '-0.2px',
+          textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 10px rgba(244, 63, 94, 0.5)'
+        }}>
+          "天下布武 — Hào Khí Thời Đại Samurai"
+        </div>
+        <div style={{
+          fontSize: '8px',
+          color: 'rgba(254, 205, 211, 0.85)',
+          textAlign: 'center',
+          fontWeight: 600,
+          textShadow: '0 2px 6px rgba(0,0,0,0.9)'
+        }}>
+          Dã sử Sengoku · Huyền thoại Samurai & Ninja
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CARD_CONFIGS = {
   buddhist_wisdom: {
     badge: '🪷 PHẬT GIÁO & ZEN',
@@ -481,14 +568,17 @@ const CARD_CONFIGS = {
     accentColor: '#f59e0b',
     glowColor: 'rgba(245, 158, 11, 0.3)',
     buttonTextColor: '#000',
-    tags: ['🎙️ Giọng Podcast Nhẹ Nhàng', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Màu Nước Giấy Trắng (16:9)', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 8 - 20 Phút', '🖼️ Ảnh Chạy Theo Giọng Đọc']
+    shortDescription: 'Triết lý Phật giáo, lời Phật dạy & thiền định kết hợp tranh thuỷ mặc cổ phong.',
+    tags: ['🪷 Thiền & Triết Lý', '📜 Tiếng Nhật/Việt', '⏱️ 8 - 20 Phút']
   },
   japanese_history: {
+    bgImg: '/card-bg/japanese_history.jpg',
     badge: '⚔️ LỊCH SỬ NHẬT BẢN',
     badgeBg: 'linear-gradient(135deg, #f43f5e, #be123c)',
     accentColor: '#f43f5e',
     glowColor: 'rgba(244, 63, 94, 0.3)',
-    tags: ['🏯 Lịch Sử · Samurai · Ninja', '🏷️ Tag Cảm Xúc ElevenLabs v3', '🎨 Cùng Nét Vẽ Với Skill Phật Giáo', '📜 100% Tiếng Nhật (có dịch Việt)', '⏱️ Video Dài 4 - 20 Phút', '🖼️ Ảnh Chạy Theo Giọng Đọc']
+    shortDescription: 'Dã sử & danh tướng Sengoku, Samurai và các trận chiến kinh điển thời Mạc Phủ.',
+    tags: ['🏯 Lịch Sử & Samurai', '📜 Tiếng Nhật/Việt', '⏱️ 4 - 20 Phút']
   },
   stick_figure_slideshow: {
     bgImg: '/card-bg/stick_figure_slideshow.png',
@@ -496,7 +586,8 @@ const CARD_CONFIGS = {
     badgeBg: 'linear-gradient(135deg, #fe2c55, #ff0055)',
     accentColor: '#fe2c55',
     glowColor: 'rgba(254, 44, 85, 0.25)',
-    tags: ['🎨 2D Người Que Nhất Quán', '📱 9:16 & 💻 16:9', '🎬 Remotion Slideshow MP4']
+    shortDescription: 'Trình chiếu người que 2D đen trắng tối giản kể chuyện đời sống & bài học ý nghĩa.',
+    tags: ['🎨 2D Người Que', '📱 9:16 & 💻 16:9', '🎬 Slideshow MP4']
   },
   reading_practice: {
     bgImg: '/card-bg/reading_practice.png',
@@ -505,72 +596,182 @@ const CARD_CONFIGS = {
     accentColor: '#25f4ee',
     glowColor: 'rgba(37, 244, 238, 0.25)',
     buttonTextColor: '#000',
-    tags: ['🎤 Giọng Đọc Tô Sáng Karaoke', '🇻🇳 Vietsub Tự Động', '📖 Lộ Trình 300 Bài CEFR']
+    shortDescription: 'Bài học đọc tiếng Anh chuẩn CEFR A1-C2, vietsub song song kèm giọng bản xứ.',
+    tags: ['🎤 Giọng Karaoke', '🇻🇳 Vietsub Tự Động', '📖 Lộ Trình CEFR']
   },
   moral_talk_slideshow: {
     badge: '🇻🇳 LỒNG TIẾNG VIỆT',
     badgeBg: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
     accentColor: '#a78bfa',
     glowColor: 'rgba(167, 139, 250, 0.25)',
-    tags: ['✨ Pictogram Phát Sáng', '🇻🇳🇬🇧 Việt/Anh Linh Hoạt', '🎙️ Lồng Tiếng Tự Động']
+    shortDescription: 'Bài học cuộc sống, tóm tắt sách hay bằng tranh pictogram phát sáng nghệ thuật.',
+    tags: ['✨ Pictogram Sáng', '🎙️ Lồng Tiếng Tự Động', '🇻🇳 Lời Bình Triết Lý']
   },
   pexels_talk_video: {
     badge: '🎙️ TÂM SỰ ĐẠO LÝ',
     badgeBg: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
     accentColor: '#a78bfa',
     glowColor: 'rgba(167, 139, 250, 0.25)',
-    tags: ['🎞️ Nền Video Pexels Tự Động', '〰️ Sóng Âm Thanh Giọng Đọc', '🪟 Glass Text Overlay']
+    shortDescription: 'Tâm sự góc nhìn cuộc sống với nền video cảnh Pexels và sóng âm thanh.',
+    tags: ['🎞️ Stock Pexels', '〰️ Sóng Âm Thanh', '🪟 Text Overlay']
   }
 };
 
-export default function VideoCategoryGrid({ onSelectCategory }) {
+export default function VideoCategoryGrid({ onSelectCategory, onOpenVideos }) {
   const allCategoryKeys = ['buddhist_wisdom', 'japanese_history', 'stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
+  const [videoCount, setVideoCount] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/prompts/created-videos')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.videos) setVideoCount(data.videos.length);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <div style={{ padding: '8px 8px 36px 8px', animation: 'fadeIn 0.25s ease-out' }}>
-      {/* Hero Header */}
-      <div style={{ marginBottom: '28px', textAlign: 'left' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
-          borderRadius: '20px',
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          color: 'var(--secondary)',
-          fontSize: '0.78rem',
-          fontWeight: 800,
-          letterSpacing: '0.8px',
-          marginBottom: '14px',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
-        }}>
-          <span>⚡</span> STUDIO SÁNG TẠO VIDEO AI
+    <div style={{ padding: '4px 4px 28px 4px', animation: 'fadeIn 0.25s ease-out' }}>
+      {/* Hero Header với nút "Video Đã Tạo" ở bên phải */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '20px',
+        marginBottom: '22px',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ textAlign: 'left', maxWidth: '720px' }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            borderRadius: '16px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            color: 'var(--secondary)',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            letterSpacing: '0.6px',
+            marginBottom: '10px',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
+          }}>
+            <span>⚡</span> STUDIO SÁNG TẠO VIDEO AI
+          </div>
+
+          <h1 style={{
+            fontSize: '1.65rem',
+            fontWeight: 900,
+            color: '#fff',
+            margin: '0 0 6px 0',
+            letterSpacing: '-0.4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            🎬 Danh Mục Các Chủ Đề Video
+          </h1>
+          <p style={{ color: 'rgba(255, 255, 255, 0.7)', margin: 0, fontSize: '0.84rem', lineHeight: 1.45 }}>
+            Chọn bộ Skill chuyên biệt dưới đây để tự động tạo kịch bản phân đoạn Gemini AI & xuất video Remotion MP4 chất lượng cao.
+          </p>
         </div>
 
-        <h1 style={{
-          fontSize: '2rem',
-          fontWeight: 900,
-          color: '#fff',
-          margin: '0 0 8px 0',
-          letterSpacing: '-0.5px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          🎬 Danh Mục Các Chủ Đề Video
-        </h1>
-        <p style={{ color: 'rgba(255, 255, 255, 0.7)', margin: 0, fontSize: '0.92rem', maxWidth: '720px', lineHeight: 1.5 }}>
-          Chọn bộ Skill chuyên biệt dưới đây để tự động tạo kịch bản phân đoạn Gemini AI & xuất video Remotion MP4 chất lượng cao.
-        </p>
+        {/* Nút "Video Đã Tạo" nằm bên phải chỗ người dùng đánh dấu */}
+        {onOpenVideos && (
+          <button
+            type="button"
+            onClick={onOpenVideos}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 18px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(255, 46, 99, 0.14), rgba(167, 139, 250, 0.2))',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              color: '#fff',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              backdropFilter: 'blur(12px)',
+              userSelect: 'none',
+              whiteSpace: 'nowrap'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.borderColor = 'rgba(255, 46, 99, 0.5)';
+              e.currentTarget.style.boxShadow = '0 12px 28px rgba(255, 46, 99, 0.28)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 46, 99, 0.24), rgba(167, 139, 250, 0.3))';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.18)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 46, 99, 0.14), rgba(167, 139, 250, 0.2))';
+            }}
+          >
+            <div style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '9px',
+              background: 'linear-gradient(135deg, #ff2e63, #a78bfa)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(255, 46, 99, 0.35)'
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
+                <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
+              </svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                  Video Đã Tạo
+                </span>
+                {videoCount !== null && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    background: 'rgba(37, 244, 238, 0.2)',
+                    border: '1px solid rgba(37, 244, 238, 0.4)',
+                    color: 'var(--secondary)',
+                    borderRadius: '10px',
+                    padding: '1px 7px',
+                    lineHeight: 1.3
+                  }}>
+                    {videoCount}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'rgba(255, 255, 255, 0.65)', fontWeight: 500 }}>
+                Xem lại video MP4 đã xuất
+              </span>
+            </div>
+            <span style={{
+              fontSize: '0.82rem',
+              color: 'var(--secondary)',
+              marginLeft: '4px',
+              fontWeight: 800
+            }}>
+              ➔
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* Grid 2 Hero Showcase Cards */}
+      {/* Grid Showcase Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-        gap: '24px',
-        padding: '4px'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+        gap: '16px',
+        padding: '2px'
       }}>
         {allCategoryKeys.map(key => {
           const cat = PROMPT_CATEGORIES[key];
@@ -584,27 +785,26 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
               className="video-card"
               style={{
                 position: 'relative',
-                borderRadius: '22px',
+                borderRadius: '16px',
                 overflow: 'hidden',
                 isolation: 'isolate',
                 border: `1.5px solid ${cfg.accentColor ? `${cfg.accentColor}66` : 'rgba(255, 255, 255, 0.15)'}`,
-                boxShadow: `0 12px 36px ${cfg.glowColor || 'rgba(0,0,0,0.4)'}`,
+                boxShadow: `0 8px 24px ${cfg.glowColor || 'rgba(0,0,0,0.3)'}`,
                 cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                minHeight: '430px',
+                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                 display: 'flex',
                 flexDirection: 'column',
                 background: '#12111A'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-6px) scale(1.015)';
+                e.currentTarget.style.transform = 'translateY(-4px) scale(1.01)';
                 e.currentTarget.style.borderColor = cfg.accentColor || '#fff';
-                e.currentTarget.style.boxShadow = `0 18px 50px ${cfg.glowColor ? cfg.glowColor.replace('0.25', '0.45') : 'rgba(0,0,0,0.6)'}`;
+                e.currentTarget.style.boxShadow = `0 14px 36px ${cfg.glowColor ? cfg.glowColor.replace('0.25', '0.4').replace('0.3', '0.45') : 'rgba(0,0,0,0.5)'}`;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0) scale(1)';
                 e.currentTarget.style.borderColor = cfg.accentColor ? `${cfg.accentColor}66` : 'rgba(255, 255, 255, 0.15)';
-                e.currentTarget.style.boxShadow = `0 12px 36px ${cfg.glowColor || 'rgba(0,0,0,0.4)'}`;
+                e.currentTarget.style.boxShadow = `0 8px 24px ${cfg.glowColor || 'rgba(0,0,0,0.3)'}`;
               }}
             >
               {/* Inject keyframes animations for previews */}
@@ -645,9 +845,9 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 }
               `}} />
 
-              {/* Unblurred Top Style Preview Section */}
+              {/* Top Style Preview Section */}
               <div style={{
-                height: '165px',
+                height: '125px',
                 width: '100%',
                 overflow: 'hidden',
                 position: 'relative',
@@ -655,14 +855,14 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 zIndex: 1
               }}>
                 {key === 'buddhist_wisdom' && <BuddhistWisdomPreview />}
-                {key === 'japanese_history' && <BuddhistWisdomPreview />}
+                {key === 'japanese_history' && <JapaneseHistoryPreview />}
                 {key === 'stick_figure_slideshow' && <StickFigurePreview />}
                 {key === 'reading_practice' && <ReadingPracticePreview />}
                 {key === 'moral_talk_slideshow' && <MoralTalkPreview />}
                 {key === 'pexels_talk_video' && <PexelsTalkPreview />}
 
                 {/* Fallback for other potential categories */}
-                {!['buddhist_wisdom','stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
+                {!['buddhist_wisdom','japanese_history','stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
                   <div
                     className="card-bg-layer"
                     style={{
@@ -682,7 +882,7 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 style={{
                   position: 'relative',
                   zIndex: 2,
-                  padding: '24px 24px 20px 24px',
+                  padding: '16px 16px 14px 16px',
                   display: 'flex',
                   flexDirection: 'column',
                   flexGrow: 1,
@@ -691,20 +891,20 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                 }}
               >
                 {/* Header Row Badge */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                  <div style={{ fontSize: '2.4rem', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '1.65rem', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}>
                     {cat.icon}
                   </div>
                   {cfg.badge && (
                     <div style={{
                       background: cfg.badgeBg || 'var(--primary-gradient)',
                       color: '#000',
-                      fontSize: '0.72rem',
+                      fontSize: '0.66rem',
                       fontWeight: 900,
-                      padding: '5px 12px',
-                      borderRadius: '14px',
-                      letterSpacing: '0.6px',
-                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      letterSpacing: '0.4px',
+                      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
                     }}>
                       {cfg.badge}
                     </div>
@@ -713,27 +913,36 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
 
                 {/* Title & Description */}
                 <div>
-                  <h3 style={{ fontSize: '1.38rem', fontWeight: 800, color: '#fff', margin: '0 0 8px 0', lineHeight: 1.25, letterSpacing: '-0.3px' }}>
+                  <h3 style={{ fontSize: '1.08rem', fontWeight: 800, color: '#fff', margin: '0 0 5px 0', lineHeight: 1.25, letterSpacing: '-0.2px' }}>
                     {cat.label}
                   </h3>
-                  <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: 1.5 }}>
-                    {cat.description}
+                  <p style={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: '0.78rem',
+                    margin: '0 0 10px 0',
+                    lineHeight: 1.4,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
+                    {cfg.shortDescription || cat.description}
                   </p>
                 </div>
 
                 {/* Feature Tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '12px' }}>
                   {(cfg.tags || []).map((tag, idx) => (
                     <span
                       key={idx}
                       style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '0.66rem',
+                        fontWeight: 600,
+                        color: 'rgba(255, 255, 255, 0.88)',
                         background: 'rgba(255, 255, 255, 0.05)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
+                        padding: '2px 7px',
+                        borderRadius: '5px',
                         backdropFilter: 'blur(4px)'
                       }}
                     >
@@ -747,26 +956,26 @@ export default function VideoCategoryGrid({ onSelectCategory }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  paddingTop: '12px',
+                  paddingTop: '10px',
                   borderTop: '1px solid rgba(255, 255, 255, 0.08)'
                 }}>
-                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                    ⚡ Đã sẵn sàng tạo video
+                  <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+                    ⚡ Sẵn sàng tạo video
                   </span>
                   <div style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
                     background: cfg.badgeBg || 'linear-gradient(135deg, #fe2c55, #ff0055)',
                     color: cfg.buttonTextColor || '#fff',
-                    fontSize: '0.82rem',
-                    fontWeight: 900,
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+                    gap: '5px',
+                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
                     transition: 'all 0.2s ease'
                   }}>
-                    <span>Bắt đầu làm</span>
+                    <span>Bắt đầu</span>
                     <span>→</span>
                   </div>
                 </div>

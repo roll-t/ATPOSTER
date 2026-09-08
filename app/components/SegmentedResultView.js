@@ -26,6 +26,7 @@ import {
   buildFullNarrationText, splitNarrationForTts, buildTtsScriptText,
   countCharacters, ttsChunkLimitFor
 } from './SegmentedResultView/utils.js';
+import { showToast } from './Toast.js';
 
 // Map moralTheme key → DANH SÁCH từ khoá tìm video nền (tiếng Anh, vì Pexels tìm chuẩn hơn).
 //
@@ -1301,7 +1302,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
   const handleSavePreset = async () => {
     if (!newPresetName || !newPresetName.trim()) {
-      alert('Vui lòng nhập tên cho Mẫu Preset.');
+      showToast.warning('Vui lòng nhập tên cho Mẫu Preset.');
       return;
     }
     const category = PRESET_SCOPE;
@@ -1354,10 +1355,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setPresetMsg('✓ Đã lưu Mẫu Preset thành công!');
         setTimeout(() => setPresetMsg(''), 3000);
       } else {
-        alert(`Lỗi lưu preset: ${data.error}`);
+        showToast.error(`Lỗi lưu preset: ${data.error}`);
       }
     } catch (err) {
-      alert('Lỗi kết nối khi lưu preset.');
+      showToast.error('Lỗi kết nối khi lưu preset.');
     }
   };
 
@@ -1760,10 +1761,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setTimeout(() => setPinRenderMsg(''), 3500);
         await fetchSettings();
       } else {
-        alert('Lỗi khi lưu ghim mặc định.');
+        showToast.error('Lỗi khi lưu ghim mặc định.');
       }
     } catch (err) {
-      alert('Lỗi kết nối khi ghim mặc định.');
+      showToast.error('Lỗi kết nối khi ghim mặc định.');
     } finally {
       setIsPinningRenderConfig(false);
     }
@@ -1854,10 +1855,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (res.ok && data.success) {
         await fetchVieneuVoices(targetUrl);
       } else {
-        alert(`Lỗi: ${data.detail || data.error || 'Không thể xoá giọng.'}`);
+        showToast.error(`Lỗi: ${data.detail || data.error || 'Không thể xoá giọng.'}`);
       }
     } catch (err) {
-      alert('Lỗi: Không thể kết nối tới server VieNeu-TTS.');
+      showToast.error('Lỗi: Không thể kết nối tới server VieNeu-TTS.');
     }
   };
 
@@ -2232,7 +2233,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         checkAssets();
       } else {
         setRenderMsg(`Lỗi: ${data.error || 'Không thể render video.'}`);
-        alert(`Lỗi render video:\n${data.details || data.error}`);
+        showToast.error(`Lỗi render video: ${data.details || data.error}`, 6000);
       }
     } catch (err) {
       setRenderMsg('Lỗi: Không thể kết nối tới server.');
@@ -5629,14 +5630,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       })
                     });
                     if (res.ok) {
-                      alert('✓ Đã cập nhật cấu hình giọng đọc thành công!');
+                      showToast.success('Đã cập nhật cấu hình giọng đọc thành công!');
                       setShowVoiceConfig(false);
                       await fetchSettings();
                     } else {
-                      alert('Lỗi khi lưu cấu hình.');
+                      showToast.error('Lỗi khi lưu cấu hình.');
                     }
                   } catch (err) {
-                    alert('Lỗi kết nối khi lưu.');
+                    showToast.error('Lỗi kết nối khi lưu.');
                   } finally {
                     setIsSavingSettings(false);
                   }

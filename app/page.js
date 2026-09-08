@@ -9,15 +9,21 @@ import { PROMPT_CATEGORIES } from '@/src/domain/content/index.js';
 import { usePromptStudio } from './usePromptStudio.js';
 import VideoCategoryGrid from './components/VideoCategoryGrid.js';
 import ContentForm from './components/ContentForm.js';
-import StyleEditor from './components/StyleEditor.js';
-import VideoEditor from './components/VideoEditor.js';
 import SegmentedResultView from './components/SegmentedResultView.js';
 import HistoryList from './components/HistoryList.js';
 import CreatedVideosGrid from './components/CreatedVideosGrid.js';
 import PexelsSearchPanel from './components/PexelsSearchPanel.js';
 import CraftAsmrPanel from './components/CraftAsmrPanel.js';
+import ImagePromptPanel from './components/ImagePromptPanel.js';
 import BgMusicPromptPanel from './components/BgMusicPromptPanel.js';
+import VideoPromptCategoryGrid from './components/VideoPromptCategoryGrid.js';
+import ImagePromptCategoryGrid from './components/ImagePromptCategoryGrid.js';
+import MusicPromptCategoryGrid from './components/MusicPromptCategoryGrid.js';
+import { getVideoPromptCategoryById } from '@/src/domain/content/videoPromptCategories.js';
+import { getImagePromptCategoryById } from '@/src/domain/content/imagePromptCategories.js';
+import { BG_MUSIC_PROMPTS } from '@/src/domain/content/bgMusicPrompts.js';
 import SettingsModal from './components/SettingsModal.js';
+import { showToast } from './components/Toast.js';
 
 function PromptsStudioContent() {
   const searchParams = useSearchParams();
@@ -25,12 +31,22 @@ function PromptsStudioContent() {
 
   const categoryParam = searchParams.get('category');
   const tabParam = searchParams.get('tab');
+  const genreParam = searchParams.get('genre');
+  const styleParam = searchParams.get('style');
+  const themeParam = searchParams.get('theme');
   const isPexelsTab = tabParam === 'pexels';
   const isVideosTab = tabParam === 'videos';
-  const isCraftTab = tabParam === 'craft';
+  const isVideoPromptTab = tabParam === 'video_prompt' || tabParam === 'craft';
+  const isImagePromptTab = tabParam === 'image_prompt' || tabParam === 'image';
   const isMusicTab = tabParam === 'music';
   const isGridMode =
-    !isPexelsTab && !isVideosTab && !isCraftTab && !isMusicTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+    !isPexelsTab && !isVideosTab && !isVideoPromptTab && !isImagePromptTab && !isMusicTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+  const isSkillWorkspace = Boolean(
+    (categoryParam && PROMPT_CATEGORIES[categoryParam]) ||
+    (isVideoPromptTab && genreParam) ||
+    (isImagePromptTab && styleParam) ||
+    (isMusicTab && themeParam)
+  );
 
   const initialCategory = categoryParam && PROMPT_CATEGORIES[categoryParam] ? categoryParam : undefined;
   const s = usePromptStudio(initialCategory);
@@ -91,117 +107,122 @@ function PromptsStudioContent() {
 
   return (
     <div className="main-layout">
-      {/* Sidebar dành riêng cho Prompt AI Studio */}
-      <aside className="sidebar-nav">
-        <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src="/icons/logo.png" alt="Prompt AI Logo" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h2 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, lineHeight: 1.1 }}>
-              Prompt AI
-            </h2>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>v1.0.0 Alpha</span>
+      {/* Sidebar dành riêng cho Prompt AI Studio (ẩn khi đang ở trong không gian làm việc của skill) */}
+      {!isSkillWorkspace && (
+        <aside className="sidebar-nav">
+          <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src="/icons/logo.png" alt="Prompt AI Logo" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <h2 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, lineHeight: 1.1 }}>
+                Prompt AI
+              </h2>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>v1.0.0 Alpha</span>
+            </div>
           </div>
-        </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '32px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '32px' }}>
 
-          <button
-            type="button"
-            onClick={handleBackToGrid}
-            className={`nav-item ${isGridMode ? 'active' : ''}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7"></polygon>
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-            </svg>
-            Tạo Video
-          </button>
+            {/* 1. Tạo Video (giữ nguyên) */}
+            <button
+              type="button"
+              onClick={handleBackToGrid}
+              className={`nav-item ${isGridMode ? 'active' : ''}`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              Tạo Video
+            </button>
 
-          <button
-            type="button"
-            onClick={() => router.push('/?tab=videos')}
-            className={`nav-item ${isVideosTab ? 'active' : ''}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
-              <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
-            </svg>
-            Video Đã Tạo
-          </button>
+            {/* 2. Prompt Video */}
+            <button
+              type="button"
+              onClick={() => router.push('/?tab=video_prompt')}
+              className={`nav-item ${isVideoPromptTab ? 'active' : ''}`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"></path>
+                <rect x="3" y="6" width="12" height="12" rx="2" ry="2"></rect>
+              </svg>
+              Prompt Video
+            </button>
 
-          <button
-            type="button"
-            onClick={() => router.push('/?tab=pexels')}
-            className={`nav-item ${isPexelsTab ? 'active' : ''}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-              <circle cx="12" cy="13" r="4"></circle>
-            </svg>
-            Stock Pexels
-          </button>
+            {/* 3. Prompt Ảnh */}
+            <button
+              type="button"
+              onClick={() => router.push('/?tab=image_prompt')}
+              className={`nav-item ${isImagePromptTab ? 'active' : ''}`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              Prompt Ảnh
+            </button>
 
-          <button
-            type="button"
-            onClick={() => router.push('/?tab=craft')}
-            className={`nav-item ${isCraftTab ? 'active' : ''}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-            </svg>
-            Prompt ASMR Chế Tác
-          </button>
+            {/* 4. Prompt Nhạc */}
+            <button
+              type="button"
+              onClick={() => router.push('/?tab=music')}
+              className={`nav-item ${isMusicTab ? 'active' : ''}`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              Prompt Nhạc
+            </button>
+          </nav>
 
-          <button
-            type="button"
-            onClick={() => router.push('/?tab=music')}
-            className={`nav-item ${isMusicTab ? 'active' : ''}`}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"></path>
-              <circle cx="6" cy="18" r="3"></circle>
-              <circle cx="18" cy="16" r="3"></circle>
-            </svg>
-            Prompt Nhạc Nền
-          </button>
-        </nav>
-
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => {
-              s.fetchSettings();
-              s.setShowSettings(true);
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              color: '#fff',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              width: '100%',
-              transition: '0.2s',
-              marginTop: '20px'
-            }}
-            className="sidebar-settings-btn"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0.0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            Cài đặt AI & DB Settings
-          </button>
-        </div>
-      </aside>
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                s.fetchSettings();
+                s.setShowSettings(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: '#fff',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: '0.2s',
+                marginTop: '20px'
+              }}
+              className="sidebar-settings-btn"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Cài đặt AI & DB Settings
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Nội dung chính bên phải */}
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <main
+        className="main-content"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden',
+          padding: isSkillWorkspace ? '20px 32px 32px 32px' : '40px'
+        }}
+      >
         <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
           {isPexelsTab ? (
@@ -209,23 +230,89 @@ function PromptsStudioContent() {
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
               <PexelsSearchPanel />
             </div>
-          ) : isCraftTab ? (
-            /* Màn hình sinh prompt video ASMR chế tác thủ công (độc lập, không qua Remotion) */
+          ) : isVideoPromptTab ? (
+            /* Màn hình sinh prompt video AI (Veo / Sora / Kling) */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
-              <CraftAsmrPanel />
+              {genreParam ? (
+                <CraftAsmrPanel
+                  categoryInfo={getVideoPromptCategoryById(genreParam)}
+                  onBackToGrid={() => router.push('/?tab=video_prompt')}
+                />
+              ) : (
+                <VideoPromptCategoryGrid
+                  onSelectCategory={(genreId) => router.push(`/?tab=video_prompt&genre=${genreId}`)}
+                />
+              )}
+            </div>
+          ) : isImagePromptTab ? (
+            /* Màn hình sinh prompt ảnh AI (Midjourney / Flux / SD) */
+            <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
+              {styleParam ? (
+                <ImagePromptPanel
+                  categoryInfo={getImagePromptCategoryById(styleParam)}
+                  onBackToGrid={() => router.push('/?tab=image_prompt')}
+                />
+              ) : (
+                <ImagePromptCategoryGrid
+                  onSelectCategory={(styleId) => router.push(`/?tab=image_prompt&style=${styleId}`)}
+                />
+              )}
             </div>
           ) : isMusicTab ? (
             /* Kho prompt Suno để tự tạo nhạc nền cho video */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%' }}>
-              <BgMusicPromptPanel />
+              {themeParam ? (
+                <BgMusicPromptPanel
+                  selectedTheme={themeParam}
+                  categoryInfo={BG_MUSIC_PROMPTS.find((p) => p.id === themeParam || p.themeKey === themeParam)}
+                  onBackToGrid={() => router.push('/?tab=music')}
+                />
+              ) : (
+                <MusicPromptCategoryGrid
+                  onSelectCategory={(themeId) => router.push(`/?tab=music&theme=${themeId}`)}
+                />
+              )}
             </div>
           ) : isVideosTab ? (
             /* Màn hình Video đã tạo độc lập */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '24px', display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🎬 Danh sách Video đã Render
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🎬 Danh sách Video đã Render
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleBackToGrid}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      color: '#fff',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Quay lại Danh mục chủ đề</span>
+                  </button>
+                </div>
                 <CreatedVideosGrid
                   isDriveLinked={s.settings.googleDrive?.isLinked}
                   onSelectScript={(video) => {
@@ -245,7 +332,10 @@ function PromptsStudioContent() {
           ) : isGridMode ? (
             /* Màn hình Grid chọn chủ đề video */
             <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px' }}>
-              <VideoCategoryGrid onSelectCategory={handleSelectCategory} />
+              <VideoCategoryGrid
+                onSelectCategory={handleSelectCategory}
+                onOpenVideos={() => router.push('/?tab=videos')}
+              />
             </div>
           ) : (
             /* Màn hình không gian làm việc chi tiết cho chủ đề đã chọn */
@@ -292,6 +382,42 @@ function PromptsStudioContent() {
                     </h2>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    s.fetchSettings();
+                    s.setShowSettings(true);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.color = '#fff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  <span>Cài đặt AI</span>
+                </button>
               </div>
 
               {/* Grid 2 cột workspace */}
@@ -311,15 +437,12 @@ function PromptsStudioContent() {
                     errorMsg={s.errorMsg}
                     isGenerating={s.isGenerating}
                     onGenerate={s.handleGenerate}
-                    onOpenStyleEditor={s.handleOpenStyleEditor}
                     characters={s.characters}
                     onDeleteCustomChar={s.handleDeleteCustomCharacter}
                     onUploadChar={s.handleUploadCharacter}
                     onUpdateChar={s.handleUpdateCharacter}
                     history={s.history}
                   />
-
-                  {/* StyleEditor rendered as portal — see below */}
                 </div>
 
                 {/* Cột phải: kết quả + lịch sử */}
@@ -382,7 +505,7 @@ function PromptsStudioContent() {
                                   s.setResult(item);
                                   setActiveRightTab('process');
                                 } else {
-                                  alert('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
+                                  showToast.warning('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
                                 }
                               }}
                             />
@@ -443,19 +566,6 @@ function PromptsStudioContent() {
 
         </div>
       </main>
-
-      {/* VideoEditor modal — visual drag-and-drop editor */}
-      {s.showStyleEditor && mounted && createPortal(
-        <VideoEditor
-          result={s.result}
-          onSave={(updatedResult) => {
-            s.setResult(updatedResult);
-            s.fetchHistory(s.activeCategory);
-          }}
-          onClose={() => s.setShowStyleEditor(false)}
-        />,
-        document.body
-      )}
 
       <SettingsModal
         show={s.showSettings}

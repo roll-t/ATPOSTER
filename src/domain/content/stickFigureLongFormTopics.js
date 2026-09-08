@@ -16,6 +16,38 @@
  */
 export const STICK_FIGURE_LONGFORM_GROUPS = [
   {
+    key: 'ancient_survival',
+    label: 'Bí Ẩn Sinh Tồn & Tiến Hóa',
+    icon: '❄️',
+    sublabel: 'Băng hà, săn bắt, lửa, tiến hóa',
+    topics: [
+      { id: 1, text: 'How Did Ancient Humans Survive Freezing Winters?', desc: 'Làm sao người cổ đại sống sót qua mùa đông kỷ băng hà?' },
+      { id: 2, text: 'Why Humans Lost Their Body Hair (And Kept Head Hair)', desc: 'Vì sao con người rụng hết lông nhưng lại giữ tóc?' },
+      { id: 3, text: 'How Prehistoric Humans Hunted Mammoths 10x Their Size', desc: 'Cách người tiền sử săn những con voi ma mút khổng lồ' },
+      { id: 4, text: 'How Fire Transformed the Human Body and Brain Forever', desc: 'Ngọn lửa đã thay đổi cơ thể và bộ não con người ra sao?' },
+      { id: 5, text: 'What Happened When Neanderthals Met Homo Sapiens?', desc: 'Chuyện gì xảy ra khi Neanderthal chạm trán Homo Sapiens?' },
+      { id: 6, text: 'How Ancient Humans Cleaned Their Teeth Without Toothbrushes', desc: 'Người xưa chăm sóc răng miệng thế nào trước khi có bàn chải?' },
+      { id: 7, text: 'The Surprising Truth About the First Shoes in Human History', desc: 'Sự thật bất ngờ về đôi giày đầu tiên trong lịch sử loài người' },
+      { id: 8, text: 'What Would Happen If a Modern Human Was Dropped in the Ice Age?', desc: 'Nếu bị ném về Kỷ Băng hà, người hiện đại sống được bao lâu?' },
+    ],
+  },
+  {
+    key: 'human_science',
+    label: 'Khoa Học & Bí Ẩn Cơ Thể',
+    icon: '🧬',
+    sublabel: 'Giấc ngủ, ký ức, sốc nhiệt, mồ hôi',
+    topics: [
+      { id: 1, text: 'Why Humans Need 8 Hours of Sleep (And How Ancestors Really Slept)', desc: 'Bí ẩn giấc ngủ 8 tiếng và tổ tiên chúng ta từng ngủ thế nào' },
+      { id: 2, text: 'Why Your Brain Erases Your Early Childhood Memories', desc: 'Vì sao não bộ xóa sạch toàn bộ ký ức thời thơ ấu?' },
+      { id: 3, text: 'How Sweating Became the Deadliest Human Superpower', desc: 'Đổ mồ hôi: Siêu năng lực săn mồi bền bỉ nhất của loài người' },
+      { id: 4, text: 'Why Do We Get Goosebumps When Cold or Scared?', desc: 'Tại sao con người lại nổi da gà khi lạnh hoặc sợ hãi?' },
+      { id: 5, text: 'What Happens to Your Body If You Stop Eating Sugar for 30 Days?', desc: 'Điều gì xảy ra với cơ thể khi cắt hoàn toàn đường trong 30 ngày?' },
+      { id: 6, text: 'Why the Human Body Can Survive Weeks Without Food But Days Without Water', desc: 'Vì sao nhịn ăn được cả tháng nhưng nhịn nước chỉ vài ngày?' },
+      { id: 7, text: 'The Dark Science of Why Cold Water Shock Kills So Fast', desc: 'Khoa học đáng sợ về hiện tượng sốc nhiệt nước lạnh' },
+      { id: 8, text: 'How Walking Upright Changed the Entire Human Skeleton', desc: 'Đi bằng hai chân đã thay đổi toàn bộ khung xương con người ra sao?' },
+    ],
+  },
+  {
     key: 'habits',
     label: 'Thói Quen & Kỷ Luật',
     icon: '⏰',

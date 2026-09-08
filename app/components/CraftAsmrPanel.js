@@ -180,9 +180,9 @@ function SocialCopyView({ social, copied, onCopy }) {
   );
 }
 
-export default function CraftAsmrPanel() {
-  const [subject, setSubject] = useState('');
-  const [material, setMaterial] = useState('');
+export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
+  const [subject, setSubject] = useState(categoryInfo?.defaultSubject || '');
+  const [material, setMaterial] = useState(categoryInfo?.defaultMaterial || '');
   const [notes, setNotes] = useState('');
   const [durationSeconds, setDurationSeconds] = useState(CRAFT_ASMR_DEFAULTS.durationSeconds);
   const [clipCount, setClipCount] = useState(CRAFT_ASMR_DEFAULTS.clipCount);
@@ -296,7 +296,51 @@ export default function CraftAsmrPanel() {
   const clipCountOf = tabs.filter((t) => t.key !== 'sheet' && t.key !== 'social').length;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '24px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '20px', alignItems: 'start' }}>
+      {onBackToGrid && (
+        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={onBackToGrid}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              lineHeight: 1,
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Chọn thể loại Video khác</span>
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>{categoryInfo?.icon || '🎬'}</span>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+              {categoryInfo?.label || 'Chế Tác Thủ Công & Tái Chế ASMR'}
+            </h2>
+          </div>
+        </div>
+      )}
+
       {/* ---------------- Cột trái: form nhập ---------------- */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h2
@@ -310,7 +354,7 @@ export default function CraftAsmrPanel() {
             gap: '8px',
           }}
         >
-          🔨 Prompt Video ASMR Chế Tác
+          🎨 Prompt Ảnh & Video Chế Tác
         </h2>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 22px', lineHeight: 1.5 }}>
           Nhập <b>vật liệu</b> và <b>thành phẩm muốn làm ra</b> — hệ thống sinh sẵn prompt đúng khuôn

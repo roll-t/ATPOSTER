@@ -158,9 +158,125 @@ export const BG_MUSIC_PROMPTS = [
     instruments:
       '薩摩琵琶 biwa tiếng gắt lạnh lùng · 太鼓 taiko nhịp gõ đe dọa như án tử · sáo shakuhachi quãng nghịch u tối · không gian rợn gáy.',
   },
+  {
+    id: 'zen_meditation',
+    themeKey: 'zen_meditation',
+    label: '禅と瞑想',
+    sublabel: 'Thiền Định & Phật Pháp',
+    icon: '🪷',
+    useCase:
+      'Thanh tịnh, an nhiên và tĩnh lặng. Sáo trúc Shakuhachi ngân vang tự do kết hợp chuông xoay Tây Tạng và tiếng nước chảy khe núi.',
+    prompt:
+      'Zen meditation instrumental, deep spiritual stillness, tranquil bamboo forest ambience, slow resonant shakuhachi bamboo flute solo, distant singing bowl chime, soft trickle of stream water, subtle warm drone, 48 BPM, free tempo rubato, Japanese in-scale pentatonic, expansive quiet monastery acoustic, very sparse arrangement, constant gentle dynamics, no crescendo, seamless loop, mixed to sit under spoken Buddhist narration',
+    instruments:
+      '尺八 shakuhachi sáo trúc thanh tịnh · chuông xoay Tây Tạng điểm xuyết · tiếng nước êm đềm · không gian thiền viện tĩnh mịch.',
+  },
+  {
+    id: 'lofi_chill',
+    themeKey: 'lofi_chill',
+    label: 'ローファイ・チル',
+    sublabel: 'Lofi Chill & Học Tập',
+    icon: '☕',
+    useCase:
+      'Ấm áp, thư giãn, giúp tập trung học tập và làm việc. Hợp âm jazz piano êm ái kết hợp tiếng đĩa than vinyl cọt kẹt và mưa rơi bên cửa sổ.',
+    prompt:
+      'Lofi hip hop instrumental background music, soft cozy jazz piano chords, gentle muted guitar arpeggio, subtle vinyl crackle and distant soft rain sound, warm analog tape saturation, smooth mellow bass, 70 BPM, steady slow boom-bap rhythm, no vocals, warm bedroom aesthetic, constant calm dynamics, no beat drop, no sudden build-up, seamless loop, mixed to sit under voiceover',
+    instruments:
+      'Rhodes piano jazz ấm áp · guitar mộc dịu êm · tiếng đĩa than cọt kẹt cổ điển · mưa rơi nhẹ bên khung cửa sổ.',
+  },
+  {
+    id: 'ambient_sleep',
+    themeKey: 'ambient_sleep',
+    label: '安眠とデルタ波',
+    sublabel: 'Ambient Giấc Ngủ & Sóng Não 528Hz',
+    icon: '🌙',
+    useCase:
+      'Ru ngủ sâu, chữa lành tâm hồn, giảm căng thẳng. Lớp pad không gian vô tận kết hợp tần số 528Hz và sóng não Delta không lời.',
+    prompt:
+      'Deep ambient sleep music, 528Hz healing frequency tone, endless warm drifting synthesizer pads, gentle oceanic swell, soft ethereal crystal chimes, delta wave meditative atmosphere, 45 BPM, continuous floating drone, zero percussion, ultra-smooth slow transitions, no sudden volume changes, seamless infinite loop, perfectly mixed for deep relaxation and voiceover sleep stories',
+    instruments:
+      'Synthesizer pad ấm trôi dạt · tần số 528Hz rung động thư giãn · tiếng chuông pha lê xa xăm · hoàn toàn không bộ gõ.',
+  },
+  {
+    id: 'ghibli_piano',
+    themeKey: 'ghibli_piano',
+    label: 'ジブリ風ピアノ',
+    sublabel: 'Piano Hoài Niệm Phong Cách Ghibli',
+    icon: '🎹',
+    useCase:
+      'Thơ mộng, hoài niệm về mùa hè tuổi thơ phong cách Joe Hisaishi. Tiếng đàn grand piano trong trẻo hòa cùng dàn dây violon êm ái.',
+    prompt:
+      'Nostalgic anime soundtrack instrumental in the style of Studio Ghibli, gentle lyrical acoustic grand piano lead, lush warm cinematic string orchestra accompaniment, bittersweet summer memory, pastoral gentle breeze, 68 BPM, moderate slow 3/4 waltz tempo, beautiful pentatonic and diatonic melody, natural wooden concert hall reverb, constant delicate dynamics, no loud crescendo, seamless loop, mixed to sit under storytelling',
+    instruments:
+      'Acoustic Grand Piano trong trẻo mộc mạc · dàn dây strings mượt mà kiểu Joe Hisaishi · giai điệu hoài niệm tuổi thơ.',
+  },
+];
+
+export const MUSIC_PROMPT_CATEGORIES = [
+  {
+    id: 'zen_meditation',
+    icon: '🪷',
+    label: 'Thiền Định, Phật Giáo & Tĩnh Tâm',
+    badge: 'THIỀN ĐỊNH & Y TĨNH',
+    badgeBg: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    shortDescription: 'Sáo trúc Shakuhachi thanh tịnh, chuông xoay Tây Tạng, 432Hz an định tâm trí và tiếng nước chảy giúp tĩnh lặng tâm hồn.',
+    tags: ['Sáo Shakuhachi', 'Chuông Xoay Tây Tạng', '432Hz Tĩnh Tâm', 'Nhạc Thiền'],
+    accentColor: '#f59e0b',
+  },
+  {
+    id: 'samurai_era',
+    icon: '⚔️',
+    label: 'Thời Đại Samurai & Bi Kịch Chiến Quốc',
+    badge: 'LỊCH SỬ SAMURAI',
+    badgeBg: 'linear-gradient(135deg, #ef4444, #991b1b)',
+    shortDescription: 'Đàn tỳ bà Biwa gắt khô trang nghiêm, trống trận Taiko điểm nhịp định mệnh 62 BPM hào hùng và bi tráng.',
+    tags: ['Tỳ Bà Satsuma Biwa', 'Trống Trận Taiko', 'Sử Thi Hào Hùng', 'Bản Nhạc 62 BPM'],
+    accentColor: '#ef4444',
+  },
+  {
+    id: 'ninja_shinobi',
+    icon: '🥷',
+    label: 'Ninja & Nghệ Thuật Ẩn Thân',
+    badge: 'NINJA & SUSPENSE',
+    badgeBg: 'linear-gradient(135deg, #8b5cf6, #4c1d95)',
+    shortDescription: 'Sáo ngang Shinobue thưa thớt giữa đêm tĩnh mịch, nhịp rubato hồi hộp căng thẳng, nín thở rình rập kẻ địch.',
+    tags: ['Sáo Shinobue', 'Nhịp Rubato Tự Do', 'Hồi Hộp & Căng Thẳng', 'Koto Ẩn Thoáng'],
+    accentColor: '#8b5cf6',
+  },
+  {
+    id: 'lofi_chill',
+    icon: '☕',
+    label: 'Lofi Chill Beats & Tập Trung Học Tập',
+    badge: 'LOFI CHILL STUDY',
+    badgeBg: 'linear-gradient(135deg, #f43f5e, #be123c)',
+    shortDescription: 'Tiếng mưa rơi bên cửa sổ, hợp âm piano jazz ấm áp, đĩa than cổ điển cọt kẹt 70 BPM giúp tập trung cao độ.',
+    tags: ['Vinyl Crackle', 'Mưa Rơi Bên Cửa Sổ', 'Jazz Piano Lofi', 'Deep Focus 70 BPM'],
+    accentColor: '#f43f5e',
+  },
+  {
+    id: 'ambient_sleep',
+    icon: '🌙',
+    label: 'Ambient Giấc Ngủ & Sóng Não 528Hz',
+    badge: 'GIẤC NGỦ & AMBIENT',
+    badgeBg: 'linear-gradient(135deg, #6366f1, #312e81)',
+    shortDescription: 'Lớp pad không gian vô tận, tần số 528Hz chữa lành và sóng não Delta ru ngủ sâu không lời, không đổi nhịp đột ngột.',
+    tags: ['Sóng Não Delta', 'Pad Không Gian Vô Tận', '528Hz Chữa Lành', 'Không Giật Nhịp'],
+    accentColor: '#6366f1',
+  },
+  {
+    id: 'ghibli_piano',
+    icon: '🎹',
+    label: 'Piano Thơ Mộng Phong Cách Ghibli',
+    badge: 'GHIBLI NOSTALGIA',
+    badgeBg: 'linear-gradient(135deg, #10b981, #065f46)',
+    shortDescription: 'Giai điệu piano trong veo kết hợp dàn dây du dương, gợi cảm giác hoài niệm về mùa hè tuổi thơ Joe Hisaishi.',
+    tags: ['Joe Hisaishi Style', 'Acoustic Grand Piano', 'Dàn Dây Ấm Áp', 'Hoài Niệm Tuổi Thơ'],
+    accentColor: '#10b981',
+  },
 ];
 
 /** Lấy bản nhạc gợi ý cho một nhóm chủ đề lịch sử đang chọn ở form. */
 export function getBgMusicPromptForTheme(themeKey) {
   return BG_MUSIC_PROMPTS.find((p) => p.themeKey === themeKey) || BG_MUSIC_PROMPTS[0];
 }
+

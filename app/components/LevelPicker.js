@@ -1,6 +1,6 @@
 'use client';
 
-export default function LevelPicker({ field, value, onChange }) {
+export default function LevelPicker({ field, value, onChange, onSelect }) {
   const options = field.options || [
     { value: 'a1', label: 'A1', sublabel: 'Mới bắt đầu', icon: '🌱' },
     { value: 'a2', label: 'A2', sublabel: 'Sơ cấp', icon: '🌿' },
@@ -20,7 +20,10 @@ export default function LevelPicker({ field, value, onChange }) {
           <button
             type="button"
             key={opt.value}
-            onClick={() => onChange(opt.value)}
+            onClick={() => {
+              onChange(opt.value);
+              if (onSelect) onSelect(opt.value);
+            }}
             style={{
               padding: '10px 8px',
               borderRadius: '10px',

@@ -293,8 +293,8 @@ export const PROMPT_CATEGORIES = {
         key: 'stickFigureTheme',
         label: 'Nhóm chủ đề gợi ý',
         type: 'stick-figure-theme-select',
-        required: true,
-        defaultValue: 'habits'
+        required: false,
+        defaultValue: ''
       },
       {
         key: 'scenario',
@@ -365,8 +365,8 @@ export const PROMPT_CATEGORIES = {
         key: 'moralTheme',
         label: 'Nhóm chủ đề gợi ý',
         type: 'moral-theme-select',
-        required: true,
-        defaultValue: 'self_help'
+        required: false,
+        defaultValue: ''
       },
       {
         key: 'scenario',
@@ -420,8 +420,8 @@ export const PROMPT_CATEGORIES = {
         key: 'moralTheme',
         label: 'Nhóm chủ đề',
         type: 'moral-theme-select',
-        required: true,
-        defaultValue: 'healing_pressure',
+        required: false,
+        defaultValue: '',
         themeKeys: ['healing_pressure', 'self_help', 'inner_world', 'self_acceptance', 'overthinking', 'love_boundaries', 'slow_living', 'modern_loneliness', 'single_life', 'family_parents']
       },
       {
@@ -461,8 +461,8 @@ export const PROMPT_CATEGORIES = {
         key: 'buddhistTheme',
         label: 'Nhóm chủ đề Phật giáo & Thiền',
         type: 'buddhist-theme-select',
-        required: true,
-        defaultValue: 'zen_stories'
+        required: false,
+        defaultValue: ''
       },
       {
         key: 'scenario',
@@ -525,8 +525,8 @@ export const PROMPT_CATEGORIES = {
         key: 'historyTheme',
         label: 'Nhóm chủ đề Lịch Sử Nhật Bản',
         type: 'japanese-history-theme-select',
-        required: true,
-        defaultValue: 'japan_history'
+        required: false,
+        defaultValue: ''
       },
       {
         key: 'scenario',

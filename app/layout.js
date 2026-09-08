@@ -1,6 +1,7 @@
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Heartbeat from "@/app/components/Heartbeat.js";
+import ToastContainer from "@/app/components/Toast.js";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
       </head>
       <body suppressHydrationWarning>
         <Heartbeat />
+        <ToastContainer />
         {children}
       </body>
     </html>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-great" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="60%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="red-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="300" rx="6" fill="url(#bg-great)"/>
+  <rect x="0" y="0" width="12" height="300" fill="rgba(0,0,0,0.3)"/>
+  <line x1="12" y1="0" x2="12" y2="300" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Flywheel / Ascending Curve Motif -->
+  <g transform="translate(100, 95)">
+    <path d="M-35 25 Q0 20 25 -25" fill="none" stroke="url(#red-accent)" stroke-width="3" stroke-linecap="round"/>
+    <polygon points="25,-25 15,-22 22,-14" fill="#ef4444"/>
+    <circle cx="-35" cy="25" r="4" fill="#94a3b8"/>
+    <circle cx="25" cy="-25" r="4" fill="#ef4444"/>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="152" fill="#94a3b8" font-size="12" font-family="Georgia, serif" font-weight="700" text-anchor="middle" letter-spacing="1">TỪ TỐT ĐẾN</text>
+  <text x="100" y="180" fill="#ffffff" font-size="22" font-family="Georgia, serif" font-weight="900" text-anchor="middle" letter-spacing="2">VĨ ĐẠI</text>
+  
+  <text x="100" y="204" fill="url(#red-accent)" font-size="10" font-family="system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1">GOOD TO GREAT</text>
+  <text x="100" y="218" fill="#64748b" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">Tại Sao Một Số Công Ty Bứt Phá Còn Số Khác Thì Không</text>
+  
+  <line x1="55" y1="234" x2="145" y2="234" stroke="#475569" stroke-width="0.8"/>
+  
+  <!-- Author -->
+  <text x="100" y="256" fill="#ffffff" font-size="13" font-family="Georgia, serif" font-weight="800" text-anchor="middle" letter-spacing="1">JIM COLLINS</text>
+  <text x="100" y="272" fill="#94a3b8" font-size="7" font-family="system-ui, sans-serif" text-anchor="middle">KINH ĐIỂN QUẢN TRỊ KINH DOANH</text>
+</svg>

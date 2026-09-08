@@ -25,7 +25,7 @@ export default function BuddhistSyllabusModal({
     if (currentTheme) {
       setSelectedTheme(currentTheme);
     }
-  }, [currentTheme]);
+  }, [isOpen, currentTheme]);
 
   // Tập hợp NGUYÊN VĂN chủ đề đã chọn
   const exactSyllabusTopics = useMemo(() => {

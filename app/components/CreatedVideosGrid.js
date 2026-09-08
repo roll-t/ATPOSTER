@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { showToast } from './Toast.js';
 
 // Bốn nút hành động ở chân thẻ đều là ô vuông chỉ chứa icon, chia đều bề ngang thẻ. Trước đây mỗi
 // nút một bề rộng khác nhau vì kèm chữ dài ngắn khác nhau, khiến hàng nút so le giữa các thẻ.
@@ -405,13 +406,13 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
           }
           return v;
         }));
-        alert(`✓ Sao lưu video "${video.title}" lên Google Drive thành công!`);
+        showToast.success(`Sao lưu video "${video.title}" lên Google Drive thành công!`);
       } else {
-        alert('Lỗi sao lưu: ' + (data.error || 'Vui lòng liên kết tài khoản Google Drive trong phần cài đặt trước.'));
+        showToast.error('Lỗi sao lưu: ' + (data.error || 'Vui lòng liên kết tài khoản Google Drive trong phần cài đặt trước.'));
       }
     } catch (err) {
       console.error('Lỗi kết nối upload Drive:', err);
-      alert('Lỗi kết nối máy chủ khi sao lưu.');
+      showToast.error('Lỗi kết nối máy chủ khi sao lưu.');
     } finally {
       setBackingUpVideoId(null);
     }

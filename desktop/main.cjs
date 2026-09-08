@@ -224,16 +224,28 @@ function createApplicationMenu() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1080,
     minHeight: 720,
-    backgroundColor: '#0f172a',
-    title: 'ATPOSTER - Video Studio Desktop',
+    backgroundColor: '#090810',
+    title: 'ATPOSTER Video Studio',
     icon: ICON_PATH,
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     show: false,
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac
+      ? { trafficLightPosition: { x: 14, y: 16 } }
+      : {
+          titleBarOverlay: {
+            color: '#090810',
+            symbolColor: '#f4f4f7',
+            height: 36
+          }
+        }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
