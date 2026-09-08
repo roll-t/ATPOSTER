@@ -3,17 +3,13 @@
 ## Runtime map
 
 ```text
-AUTO_POST_VIDEO (publisher :3000)     AUTO_RENDER_VIDEO (studio :3001)
-accounts → schedule → upload          idea → script → assets/TTS → Remotion skill
-               │                                  │
-               └────────── app_runner ───────────┘
-                                  │
-                         SERVER/VieNeu (local TTS)
+Desktop (Electron Shell) ──► ATPOSTER Studio (Next.js :3001)
+                             idea → script → assets/TTS → Remotion skill
+                                        │
+                               SERVER/VieNeu (local TTS)
 ```
 
-The publisher and studio are separate deployable applications. They may share contracts and pure
-helpers, but must not import each other's `app`, `lib`, or `config` folders. This prevents a change
-to rendering from breaking publishing, and makes each app independently testable and deployable.
+ATPOSTER is a unified desktop & web studio application. All studio logic lives at the project root (`app/`, `src/`, `skills/`, `config/`), wrapped by Electron (`desktop/`).
 
 ## Studio layers
 
@@ -41,7 +37,7 @@ into use cases; a use case never imports Gemini directly.
 
 ## Current refactor backlog
 
-- `TOOLS/AUTO_RENDER_VIDEO/app/components/SegmentedResultView.js` is 8k+ lines. Split it by user
+- `AUTO_RENDER_VIDEO/app/components/SegmentedResultView.js` is 8k+ lines. Split it by user
   workflow (script, voice, assets, render) while preserving `SegmentedResultView.js` as composition only.
 - The Publisher still has its legacy `lib` layout. Migrate it in independent vertical slices;
   do not point it at Studio internals. Pure helpers can later move into `packages/`.

@@ -2,8 +2,8 @@
 title ATPOSTER - VIENEU TTS SERVER
 
 if not defined VIENEU_FFMPEG (
-    if exist "%~dp0..\TOOLS\AUTO_RENDER_VIDEO\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe" (
-        set "VIENEU_FFMPEG=%~dp0..\TOOLS\AUTO_RENDER_VIDEO\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe"
+    if exist "%~dp0..\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe" (
+        set "VIENEU_FFMPEG=%~dp0..\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe"
     ) else if exist "%~dp0..\..\tiktok_agent\data\ffmpeg.exe" (
         set "VIENEU_FFMPEG=%~dp0..\..\tiktok_agent\data\ffmpeg.exe"
     )

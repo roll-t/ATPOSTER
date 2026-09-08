@@ -49,7 +49,8 @@ tts = None
 BUILTIN_VOICE_NAMES = {
     "Phạm Tuyên", "Trúc Ly", "Mai Anh", "Thanh Bình", "Minh Triết", "Ngọc Trân",
     "Minh Đức", "Xuân Vĩnh", "Ngọc Linh", "Thục Đoan", "Quang Sơn", "Thái Sơn",
-    "Thùy Dung", "Đoan Trang",
+    "Thùy Dung", "Đoan Trang", "Mỹ Duyên", "Quỳnh Anh", "Đức Trí", "Kim Thanh",
+    "Ngọc Huyền", "Adam", "Mạnh Dũng", "Minh Quân", "Anh Khôi",
 }
 
 # Lưu thêm 1 bản sao file audio mẫu gốc (ngoài embedding/codes VieNeu tự lưu vào assets json của
@@ -88,8 +89,8 @@ def _resolve_ffmpeg() -> Optional[str]:
     # ffmpeg đóng gói sẵn theo Remotion hoặc các công cụ có sẵn trong hệ thống
     repo_root = Path(__file__).resolve().parent.parent.parent
     patterns = [
-        "TOOLS/AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg.exe",
-        "TOOLS/AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg",
+        "AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg.exe",
+        "AUTO_RENDER_VIDEO/node_modules/@remotion/compositor-*/ffmpeg",
         "node_modules/@remotion/compositor-*/ffmpeg.exe",
         "node_modules/@remotion/compositor-*/ffmpeg",
         "RENDER/node_modules/@remotion/compositor-*/ffmpeg.exe",
@@ -105,9 +106,8 @@ def _resolve_ffmpeg() -> Optional[str]:
                 pass
 
     fallback_paths = [
-        r"D:\code\wed\ATPOSTER\TOOLS\AUTO_RENDER_VIDEO\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe",
-        r"D:\tiktok_agent\data\ffmpeg.exe",
-        r"D:\agent\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe",
+        str(repo_root / "node_modules" / "@remotion" / "compositor-win32-x64-msvc" / "ffmpeg.exe"),
+        r"D:\code\wed\ATPOSTER\node_modules\@remotion\compositor-win32-x64-msvc\ffmpeg.exe",
         r"C:\ffmpeg\bin\ffmpeg.exe",
     ]
     for p in fallback_paths:

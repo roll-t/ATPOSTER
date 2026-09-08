@@ -1,23 +1,88 @@
 {
-  "name": "atposter-root",
+  "name": "atposter",
   "version": "1.0.0",
-  "description": "ATPOSTER Workspace Root - AGENT_TOOL & RENDER Manager",
+  "description": "ATPOSTER Video Studio Desktop & Web Application",
   "private": true,
+  "author": "ATPOSTER",
+  "main": "desktop/main.cjs",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "skills/*/remotion"
+  ],
   "scripts": {
-    "install:agent": "npm install --prefix TOOLS/AUTO_POST_VIDEO",
-    "install:render": "npm install --prefix TOOLS/AUTO_RENDER_VIDEO",
-    "install:all": "npm run install:agent && npm run install:render",
-    "dev:agent": "npm run dev --prefix TOOLS/AUTO_POST_VIDEO",
-    "dev:render": "npm run dev --prefix TOOLS/AUTO_RENDER_VIDEO",
-    "dev:studio": "npm run studio --prefix TOOLS/AUTO_RENDER_VIDEO",
-    "studio:moral": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion",
-    "studio:reading": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion",
-    "studio:stick": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion",
-    "studio:pexels": "npm run start --prefix TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion",
-    "build:agent": "npm run build --prefix TOOLS/AUTO_POST_VIDEO",
-    "build:render": "npm run build --prefix TOOLS/AUTO_RENDER_VIDEO",
-    "render:video": "npm run render --prefix TOOLS/AUTO_RENDER_VIDEO",
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "desktop": "electron .",
+    "desktop:build": "npm run build && electron-builder --win nsis",
+    "desktop:pack": "electron-builder --dir",
+    "measure": "node scripts/measure-durations.mjs",
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts MainVideo out/video.mp4",
+    "studio:moral": "npm run start --prefix skills/moral_talk_slideshow/remotion",
+    "studio:reading": "npm run start --prefix skills/reading-page-video/remotion",
+    "studio:stick": "npm run start --prefix skills/stick-figure-slideshow-video/remotion",
+    "studio:pexels": "npm run start --prefix skills/pexels-talk-video/remotion",
     "audit:architecture": "node scripts/audit-architecture.mjs",
-    "check": "npm run audit:architecture && npm run build:agent && npm run build:render"
+    "check": "npm run audit:architecture && npm run build"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.522",
+    "@remotion/transitions": "4.0.522",
+    "mongodb": "^7.4.0",
+    "msedge-tts": "^2.0.7",
+    "next": "16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "remotion": "4.0.522"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "music-metadata": "^11.14.0",
+    "typescript": "^5.7.3"
+  },
+  "build": {
+    "appId": "com.atposter.studio",
+    "productName": "ATPOSTER Video Studio",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icons/shortcut_logo.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ATPOSTER Video Studio",
+      "differentialPackage": false
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": ".",
+        "filter": [
+          "!.next/cache/**",
+          "!.next/dev/**",
+          "!out/**",
+          "!**/.git/**",
+          "!dist-desktop/**",
+          "!skills/*/remotion/public/*/**",
+          "!skills/*/remotion/out/**"
+        ]
+      }
+    ]
   }
 }

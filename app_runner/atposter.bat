@@ -8,31 +8,31 @@ if "%CMD%"=="" (
     goto show_help
 )
 
-if /i "%CMD%"=="agent" (
-    echo [ATPOSTER] Dang khoi dong AGENT_TOOL...
-    cd /d "%ROOT_DIR%TOOLS\AUTO_POST_VIDEO"
-    npm run dev
+if /i "%CMD%"=="desktop" (
+    echo [ATPOSTER] Dang khoi dong Video Studio Desktop App...
+    cd /d "%ROOT_DIR%"
+    npm run desktop
     goto end
 )
 
 if /i "%CMD%"=="render" (
     echo [ATPOSTER] Dang khoi dong Video Builder Dashboard (Port 3001)...
-    cd /d "%ROOT_DIR%TOOLS\AUTO_RENDER_VIDEO"
+    cd /d "%ROOT_DIR%"
     npm run dev
     goto end
 )
 
-if /i "%CMD%"=="install" (
-    echo [ATPOSTER] Dang cai dat dependencies cho tat ca cac thu muc...
+if /i "%CMD%"=="dist" (
+    echo [ATPOSTER] Dang dong goi Desktop Installer (.exe)...
     cd /d "%ROOT_DIR%"
-    npm run install:all
+    npm run desktop:build
     goto end
 )
 
-if /i "%CMD%"=="build" (
-    echo [ATPOSTER] Dang build AGENT_TOOL...
-    cd /d "%ROOT_DIR%TOOLS\AUTO_POST_VIDEO"
-    npm run build
+if /i "%CMD%"=="install" (
+    echo [ATPOSTER] Dang cai dat dependencies...
+    cd /d "%ROOT_DIR%"
+    npm install
     goto end
 )
 
@@ -43,10 +43,10 @@ echo =========================================================
 echo Cach dung: atposter ^<command^>
 echo.
 echo Cac lenh ho tro:
-echo   atposter agent    : Khoi chay AGENT_TOOL (Next.js Dashboard)
-echo   atposter render   : Khoi chay RENDER (Remotion Studio)
-echo   atposter install  : Cai dat node_modules cho ca 2 thu muc
-echo   atposter build    : Build AGENT_TOOL cho production
+echo   atposter desktop   : Khoi chay ATPOSTER duoi dang Desktop App
+echo   atposter dist      : Dong goi bo cai dat Windows Installer (.exe)
+echo   atposter render    : Khoi chay RENDER Web Dashboard (Port 3001)
+echo   atposter install   : Cai dat node_modules cho toan bo workspace
 echo =========================================================
 goto end
 

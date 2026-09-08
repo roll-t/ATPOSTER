@@ -3,12 +3,9 @@ node_modules/
 
 # Next.js build output
 .next/
-/TOOLS/AUTO_POST_VIDEO/.next/
-/TOOLS/AUTO_RENDER_VIDEO/.next/
-/AGENT_TOOL/out/
-/AGENT_TOOL/build/
-/TOOLS/AUTO_RENDER_VIDEO/out/
-/TOOLS/AUTO_RENDER_VIDEO/build/
+out/
+build/
+dist-desktop/
 
 # Remotion cache
 .remotion/
@@ -24,7 +21,6 @@ node_modules/
 venv/
 __pycache__/
 *.pyc
-
 
 # Logs
 npm-debug.log*
@@ -43,32 +39,34 @@ next-env.d.ts
 coverage/
 
 # Local runtime data & uploads (MongoDB binaries/db files, json state, uploads, audio samples)
-/AGENT_TOOL/data/
-/TOOLS/AUTO_RENDER_VIDEO/data/
-/TOOLS/AUTO_POST_VIDEO/data/
+/data/
 /SERVER/data/
 
-# TOOLS generated video/image/audio project outputs (keep source assets & README)
-/TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion/public/*
-!/TOOLS/AUTO_RENDER_VIDEO/skills/moral_talk_slideshow/remotion/public/README.md
+# Generated video/image/audio project outputs (keep source assets & README)
+/skills/moral_talk_slideshow/remotion/public/*
+!/skills/moral_talk_slideshow/remotion/public/README.md
+!/skills/moral_talk_slideshow/remotion/public/logo/**
 
-/TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion/public/*
-!/TOOLS/AUTO_RENDER_VIDEO/skills/reading-page-video/remotion/public/README.md
+/skills/reading-page-video/remotion/public/*
+!/skills/reading-page-video/remotion/public/README.md
+!/skills/reading-page-video/remotion/public/logo/**
 
-/TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion/public/*
-!/TOOLS/AUTO_RENDER_VIDEO/skills/pexels-talk-video/remotion/public/README.md
+/skills/pexels-talk-video/remotion/public/*
+!/skills/pexels-talk-video/remotion/public/README.md
+!/skills/pexels-talk-video/remotion/public/logo/**
 
-/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/*
-!/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/README.md
-!/TOOLS/AUTO_RENDER_VIDEO/skills/stick-figure-slideshow-video/remotion/public/assets
+/skills/stick-figure-slideshow-video/remotion/public/*
+!/skills/stick-figure-slideshow-video/remotion/public/README.md
+!/skills/stick-figure-slideshow-video/remotion/public/assets/**
+!/skills/stick-figure-slideshow-video/remotion/public/logo/**
 
-/TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/*
-!/TOOLS/AUTO_RENDER_VIDEO/skills/music-player-video/remotion/public/README.md
+/skills/music-player-video/remotion/public/*
+!/skills/music-player-video/remotion/public/README.md
+!/skills/music-player-video/remotion/public/logo/**
 
 # Agent customizations
 .agents/
 
 # Editor/agent scratch files and interrupted media fragments
 .claude/worktrees/
-/TOOLS/AUTO_RENDER_VIDEO/c/
 *.tmp-Frag*
