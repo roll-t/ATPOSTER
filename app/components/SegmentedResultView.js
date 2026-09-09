@@ -211,7 +211,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Riêng Bước 4 (render) VẪN đòi audio có thật trên đĩa: render-project.mjs gắn cứng
   // audio/scene-NN.mp3 cho từng cảnh, thiếu file là Remotion đứt giữa chừng. Người dùng bỏ file
   // mp3 tự lồng vào thư mục audio/ là assetCounts đếm được và Bước 4 tự mở.
-  const isExternalVoiceSkill = isJapaneseNarrative;
+  const isExternalVoiceSkill = isJapaneseNarrative || result.category === 'stick_figure_slideshow';
   // Skill Phật giáo giờ viết 100% TIẾNG NHẬT, mà tiếng Nhật viết liền không khoảng trắng: đếm
   // theo "từ" thì cả một câu 34 ký tự ra đúng 1 từ, và dòng "đọc khoảng ... phút" sai khoảng 30
   // lần. Chuyển hẳn sang đơn vị KÝ TỰ khi văn bản là tiếng Nhật (countNarrationUnits tự nhận ra).
@@ -3993,10 +3993,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       đủ là nút render tự sáng lên, không cần thao tác gì thêm. */}
                   {waitingForExternalAudio && (
                     <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
-                      🎙️ Ảnh đã đủ, còn thiếu giọng đọc. Bạn đang lồng tiếng bằng ElevenLabs bên ngoài —
-                      chép file mp3 vào thư mục <strong>audio/</strong> của dự án, đặt tên đúng theo slide:{' '}
-                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px' }}>scene-01.mp3</code>,{' '}
-                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px' }}>scene-02.mp3</code>… đủ {total} file.
+                      🎙️ Đã đủ hình ảnh / hoạt cảnh, còn thiếu giọng đọc. Bạn có thể bấm nút <strong>🎧 Ghép giọng ElevenLabs</strong> ở Bước 1 để thả file và cắt tự động, hoặc chép file audio vào thư mục <strong>audio/</strong> của dự án:
+                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>scene-01.wav</code> (hoặc .mp3)… đủ {total} file.
                       Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
                       <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button

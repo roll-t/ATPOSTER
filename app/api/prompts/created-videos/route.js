@@ -17,21 +17,47 @@ function looksLikeProjectFolder(dirPath) {
   );
 }
 
-export async function GET() {
+let cachedVideosResponse = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 15000; // Bộ nhớ đệm 15 giây
+
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get('refresh') === '1';
+
+    if (!forceRefresh && cachedVideosResponse && Date.now() - lastCacheTime < CACHE_TTL_MS) {
+      return NextResponse.json(cachedVideosResponse);
+    }
+
     // Mỗi category có thể render bởi 1 skill khác nhau (xem lib/remotionPaths.js) -> project
     // của nó nằm ở public/ của skill đó, nên phải quét MỌI skill rồi gộp lại, không chỉ 1 thư mục.
     const skillPublicDirs = getAllSkillPublicDirs().map(s => s.publicDir).filter(dir => fs.existsSync(dir));
 
-    // Tra cứu folderPath -> category từ lịch sử tạo prompt, để "Video đã tạo" lọc được
-    // đúng theo chủ đề/skill hiện đang mở (thư mục render không tự lưu category, chỉ
-    // promptHistory mới biết chủ đề nào đã sinh ra folder đó). Bản ghi mới hơn (createdAt
-    // lớn hơn) ghi đè bản cũ nếu có nhiều lần tạo trùng tên thư mục.
+    // Tra cứu folderPath -> category từ lịch sử tạo prompt.
+    // TỐI ƯU QUAN TRỌNG: Chỉ lấy đúng 5 trường cần thiết (projection), KHÔNG tải toàn bộ
+    // script/phân cảnh nặng hàng chục MB từ MongoDB Atlas qua mạng Internet.
     const folderToCategory = new Map();
     const folderToLevel = new Map();
     try {
       const db = await getMongoClientDb();
-      const historyItems = await db.collection('promptHistory').find({}).toArray();
+      const historyItems = await db
+        .collection('promptHistory')
+        .find(
+          { 'input.folderPath': { $exists: true, $ne: '' } },
+          {
+            projection: {
+              'input.folderPath': 1,
+              category: 1,
+              'input.level': 1,
+              level: 1,
+              createdAt: 1
+            }
+          }
+        )
+        .maxTimeMS(3000)
+        .toArray();
+
       historyItems
         .slice()
         .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
@@ -233,11 +259,14 @@ export async function GET() {
     // Sắp xếp các video mới tạo nhất lên đầu
     videos.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-    return NextResponse.json({
+    cachedVideosResponse = {
       success: true,
       total: videos.length,
       videos
-    });
+    };
+    lastCacheTime = Date.now();
+
+    return NextResponse.json(cachedVideosResponse);
   } catch (err) {
     console.error('[API CreatedVideos Exception]:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

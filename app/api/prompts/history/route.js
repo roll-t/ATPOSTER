@@ -134,9 +134,8 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Thiếu id hoặc danh sách ids.' }, { status: 400 });
     }
 
-    // Lấy thông tin các bản ghi kịch bản cần xoá để tìm folderPath tương ứng
-    const allRecords = await db.collection('promptHistory').find({}).toArray();
-    const itemsToDelete = allRecords.filter(item => targetIds.includes(item.id));
+    // Chỉ lấy thông tin các bản ghi kịch bản cần xoá để tìm folderPath tương ứng
+    const itemsToDelete = await db.collection('promptHistory').find({ id: { $in: targetIds } }).toArray();
 
     // Xoá toàn bộ thư mục âm thanh / hình ảnh / tài nguyên đã tạo trong máy
     for (const item of itemsToDelete) {

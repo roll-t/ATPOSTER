@@ -72,7 +72,12 @@ export default function ToastContainer() {
 
     const handleToastEvent = (e) => {
       const { id, message, type, duration } = e.detail;
-      setToasts((prev) => [...prev.slice(-4), { id, message, type, duration, createdAt: Date.now() }]);
+      // Tối đa 2 thông báo: nếu nhiều hơn 2 thì tự động tắt cái cũ nhất (xa nhất)
+      setToasts((prev) => {
+        const activeToasts = prev.filter(t => !t.exiting);
+        const kept = activeToasts.slice(-1); // Giữ tối đa 1 thông báo gần nhất để thêm mới là 2
+        return [...kept, { id, message, type, duration, createdAt: Date.now() }];
+      });
 
       if (duration > 0) {
         setTimeout(() => {

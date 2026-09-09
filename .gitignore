@@ -41,6 +41,7 @@ coverage/
 # Local runtime data & uploads (MongoDB binaries/db files, json state, uploads, audio samples)
 /data/
 /SERVER/data/
+/TTS/
 
 # Generated video/image/audio project outputs (keep source assets & README)
 /skills/moral_talk_slideshow/remotion/public/*

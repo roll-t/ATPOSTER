@@ -167,7 +167,7 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
         {displayedOptions.map(opt => {
           const isSelected = Boolean(currentVal && currentVal === opt.value);
           const isBook = currentTab === 'book';
@@ -185,7 +185,7 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
                 if (onSelect) onSelect(opt.value);
               }}
               style={{
-                padding: '10px 4px',
+                padding: '10px 12px',
                 borderRadius: '10px',
                 border: isSelected ? highlightBorder : '1px solid rgba(255, 255, 255, 0.1)',
                 background: isSelected ? highlightBg : 'rgba(255, 255, 255, 0.03)',
@@ -193,24 +193,52 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
                 color: '#fff',
                 cursor: 'pointer',
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
+                alignItems: 'flex-start',
+                gap: '10px',
+                textAlign: 'left',
                 transition: 'all 0.15s ease-in-out',
                 fontFamily: 'inherit',
-                userSelect: 'none'
+                userSelect: 'none',
+                minWidth: 0,
+                width: '100%'
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                <span style={{ fontSize: '1rem' }}>{opt.icon}</span>
-                <span style={{ fontWeight: 800, fontSize: '0.82rem', color: isSelected ? highlightColor : '#fff', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '1.25rem', flexShrink: 0, marginTop: '1px' }}>{opt.icon}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flex: 1 }}>
+                <span style={{
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  color: isSelected ? highlightColor : '#fff',
+                  lineHeight: 1.25,
+                  wordBreak: 'break-word'
+                }}>
                   {opt.label}
                 </span>
+                <span style={{
+                  fontSize: '0.72rem',
+                  color: isSelected ? (isBook ? 'rgba(254, 243, 199, 0.9)' : 'rgba(255,255,255,0.85)') : 'var(--text-muted)',
+                  lineHeight: 1.3,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word'
+                }}>
+                  {opt.sublabel}
+                </span>
               </div>
-              <span style={{ fontSize: '0.66rem', color: isSelected ? 'rgba(255,255,255,0.95)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
-                {opt.sublabel}
-              </span>
             </button>
           );
         })}

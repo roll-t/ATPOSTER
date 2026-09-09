@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { showToast } from './Toast.js';
+import UnrenderedScriptCard from './UnrenderedScriptCard.js';
 
 // Bốn nút hành động ở chân thẻ đều là ô vuông chỉ chứa icon, chia đều bề ngang thẻ. Trước đây mỗi
 // nút một bề rộng khác nhau vì kèm chữ dài ngắn khác nhau, khiến hàng nút so le giữa các thẻ.
@@ -51,7 +52,7 @@ const ACTION_TOOLTIP_CSS = `
 .vc-act:last-child::after { left: auto; right: 0; transform: none; }
 `;
 
-function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit, onBackupToDrive, backingUpVideoId, isDriveLinked, onRequestDelete, isDeleting }) {
+function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFolder, onEdit, onViewScript, onBackupToDrive, backingUpVideoId, isDriveLinked, onRequestDelete, isDeleting }) {
   const isLandscape = video.aspectRatio === '16:9';
 
   return (
@@ -171,7 +172,27 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
               {isLandscape ? '💻 16:9' : '📱 9:16'}
             </span>
 
-            {/* Level Badge */}
+            {/* Status Badge: Đã tạo video */}
+            <span style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              padding: '2px 7px',
+              borderRadius: '5px',
+              background: 'rgba(16, 185, 129, 0.25)',
+              border: '1px solid rgba(16, 185, 129, 0.45)',
+              backdropFilter: 'blur(4px)',
+              color: '#10b981',
+              fontSize: '0.66rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              zIndex: 9
+            }}>
+              <span>✓</span>
+              <span>Đã tạo video</span>
+            </span>
             {video.level && (
               <span style={{
                 position: 'absolute',
@@ -207,8 +228,8 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  background: video.driveUrl 
-                    ? 'rgba(46, 213, 115, 0.9)' 
+                  background: video.driveUrl
+                    ? 'rgba(46, 213, 115, 0.9)'
                     : 'rgba(0, 242, 254, 0.9)',
                   border: 'none',
                   color: '#fff',
@@ -232,8 +253,8 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.background = video.driveUrl 
-                    ? 'rgba(46, 213, 115, 0.9)' 
+                  e.currentTarget.style.background = video.driveUrl
+                    ? 'rgba(46, 213, 115, 0.9)'
                     : 'rgba(0, 242, 254, 0.9)';
                 }}
                 title={video.driveUrl ? "Mở video trên Google Drive" : "Sao lưu lên Google Drive"}
@@ -267,28 +288,33 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
       </div>
 
       {/* Title & Info */}
-      <h5 style={{
-        fontSize: '0.88rem',
-        fontWeight: 700,
-        color: '#fff',
-        margin: '0 0 4px 0',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
-      }} title={video.title}>
-        {video.title}
-      </h5>
+      <div
+        onClick={() => onEdit && onEdit(video)}
+        style={{ cursor: 'pointer', marginBottom: '10px' }}
+        title="Nhấn để mở quy trình tạo video"
+      >
+        <h5 style={{
+          fontSize: '0.88rem',
+          fontWeight: 700,
+          color: '#fff',
+          margin: '0 0 4px 0',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
+          {video.title}
+        </h5>
 
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '0.73rem',
-        color: 'var(--text-muted)',
-        marginBottom: '10px'
-      }}>
-        <span>📅 {video.createdAt}</span>
-        <span>🖼️ {video.scenesCount} slide</span>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '0.73rem',
+          color: 'var(--text-muted)'
+        }}>
+          <span>📅 {video.createdAt}</span>
+          <span>🖼️ {video.scenesCount} slide</span>
+        </div>
       </div>
 
       {/* Actions Footer */}
@@ -316,6 +342,22 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
         >
           ✏️
         </button>
+
+        {onViewScript && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewScript(video);
+            }}
+            className="btn btn-secondary vc-act"
+            style={ACTION_BTN_STYLE}
+            data-tip="Xem kịch bản chi tiết"
+            aria-label="Xem kịch bản chi tiết"
+          >
+            📜
+          </button>
+        )}
 
         <button
           type="button"
@@ -365,11 +407,12 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
   );
 }
 
-export default function CreatedVideosGrid({ onSelectScript, category, categoryLabel, isDriveLinked }) {
+export default function CreatedVideosGrid({ onSelectScript, category, categoryLabel, isDriveLinked, history = [], onDeleteHistory }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'portrait', 'landscape'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'rendered', 'unrendered'
   const [selectedLevel, setSelectedLevel] = useState('all'); // 'all', 'a1', 'a2', 'b1', 'b2', 'c1', 'c2'
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [openingFolderId, setOpeningFolderId] = useState(null);
@@ -387,7 +430,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
       window.open(video.driveUrl, '_blank');
       return;
     }
-    
+
     setBackingUpVideoId(video.id);
     try {
       const res = await fetch('/api/prompts/drive/upload', {
@@ -418,10 +461,11 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
     }
   };
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/prompts/created-videos');
+      const url = forceRefresh ? '/api/prompts/created-videos?refresh=1' : '/api/prompts/created-videos';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setVideos(data.videos || []);
@@ -478,7 +522,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
       // chắn khớp với đĩa (vd tệp đã bị xoá tay từ trước).
       setVideos((prev) => prev.filter((v) => v.folderPath !== video.folderPath));
       setPendingDelete(null);
-      fetchVideos();
+      fetchVideos(true);
     } catch (err) {
       setDeleteError('Lỗi kết nối máy chủ khi xoá.');
     } finally {
@@ -486,41 +530,105 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
     }
   };
 
-  // Chỉ hiện video của đúng chủ đề/skill đang mở — mỗi trang chủ đề chỉ nên thấy video
-  // do chính chủ đề đó tạo ra, hoặc lọc theo dropdown ở trang video tổng hợp.
+  // 1. Lọc video theo category
   const categoryVideos = category
     ? videos.filter(v => {
-        if (v.category === category) return true;
-        if (category === 'stick_figure_slideshow' && (!v.category || v.category === 'stick_figure')) return true;
-        if (category === 'reading_practice' && (!v.category || v.category === 'reading_page_video')) return true;
-        return false;
-      })
+      if (v.category === category) return true;
+      if (category === 'stick_figure_slideshow' && (!v.category || v.category === 'stick_figure')) return true;
+      if (category === 'reading_practice' && (!v.category || v.category === 'reading_page_video')) return true;
+      return false;
+    })
     : videos.filter(v => {
-        if (selectedSkill === 'all') return true;
-        if (v.category === selectedSkill) return true;
-        if (selectedSkill === 'stick_figure_slideshow' && (!v.category || v.category === 'stick_figure')) return true;
-        if (selectedSkill === 'reading_practice' && (!v.category || v.category === 'reading_page_video')) return true;
-        return false;
-      });
+      if (selectedSkill === 'all') return true;
+      if (v.category === selectedSkill) return true;
+      if (selectedSkill === 'stick_figure_slideshow' && (!v.category || v.category === 'stick_figure')) return true;
+      if (selectedSkill === 'reading_practice' && (!v.category || v.category === 'reading_page_video')) return true;
+      return false;
+    });
 
-  const levelFilteredVideos = categoryVideos.filter(v => {
+  // 2. Lọc history theo category
+  const categoryHistory = (history || []).filter(h => {
+    if (!category) return true;
+    if (h.category === category) return true;
+    if (category === 'stick_figure_slideshow' && (!h.category || h.category === 'stick_figure')) return true;
+    if (category === 'reading_practice' && (!h.category || h.category === 'reading_page_video')) return true;
+    return false;
+  });
+
+  // 3. Ghép nối: Video nào tương ứng với History item nào
+  const matchedHistoryIds = new Set();
+  const renderedItems = categoryVideos.map(v => {
+    const matched = categoryHistory.find(h => h.input?.folderPath === v.folderPath || h.input?.folderPath === v.id);
+    if (matched) {
+      matchedHistoryIds.add(matched.id);
+    }
+    return {
+      id: 'vid_' + v.id,
+      type: 'video',
+      video: v,
+      historyItem: matched || null,
+      title: v.title || '',
+      folderPath: v.folderPath || '',
+      aspectRatio: v.aspectRatio || '9:16',
+      level: v.level || matched?.input?.level,
+      mtimeMs: v.mtimeMs || (v.createdAt ? new Date(v.createdAt).getTime() : 0)
+    };
+  });
+
+  // 4. Các bản ghi history CHƯA render video
+  const unrenderedItems = categoryHistory
+    .filter(h => !matchedHistoryIds.has(h.id))
+    .map(h => ({
+      id: 'hist_' + h.id,
+      type: 'unrendered',
+      video: null,
+      historyItem: h,
+      title: h.title || h.jsonPrompt?.title || '(Kịch bản chưa đặt tên)',
+      folderPath: h.input?.folderPath || '',
+      aspectRatio: h.input?.aspectRatio || '9:16',
+      level: h.input?.level || h.level,
+      mtimeMs: h.createdAt ? new Date(h.createdAt).getTime() : 0
+    }));
+
+  const allItems = [...renderedItems, ...unrenderedItems];
+
+  const searchFilteredItems = allItems.filter(item => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return item.title.toLowerCase().includes(s) || item.folderPath.toLowerCase().includes(s);
+  });
+
+  const levelFilteredItems = searchFilteredItems.filter(item => {
     if (selectedLevel === 'all') return true;
-    if (!v.level) return false;
-    const l = String(v.level).toLowerCase();
+    if (!item.level) return false;
+    const l = String(item.level).toLowerCase();
     return l.startsWith(selectedLevel.toLowerCase());
   });
 
-  const searchFilteredVideos = levelFilteredVideos.filter(v =>
-    v.title.toLowerCase().includes(search.toLowerCase()) ||
-    v.folderPath.toLowerCase().includes(search.toLowerCase())
-  );
+  const ratioFilteredItems = levelFilteredItems.filter(item => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'portrait') return item.aspectRatio !== '16:9';
+    if (activeTab === 'landscape') return item.aspectRatio === '16:9';
+    return true;
+  });
 
-  const filteredVideos = [...searchFilteredVideos].sort((a, b) => {
+  const statusFilteredItems = ratioFilteredItems.filter(item => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'rendered') return item.type === 'video';
+    if (statusFilter === 'unrendered') return item.type === 'unrendered';
+    return true;
+  });
+
+  const sortedItems = [...statusFilteredItems].sort((a, b) => {
     return sortOrder === 'newest' ? b.mtimeMs - a.mtimeMs : a.mtimeMs - b.mtimeMs;
   });
 
-  const portraitVideos = filteredVideos.filter(v => v.aspectRatio !== '16:9');
-  const landscapeVideos = filteredVideos.filter(v => v.aspectRatio === '16:9');
+  const portraitItems = sortedItems.filter(v => v.aspectRatio !== '16:9');
+  const landscapeItems = sortedItems.filter(v => v.aspectRatio === '16:9');
+
+  const totalCount = ratioFilteredItems.length;
+  const renderedCount = ratioFilteredItems.filter(i => i.type === 'video').length;
+  const unrenderedCount = ratioFilteredItems.filter(i => i.type === 'unrendered').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -538,43 +646,80 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>🎥</span> Danh sách Video đã tạo{categoryLabel ? ` — ${categoryLabel}` : ''}
+            <span>🎬</span> Lịch sử & Video đã tạo{categoryLabel ? ` — ${categoryLabel}` : ''}
           </h4>
 
-          {/* Category Tabs: Tất cả | Màn Dọc (9:16) | Màn Ngang (16:9) */}
+          {/* Status Tabs: Tất cả | ✅ Đã tạo video | ⏳ Chưa tạo video */}
           <div style={{
             display: 'flex',
-            gap: '4px',
+            gap: '3px',
             padding: '3px',
             background: 'rgba(0, 0, 0, 0.3)',
             borderRadius: '10px',
             border: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
             {[
-              { id: 'all', label: '🎞️ Tất cả', count: filteredVideos.length },
-              { id: 'portrait', label: '📱 Màn Dọc 9:16', count: portraitVideos.length },
-              { id: 'landscape', label: '💻 Màn Ngang 16:9', count: landscapeVideos.length }
-            ].map(tab => {
-              const active = activeTab === tab.id;
+              { id: 'all', label: 'Tất cả', count: totalCount },
+              { id: 'rendered', label: '✅ Đã có video', count: renderedCount },
+              { id: 'unrendered', label: '⏳ Chưa dựng video', count: unrenderedCount }
+            ].map(sTab => {
+              const active = statusFilter === sTab.id;
               return (
                 <button
-                  key={tab.id}
+                  key={sTab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setStatusFilter(sTab.id)}
                   style={{
-                    padding: '5px 12px',
-                    fontSize: '0.76rem',
+                    padding: '5px 11px',
+                    fontSize: '0.75rem',
                     fontWeight: 700,
                     borderRadius: '7px',
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    background: active ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'transparent',
-                    color: active ? '#fff' : 'rgba(255, 255, 255, 0.6)',
-                    boxShadow: active ? '0 3px 10px rgba(254, 44, 85, 0.3)' : 'none'
+                    background: active ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
+                    color: active ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                    boxShadow: active ? '0 2px 8px rgba(168, 85, 247, 0.3)' : 'none'
                   }}
                 >
-                  {tab.label} <span style={{ opacity: 0.85, fontSize: '0.7rem' }}>({tab.count})</span>
+                  {sTab.label} <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>({sTab.count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Ratio filter */}
+          <div style={{
+            display: 'flex',
+            gap: '2px',
+            padding: '2px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.06)'
+          }}>
+            {[
+              { id: 'all', label: 'Mọi tỉ lệ' },
+              { id: 'portrait', label: '📱 9:16' },
+              { id: 'landscape', label: '💻 16:9' }
+            ].map(rTab => {
+              const active = activeTab === rTab.id;
+              return (
+                <button
+                  key={rTab.id}
+                  type="button"
+                  onClick={() => setActiveTab(rTab.id)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: active ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    color: active ? '#fff' : 'rgba(255, 255, 255, 0.5)'
+                  }}
+                >
+                  {rTab.label}
                 </button>
               );
             })}
@@ -681,7 +826,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
 
           <button
             type="button"
-            onClick={fetchVideos}
+            onClick={() => fetchVideos(true)}
             disabled={loading}
             className="btn btn-secondary"
             style={{ padding: '6px 12px', fontSize: '0.78rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
@@ -694,92 +839,261 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
       {/* Grid Content */}
       <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-            <div className="animate-spin" style={{ fontSize: '1.8rem', marginBottom: '8px' }}>⏳</div>
-            <p style={{ fontSize: '0.85rem' }}>Đang quét kho video đã tạo...</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+              <span className="animate-spin" style={{ display: 'inline-block' }}>⚡</span>
+              <span>Đang quét kho video đã tạo...</span>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '16px'
+            }}>
+              {[1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.025)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderRadius: '12px',
+                    height: '220px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ flex: 1, background: 'rgba(255, 255, 255, 0.04)', opacity: 0.6 }} />
+                  <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ height: '12px', width: '80%', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px' }} />
+                    <div style={{ height: '10px', width: '50%', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '4px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        ) : filteredVideos.length === 0 ? (
-          <div className="glowing-placeholder" style={{ padding: '40px 20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🎬</div>
-            <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>
-              {search ? 'Không tìm thấy video phù hợp' : 'Chưa có video MP4 nào được tạo cho chủ đề này'}
-            </h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '360px', margin: '0 auto 16px auto', lineHeight: 1.5 }}>
-              {search
-                ? 'Hãy thử tìm kiếm với từ khóa khác.'
-                : `Sau khi bạn render xong video bằng Remotion${categoryLabel ? ` cho "${categoryLabel}"` : ''}, tệp video MP4 hoàn chỉnh sẽ tự động hiển thị ở đây.`}
-            </p>
-          </div>
+        ) : sortedItems.length === 0 ? (
+          search ? (
+            <div className="glowing-placeholder" style={{ padding: '40px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔍</div>
+              <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>
+                Không tìm thấy video hoặc kịch bản phù hợp
+              </h4>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.5 }}>
+                Hãy thử tìm kiếm với từ khóa khác hoặc chuyển bộ lọc sang &quot;Tất cả&quot;.
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              padding: '28px 24px',
+              borderRadius: '16px',
+              background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(19, 17, 32, 0.6) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '24px'
+            }}>
+              <div style={{ textAlign: 'center', maxWidth: '520px', margin: '0 auto' }}>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '54px',
+                  height: '54px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, rgba(254, 44, 85, 0.15), rgba(37, 244, 238, 0.15))',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  fontSize: '1.8rem',
+                  marginBottom: '14px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
+                }}>
+                  🎬
+                </div>
+                <h4 style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.3px' }}>
+                  Kho video chưa có bản ghi nào
+                </h4>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', lineHeight: 1.55, margin: 0 }}>
+                  Sau khi bạn tạo kịch bản và render video{categoryLabel ? ` cho "${categoryLabel}"` : ''}, toàn bộ lịch sử kịch bản và video MP4 hoàn chỉnh sẽ hiển thị ở đây.
+                </p>
+              </div>
+
+              {/* 3-step workflow diagram */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '12px'
+              }}>
+                {[
+                  {
+                    step: '1',
+                    icon: '💡',
+                    title: 'Chọn ý tưởng',
+                    desc: 'Chọn dạng dọc/ngang, nhóm chủ đề hoặc bốc ngẫu nhiên với nút 🎲'
+                  },
+                  {
+                    step: '2',
+                    icon: '⚡',
+                    title: 'AI lập kịch bản',
+                    desc: 'Gemini tự động phân đoạn, tạo lời thoại thuyết minh và gắn động tác'
+                  },
+                  {
+                    step: '3',
+                    icon: '🚀',
+                    title: 'Dựng Remotion',
+                    desc: 'Kiểm tra review, tinh chỉnh âm thanh & bấm dựng video 1 chạm'
+                  }
+                ].map((st) => (
+                  <div
+                    key={st.step}
+                    style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.025)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{st.icon}</span>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: 'var(--secondary)',
+                        background: 'rgba(37, 244, 238, 0.1)',
+                        padding: '2px 7px',
+                        borderRadius: '10px'
+                      }}>
+                        Bước {st.step}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#fff', marginTop: '4px' }}>
+                      {st.title}
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      {st.desc}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pro-tip banner */}
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: 'linear-gradient(90deg, rgba(37, 244, 238, 0.08) 0%, rgba(254, 44, 85, 0.08) 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '0.78rem',
+                color: 'rgba(255, 255, 255, 0.85)'
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>💡</span>
+                <span>
+                  <b>Mẹo nhanh:</b> Ở form bên trái, hãy bấm nút <b>🎲 Gợi ý ngẫu nhiên</b> rồi ấn <kbd style={{ background: 'rgba(255,255,255,0.12)', padding: '1px 5px', borderRadius: '4px' }}>Ctrl + Enter</kbd> để tạo kịch bản ngay lập tức!
+                </span>
+              </div>
+            </div>
+          )
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            {/* Section 1: Video Màn Dọc 9:16 */}
-            {(activeTab === 'all' || activeTab === 'portrait') && portraitVideos.length > 0 && (
+            {/* Section 1: Màn Dọc 9:16 */}
+            {(activeTab === 'all' || activeTab === 'portrait') && portraitItems.length > 0 && (
               <div>
                 {activeTab === 'all' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                     <h5 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>📱</span> Video Màn Dọc (9:16)
+                      <span>📱</span> Màn Dọc (9:16)
                     </h5>
-                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>({portraitVideos.length} video)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>({portraitItems.length} mục)</span>
                   </div>
                 )}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
-                  gap: '16px'
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
+                  gap: '18px'
                 }}>
-                  {portraitVideos.map(video => (
-                    <VideoCard
-                      key={video.id}
-                      video={video}
-                      isPlaying={activeVideoId === video.id}
-                      onTogglePlay={() => setActiveVideoId(activeVideoId === video.id ? null : video.id)}
-                      openingFolderId={openingFolderId}
-                      onOpenFolder={handleOpenFolder}
-                      onEdit={onSelectScript}
-                      onBackupToDrive={handleBackupToDrive}
-                      backingUpVideoId={backingUpVideoId}
-                      isDriveLinked={isDriveLinked}
-                      onRequestDelete={setPendingDelete}
-                      isDeleting={deletingId === video.folderPath}
-                    />
-                  ))}
+                  {portraitItems.map(item => {
+                    if (item.type === 'video') {
+                      return (
+                        <VideoCard
+                          key={item.id}
+                          video={item.video}
+                          isPlaying={activeVideoId === item.video.id}
+                          onTogglePlay={() => setActiveVideoId(activeVideoId === item.video.id ? null : item.video.id)}
+                          openingFolderId={openingFolderId}
+                          onOpenFolder={handleOpenFolder}
+                          onEdit={() => onSelectScript(item.historyItem || item.video, 'process')}
+                          onViewScript={() => onSelectScript(item.historyItem || item.video, 'script')}
+                          onBackupToDrive={handleBackupToDrive}
+                          backingUpVideoId={backingUpVideoId}
+                          isDriveLinked={isDriveLinked}
+                          onRequestDelete={setPendingDelete}
+                          isDeleting={deletingId === item.video.folderPath}
+                        />
+                      );
+                    }
+                    return (
+                      <UnrenderedScriptCard
+                        key={item.id}
+                        item={item.historyItem}
+                        onSelectProcess={(h) => onSelectScript(h, 'process')}
+                        onSelectScript={(h) => onSelectScript(h, 'script')}
+                        onDelete={onDeleteHistory}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Section 2: Video Màn Ngang 16:9 */}
-            {(activeTab === 'all' || activeTab === 'landscape') && landscapeVideos.length > 0 && (
+            {/* Section 2: Màn Ngang 16:9 */}
+            {(activeTab === 'all' || activeTab === 'landscape') && landscapeItems.length > 0 && (
               <div>
                 {activeTab === 'all' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                     <h5 style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--secondary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>💻</span> Video Màn Ngang (16:9)
+                      <span>💻</span> Màn Ngang (16:9)
                     </h5>
-                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>({landscapeVideos.length} video)</span>
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>({landscapeItems.length} mục)</span>
                   </div>
                 )}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
-                  gap: '16px'
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+                  gap: '18px'
                 }}>
-                  {landscapeVideos.map(video => (
-                    <VideoCard
-                      key={video.id}
-                      video={video}
-                      isPlaying={activeVideoId === video.id}
-                      onTogglePlay={() => setActiveVideoId(activeVideoId === video.id ? null : video.id)}
-                      openingFolderId={openingFolderId}
-                      onOpenFolder={handleOpenFolder}
-                      onEdit={onSelectScript}
-                      onBackupToDrive={handleBackupToDrive}
-                      backingUpVideoId={backingUpVideoId}
-                      isDriveLinked={isDriveLinked}
-                      onRequestDelete={setPendingDelete}
-                      isDeleting={deletingId === video.folderPath}
-                    />
-                  ))}
+                  {landscapeItems.map(item => {
+                    if (item.type === 'video') {
+                      return (
+                        <VideoCard
+                          key={item.id}
+                          video={item.video}
+                          isPlaying={activeVideoId === item.video.id}
+                          onTogglePlay={() => setActiveVideoId(activeVideoId === item.video.id ? null : item.video.id)}
+                          openingFolderId={openingFolderId}
+                          onOpenFolder={handleOpenFolder}
+                          onEdit={() => onSelectScript(item.historyItem || item.video, 'process')}
+                          onViewScript={() => onSelectScript(item.historyItem || item.video, 'script')}
+                          onBackupToDrive={handleBackupToDrive}
+                          backingUpVideoId={backingUpVideoId}
+                          isDriveLinked={isDriveLinked}
+                          onRequestDelete={setPendingDelete}
+                          isDeleting={deletingId === item.video.folderPath}
+                        />
+                      );
+                    }
+                    return (
+                      <UnrenderedScriptCard
+                        key={item.id}
+                        item={item.historyItem}
+                        onSelectProcess={(h) => onSelectScript(h, 'process')}
+                        onSelectScript={(h) => onSelectScript(h, 'script')}
+                        onDelete={onDeleteHistory}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}

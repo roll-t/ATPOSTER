@@ -114,6 +114,7 @@ export function usePromptStudio(initialCategory) {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
+  const [deletingHistoryIds, setDeletingHistoryIds] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [charactersLoading, setCharactersLoading] = useState(true);
   const [isFolderPathUserEdited, setIsFolderPathUserEdited] = useState(false);
@@ -382,6 +383,7 @@ export function usePromptStudio(initialCategory) {
 
   const handleDeleteHistory = async (id) => {
     if (!confirm('Xóa kịch bản này và toàn bộ âm thanh, hình ảnh liên quan đã tạo trong máy?')) return;
+    setDeletingHistoryIds(prev => [...new Set([...prev, id])]);
     try {
       const res = await fetch(`/api/prompts/history?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (res.ok) {
@@ -397,6 +399,8 @@ export function usePromptStudio(initialCategory) {
       }
     } catch (err) {
       showToast.error('Lỗi kết nối khi xóa.');
+    } finally {
+      setDeletingHistoryIds(prev => prev.filter(x => x !== id));
     }
   };
 
@@ -466,22 +470,26 @@ export function usePromptStudio(initialCategory) {
     if (selectedHistoryIds.length === 0) return;
     if (!confirm(`Xóa ${selectedHistoryIds.length} kịch bản đã chọn và toàn bộ âm thanh, hình ảnh liên quan đã tạo trong máy?`)) return;
 
+    const idsToDelete = [...selectedHistoryIds];
+    setDeletingHistoryIds(idsToDelete);
     try {
-      const idsParam = selectedHistoryIds.join(',');
+      const idsParam = idsToDelete.join(',');
       const res = await fetch(`/api/prompts/history?ids=${encodeURIComponent(idsParam)}`, { method: 'DELETE' });
       if (res.ok) {
-        setHistory(prev => prev.filter(h => !selectedHistoryIds.includes(h.id)));
-        if (result && selectedHistoryIds.includes(result.id)) {
+        setHistory(prev => prev.filter(h => !idsToDelete.includes(h.id)));
+        if (result && idsToDelete.includes(result.id)) {
           setResult(null);
         }
-        setSelectedHistoryIds([]);
-        showToast.success(`Đã xóa ${selectedHistoryIds.length} kịch bản.`);
+        setSelectedHistoryIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+        showToast.success(`Đã xóa ${idsToDelete.length} kịch bản.`);
       } else {
         const d = await res.json().catch(() => ({}));
         showToast.error(d.error || 'Lỗi khi xóa các mục đã chọn.');
       }
     } catch (err) {
       showToast.error('Lỗi kết nối khi xóa.');
+    } finally {
+      setDeletingHistoryIds(prev => prev.filter(id => !idsToDelete.includes(id)));
     }
   };
 
@@ -510,7 +518,7 @@ export function usePromptStudio(initialCategory) {
     activeCategory, setActiveCategory,
     currentCategory, currentInput,
     isGenerating, errorMsg, result, setResult, showJson, setShowJson, copiedKey,
-    history, historyLoading, selectedHistoryIds, fetchHistory,
+    history, historyLoading, selectedHistoryIds, deletingHistoryIds, fetchHistory,
     characters, charactersLoading,
     geminiApiKey, setGeminiApiKey, apiKeyVisible, setApiKeyVisible,
     showSettings, setShowSettings, settings, setSettings, isSavingSettings, settingsMsg, setSettingsMsg,

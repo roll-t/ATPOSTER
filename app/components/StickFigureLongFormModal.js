@@ -73,15 +73,17 @@ export default function StickFigureLongFormModal({
     return texts;
   }, [history, createdVideoTitles]);
 
-  const checkIsCompleted = (topicText) => {
-    if (!topicText) return false;
-    const target = topicText.trim().toLowerCase();
-
-    if (exactSyllabusTopics.has(target)) return true;
+  const checkIsCompleted = (t) => {
+    if (!t) return false;
+    const targetEn = (t.text || '').trim().toLowerCase();
+    const targetVi = (t.desc || '').trim().toLowerCase();
+    if (targetEn && exactSyllabusTopics.has(targetEn)) return true;
+    if (targetVi && exactSyllabusTopics.has(targetVi)) return true;
 
     for (const h of allHistoryTexts) {
       if (!h) continue;
-      if (h.includes(target) || target.includes(h)) return true;
+      if (targetEn && (h.includes(targetEn) || targetEn.includes(h))) return true;
+      if (targetVi && (h.includes(targetVi) || targetVi.includes(h))) return true;
     }
     return false;
   };
@@ -90,7 +92,7 @@ export default function StickFigureLongFormModal({
   const groupTopics = group.topics;
 
   const completedCount = useMemo(
-    () => groupTopics.filter((t) => checkIsCompleted(t.text)).length,
+    () => groupTopics.filter((t) => checkIsCompleted(t)).length,
     [groupTopics, allHistoryTexts, exactSyllabusTopics]
   );
   const progressPercent = groupTopics.length > 0 ? Math.round((completedCount / groupTopics.length) * 100) : 0;
@@ -100,7 +102,7 @@ export default function StickFigureLongFormModal({
     return groupTopics.filter((t) => {
       const matchesSearch =
         !q || t.text.toLowerCase().includes(q) || (t.desc || '').toLowerCase().includes(q);
-      const done = checkIsCompleted(t.text);
+      const done = checkIsCompleted(t);
       if (filterType === 'completed') return matchesSearch && done;
       if (filterType === 'uncompleted') return matchesSearch && !done;
       return matchesSearch;
@@ -239,13 +241,14 @@ export default function StickFigureLongFormModal({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredTopics.map((t) => {
-                const done = checkIsCompleted(t.text);
+                const done = checkIsCompleted(t);
+                const fullTopic = t.desc ? `${t.desc} (${t.text})` : t.text;
                 return (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => {
-                      onSelectTopic?.(t.text);
+                      onSelectTopic?.(fullTopic);
                       onClose?.();
                     }}
                     style={{
@@ -261,13 +264,13 @@ export default function StickFigureLongFormModal({
                     }}
                   >
                     <span style={{ fontSize: '0.9rem', flexShrink: 0, marginTop: '1px' }}>{done ? '✅' : '▫️'}</span>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: done ? '#2ed573' : '#fff', lineHeight: 1.35 }}>
-                        {t.text}
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: 'block', fontSize: '0.88rem', fontWeight: 700, color: done ? '#2ed573' : '#fff', lineHeight: 1.35 }}>
+                        {t.desc || t.text}
                       </span>
                       {t.desc && (
-                        <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.35 }}>
-                          {t.desc}
+                        <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--secondary)', marginTop: '2px', lineHeight: 1.35, opacity: 0.85 }}>
+                          🇬🇧 {t.text}
                         </span>
                       )}
                     </span>
