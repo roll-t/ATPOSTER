@@ -147,6 +147,7 @@ export async function POST(req) {
           segmentNumber: s.segmentNumber,
           ...(Array.isArray(s.elements) && s.elements.length > 0 ? { elements: s.elements } : {}),
           ...(s.layout ? { layout: s.layout } : {}),
+          ...(Array.isArray(s.bullets) && s.bullets.length > 0 ? { bullets: s.bullets } : {}),
           dialogueOrNarration: s.dialogueOrNarration,
           subtitle: s.subtitle,
           ...(s.durationSeconds ? { durationSeconds: s.durationSeconds } : {}),

@@ -18,8 +18,8 @@ export default function Heartbeat() {
     // Gửi heartbeat lập tức khi mở trang
     sendHeartbeat();
 
-    // Gửi định kỳ mỗi 2.5 giây
-    const interval = setInterval(sendHeartbeat, 2500);
+    // Gửi định kỳ mỗi 30 giây (server chỉ tắt nếu không có tab nào trong 30 phút)
+    const interval = setInterval(sendHeartbeat, 30000);
 
     return () => clearInterval(interval);
   }, []);

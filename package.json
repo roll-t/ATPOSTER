@@ -11,7 +11,8 @@
     "skills/*/remotion"
   ],
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "node scripts/run-dev.mjs -p 3001",
+    "postinstall": "node scripts/patch-next-memory.mjs",
     "build": "next build && node scripts/prepare-desktop.mjs",
     "start": "next start -p 3001",
     "desktop": "electron .",

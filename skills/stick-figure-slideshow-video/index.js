@@ -25,6 +25,17 @@ export default defineSkill({
   formSchema: {
     fields: [
       {
+        name: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts / TikTok (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' },
+        ],
+      },
+      {
         name: 'scenario',
         label: 'Chủ đề / Vấn nạn muốn thuyết minh',
         type: 'textarea',
@@ -35,6 +46,7 @@ export default defineSkill({
         name: 'narrationLanguage',
         label: 'Ngôn ngữ thuyết minh',
         type: 'select',
+        defaultValue: 'vi',
         options: [
           { value: 'vi', label: 'Tiếng Việt (Mặc định)' },
           { value: 'en', label: 'Tiếng Anh (English)' },
@@ -59,7 +71,12 @@ export default defineSkill({
   },
 
   buildRemotionConfig(record, processedInput) {
-    // Nền trắng — khớp với whiteboard aesthetic của ảnh người que (mực đen trên nền trắng).
-    return buildSlideshowRemotionConfig(record, processedInput, '#FFFFFF');
+    const isLandscape = processedInput?.aspectRatio === '16:9' || record?.input?.aspectRatio === '16:9';
+    const orientation = isLandscape ? 'landscape' : 'portrait';
+    const baseConfig = buildSlideshowRemotionConfig(record, processedInput, '#18181B');
+    return {
+      ...baseConfig,
+      orientation,
+    };
   },
 });

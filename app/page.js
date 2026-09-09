@@ -51,7 +51,6 @@ function PromptsStudioContent() {
   const initialCategory = categoryParam && PROMPT_CATEGORIES[categoryParam] ? categoryParam : undefined;
   const s = usePromptStudio(initialCategory);
 
-  const [activeRightTab, setActiveRightTab] = useState('videos');
   const [wasGenerating, setWasGenerating] = useState(false);
   const [scriptModalItem, setScriptModalItem] = useState(null);
   const [mounted, setMounted] = useState(false);
@@ -85,16 +84,13 @@ function PromptsStudioContent() {
     if (s.isGenerating) {
       setWasGenerating(true);
     } else if (wasGenerating && s.result) {
-      setActiveRightTab('process');
       setWasGenerating(false);
+      try {
+        sessionStorage.setItem('active_script_' + s.result.id, JSON.stringify(s.result));
+      } catch (e) {}
+      router.push(`/create-video?id=${s.result.id}&category=${s.activeCategory}`);
     }
-  }, [s.isGenerating, s.result, wasGenerating]);
-
-  useEffect(() => {
-    if (!s.result && activeRightTab !== 'videos') {
-      setActiveRightTab('videos');
-    }
-  }, [s.result]);
+  }, [s.isGenerating, s.result, wasGenerating, s.activeCategory]);
 
   const handleSelectCategory = (key) => {
     s.setActiveCategory(key);
@@ -318,15 +314,15 @@ function PromptsStudioContent() {
                   isDriveLinked={s.settings.googleDrive?.isLinked}
                   history={s.history}
                   onSelectScript={(video) => {
-                    // Chuyển sang chủ đề tương ứng và tự động load kịch bản đó lên để review
-                    router.push(`/?category=${video.category}`);
-                    setTimeout(() => {
-                      const item = s.history.find((h) => h.input?.folderPath === video.folderPath);
-                      if (item) {
-                        s.setResult(item);
-                        setActiveRightTab('process');
-                      }
-                    }, 500);
+                    const item = s.history.find((h) => h.input?.folderPath === video.folderPath);
+                    if (item) {
+                      try {
+                        sessionStorage.setItem('active_script_' + item.id, JSON.stringify(item));
+                      } catch (e) {}
+                      router.push(`/create-video?id=${item.id}&category=${video.category}`);
+                    } else {
+                      router.push(`/?category=${video.category}`);
+                    }
                   }}
                 />
               </div>
@@ -350,10 +346,12 @@ function PromptsStudioContent() {
                       type="button"
                       onClick={handleBackToGrid}
                       style={{
+                        height: '34px',
+                        boxSizing: 'border-box',
                         background: 'rgba(255, 255, 255, 0.05)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         borderRadius: '8px',
-                        padding: '6px 14px',
+                        padding: '0 12px',
                         color: 'rgba(255, 255, 255, 0.85)',
                         fontSize: '0.8rem',
                         fontWeight: 600,
@@ -363,6 +361,7 @@ function PromptsStudioContent() {
                         justifyContent: 'center',
                         gap: '6px',
                         lineHeight: 1,
+                        whiteSpace: 'nowrap',
                         transition: 'all 0.15s'
                       }}
                       onMouseEnter={(e) => {
@@ -381,18 +380,21 @@ function PromptsStudioContent() {
                       </svg>
                       <span>Kho thể loại</span>
                     </button>
-                    <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.85rem' }}>/</span>
+
                     <div style={{
-                      display: 'flex',
+                      height: '34px',
+                      boxSizing: 'border-box',
+                      display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
                       background: 'rgba(255, 255, 255, 0.04)',
                       border: '1px solid rgba(255, 255, 255, 0.08)',
-                      padding: '5px 12px',
-                      borderRadius: '8px'
+                      padding: '0 12px',
+                      borderRadius: '8px',
+                      whiteSpace: 'nowrap'
                     }}>
-                      <span style={{ fontSize: '1rem' }}>{s.currentCategory?.icon}</span>
-                      <h2 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', margin: 0 }}>
+                      <span style={{ fontSize: '1rem', lineHeight: 1, display: 'inline-flex', alignItems: 'center' }}>{s.currentCategory?.icon}</span>
+                      <h2 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1 }}>
                         {s.currentCategory?.label}
                       </h2>
                     </div>
@@ -406,29 +408,36 @@ function PromptsStudioContent() {
                     s.setShowSettings(true);
                   }}
                   style={{
+                    height: '34px',
+                    boxSizing: 'border-box',
                     display: 'inline-flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: '6px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: '8px',
-                    padding: '6px 14px',
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '0.78rem',
+                    padding: '0 12px',
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    fontSize: '0.8rem',
                     fontWeight: 600,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
                     cursor: 'pointer',
                     transition: 'all 0.15s'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                     e.currentTarget.style.color = '#fff';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                   </svg>
@@ -436,7 +445,7 @@ function PromptsStudioContent() {
                 </button>
               </div>
 
-              {/* Grid 2 cột workspace */}
+              {/* Grid 2 cột workspace: Form nhập bên trái + Lịch sử & Video bên phải */}
               <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '30px', alignItems: 'start', minWidth: 0, flex: 1, minHeight: 0 }}>
                 {/* Cột trái: form nhập nội dung */}
                 <div className="scrollable-col" style={{ minWidth: 0 }}>
@@ -461,125 +470,39 @@ function PromptsStudioContent() {
                   />
                 </div>
 
-                {/* Cột phải: kết quả + lịch sử */}
-                <div className="scrollable-col" style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                    {/* Tab bar */}
-                    <div style={{
-                      display: 'flex',
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                      borderRadius: '10px',
-                      padding: '4px',
-                      marginBottom: '16px',
-                      gap: '4px',
-                      flexShrink: 0
-                    }}>
-                      {[
-                        { id: 'videos', label: '🎬 Lịch sử & Video đã tạo' },
-                        {
-                          id: 'process',
-                          label: '🎬 Quy trình & Review',
-                          warningHint: 'Ấn vào video hoặc kịch bản cần tạo ở bên dưới để qua tạo video'
+                {/* Cột phải: Danh sách Lịch sử & Video đã tạo (Không dùng tab bar) */}
+                <div className="scrollable-col" style={{ minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
+                    <CreatedVideosGrid
+                      category={s.activeCategory}
+                      categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
+                      isDriveLinked={s.settings.googleDrive?.isLinked}
+                      history={s.history}
+                      onDeleteHistory={s.handleDeleteHistory}
+                      onSelectScript={(itemOrVideo, targetTab = 'process') => {
+                        let scriptItem = itemOrVideo;
+                        if (itemOrVideo && !itemOrVideo.scenes && !itemOrVideo.input && itemOrVideo.folderPath) {
+                          scriptItem = s.history.find((h) => h.input?.folderPath === itemOrVideo.folderPath);
                         }
-                      ].map(tab => {
-                        const isActive = activeRightTab === tab.id;
-                        const isProcessTab = tab.id === 'process';
-                        // Không cho phép bấm trực tiếp vào tab Quy trình để chuyển sang, chỉ được chuyển khi bấm vào video/kịch bản bên dưới
-                        const isBlocked = isProcessTab && !isActive;
-
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            title={isBlocked ? tab.warningHint : (isActive ? '' : 'Chuyển sang ' + tab.label)}
-                            onClick={() => {
-                              if (isBlocked) {
-                                showToast.warning(tab.warningHint);
-                                return;
-                              }
-                              setActiveRightTab(tab.id);
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: '8px 10px',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              borderRadius: '8px',
-                              border: 'none',
-                              background: isActive ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
-                              color: isActive ? '#fff' : isBlocked ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.65)',
-                              cursor: isBlocked ? 'not-allowed' : 'pointer',
-                              boxShadow: isActive ? '0 3px 12px rgba(168, 85, 247, 0.28)' : 'none',
-                              transition: 'all 0.2s ease',
-                              whiteSpace: 'nowrap',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            <span>{tab.label}</span>
-                            {isBlocked && <span style={{ opacity: 0.6, fontSize: '0.72rem' }}>🔒</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Tab contents */}
-                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: activeRightTab === 'videos' ? 'hidden' : 'auto' }}>
-                      {activeRightTab === 'videos' && (
-                        <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                          <CreatedVideosGrid
-                            category={s.activeCategory}
-                            categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
-                            isDriveLinked={s.settings.googleDrive?.isLinked}
-                            history={s.history}
-                            onDeleteHistory={s.handleDeleteHistory}
-                            onSelectScript={(itemOrVideo, targetTab = 'process') => {
-                              let scriptItem = itemOrVideo;
-                              if (itemOrVideo && !itemOrVideo.scenes && !itemOrVideo.input && itemOrVideo.folderPath) {
-                                scriptItem = s.history.find((h) => h.input?.folderPath === itemOrVideo.folderPath);
-                              }
-                              if (targetTab === 'script' || targetTab === 'dialog') {
-                                if (scriptItem) {
-                                  setScriptModalItem(scriptItem);
-                                } else {
-                                  showToast.warning('Không tìm thấy kịch bản gốc trong lịch sử (có thể đã bị xoá).');
-                                }
-                                return;
-                              }
-                              if (scriptItem) {
-                                s.setResult(scriptItem);
-                                setActiveRightTab(targetTab || 'process');
-                              } else {
-                                showToast.warning('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {activeRightTab === 'process' && s.result && (
-                        <div className="glass-card" style={{ marginBottom: '20px' }}>
-                          <SegmentedResultView key={s.result.id ? `process_${s.result.id}` : 'process'} result={s.result} copiedKey={s.copiedKey} onCopy={s.handleCopy} activeTab="process" onResult={s.setResult} onHistoryRefresh={() => s.fetchHistory(s.activeCategory)} />
-                        </div>
-                      )}
-
-                      {!s.result && activeRightTab !== 'videos' && (
-                        <div className="glowing-placeholder" style={{ marginBottom: '20px' }}>
-                          <div style={{ fontSize: '2.8rem', marginBottom: '16px', filter: 'drop-shadow(0 0 12px rgba(37, 244, 238, 0.2))' }}>
-                            🎬
-                          </div>
-                          <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
-                            Chưa có kịch bản hoạt động
-                          </h4>
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.5, textAlign: 'center' }}>
-                            Hãy điền thông tin bên trái để tạo kịch bản mới, hoặc chọn kịch bản trong tab &quot;Lịch sử &amp; Video đã tạo&quot;.
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                        if (targetTab === 'script' || targetTab === 'dialog') {
+                          if (scriptItem) {
+                            setScriptModalItem(scriptItem);
+                          } else {
+                            showToast.warning('Không tìm thấy kịch bản gốc trong lịch sử (có thể đã bị xoá).');
+                          }
+                          return;
+                        }
+                        if (scriptItem) {
+                          s.setResult(scriptItem);
+                          try {
+                            sessionStorage.setItem('active_script_' + scriptItem.id, JSON.stringify(scriptItem));
+                          } catch (e) {}
+                          router.push(`/create-video?id=${scriptItem.id}&category=${s.activeCategory}`);
+                        } else {
+                          showToast.warning('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>
@@ -607,9 +530,11 @@ function PromptsStudioContent() {
           item={scriptModalItem}
           onClose={() => setScriptModalItem(null)}
           onOpenProcess={(item) => {
-            s.setResult(item);
-            setActiveRightTab('process');
+            try {
+              sessionStorage.setItem('active_script_' + item.id, JSON.stringify(item));
+            } catch (e) {}
             setScriptModalItem(null);
+            router.push(`/create-video?id=${item.id}&category=${s.activeCategory}`);
           }}
           copiedKey={s.copiedKey}
           onCopy={s.handleCopy}

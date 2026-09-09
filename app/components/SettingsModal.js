@@ -23,6 +23,29 @@ export default function SettingsModal({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [testingGemini, setTestingGemini] = useState(false);
   const [geminiTestResults, setGeminiTestResults] = useState(null);
+  const [draggedKeyIndex, setDraggedKeyIndex] = useState(null);
+  const [dragOverKeyIndex, setDragOverKeyIndex] = useState(null);
+  const [rowDraggableIndex, setRowDraggableIndex] = useState(null);
+
+  const handleReorderGeminiKeys = (fromIdx, toIdx) => {
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) return;
+    const currentKeys = settings.geminiApiKey ? settings.geminiApiKey.split('\n') : [''];
+    if (fromIdx < 0 || fromIdx >= currentKeys.length || toIdx < 0 || toIdx >= currentKeys.length) return;
+
+    const updatedKeys = [...currentKeys];
+    const [movedKey] = updatedKeys.splice(fromIdx, 1);
+    updatedKeys.splice(toIdx, 0, movedKey);
+    setSettings(prev => ({ ...prev, geminiApiKey: updatedKeys.join('\n') }));
+
+    if (geminiTestResults && Array.isArray(geminiTestResults)) {
+      const updatedResults = [...geminiTestResults];
+      if (fromIdx < updatedResults.length) {
+        const [movedRes] = updatedResults.splice(fromIdx, 1);
+        updatedResults.splice(Math.min(toIdx, updatedResults.length), 0, movedRes);
+        setGeminiTestResults(updatedResults);
+      }
+    }
+  };
 
   const handleTestGeminiKeys = async () => {
     setTestingGemini(true);
@@ -236,7 +259,7 @@ export default function SettingsModal({
                 <span style={{ fontSize: '1rem' }}>🔑</span>
                 <div>
                   <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', display: 'block' }}>Gemini API Key</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Tự động chuyển Key khác khi hết token</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Ưu tiên từ trên xuống dưới — kéo thả để thay đổi thứ tự ưu tiên</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -287,8 +310,95 @@ export default function SettingsModal({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {((settings.geminiApiKey || '').split('\n').length === 0 ? [''] : settings.geminiApiKey.split('\n')).map((keyVal, idx, arr) => {
+                const isDragging = draggedKeyIndex === idx;
+                const isDragOver = dragOverKeyIndex === idx && draggedKeyIndex !== idx;
+
                 return (
-                  <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div
+                    key={idx}
+                    draggable={rowDraggableIndex === idx}
+                    onDragStart={(e) => {
+                      setDraggedKeyIndex(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(idx));
+                    }}
+                    onDragEnd={() => {
+                      setDraggedKeyIndex(null);
+                      setDragOverKeyIndex(null);
+                      setRowDraggableIndex(null);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverKeyIndex !== idx) setDragOverKeyIndex(idx);
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget)) return;
+                      if (dragOverKeyIndex === idx) setDragOverKeyIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const fromIdx = draggedKeyIndex ?? parseInt(e.dataTransfer.getData('text/plain'), 10);
+                      if (!isNaN(fromIdx) && fromIdx !== idx) {
+                        handleReorderGeminiKeys(fromIdx, idx);
+                      }
+                      setDraggedKeyIndex(null);
+                      setDragOverKeyIndex(null);
+                      setRowDraggableIndex(null);
+                    }}
+                    style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      padding: '4px 6px',
+                      borderRadius: '10px',
+                      transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                      background: isDragOver
+                        ? 'rgba(0, 242, 254, 0.08)'
+                        : isDragging
+                        ? 'rgba(255, 255, 255, 0.02)'
+                        : 'transparent',
+                      border: isDragOver
+                        ? '1px dashed #00f2fe'
+                        : isDragging
+                        ? '1px dashed rgba(255, 255, 255, 0.2)'
+                        : '1px solid transparent',
+                      opacity: isDragging ? 0.4 : 1,
+                      transform: isDragOver ? 'scale(1.01)' : 'none'
+                    }}
+                  >
+                    {/* Tay cầm kéo thả 6 chấm */}
+                    <div
+                      onMouseEnter={() => setRowDraggableIndex(idx)}
+                      onMouseLeave={() => {
+                        if (draggedKeyIndex === null) setRowDraggableIndex(null);
+                      }}
+                      onMouseDown={() => setRowDraggableIndex(idx)}
+                      title="Kéo thả để sắp xếp lại thứ tự ưu tiên"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: draggedKeyIndex === idx ? 'grabbing' : 'grab',
+                        padding: '9px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        color: draggedKeyIndex === idx ? '#00f2fe' : 'rgba(255, 255, 255, 0.4)',
+                        userSelect: 'none',
+                        flexShrink: 0
+                      }}
+                    >
+                      <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
+                        <circle cx="3" cy="3" r="1.5" />
+                        <circle cx="9" cy="3" r="1.5" />
+                        <circle cx="3" cy="8" r="1.5" />
+                        <circle cx="9" cy="8" r="1.5" />
+                        <circle cx="3" cy="13" r="1.5" />
+                        <circle cx="9" cy="13" r="1.5" />
+                      </svg>
+                    </div>
+
                     <input
                       type={apiKeyVisible ? 'text' : 'password'}
                       className="form-control"
@@ -360,8 +470,11 @@ export default function SettingsModal({
                         onClick={() => {
                           const updated = arr.filter((_, i) => i !== idx);
                           setSettings(prev => ({ ...prev, geminiApiKey: updated.join('\n') }));
+                          if (geminiTestResults && Array.isArray(geminiTestResults)) {
+                            setGeminiTestResults(prev => prev.filter((_, i) => i !== idx));
+                          }
                         }}
-                        style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                        style={{ background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.25)', color: '#ff4757', borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontSize: '0.85rem', flexShrink: 0 }}
                         title="Xóa Key này"
                       >
                         🗑️

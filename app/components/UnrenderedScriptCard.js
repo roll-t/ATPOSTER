@@ -156,7 +156,7 @@ export default function UnrenderedScriptCard({
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
             }}
-            title="Chọn và chuyển sang tab Quy trình & Review"
+            title="Chuyển sang trình tạo video ngay"
           >
             <span>🎬</span>
             <span>Tạo video ngay</span>

@@ -13,31 +13,33 @@ export const AI_CONFIG = {
   // Model Tiers for different workloads (cập nhật theo Google Generative Language API v1beta)
   MODEL_TIERS: {
     // Sáng tạo nội dung (viết kịch bản, sinh ý tưởng, đạo lý, phân cảnh)
+    // Ưu tiên gemini-3.5-flash và gemini-3.1-flash-lite vì phản hồi ổn định, không dính 503/treo như 3.6
     quality: [
-      'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-flash-latest',
+      'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
       'gemini-flash-lite-latest',
     ],
     // Tác vụ nhanh / cơ học (dịch thuật, phiên âm, chuẩn hoá chuỗi, sinh từ khoá)
     fast: [
       'gemini-flash-lite-latest',
-      'gemini-3.6-flash',
+      'gemini-3.1-flash-lite',
       'gemini-3.5-flash',
-      'gemini-flash-latest',
+      'gemini-3.6-flash',
     ],
     // Xử lý hình ảnh / multimodal vision
     vision: [
+      'gemini-3.5-flash',
       'gemini-3.6-flash',
-      'gemini-flash-latest',
+      'gemini-flash-lite-latest',
     ],
   },
 
   DEFAULT_TIER: 'quality',
 
-  // Request timeouts and limits
-  REQUEST_TIMEOUT_MS: 45000,
-  FAST_TIMEOUT_MS: 20000,
+  // Request timeouts and limits (rút ngắn timeout để phát hiện treo sớm, không bắt người dùng đợi 45s)
+  REQUEST_TIMEOUT_MS: 25000,
+  FAST_TIMEOUT_MS: 15000,
   MAX_RETRIES_PER_KEY: 2,
 
   // Default generation params

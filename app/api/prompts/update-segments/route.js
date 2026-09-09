@@ -150,8 +150,10 @@ export async function POST(request) {
             subtitle: fresh.subtitle,
             visualDescription: fresh.visualDescription,
           };
-          // Ghi đè elements[] vào manifest để render-project.mjs dùng bố cục mới
+          // Ghi đè elements[], layout, bullets vào manifest để render-project.mjs dùng bố cục mới
           if (Array.isArray(fresh.elements)) patched.elements = fresh.elements;
+          if (fresh.layout) patched.layout = fresh.layout;
+          if (Array.isArray(fresh.bullets)) patched.bullets = fresh.bullets;
           return patched;
         });
         // render-project.mjs và khâu lồng tiếng đọc manifest.json chứ không đọc DB — không ghi

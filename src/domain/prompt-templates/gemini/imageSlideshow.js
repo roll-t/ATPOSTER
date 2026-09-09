@@ -143,7 +143,7 @@ A witty, charismatic, highly knowledgeable third-person narrator walks the audie
 
 export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
   const isBilingual = true;
-  const isVietnamese = (input.narrationLanguage || 'en') === 'vi';
+  const isVietnamese = (input.narrationLanguage || 'vi') !== 'en';
 
   const tierConfig = STICK_FIGURE_SLIDE_TIERS[durationRange] || {
     slides: durationInfo.segmentsCount || '10 đến 14',
@@ -361,6 +361,9 @@ NARRATION GUIDELINES:
       : 'Subtitle: English only.'}
 4. Do NOT include emotion tags like [sighs], [softly], [pause] — they have no effect and just clutter the text.
 5. ${buildPunctuationRhythmGuidance()}
+6. CRITICAL RULE FOR "visualDescription" (MANDATORY IN EVERY SEGMENT):
+- Each segment MUST have a concise "visualDescription" written in ENGLISH describing what the cartoon illustration shows (character pose, comedic facial expression, setting, environment, props).
+- STRICT PROHIBITION: The image generator must produce 100% textless illustrations. DO NOT include any dialogue, speech bubbles, thought bubbles, words, letters, or caption bars in "visualDescription". Describe ONLY the physical visual scene.
 
 ═══════════════════════════════════════════════════════
 RETURN FORMAT — raw JSON only, no markdown code fences
@@ -372,6 +375,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 1,
       "layout": "default",
+      "visualDescription": "A comedic cartoon stick figure shivering in a howling prehistoric snowstorm near a dying campfire, hugging knees, frosty breath, dark snowy mountain background. Pure visual scene, no text.",
       "dialogueOrNarration": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu. Gió tuyết âm ba mươi độ rít gào, không lò sưởi, không chăn điện, chỉ có bạn và một đốm lửa sắp tàn.' : 'Imagine it is 40,000 years ago in northern Europe. The icy wind hits your face like glass at minus thirty degrees, with no central heating and no delivery apps.'}",
       "subtitle": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu.\\nImagine it is 40,000 years ago in northern Europe during an Ice Age winter.' : isBilingual ? 'Imagine it is 40,000 years ago in northern Europe.\\nHãy tưởng tượng bạn ở Bắc Âu 40.000 năm trước giữa mùa đông kỷ băng hà.' : 'Imagine it is 40,000 years ago in northern Europe.'}",
       "durationSeconds": 6,
@@ -383,6 +387,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 2,
       "layout": "caption-left",
+      "visualDescription": "A modern cartoon stick figure sitting lazily on a couch staring at a glowing phone with a hot cup of coffee, looking pampered and relaxed in a cozy living room. Pure visual scene, no text.",
       "dialogueOrNarration": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm xuống dưới hai mươi độ là đã kêu trời. Nếu bị thả vào đó, đa số sẽ thành que kem hình người chỉ sau bốn mươi phút.' : 'Most modern humans panic when the room drops below twenty degrees. Dropped into that tundra, an average person becomes a human popsicle in forty minutes.'}",
       "subtitle": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.\\nMost modern humans complain when the room drops below 20 degrees.' : isBilingual ? 'Most modern humans complain when the room drops below 20 degrees.\\nCon người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.' : 'Most modern humans complain when the room drops below 20 degrees.'}",
       "durationSeconds": 6,
@@ -394,6 +399,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 3,
       "layout": "default",
+      "visualDescription": "An archaeologist cartoon stick figure in a safari hat kneeling on the ground with a magnifying glass examining ancient pottery shards and fossils. Pure visual scene, no text.",
       "dialogueOrNarration": "${isVietnamese ? 'Vậy làm sao các nhà khảo cổ biết người xưa bắt đầu mặc quần áo từ khi nào? Họ không tìm thấy áo da thú... mà đã giải mã ADN của loài chấy rận!' : 'So how do archaeologists know when humans first wore clothes? They did not find ancient jackets... they sequenced the DNA of body lice!'}",
       "subtitle": "${isVietnamese ? 'Làm sao ta biết khi nào con người bắt đầu mặc quần áo?\\nHow do we know when humans first wore clothes?' : isBilingual ? 'How do we know when humans first wore clothes?\\nLàm sao ta biết khi nào con người bắt đầu mặc quần áo?' : 'How do we know when humans first wore clothes?'}",
       "durationSeconds": 6,
@@ -405,6 +411,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 4,
       "layout": "bullets",
+      "visualDescription": "A close-up symbolic view of an ancient campfire with dancing orange flames and swirling grey smoke surrounded by smooth river stones. Pure visual scene, no text.",
       "dialogueOrNarration": "${isVietnamese ? 'Để sinh tồn qua mùa đông băng giá, người cổ đại đã làm chủ ba vũ khí tiến hóa tối thượng.' : 'To survive the freezing winter, ancient humans mastered three evolutionary superpowers.'}",
       "subtitle": "${isVietnamese ? 'Ba vũ khí sinh tồn tối thượng của người cổ đại.\\nThree evolutionary superpowers of ancient humans.' : isBilingual ? 'Three evolutionary superpowers of ancient humans.\\nBa vũ khí sinh tồn tối thượng của người cổ đại.' : 'Three evolutionary superpowers of ancient humans.'}",
       "durationSeconds": 6,

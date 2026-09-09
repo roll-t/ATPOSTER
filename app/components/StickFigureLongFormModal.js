@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  STICK_FIGURE_LONGFORM_GROUPS,
-  STICK_FIGURE_LONGFORM_TOPIC_COUNT
-} from '@/src/domain/content/stickFigureLongFormTopics.js';
+import { STICK_FIGURE_LONGFORM_GROUPS } from '@/src/domain/content/stickFigureLongFormTopics.js';
 
 /**
  * Kho chủ đề dành cho VIDEO DÀI của skill "Kịch Bản & Slide Ảnh Người Que".
@@ -145,11 +142,13 @@ export default function StickFigureLongFormModal({
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(180deg, rgba(37,244,238,0.06), transparent)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
             <div style={{ minWidth: 0 }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
-                🎬 Kho chủ đề Video Dài ({STICK_FIGURE_LONGFORM_TOPIC_COUNT} chủ đề)
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>🎬 Kho chủ đề:</span>
+                <span style={{ color: '#25f4ee' }}>{group.icon} {group.label}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>({groupTopics.length} chủ đề)</span>
               </h3>
               <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                Chủ đề đủ chiều sâu để khai triển 4–10 phút, không bị lặp ý như chủ đề video ngắn.
+                {group.sublabel || 'Chủ đề đủ chiều sâu để khai triển 4–10 phút, không bị lặp ý như chủ đề video ngắn.'}
               </span>
             </div>
             <button
@@ -159,33 +158,6 @@ export default function StickFigureLongFormModal({
             >
               ✕
             </button>
-          </div>
-
-          {/* Tab nhóm chủ đề */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px' }}>
-            {STICK_FIGURE_LONGFORM_GROUPS.map((g) => {
-              const active = g.key === activeGroup;
-              return (
-                <button
-                  key={g.key}
-                  type="button"
-                  onClick={() => setActiveGroup(g.key)}
-                  title={g.sublabel}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    color: active ? '#fff' : 'rgba(255,255,255,0.65)',
-                    background: active ? 'linear-gradient(135deg, rgba(37,244,238,0.25), rgba(254,44,85,0.2))' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${active ? 'rgba(37,244,238,0.45)' : 'rgba(255,255,255,0.1)'}`
-                  }}
-                >
-                  {g.icon} {g.label}
-                </button>
-              );
-            })}
           </div>
 
           {/* Tiến độ nhóm đang xem */}

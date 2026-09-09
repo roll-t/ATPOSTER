@@ -51,12 +51,21 @@ export class LocalCollection {
 
   _getCollectionData() {
     const all = this._readAll();
+    if (this.name === 'settings') {
+      if (all.settings && !Array.isArray(all.settings)) {
+        return [all.settings];
+      }
+    }
     return Array.isArray(all[this.name]) ? all[this.name] : [];
   }
 
   _setCollectionData(items) {
     const all = this._readAll();
-    all[this.name] = items;
+    if (this.name === 'settings' && !Array.isArray(all.settings)) {
+      all.settings = items[0] || {};
+    } else {
+      all[this.name] = items;
+    }
     this._writeAll(all);
   }
 

@@ -59,9 +59,8 @@ ${JSON.stringify(fieldsToTranslate, null, 2)}
 `;
 
   try {
-    // Giữ tier "quality": ngoài dịch, bước này còn viết lại mô tả thành prompt tạo ảnh chi tiết —
-    // chất lượng ở đây ảnh hưởng thẳng tới ảnh sinh ra sau đó.
-    const translatedFields = await generateText(promptText, keys, { label: 'Dịch & mở rộng prompt' });
+    // Dùng tier "fast" với timeout ngắn để dịch và mở rộng prompt tức thì, tránh treo 45s
+    const translatedFields = await generateText(promptText, keys, { tier: 'fast', label: 'Dịch & mở rộng prompt' });
 
     // Ghi đè lại các trường đã dịch/tối ưu vào bản sao của input
     const resultInput = { ...input };

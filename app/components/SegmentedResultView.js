@@ -13,6 +13,7 @@ import PickerCard from './SegmentedResultView/PickerCard.js';
 import CaptionStylePreview from './SegmentedResultView/CaptionStylePreview.js';
 import TransitionStylePreview from './SegmentedResultView/TransitionStylePreview.js';
 import ReadingPageLivePreview from './SegmentedResultView/ReadingPageLivePreview.js';
+import VideoResultPanel from './SegmentedResultView/VideoResultPanel.js';
 import {
   BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
@@ -154,7 +155,17 @@ function orderBgVideosByOrientation(videos, isPortrait) {
   return [...matching, ...others];
 }
 
-export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process', onResult, onHistoryRefresh }) {
+export function isSelfContainedStickFigureSlide(s) {
+  if (!s) return false;
+  return (
+    (Array.isArray(s.elements) && s.elements.length > 0) ||
+    s.layout === 'bullets' ||
+    (Array.isArray(s.bullets) && s.bullets.length > 0) ||
+    (Array.isArray(s.elements) && !s.visualDescription)
+  );
+}
+
+export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process', onResult, onHistoryRefresh, onOpenScriptDetail }) {
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [voiceMsg, setVoiceMsg] = useState('');
   const [isTranslatingSubtitles, setIsTranslatingSubtitles] = useState(false);
@@ -228,6 +239,119 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // dùng cần đem dán), tắt ở nơi khác để giữ nguyên hành vi cũ.
   const [showEmotionTags, setShowEmotionTags] = useState(isJapaneseNarrative);
   const scriptHasEmotionTags = hasEmotionTags(result.segments);
+
+  // Quản lý định dạng khung hình (Dọc 9:16 / Ngang 16:9) linh hoạt trong Studio
+  const [currentOrientation, setCurrentOrientation] = useState(() => (result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9') ? 'landscape' : 'portrait');
+  const [isSwitchingRatio, setIsSwitchingRatio] = useState(false);
+
+  useEffect(() => {
+    const nextOri = (result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9') ? 'landscape' : 'portrait';
+    setCurrentOrientation(nextOri);
+  }, [result.id, result._id, result.remotionConfig?.orientation, result.input?.aspectRatio]);
+
+  const isLandscape = currentOrientation === 'landscape';
+  const currentAspectRatio = isLandscape ? '16:9' : '9:16';
+
+  const handleToggleOrientation = async (targetRatio) => {
+    const targetOrientation = targetRatio === '16:9' ? 'landscape' : 'portrait';
+    if (currentOrientation === targetOrientation) return;
+
+    setIsSwitchingRatio(true);
+    try {
+      setCurrentOrientation(targetOrientation);
+
+      const updatedRemotionConfig = {
+        ...(result.remotionConfig || {}),
+        orientation: targetOrientation,
+        width: targetOrientation === 'landscape' ? 1920 : 1080,
+        height: targetOrientation === 'landscape' ? 1080 : 1920
+      };
+      const updatedInput = {
+        ...(result.input || {}),
+        aspectRatio: targetRatio,
+        orientation: targetOrientation
+      };
+
+      const fromRatio = targetRatio === '16:9' ? '9:16' : '16:9';
+      const toRatio = targetRatio;
+
+      const updatedSegments = (result.segments || []).map(seg => {
+        let textPrompt = seg.textPrompt || '';
+        textPrompt = textPrompt.replace(new RegExp(`aspect ratio ${fromRatio}`, 'g'), `aspect ratio ${toRatio}`);
+        textPrompt = textPrompt.replace(new RegExp(`--ar ${fromRatio}`, 'g'), `--ar ${toRatio}`);
+
+        if (targetRatio === '16:9') {
+          textPrompt = textPrompt.replace(
+            /Full-bleed 9:16 vertical layout:[^.]*\./gi,
+            'Widescreen 16:9 cinematic horizontal layout: dynamic wide framing, character positioned with environmental storytelling elements, props, or background map/infographic naturally filling the horizontal frame without empty dead zones.'
+          );
+        } else {
+          textPrompt = textPrompt.replace(
+            /Widescreen 16:9 cinematic horizontal layout:[^.]*\./gi,
+            'Full-bleed 9:16 vertical layout: strong vertical composition optimized for mobile screens, character and environment vertically balanced with rich visual hierarchy.'
+          );
+        }
+
+        if (result.category === 'stick_figure_slideshow') {
+          textPrompt = textPrompt.replace(/depict\s*["“]([^"”]+)["”]/gi, 'visual depiction of $1');
+          if (!textPrompt.includes('ABSOLUTE ZERO TEXT MANDATE')) {
+            textPrompt = textPrompt.replace(
+              /--no\s+/gi,
+              'ABSOLUTE ZERO TEXT MANDATE: The final artwork must be completely textless, wordless, and letterless. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. --no text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, '
+            );
+          }
+        }
+
+        const updatedJsonPrompt = seg.jsonPrompt ? {
+          ...seg.jsonPrompt,
+          aspect_ratio: toRatio,
+          style: {
+            ...(seg.jsonPrompt.style || {}),
+            composition: targetRatio === '16:9'
+              ? 'Widescreen 16:9 cinematic horizontal layout: dynamic wide framing, character positioned with environmental storytelling elements, props, or background map/infographic naturally filling the horizontal frame without empty dead zones.'
+              : 'Full-bleed 9:16 vertical layout: strong vertical composition optimized for mobile screens, character and environment vertically balanced with rich visual hierarchy.'
+          }
+        } : undefined;
+
+        return {
+          ...seg,
+          textPrompt,
+          ...(updatedJsonPrompt ? { jsonPrompt: updatedJsonPrompt } : {})
+        };
+      });
+
+      const updatedResult = {
+        ...result,
+        remotionConfig: updatedRemotionConfig,
+        input: updatedInput,
+        segments: updatedSegments
+      };
+
+      if (typeof onResult === 'function') {
+        onResult(updatedResult);
+      }
+
+      if (result._id || result.id) {
+        await fetch('/api/prompts/history', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: result.id || result._id,
+            remotionConfig: updatedRemotionConfig,
+            input: updatedInput,
+            segments: updatedSegments
+          })
+        });
+      }
+
+      showToast(`Đã chuyển sang ${targetRatio === '16:9' ? 'Màn ngang 16:9' : 'Màn dọc 9:16'}!`, 'success');
+    } catch (err) {
+      console.error('Lỗi chuyển đổi tỉ lệ:', err);
+      showToast('Có lỗi khi lưu tỉ lệ mới', 'error');
+    } finally {
+      setIsSwitchingRatio(false);
+    }
+  };
 
   // Kho "Format đã lưu" (preset kiểu phụ đề / chuyển cảnh / font / màu) tách RIÊNG theo skill.
   //
@@ -907,7 +1031,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         const data = await res.json();
         if (res.ok && data.success) successCount++;
         else if (data.skipped) skippedCount++;
-      } catch (_) {}
+      } catch (_) { }
     }
     setDlBgVideoMsg(
       `✓ Đã tải ${successCount}/${sortedVideos.length} video nền`
@@ -992,7 +1116,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Tự động phát hiện tỉ lệ ảnh (Ảnh nằm ngang -> mode 'hero', Ảnh nằm dọc -> mode 'full_bg')
   useEffect(() => {
     if (assetCounts.imageCount === 0 && heroImageVersion === 0) return;
-    const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
     const folder = result.input?.folderPath || 'example';
     const cacheBust = heroImageVersion > 0 ? `&v=${heroImageVersion}` : '';
     // Xin bản "-landscape" trước - route image-stream tự lùi về file scene-01.<ext> gốc (chưa
@@ -1672,10 +1795,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Google Flow. Mọi skill kiểu Nhật thêm sau này vì vậy phải vào đây qua CỜ CHUNG, không phải
   // bằng cách nhớ sửa mảng.
   const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative || isReadingPractice || isPexelsTalkVideo;
-  // true khi TẤT CẢ segments dùng PNG assets (elements[]) — không cần sinh ảnh qua Google Flow
-  const allHaveElements = result.category === 'stick_figure_slideshow' &&
-    (result.segments || []).length > 0 &&
-    (result.segments || []).every(s => Array.isArray(s.elements) && s.elements.length > 0);
+  const allHaveElements = false;
 
   const checkAssets = async () => {
     try {
@@ -1990,19 +2110,47 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (!confirmed) return;
     }
 
-    // Chỉ đẩy segment ĐẠI DIỆN (đầu tiên) của mỗi imageGroup sang Google Flow. Các segment cùng
-    // nhóm dùng CHUNG đúng 1 hình minh hoạ (xem imageSlideshow.js) — đó chính là hiệu ứng "giữ
-    // nguyên hình, chỉ đổi chữ" của video whiteboard. Nếu đẩy cả nhóm thì Flow sinh ra mỗi
-    // segment 1 hình KHÁC nhau, vừa tốn thời gian gấp mấy lần vừa phá hỏng đúng hiệu ứng đó.
-    // Kịch bản CŨ (chưa có imageGroup) thì mọi segment đều là đại diện -> hành vi y như trước.
-    // Segment có elements[] dùng thư viện PNG sẵn có — Remotion ghép trực tiếp, không cần Flow.
+    // Với stick_figure_slideshow, moral_talk_slideshow, japanese_history: MỖI slide sinh 1 ảnh riêng
+    // Đảm bảo không bị lọc bớt và luôn có textPrompt đầy đủ
+    const aspectRatio = currentAspectRatio;
     const seenImageGroups = new Set();
     const segmentsToGenerate = (result.segments || []).filter((s) => {
-      if (Array.isArray(s.elements) && s.elements.length > 0) return false;
+      if (['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative) {
+        return true;
+      }
       if (s.imageGroup === undefined || s.imageGroup === null) return true;
       if (seenImageGroups.has(s.imageGroup)) return false;
       seenImageGroups.add(s.imageGroup);
       return true;
+    }).map((s) => {
+      let prompt = s.textPrompt;
+      if (!prompt || !prompt.trim()) {
+        const rawDesc = s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${s.segmentNumber}`;
+        const cleanDesc = String(rawDesc || '').replace(/\[[^\]]*\]/g, '').replace(/["“”'‘’]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (result.category === 'stick_figure_slideshow') {
+          prompt = `Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn stick figure comic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation frame with humorous witty cartoon charm. Visual scene: ${cleanDesc}. Expressive cartoon stick figure or vibrant symbolic prop in context. ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. ${aspectRatio === '16:9' ? 'Widescreen 16:9 cinematic horizontal layout: dynamic wide framing, character positioned with environmental storytelling elements, props, or background map/infographic naturally filling the horizontal frame without empty dead zones.' : 'Full-bleed 9:16 vertical layout: strong vertical composition optimized for mobile screens, character and environment vertically balanced with rich visual hierarchy.'} Format: aspect ratio ${aspectRatio}. --no text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
+        } else {
+          prompt = `Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background. Scene description: ${cleanDesc}. Plain white background, no scenery. Color palette: #000000, #FFFFFF, #FE2C55. This is a single static story-illustration frame. Format: aspect ratio ${aspectRatio}. --no text, words, letters, subtitles, captions, speech bubble, dialogue box, banner, realistic textures, 3d render, photo, gradient background`;
+        }
+      } else {
+        const fromRatio = aspectRatio === '16:9' ? '9:16' : '16:9';
+        prompt = prompt.replace(new RegExp(`aspect ratio ${fromRatio}`, 'g'), `aspect ratio ${aspectRatio}`);
+        prompt = prompt.replace(new RegExp(`--ar ${fromRatio}`, 'g'), `--ar ${aspectRatio}`);
+        if (result.category === 'stick_figure_slideshow') {
+          prompt = prompt.replace(/depict\s*["“]([^"”]+)["”]/gi, 'visual depiction of $1');
+          if (!prompt.includes('ABSOLUTELY NO TEXT')) {
+            prompt = prompt.replace(
+              /--no\s+/gi,
+              'ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. --no text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, '
+            );
+          }
+        }
+      }
+      return {
+        ...s,
+        visualDescription: s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${s.segmentNumber}`,
+        textPrompt: prompt
+      };
     });
 
     window.postMessage({
@@ -2013,8 +2161,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       folderPath: result.input?.folderPath || 'example',
       imageExt: result.input?.imageExt || 'jpg',
       category: result.category,
-      aspectRatio: result.input?.aspectRatio || (result.remotionConfig?.orientation === 'landscape' ? '16:9' : '9:16'),
-      orientation: result.remotionConfig?.orientation || (result.input?.aspectRatio === '16:9' ? 'landscape' : 'portrait')
+      aspectRatio: currentAspectRatio,
+      orientation: currentOrientation
     }, '*');
   };
 
@@ -2177,12 +2325,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           console.warn('Auto copy default bg music error:', e);
         }
       }
-      const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
-      const orientation = isLandscape ? 'landscape' : 'portrait';
-
-      // Video người que PNG: gửi kèm segments để server tự tạo manifest.json nếu chưa có
-      // (không dùng Google Flow, không cần Extension).
-      const allHaveElements = (result.segments || []).every(s => Array.isArray(s.elements) && s.elements.length > 0);
+      const isRenderLandscape = currentOrientation === 'landscape';
+      const orientation = isRenderLandscape ? 'landscape' : 'portrait';
 
       const res = await fetch('/api/prompts/render-video', {
         method: 'POST',
@@ -2190,7 +2334,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
-          ...(allHaveElements || isPexelsTalkVideo ? { segments: result.segments, title: result.title } : {}),
+          ...(result.segments ? { segments: result.segments, title: result.title } : {}),
           captionStyle: forcedCaptionStyle,
           transitionStyle: renderTransitionStyle,
           kenBurnsMode: forcedKenBurnsMode,
@@ -2198,6 +2342,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           channelLogo: renderChannelLogo,
           bilingual: renderBilingual,
           orientation: orientation,
+          aspectRatio: currentAspectRatio,
           level: result.input?.level || result.level || undefined,
           captionFont: renderCaptionFont || undefined,
           captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
@@ -3085,7 +3230,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
+  const isRenderDone = Boolean(assetCounts?.videoCreated);
 
   return (
     <div>
@@ -3122,6 +3267,95 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             <span style={{ whiteSpace: 'pre-line' }}>Kịch bản: {result.title}</span>
           )}
         </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Bộ chọn tỉ lệ khung hình (Chuyển nhanh 9:16 <-> 16:9) */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'rgba(0, 0, 0, 0.45)',
+              padding: '3px',
+              borderRadius: '9px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              gap: '2px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleToggleOrientation('9:16')}
+              disabled={isSwitchingRatio}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                borderRadius: '7px',
+                border: 'none',
+                cursor: isSwitchingRatio ? 'wait' : 'pointer',
+                background: !isLandscape ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'transparent',
+                color: !isLandscape ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                boxShadow: !isLandscape ? '0 2px 8px rgba(254, 44, 85, 0.35)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Chuyển sang tỉ lệ Màn dọc 9:16 (TikTok, Shorts, Reels) — Tự động cập nhật prompt ảnh và Remotion"
+            >
+              <span>📱</span>
+              <span>Dọc 9:16</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleOrientation('16:9')}
+              disabled={isSwitchingRatio}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                borderRadius: '7px',
+                border: 'none',
+                cursor: isSwitchingRatio ? 'wait' : 'pointer',
+                background: isLandscape ? 'linear-gradient(135deg, #25f4ee, #00bdff)' : 'transparent',
+                color: isLandscape ? '#0b1120' : 'rgba(255, 255, 255, 0.65)',
+                boxShadow: isLandscape ? '0 2px 8px rgba(37, 244, 238, 0.35)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Chuyển sang tỉ lệ Màn ngang 16:9 (YouTube Dài, Máy tính) — Tự động cập nhật prompt ảnh và Remotion"
+            >
+              <span>🖥️</span>
+              <span>Ngang 16:9</span>
+            </button>
+          </div>
+
+          {activeTab === 'process' && onOpenScriptDetail && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.78rem',
+                borderRadius: '8px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                color: '#a5b4fc',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={onOpenScriptDetail}
+              title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
+            >
+              <span>📜</span>
+              <span>Xem chi tiết kịch bản</span>
+            </button>
+          )}
+        </div>
         {!isSlideshowPipeline && (
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -3155,955 +3389,1105 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         )}
       </div>
 
+      {/* Layout 2 cột cho trình tạo video (Cột trái: Quy trình 4 bước & các phân cảnh; Cột phải: Màn hình kết quả video) */}
+      <div style={activeTab === 'process' ? {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(420px, 1fr)',
+        gap: '24px',
+        alignItems: 'start'
+      } : undefined}>
+        <div style={activeTab === 'process' ? { minWidth: 0, display: 'flex', flexDirection: 'column' } : undefined}>
 
-
-      {activeTab === 'process' && isSlideshowPipeline && (
-        <div style={{
-          background: 'rgba(37, 244, 238, 0.03)',
-          border: '1px solid rgba(37, 244, 238, 0.15)',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '24px'
-        }}>
-          <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⚙️</span> Quy trình sản xuất video ({isPexelsTalkVideo || allHaveElements ? '3' : '4'} Bước)
-          </h4>
-
-          {/* Steps Pipeline */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-
-            {/* Bước 1: Tạo giọng nói */}
+          {/* Toàn bộ lời thuyết minh gộp lại (Hiển thị phía trên quy trình sản xuất) */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '24px'
+          }}>
             {(() => {
-              const total = result.segments.length;
-              const isStep1Done = assetCounts.audioCount >= total;
+              const keepTags = showEmotionTags;
+              const speechText = buildFullNarrationText(result.segments, { keepTags });
+              const ttsParts = splitNarrationForTts(speechText);
+              const totalChars = countCharacters(speechText);
+              const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
+              const isMultiPart = ttsParts.length > 1;
 
               return (
-                <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: isGeneratingVoice ? '1.5px solid transparent' : isStep1Done ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: isStep1Done ? '#10b981' : 'linear-gradient(135deg, #FE2C55, #ff5a79)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        flexShrink: 0,
-                        animation: isGeneratingVoice ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                      }}>
-                        {isStep1Done ? '✓' : '1'}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 1: Tạo giọng lồng tiếng
-                          {isExternalVoiceSkill && (
-                            <span style={{ marginLeft: '8px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
-                              tuỳ chọn
-                            </span>
-                          )}
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                    <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                      <span>🎙️</span>
+                      <span>Toàn bộ lời thuyết minh</span>
+                    </strong>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
+                      {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
+                      {isMultiPart && (
+                        <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
+                          {' '}· chia {ttsParts.length} lần render TTS
                         </span>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      {isExternalVoiceSkill && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          title="Đã render giọng bên ElevenLabs? Thả file dài vào đây, tool tự cắt theo từng slide."
-                          style={{
-                            padding: '7px 12px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap',
-                            background: showVoiceSplit ? 'rgba(37,244,238,0.15)' : undefined,
-                            border: showVoiceSplit ? '1px solid rgba(37,244,238,0.4)' : undefined,
-                            color: showVoiceSplit ? 'var(--secondary)' : undefined
-                          }}
-                          onClick={() => setShowVoiceSplit((v) => !v)}
-                          disabled={isRenderingVideo}
-                        >
-                          {showVoiceSplit ? '▲ Đóng ghép giọng' : '🎧 Ghép giọng ElevenLabs'}
-                        </button>
                       )}
+                    </span>
+                    {scriptHasEmotionTags && (
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title="Cấu hình giọng đọc (Edge / CapCut)"
-                        style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          setShowVoiceConfig(!showVoiceConfig);
-                        }}
-                        disabled={isGeneratingVoice || isRenderingVideo}
-                      >
-                        ⚙️
-                      </button>
-                      {isStep1Done && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          title={previewAudioPlaying ? "Bấm để dừng nghe thử" : "Nghe thử toàn bộ kết quả lồng tiếng từ đầu đến cuối"}
-                          style={{
-                            padding: '7px 10px',
-                            fontSize: '0.76rem',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                            background: previewAudioPlaying ? 'rgba(37,244,238,0.15)' : undefined,
-                            border: previewAudioPlaying ? '1px solid rgba(37,244,238,0.4)' : undefined,
-                            color: previewAudioPlaying ? 'var(--secondary)' : undefined
-                          }}
-                          onClick={toggleVoicePreview}
-                          disabled={isGeneratingVoice || isRenderingVideo}
-                        >
-                          {previewAudioPlaying ? `⏹ Dừng nghe (Slide ${previewAudioIndex + 1}/${total})` : '🔊 Nghe thử'}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn"
+                        title={showEmotionTags
+                          ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
+                          : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
                         style={{
-                          padding: '7px 14px',
-                          fontSize: '0.76rem',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
-                          color: isStep1Done ? '#2ed573' : '#fff',
-                          border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
-                          boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                          cursor: isGeneratingVoice ? 'not-allowed' : 'pointer',
-                          whiteSpace: 'nowrap'
+                          padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0,
+                          color: showEmotionTags ? '#0f172a' : undefined,
+                          background: showEmotionTags ? 'var(--warning)' : undefined,
+                          borderColor: showEmotionTags ? 'var(--warning)' : undefined
                         }}
-                        onClick={handleGenerateVoice}
-                        disabled={isGeneratingVoice || isRenderingVideo}
+                        onClick={() => setShowEmotionTags(v => !v)}
                       >
-                        {isGeneratingVoice ? '⏳ Đang tạo...' : isStep1Done ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng'}
+                        {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
                       </button>
-                    </div>
-                  </div>
-
-                  {isExternalVoiceSkill && showVoiceSplit && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
-                      <VoiceSplitPanel
-                        segments={result.segments}
-                        folderPath={result.input?.folderPath || 'example'}
-                        category={result.category}
-                        keepTags={showEmotionTags}
-                        onApplied={checkAssets}
-                      />
-                    </div>
-                  )}
-
-                  {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
-                      dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
-                      đọc/nghe. Gửi cho nhà cung cấp TTS khi bấm Tạo Lồng Tiếng. */}
-                  {isReadingPractice && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🗣️ Tốc độ đọc:</span>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        {[
-                          { value: 'slow', label: '🐢 Chậm' },
-                          { value: 'medium', label: '🚶 Vừa' },
-                          { value: 'fast', label: '🐇 Nhanh' }
-                        ].map(opt => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setRenderReadingSpeed(opt.value)}
-                            disabled={isGeneratingVoice || isRenderingVideo}
-                            title={`Đặt tốc độ giọng đọc: ${opt.label}`}
-                            style={{
-                              padding: '5px 12px',
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                              borderRadius: '7px',
-                              cursor: (isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer',
-                              border: renderReadingSpeed === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                              background: renderReadingSpeed === opt.value ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
-                              color: renderReadingSpeed === opt.value ? 'var(--secondary)' : '#fff'
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang tạo giọng đọc */}
-                  {isGeneratingVoice && (
-                    <StepProgressBar
-                      percent={(voiceProgress / total) * 100}
-                      label={`${voiceProgress}/${total}`}
-                      color="#00f2fe"
-                      showShimmer={true}
-                    />
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Bước 2 (pexels_talk_video): Chọn video nền Pexels */}
-            {isPexelsTalkVideo && (() => {
-              const isStep1Done = assetCounts.audioCount >= result.segments.length;
-              const hasBgVideo = assetCounts.hasBgVideo;
-              return (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: hasBgVideo ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(167, 139, 250, 0.25)' : '1px solid rgba(255, 255, 255, 0.03)',
-                  borderRadius: '10px',
-                  opacity: isStep1Done ? 1 : 0.5,
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                      background: hasBgVideo ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #a78bfa, #7c3aed)' : 'rgba(255,255,255,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontWeight: 800, fontSize: '0.8rem'
-                    }}>
-                      {hasBgVideo ? '✓' : '2'}
-                    </div>
-                    <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                      Bước 2: Chọn Video Nền Pexels
-                    </span>
-                    {hasBgVideo && (
-                      <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
-                        ✓ Đã có video nền
-                      </span>
                     )}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '4px 11px',
+                        fontSize: '0.72rem',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        background: 'rgba(99, 102, 241, 0.15)',
+                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                        color: '#a5b4fc',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => onOpenScriptDetail && onOpenScriptDetail()}
+                      title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
+                    >
+                      <span>📜</span>
+                      <span>Xem chi tiết kịch bản</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+                      onClick={() => setShowFullNarration(v => !v)}
+                    >
+                      {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+                      onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
+                    >
+                      {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
+                    </button>
                   </div>
-
-                  {isStep1Done && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input
-                          type="text"
-                          value={pexelsQuery}
-                          onChange={(e) => setPexelsQuery(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handlePexelsSearch()}
-                          placeholder="Nhập từ khoá tìm video nền (vd: nature, city, sunset)"
-                          disabled={isPexelsSearching || isDlBgVideo}
-                          style={{
-                            flex: 1, padding: '7px 10px', fontSize: '0.8rem', borderRadius: '7px',
-                            background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)',
-                            color: '#fff', outline: 'none'
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                          onClick={handlePexelsSearch}
-                          disabled={isPexelsSearching || isDlBgVideo || !pexelsQuery.trim()}
-                        >
-                          {isPexelsSearching ? '⏳ Tìm...' : '🔍 Tìm video'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          title="Để AI đọc lời kể rồi tự đề xuất bộ từ khoá cảnh quay bám nội dung kịch bản"
-                          style={{ padding: '7px 12px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                          onClick={() => handleSuggestPexelsKeywords()}
-                          disabled={isPexelsSearching || isDlBgVideo || isSuggestingKeywords}
-                        >
-                          {isSuggestingKeywords ? '⏳ Đang nghĩ...' : '✨ Gợi ý theo kịch bản'}
-                        </button>
-                      </div>
-
-                      {/* Bộ từ khoá đang dùng — cho người dùng thấy lưới đang tìm theo những cảnh
-                          nào, và bấm 1 từ khoá để xem riêng kết quả của nó. */}
-                      {pexelsKeywords.length > 1 && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Đang tìm theo:</span>
-                          {pexelsKeywords.map(kw => (
-                            <button
-                              key={kw}
-                              type="button"
-                              onClick={() => {
-                                // Truyền thẳng kw vào runPexelsSearch: setPexelsQuery là bất đồng bộ
-                                // nên gọi handlePexelsSearch ngay sau đó sẽ tìm bằng giá trị CŨ.
-                                setPexelsQuery(kw);
-                                setPexelsKeywords([kw]);
-                                setPexelsHasMore(true);
-                                runPexelsSearch([kw], 1);
-                              }}
-                              disabled={isPexelsSearching || isDlBgVideo}
-                              title={`Chỉ xem kết quả của "${kw}"`}
-                              style={{
-                                fontSize: '0.7rem', padding: '3px 9px', borderRadius: '999px',
-                                background: 'rgba(167,139,250,0.12)', color: '#c4b5fd',
-                                border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
-                              }}
-                            >
-                              {kw}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {pexelsSearchMsg && (
-                        <div style={{ fontSize: '0.78rem', color: pexelsSearchMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
-                          {pexelsSearchMsg}
-                        </div>
-                      )}
-
-                      {pexelsVideos.length > 0 && (() => {
-                        const selectedCount = selectedPexelsIds.length;
-                        const coverPercent = estimatedVideoSeconds > 0
-                          ? Math.min(100, Math.round((selectedCoverSeconds / estimatedVideoSeconds) * 100))
-                          : 0;
-                        return (
-                          <>
-                            {/* Gợi ý + tiến độ phủ. Dùng ĐỘ PHỦ THẬT (tổng thời lượng clip, mỗi clip
-                                tính tối đa 30 giây) chứ không đếm số lượng suông, vì clip Pexels dài
-                                ngắn rất khác nhau. */}
+                  {showFullNarration && (
+                    <>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
+                        để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
+                        {scriptHasEmotionTags && (keepTags
+                          ? ' Đang kèm [tag] cảm xúc — dán thẳng sang ElevenLabs v3 để nó đọc theo sắc thái. Công cụ khác không hiểu tag sẽ đọc to cụm trong ngoặc, khi đó bấm 🏷️ để ẩn tag rồi copy lại.'
+                          : ' Đang ẩn [tag] cảm xúc — bấm 🏷️ ở trên để hiện lại nếu cần dán sang ElevenLabs v3.')}
+                      </p>
+                      {ttsParts.map((part, i) => (
+                        <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
+                          {isMultiPart && (
                             <div style={{
-                              display: 'flex', flexDirection: 'column', gap: '6px',
-                              fontSize: '0.76rem', padding: '7px 10px', borderRadius: '7px',
-                              background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)',
+                              display: 'flex', alignItems: 'center', gap: '8px',
+                              marginBottom: '6px', flexWrap: 'wrap'
                             }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                <span style={{ color: '#c4b5fd' }}>
-                                  💡 Video dài ~{formatDuration(estimatedVideoSeconds)} — nên chọn <strong>{recommendedBgClipCount} clip</strong> để nền không lặp lại.
-                                </span>
-                                <span style={{
-                                  marginLeft: 'auto', fontWeight: 700,
-                                  color: selectedCount === 0 ? 'var(--text-muted)' : bgSelectionFull ? '#10b981' : '#fbbf24',
-                                }}>
-                                  {selectedCount === 0
-                                    ? 'Chưa chọn — sẽ tự lấy mặc định'
-                                    : `${selectedCount} clip · phủ ${formatDuration(Math.round(selectedCoverSeconds))}/${formatDuration(estimatedVideoSeconds)}`}
-                                </span>
-                              </div>
-                              {selectedCount > 0 && (
-                                <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{
-                                    height: '100%', width: `${coverPercent}%`, borderRadius: '2px',
-                                    background: bgSelectionFull ? '#10b981' : 'linear-gradient(90deg,#a78bfa,#7c3aed)',
-                                    transition: 'width 0.25s ease',
-                                  }} />
-                                </div>
-                              )}
-                              {bgSelectionFull && !hasUnappliedBgSelection && (
-                                <span style={{ color: '#10b981', fontWeight: 600 }}>
-                                  ✓ Đã đủ phủ hết video — bỏ bớt một clip nếu muốn đổi sang clip khác.
-                                </span>
-                              )}
-                              {/* Lựa chọn chưa được tải về đĩa: nếu bấm thẳng "Tạo Lại Video" thì
-                                  render vẫn dùng clip nền cũ. Nút áp dụng để ngay đây (đầu lưới)
-                                  thay vì chỉ nằm dưới đáy — trước đây nó khuất tầm nhìn nên rất dễ
-                                  chọn xong rồi tưởng là đã xong. */}
-                              {hasUnappliedBgSelection && (
-                                <div style={{
-                                  display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
-                                  marginTop: '2px', paddingTop: '7px', borderTop: '1px solid rgba(255,255,255,0.08)',
-                                }}>
-                                  <span style={{ color: '#fbbf24', fontWeight: 600 }}>
-                                    ⚠️ {selectedCount} clip đang chọn chưa được tải về.
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    style={{ padding: '5px 12px', fontSize: '0.75rem', borderRadius: '6px', fontWeight: 700 }}
-                                    onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
-                                    disabled={isDlBgVideo || isRenderingVideo}
-                                  >
-                                    {isDlBgVideo ? '⏳ Đang tải...' : '⬇ Áp dụng ngay'}
-                                  </button>
-                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                    (hoặc cứ bấm "Tạo Lại Video" — sẽ tự tải trước khi dựng)
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                              {pexelsVideos.map(video => {
-                                const thumb = video.image || (video.video_pictures?.[0]?.picture);
-                                const order = selectedPexelsIds.indexOf(video.id);
-                                const isSelected = order !== -1;
-                                // Đã phủ đủ thì các clip CHƯA chọn bị khoá lại, phải bỏ bớt mới chọn tiếp được.
-                                const isLocked = !isSelected && bgSelectionFull;
-                                const isPreviewing = previewPexelsId === video.id;
-                                // Bản dựng nhẹ nhất để xem thử cho nhanh, không cần nét.
-                                const previewFile = (video.video_files || [])
-                                  .filter(f => f.file_type === 'video/mp4' && f.link)
-                                  .sort((a, b) => (a.width || 0) - (b.width || 0))[0];
-                                return (
-                                  <div
-                                    key={video.id}
-                                    style={{
-                                      position: 'relative', borderRadius: '8px', overflow: 'hidden',
-                                      border: isSelected ? '2px solid #a78bfa' : '1px solid rgba(167,139,250,0.3)',
-                                      boxShadow: isSelected ? '0 0 12px rgba(167,139,250,0.45)' : 'none',
-                                      cursor: isDlBgVideo ? 'wait' : isLocked ? 'not-allowed' : 'pointer',
-                                      aspectRatio: '16/9', background: '#000',
-                                      opacity: isLocked ? 0.4 : 1,
-                                      transition: 'border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
-                                    }}
-                                    onClick={() => { if (!isDlBgVideo) togglePexelsSelection(video); }}
-                                    title={
-                                      isLocked
-                                        ? 'Đã chọn đủ clip phủ hết video — bỏ chọn bớt một clip rồi mới chọn được clip này'
-                                        : `${video.width}×${video.height} · ${video.duration}s · ${isSelected ? 'Nhấn để bỏ chọn' : 'Nhấn để chọn'}`
-                                    }
-                                  >
-                                    {isPreviewing && previewFile ? (
-                                      <video
-                                        src={previewFile.link}
-                                        autoPlay muted loop playsInline
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                      />
-                                    ) : thumb ? (
-                                      <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isSelected ? 1 : 0.8 }} />
-                                    ) : null}
-
-                                    <div style={{
-                                      position: 'absolute', inset: 0,
-                                      background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.75))',
-                                      display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-                                      padding: '6px 8px', pointerEvents: 'none',
-                                    }}>
-                                      <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 700 }}>
-                                        {isSelected ? 'Đã chọn' : isLocked ? 'Đã đủ' : '＋ Chọn'}
-                                      </span>
-                                      <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                                        {video.duration}s
-                                      </span>
-                                    </div>
-
-                                    {/* Nút xem thử — bấm riêng, không kéo theo việc chọn/bỏ chọn clip */}
-                                    {previewFile && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setPreviewPexelsId(isPreviewing ? null : video.id);
-                                        }}
-                                        title={isPreviewing ? 'Dừng xem thử' : 'Xem thử clip này'}
-                                        style={{
-                                          position: 'absolute', top: '5px', right: '5px',
-                                          width: '24px', height: '24px', borderRadius: '6px',
-                                          border: 'none', cursor: 'pointer', padding: 0,
-                                          background: isPreviewing ? '#a78bfa' : 'rgba(0,0,0,0.6)',
-                                          color: isPreviewing ? '#1a1924' : '#fff',
-                                          fontSize: '0.7rem', lineHeight: 1,
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}
-                                      >
-                                        {isPreviewing ? '⏸' : '▶'}
-                                      </button>
-                                    )}
-
-                                    {/* Số thứ tự = đúng thứ tự clip sẽ xuất hiện trong video */}
-                                    {isSelected && (
-                                      <div style={{
-                                        position: 'absolute', top: '5px', left: '5px',
-                                        width: '20px', height: '20px', borderRadius: '50%',
-                                        background: '#a78bfa', color: '#1a1924',
-                                        fontSize: '0.68rem', fontWeight: 800,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                      }}>
-                                        {order + 1}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {pexelsHasMore && (
+                              <strong style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
+                                ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
+                              </strong>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                {countCharacters(part).toLocaleString('vi-VN')} / {ttsChunkLimitFor(part).toLocaleString('vi-VN')} ký tự
+                              </span>
                               <button
                                 type="button"
                                 className="btn btn-secondary"
-                                style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, alignSelf: 'center' }}
-                                onClick={() => runPexelsSearch(pexelsKeywords, pexelsPage + 1, { append: true })}
-                                disabled={isPexelsSearching || isDlBgVideo}
+                                style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '5px', fontWeight: 700 }}
+                                onClick={() => onCopy(part, `tts_part_${i}`)}
                               >
-                                {isPexelsSearching ? '⏳ Đang tải...' : `⬇ Xem thêm clip (trang ${pexelsPage + 1})`}
+                                {copiedKey === `tts_part_${i}` ? '✓ Đã chép!' : `📋 Copy phần ${i + 1}`}
                               </button>
-                            )}
-
-                            {selectedCount > 0 && (
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700 }}
-                                  onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
-                                  disabled={isDlBgVideo}
-                                >
-                                  {isDlBgVideo ? '⏳ Đang tải...' : `✓ Dùng ${selectedCount} clip đã chọn`}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  style={{ padding: '7px 12px', fontSize: '0.76rem', borderRadius: '7px' }}
-                                  onClick={() => setSelectedPexelsIds([])}
-                                  disabled={isDlBgVideo}
-                                >
-                                  Bỏ chọn hết
-                                </button>
-                                {!bgSelectionFull && (
-                                  <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-                                    Chưa phủ hết — nền sẽ lặp lại để chạy đủ thời lượng.
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-
-                      {isDlBgVideo && dlBgVideoProgress.total > 0 && (
-                        <div style={{ fontSize: '0.78rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span>⏳ Đang tải video nền {dlBgVideoProgress.current}/{dlBgVideoProgress.total}...</span>
-                          <div style={{
-                            flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden'
+                            </div>
+                          )}
+                          <p style={{
+                            margin: 0,
+                            fontSize: '0.85rem',
+                            lineHeight: 1.7,
+                            color: 'rgba(255, 255, 255, 0.85)',
+                            whiteSpace: 'pre-wrap',
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            fontStyle: 'italic'
                           }}>
-                            <div style={{
-                              height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
-                              width: `${(dlBgVideoProgress.current / dlBgVideoProgress.total) * 100}%`,
-                              transition: 'width 0.3s ease'
-                            }} />
+                            {part}
+                          </p>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          {activeTab === 'process' && isSlideshowPipeline && (
+            <div style={{
+              background: 'rgba(37, 244, 238, 0.03)',
+              border: '1px solid rgba(37, 244, 238, 0.15)',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '24px'
+            }}>
+              <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚙️</span> Quy trình sản xuất video ({isPexelsTalkVideo ? '3' : '4'} Bước)
+              </h4>
+
+              {/* Steps Pipeline */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
+
+                {/* Bước 1: Tạo giọng nói */}
+                {(() => {
+                  const total = result.segments.length;
+                  const isStep1Done = assetCounts.audioCount >= total;
+
+                  return (
+                    <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px 16px',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      border: isGeneratingVoice ? '1.5px solid transparent' : isStep1Done ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
+                      borderRadius: '10px',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: isStep1Done ? '#10b981' : 'linear-gradient(135deg, #FE2C55, #ff5a79)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            flexShrink: 0,
+                            animation: isGeneratingVoice ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                          }}>
+                            {isStep1Done ? '✓' : '1'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                              Bước 1: Tạo giọng lồng tiếng
+                              {isExternalVoiceSkill && (
+                                <span style={{ marginLeft: '8px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
+                                  tuỳ chọn
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                          {isExternalVoiceSkill && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              title="Đã render giọng bên ElevenLabs? Thả file dài vào đây, tool tự cắt theo từng slide."
+                              style={{
+                                padding: '7px 12px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap',
+                                background: showVoiceSplit ? 'rgba(37,244,238,0.15)' : undefined,
+                                border: showVoiceSplit ? '1px solid rgba(37,244,238,0.4)' : undefined,
+                                color: showVoiceSplit ? 'var(--secondary)' : undefined
+                              }}
+                              onClick={() => setShowVoiceSplit((v) => !v)}
+                              disabled={isRenderingVideo}
+                            >
+                              {showVoiceSplit ? '▲ Đóng ghép giọng' : '🎧 Ghép giọng ElevenLabs'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            title="Cấu hình giọng đọc (Edge / CapCut)"
+                            style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                            onClick={() => {
+                              setShowVoiceConfig(!showVoiceConfig);
+                            }}
+                            disabled={isGeneratingVoice || isRenderingVideo}
+                          >
+                            ⚙️
+                          </button>
+                          {isStep1Done && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              title={previewAudioPlaying ? "Bấm để dừng nghe thử" : "Nghe thử toàn bộ kết quả lồng tiếng từ đầu đến cuối"}
+                              style={{
+                                padding: '7px 10px',
+                                fontSize: '0.76rem',
+                                borderRadius: '8px',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                background: previewAudioPlaying ? 'rgba(37,244,238,0.15)' : undefined,
+                                border: previewAudioPlaying ? '1px solid rgba(37,244,238,0.4)' : undefined,
+                                color: previewAudioPlaying ? 'var(--secondary)' : undefined
+                              }}
+                              onClick={toggleVoicePreview}
+                              disabled={isGeneratingVoice || isRenderingVideo}
+                            >
+                              {previewAudioPlaying ? `⏹ Dừng nghe (Slide ${previewAudioIndex + 1}/${total})` : '🔊 Nghe thử'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{
+                              padding: '7px 14px',
+                              fontSize: '0.76rem',
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
+                              color: isStep1Done ? '#2ed573' : '#fff',
+                              border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
+                              boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                              cursor: isGeneratingVoice ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                            onClick={handleGenerateVoice}
+                            disabled={isGeneratingVoice || isRenderingVideo}
+                          >
+                            {isGeneratingVoice ? '⏳ Đang tạo...' : isStep1Done ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isExternalVoiceSkill && showVoiceSplit && (
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                          <VoiceSplitPanel
+                            segments={result.segments}
+                            folderPath={result.input?.folderPath || 'example'}
+                            category={result.category}
+                            keepTags={showEmotionTags}
+                            onApplied={checkAssets}
+                          />
+                        </div>
+                      )}
+
+                      {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
+                      dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
+                      đọc/nghe. Gửi cho nhà cung cấp TTS khi bấm Tạo Lồng Tiếng. */}
+                      {isReadingPractice && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🗣️ Tốc độ đọc:</span>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {[
+                              { value: 'slow', label: '🐢 Chậm' },
+                              { value: 'medium', label: '🚶 Vừa' },
+                              { value: 'fast', label: '🐇 Nhanh' }
+                            ].map(opt => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setRenderReadingSpeed(opt.value)}
+                                disabled={isGeneratingVoice || isRenderingVideo}
+                                title={`Đặt tốc độ giọng đọc: ${opt.label}`}
+                                style={{
+                                  padding: '5px 12px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  borderRadius: '7px',
+                                  cursor: (isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer',
+                                  border: renderReadingSpeed === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
+                                  background: renderReadingSpeed === opt.value ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
+                                  color: renderReadingSpeed === opt.value ? 'var(--secondary)' : '#fff'
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       )}
-                      {!isDlBgVideo && dlBgVideoMsg && (
-                        <div style={{ fontSize: '0.78rem', color: dlBgVideoMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
-                          {dlBgVideoMsg}
+
+                      {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang tạo giọng đọc */}
+                      {isGeneratingVoice && (
+                        <StepProgressBar
+                          percent={(voiceProgress / total) * 100}
+                          label={`${voiceProgress}/${total}`}
+                          color="#00f2fe"
+                          showShimmer={true}
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Bước 2 (pexels_talk_video): Chọn video nền Pexels */}
+                {isPexelsTalkVideo && (() => {
+                  const isStep1Done = assetCounts.audioCount >= result.segments.length;
+                  const hasBgVideo = assetCounts.hasBgVideo;
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px 16px',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      border: hasBgVideo ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(167, 139, 250, 0.25)' : '1px solid rgba(255, 255, 255, 0.03)',
+                      borderRadius: '10px',
+                      opacity: isStep1Done ? 1 : 0.5,
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                          background: hasBgVideo ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #a78bfa, #7c3aed)' : 'rgba(255,255,255,0.1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 800, fontSize: '0.8rem'
+                        }}>
+                          {hasBgVideo ? '✓' : '2'}
+                        </div>
+                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                          Bước 2: Chọn Video Nền Pexels
+                        </span>
+                        {hasBgVideo && (
+                          <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
+                            ✓ Đã có video nền
+                          </span>
+                        )}
+                      </div>
+
+                      {isStep1Done && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              type="text"
+                              value={pexelsQuery}
+                              onChange={(e) => setPexelsQuery(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handlePexelsSearch()}
+                              placeholder="Nhập từ khoá tìm video nền (vd: nature, city, sunset)"
+                              disabled={isPexelsSearching || isDlBgVideo}
+                              style={{
+                                flex: 1, padding: '7px 10px', fontSize: '0.8rem', borderRadius: '7px',
+                                background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)',
+                                color: '#fff', outline: 'none'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                              onClick={handlePexelsSearch}
+                              disabled={isPexelsSearching || isDlBgVideo || !pexelsQuery.trim()}
+                            >
+                              {isPexelsSearching ? '⏳ Tìm...' : '🔍 Tìm video'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              title="Để AI đọc lời kể rồi tự đề xuất bộ từ khoá cảnh quay bám nội dung kịch bản"
+                              style={{ padding: '7px 12px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                              onClick={() => handleSuggestPexelsKeywords()}
+                              disabled={isPexelsSearching || isDlBgVideo || isSuggestingKeywords}
+                            >
+                              {isSuggestingKeywords ? '⏳ Đang nghĩ...' : '✨ Gợi ý theo kịch bản'}
+                            </button>
+                          </div>
+
+                          {/* Bộ từ khoá đang dùng — cho người dùng thấy lưới đang tìm theo những cảnh
+                          nào, và bấm 1 từ khoá để xem riêng kết quả của nó. */}
+                          {pexelsKeywords.length > 1 && (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Đang tìm theo:</span>
+                              {pexelsKeywords.map(kw => (
+                                <button
+                                  key={kw}
+                                  type="button"
+                                  onClick={() => {
+                                    // Truyền thẳng kw vào runPexelsSearch: setPexelsQuery là bất đồng bộ
+                                    // nên gọi handlePexelsSearch ngay sau đó sẽ tìm bằng giá trị CŨ.
+                                    setPexelsQuery(kw);
+                                    setPexelsKeywords([kw]);
+                                    setPexelsHasMore(true);
+                                    runPexelsSearch([kw], 1);
+                                  }}
+                                  disabled={isPexelsSearching || isDlBgVideo}
+                                  title={`Chỉ xem kết quả của "${kw}"`}
+                                  style={{
+                                    fontSize: '0.7rem', padding: '3px 9px', borderRadius: '999px',
+                                    background: 'rgba(167,139,250,0.12)', color: '#c4b5fd',
+                                    border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
+                                  }}
+                                >
+                                  {kw}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {pexelsSearchMsg && (
+                            <div style={{ fontSize: '0.78rem', color: pexelsSearchMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
+                              {pexelsSearchMsg}
+                            </div>
+                          )}
+
+                          {pexelsVideos.length > 0 && (() => {
+                            const selectedCount = selectedPexelsIds.length;
+                            const coverPercent = estimatedVideoSeconds > 0
+                              ? Math.min(100, Math.round((selectedCoverSeconds / estimatedVideoSeconds) * 100))
+                              : 0;
+                            return (
+                              <>
+                                {/* Gợi ý + tiến độ phủ. Dùng ĐỘ PHỦ THẬT (tổng thời lượng clip, mỗi clip
+                                tính tối đa 30 giây) chứ không đếm số lượng suông, vì clip Pexels dài
+                                ngắn rất khác nhau. */}
+                                <div style={{
+                                  display: 'flex', flexDirection: 'column', gap: '6px',
+                                  fontSize: '0.76rem', padding: '7px 10px', borderRadius: '7px',
+                                  background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)',
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#c4b5fd' }}>
+                                      💡 Video dài ~{formatDuration(estimatedVideoSeconds)} — nên chọn <strong>{recommendedBgClipCount} clip</strong> để nền không lặp lại.
+                                    </span>
+                                    <span style={{
+                                      marginLeft: 'auto', fontWeight: 700,
+                                      color: selectedCount === 0 ? 'var(--text-muted)' : bgSelectionFull ? '#10b981' : '#fbbf24',
+                                    }}>
+                                      {selectedCount === 0
+                                        ? 'Chưa chọn — sẽ tự lấy mặc định'
+                                        : `${selectedCount} clip · phủ ${formatDuration(Math.round(selectedCoverSeconds))}/${formatDuration(estimatedVideoSeconds)}`}
+                                    </span>
+                                  </div>
+                                  {selectedCount > 0 && (
+                                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                      <div style={{
+                                        height: '100%', width: `${coverPercent}%`, borderRadius: '2px',
+                                        background: bgSelectionFull ? '#10b981' : 'linear-gradient(90deg,#a78bfa,#7c3aed)',
+                                        transition: 'width 0.25s ease',
+                                      }} />
+                                    </div>
+                                  )}
+                                  {bgSelectionFull && !hasUnappliedBgSelection && (
+                                    <span style={{ color: '#10b981', fontWeight: 600 }}>
+                                      ✓ Đã đủ phủ hết video — bỏ bớt một clip nếu muốn đổi sang clip khác.
+                                    </span>
+                                  )}
+                                  {/* Lựa chọn chưa được tải về đĩa: nếu bấm thẳng "Tạo Lại Video" thì
+                                  render vẫn dùng clip nền cũ. Nút áp dụng để ngay đây (đầu lưới)
+                                  thay vì chỉ nằm dưới đáy — trước đây nó khuất tầm nhìn nên rất dễ
+                                  chọn xong rồi tưởng là đã xong. */}
+                                  {hasUnappliedBgSelection && (
+                                    <div style={{
+                                      display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                                      marginTop: '2px', paddingTop: '7px', borderTop: '1px solid rgba(255,255,255,0.08)',
+                                    }}>
+                                      <span style={{ color: '#fbbf24', fontWeight: 600 }}>
+                                        ⚠️ {selectedCount} clip đang chọn chưa được tải về.
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '5px 12px', fontSize: '0.75rem', borderRadius: '6px', fontWeight: 700 }}
+                                        onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
+                                        disabled={isDlBgVideo || isRenderingVideo}
+                                      >
+                                        {isDlBgVideo ? '⏳ Đang tải...' : '⬇ Áp dụng ngay'}
+                                      </button>
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                        (hoặc cứ bấm "Tạo Lại Video" — sẽ tự tải trước khi dựng)
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                  {pexelsVideos.map(video => {
+                                    const thumb = video.image || (video.video_pictures?.[0]?.picture);
+                                    const order = selectedPexelsIds.indexOf(video.id);
+                                    const isSelected = order !== -1;
+                                    // Đã phủ đủ thì các clip CHƯA chọn bị khoá lại, phải bỏ bớt mới chọn tiếp được.
+                                    const isLocked = !isSelected && bgSelectionFull;
+                                    const isPreviewing = previewPexelsId === video.id;
+                                    // Bản dựng nhẹ nhất để xem thử cho nhanh, không cần nét.
+                                    const previewFile = (video.video_files || [])
+                                      .filter(f => f.file_type === 'video/mp4' && f.link)
+                                      .sort((a, b) => (a.width || 0) - (b.width || 0))[0];
+                                    return (
+                                      <div
+                                        key={video.id}
+                                        style={{
+                                          position: 'relative', borderRadius: '8px', overflow: 'hidden',
+                                          border: isSelected ? '2px solid #a78bfa' : '1px solid rgba(167,139,250,0.3)',
+                                          boxShadow: isSelected ? '0 0 12px rgba(167,139,250,0.45)' : 'none',
+                                          cursor: isDlBgVideo ? 'wait' : isLocked ? 'not-allowed' : 'pointer',
+                                          aspectRatio: '16/9', background: '#000',
+                                          opacity: isLocked ? 0.4 : 1,
+                                          transition: 'border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
+                                        }}
+                                        onClick={() => { if (!isDlBgVideo) togglePexelsSelection(video); }}
+                                        title={
+                                          isLocked
+                                            ? 'Đã chọn đủ clip phủ hết video — bỏ chọn bớt một clip rồi mới chọn được clip này'
+                                            : `${video.width}×${video.height} · ${video.duration}s · ${isSelected ? 'Nhấn để bỏ chọn' : 'Nhấn để chọn'}`
+                                        }
+                                      >
+                                        {isPreviewing && previewFile ? (
+                                          <video
+                                            src={previewFile.link}
+                                            autoPlay muted loop playsInline
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                        ) : thumb ? (
+                                          <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isSelected ? 1 : 0.8 }} />
+                                        ) : null}
+
+                                        <div style={{
+                                          position: 'absolute', inset: 0,
+                                          background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.75))',
+                                          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+                                          padding: '6px 8px', pointerEvents: 'none',
+                                        }}>
+                                          <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 700 }}>
+                                            {isSelected ? 'Đã chọn' : isLocked ? 'Đã đủ' : '＋ Chọn'}
+                                          </span>
+                                          <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+                                            {video.duration}s
+                                          </span>
+                                        </div>
+
+                                        {/* Nút xem thử — bấm riêng, không kéo theo việc chọn/bỏ chọn clip */}
+                                        {previewFile && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setPreviewPexelsId(isPreviewing ? null : video.id);
+                                            }}
+                                            title={isPreviewing ? 'Dừng xem thử' : 'Xem thử clip này'}
+                                            style={{
+                                              position: 'absolute', top: '5px', right: '5px',
+                                              width: '24px', height: '24px', borderRadius: '6px',
+                                              border: 'none', cursor: 'pointer', padding: 0,
+                                              background: isPreviewing ? '#a78bfa' : 'rgba(0,0,0,0.6)',
+                                              color: isPreviewing ? '#1a1924' : '#fff',
+                                              fontSize: '0.7rem', lineHeight: 1,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}
+                                          >
+                                            {isPreviewing ? '⏸' : '▶'}
+                                          </button>
+                                        )}
+
+                                        {/* Số thứ tự = đúng thứ tự clip sẽ xuất hiện trong video */}
+                                        {isSelected && (
+                                          <div style={{
+                                            position: 'absolute', top: '5px', left: '5px',
+                                            width: '20px', height: '20px', borderRadius: '50%',
+                                            background: '#a78bfa', color: '#1a1924',
+                                            fontSize: '0.68rem', fontWeight: 800,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          }}>
+                                            {order + 1}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {pexelsHasMore && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, alignSelf: 'center' }}
+                                    onClick={() => runPexelsSearch(pexelsKeywords, pexelsPage + 1, { append: true })}
+                                    disabled={isPexelsSearching || isDlBgVideo}
+                                  >
+                                    {isPexelsSearching ? '⏳ Đang tải...' : `⬇ Xem thêm clip (trang ${pexelsPage + 1})`}
+                                  </button>
+                                )}
+
+                                {selectedCount > 0 && (
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700 }}
+                                      onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
+                                      disabled={isDlBgVideo}
+                                    >
+                                      {isDlBgVideo ? '⏳ Đang tải...' : `✓ Dùng ${selectedCount} clip đã chọn`}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      style={{ padding: '7px 12px', fontSize: '0.76rem', borderRadius: '7px' }}
+                                      onClick={() => setSelectedPexelsIds([])}
+                                      disabled={isDlBgVideo}
+                                    >
+                                      Bỏ chọn hết
+                                    </button>
+                                    {!bgSelectionFull && (
+                                      <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                                        Chưa phủ hết — nền sẽ lặp lại để chạy đủ thời lượng.
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                          {isDlBgVideo && dlBgVideoProgress.total > 0 && (
+                            <div style={{ fontSize: '0.78rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>⏳ Đang tải video nền {dlBgVideoProgress.current}/{dlBgVideoProgress.total}...</span>
+                              <div style={{
+                                flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
+                                  width: `${(dlBgVideoProgress.current / dlBgVideoProgress.total) * 100}%`,
+                                  transition: 'width 0.3s ease'
+                                }} />
+                              </div>
+                            </div>
+                          )}
+                          {!isDlBgVideo && dlBgVideoMsg && (
+                            <div style={{ fontSize: '0.78rem', color: dlBgVideoMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
+                              {dlBgVideoMsg}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                  );
+                })()}
 
-            {/* Bước 2: Sinh & tải ảnh — ẩn với video người que PNG (không cần Google Flow) và pexels_talk_video */}
-            {!allHaveElements && !isPexelsTalkVideo && (() => {
-              const total = result.segments.length;
-              // isStep1Done ở đây là CỬA MỞ của bước này, không phải "đã lồng tiếng xong":
-              // skill lồng tiếng ngoài thì cửa luôn mở (xem isExternalVoiceSkill).
-              const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
-              const completedFlow = flowStatus ? flowStatus.completed : 0;
-              const isFlowDone = flowStatus && flowStatus.phase === 'completed';
-              const hasAllImages = assetCounts.imageCount >= total;
-              const isStep2Done = isFlowDone || hasAllImages;
-              const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running';
+                {/* Bước 2: Sinh & tải ảnh — ẩn với pexels_talk_video */}
+                {!isPexelsTalkVideo && (() => {
+                  const total = result.segments.length;
+                  // isStep1Done ở đây là CỬA MỞ của bước này, không phải "đã lồng tiếng xong":
+                  // skill lồng tiếng ngoài thì cửa luôn mở (xem isExternalVoiceSkill).
+                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
+                  const completedFlow = flowStatus ? flowStatus.completed : 0;
+                  const isFlowDone = flowStatus && flowStatus.phase === 'completed';
+                  const hasAllImages = assetCounts.imageCount >= total;
+                  const isStep2Done = isFlowDone || hasAllImages;
+                  const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running';
 
-              return (
-                <div className={isStep2Running ? 'running-glow-card' : ''} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: isStep2Running ? '1.5px solid transparent' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                  borderRadius: '10px',
-                  opacity: isStep1Done ? 1 : 0.5,
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        flexShrink: 0,
-                        animation: isStep2Running ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                      }}>
-                        {isStep2Done ? '✓' : '2'}
+                  return (
+                    <div className={isStep2Running ? 'running-glow-card' : ''} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px 16px',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      border: isStep2Running ? '1.5px solid transparent' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                      borderRadius: '10px',
+                      opacity: isStep1Done ? 1 : 0.5,
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            flexShrink: 0,
+                            animation: isStep2Running ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                          }}>
+                            {isStep2Done ? '✓' : '2'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                              Bước 2: Sinh & tải ảnh tự động
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
+                            style={{
+                              padding: '7px 12px',
+                              fontSize: '0.76rem',
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              cursor: isOpeningImages ? 'wait' : 'pointer'
+                            }}
+                            onClick={handleOpenImagesFolder}
+                            disabled={isOpeningImages}
+                          >
+                            {isOpeningImages ? '⏳ Đang mở...' : assetCounts.imageCount > 0 ? `📁 Thư mục ảnh (${assetCounts.imageCount})` : '📁 Thư mục ảnh'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{
+                              padding: '7px 14px',
+                              fontSize: '0.76rem',
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                              color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                              border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                              boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                              cursor: !isStep1Done ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}
+                            onClick={() => pushToFlow(flowStatus)}
+                            disabled={!isStep1Done}
+                          >
+                            {flowButtonLabel(flowStatus)}
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Sinh & tải ảnh tự động
-                        </span>
-                      </div>
+
+                      {openImagesError && (
+                        <div style={{ fontSize: '0.74rem', color: '#f87171' }}>⚠️ {openImagesError}</div>
+                      )}
+
+                      {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
+                      {isStep2Running && flowStatus && flowStatus.total > 0 && (
+                        <StepProgressBar
+                          percent={(flowStatus.completed / flowStatus.total) * 100}
+                          label={`${flowStatus.completed}/${flowStatus.total}`}
+                          color={flowStatus.color}
+                          showShimmer={true}
+                        />
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
-                        style={{
-                          padding: '7px 12px',
-                          fontSize: '0.76rem',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                          cursor: isOpeningImages ? 'wait' : 'pointer'
-                        }}
-                        onClick={handleOpenImagesFolder}
-                        disabled={isOpeningImages}
-                      >
-                        {isOpeningImages ? '⏳ Đang mở...' : assetCounts.imageCount > 0 ? `📁 Thư mục ảnh (${assetCounts.imageCount})` : '📁 Thư mục ảnh'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{
-                          padding: '7px 14px',
-                          fontSize: '0.76rem',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                          color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                          border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                          boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                          cursor: !isStep1Done ? 'not-allowed' : 'pointer',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0
-                        }}
-                        onClick={() => pushToFlow(flowStatus)}
-                        disabled={!isStep1Done}
-                      >
-                        {flowButtonLabel(flowStatus)}
-                      </button>
-                    </div>
-                  </div>
+                  );
+                })()}
 
-                  {openImagesError && (
-                    <div style={{ fontSize: '0.74rem', color: '#f87171' }}>⚠️ {openImagesError}</div>
-                  )}
+                {(() => {
+                  const total = result.segments.length;
+                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
+                  const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
 
-                  {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
-                  {isStep2Running && flowStatus && flowStatus.total > 0 && (
-                    <StepProgressBar
-                      percent={(flowStatus.completed / flowStatus.total) * 100}
-                      label={`${flowStatus.completed}/${flowStatus.total}`}
-                      color={flowStatus.color}
-                      showShimmer={true}
-                    />
-                  )}
-                </div>
-              );
-            })()}
+                  const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true, library: bgMusicLibrary });
 
-            {(() => {
-              const total = result.segments.length;
-              const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
-              const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px 16px',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                      borderRadius: '10px',
+                      opacity: (isStep1Done && renderBgMusicEnabled) ? 1 : 0.5,
+                      gap: '10px',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            flexShrink: 0
+                          }}>
+                            {isStep3Done ? '✓' : '3'}
+                          </div>
+                          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                              Bước 3: Nhạc nền hòa âm
+                            </span>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              background: renderBgMusicEnabled ? 'rgba(37, 244, 238, 0.12)' : 'rgba(255, 255, 255, 0.08)',
+                              color: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.5)',
+                              border: renderBgMusicEnabled ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+                            }}>
+                              {renderBgMusicEnabled ? `🎵 ${currentTrackName} (${renderBgMusicVolume}%)` : '🔇 Tắt nhạc'}
+                            </span>
+                          </div>
+                        </div>
 
-              const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true, library: bgMusicLibrary });
-
-              return (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                  borderRadius: '10px',
-                  opacity: (isStep1Done && renderBgMusicEnabled) ? 1 : 0.5,
-                  gap: '10px',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        flexShrink: 0
-                      }}>
-                        {isStep3Done ? '✓' : (allHaveElements ? '2' : '3')}
-                      </div>
-                      <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước {allHaveElements ? '2' : '3'}: Nhạc nền hòa âm
-                        </span>
-                        <span style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          background: renderBgMusicEnabled ? 'rgba(37, 244, 238, 0.12)' : 'rgba(255, 255, 255, 0.08)',
-                          color: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.5)',
-                          border: renderBgMusicEnabled ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
-                        }}>
-                          {renderBgMusicEnabled ? `🎵 ${currentTrackName} (${renderBgMusicVolume}%)` : '🔇 Tắt nhạc'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      {/* Nút Cài đặt dạng Icon. Chỉ khoá khi đang chạy render/lồng tiếng — trước
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                          {/* Nút Cài đặt dạng Icon. Chỉ khoá khi đang chạy render/lồng tiếng — trước
                           đây còn khoá theo !isStep1Done và !renderBgMusicEnabled, nghĩa là muốn
                           xem/đổi bản nhạc thì buộc phải bật nhạc lên và phải lồng tiếng xong đã,
                           dù chọn nhạc nền chẳng phụ thuộc gì vào hai việc đó. */}
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        title="Chọn bản nhạc nền & chỉnh âm lượng"
-                        style={{
-                          padding: '7px 10px',
-                          fontSize: '0.76rem',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          whiteSpace: 'nowrap',
-                          opacity: (isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
-                          cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
-                        }}
-                        onClick={() => setShowBgMusicModal(true)}
-                        disabled={isRenderingVideo || isGeneratingVoice}
-                      >
-                        ⚙️
-                      </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            title="Chọn bản nhạc nền & chỉnh âm lượng"
+                            style={{
+                              padding: '7px 10px',
+                              fontSize: '0.76rem',
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              opacity: (isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
+                              cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
+                            }}
+                            onClick={() => setShowBgMusicModal(true)}
+                            disabled={isRenderingVideo || isGeneratingVoice}
+                          >
+                            ⚙️
+                          </button>
 
-                      {/* Công tắc Bật/Tắt Nhạc Nền — lưu ngay xuống kịch bản, nếu không thì tắt
+                          {/* Công tắc Bật/Tắt Nhạc Nền — lưu ngay xuống kịch bản, nếu không thì tắt
                           nhạc xong rời trang là lần mở sau nhạc lại tự bật. */}
-                      <label className="custom-switch" title={renderBgMusicEnabled ? 'Đang bật nhạc nền' : 'Đang tắt nhạc nền'} style={{ margin: 0, transform: 'scale(0.85)' }}>
-                        <input
-                          type="checkbox"
-                          checked={renderBgMusicEnabled}
-                          disabled={isRenderingVideo || isGeneratingVoice}
-                          onChange={(e) => {
-                            setRenderBgMusicEnabled(e.target.checked);
-                            persistBgMusicConfig({ bgMusicEnabled: e.target.checked });
-                          }}
-                        />
-                        <span className="switch-slider" style={{
-                          backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
-                        }}></span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Bước Render video */}
-            {(() => {
-              const total = result.segments.length;
-              const isStep1Done = assetCounts.audioCount >= total;
-              const isStep2Done = isPexelsTalkVideo
-                ? assetCounts.hasBgVideo
-                : (allHaveElements || (flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
-              // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs đòi một
-              // file audio/scene-NN.<ext> cho TỪNG cảnh, thiếu file là Remotion đứt giữa chừng chứ
-              // không phải chỉ mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào
-              // một lỗi render khó hiểu.
-              //
-              // Đuôi file không nhất thiết là .mp3: luồng cắt giọng ElevenLabs ghi ra .wav. Cả
-              // render-project.mjs lẫn check-assets đều dò đuôi thật, nên đừng gắn cứng .mp3 ở đây.
-              const isReadyToRender = isStep1Done && isStep2Done;
-              const isRenderDone = assetCounts.videoCreated;
-              const stepNum = isPexelsTalkVideo ? '3' : allHaveElements ? '3' : '4';
-              // Đã có ảnh, chỉ còn thiếu giọng đọc — trường hợp thường gặp của skill lồng tiếng ngoài.
-              const waitingForExternalAudio = isExternalVoiceSkill && isStep2Done && !isStep1Done;
-
-              return (
-                <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 16px',
-                  background: 'rgba(255, 255, 255, 0.015)',
-                  border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isReadyToRender ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                  borderRadius: '10px',
-                  opacity: isReadyToRender ? 1 : 0.5,
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: isRenderDone ? '#10b981' : isReadyToRender ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '0.8rem',
-                        flexShrink: 0,
-                        animation: isRenderingVideo ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                      }}>
-                        {isRenderDone ? '✓' : stepNum}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước {stepNum}: Biên tập & Xuất Video
-                        </span>
+                          <label className="custom-switch" title={renderBgMusicEnabled ? 'Đang bật nhạc nền' : 'Đang tắt nhạc nền'} style={{ margin: 0, transform: 'scale(0.85)' }}>
+                            <input
+                              type="checkbox"
+                              checked={renderBgMusicEnabled}
+                              disabled={isRenderingVideo || isGeneratingVoice}
+                              onChange={(e) => {
+                                setRenderBgMusicEnabled(e.target.checked);
+                                persistBgMusicConfig({ bgMusicEnabled: e.target.checked });
+                              }}
+                            />
+                            <span className="switch-slider" style={{
+                              backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                            }}></span>
+                          </label>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        title="Cấu hình kiểu render (phụ đề, chuyển cảnh, song ngữ)"
-                        style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                        onClick={() => setShowRenderConfig(!showRenderConfig)}
-                        disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
-                      >
-                        ⚙️
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{
-                          padding: '7px 14px',
-                          fontSize: '0.76rem',
-                          borderRadius: '8px',
-                          fontWeight: 700,
-                          background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isReadyToRender ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                          color: isRenderDone ? '#2ed573' : isReadyToRender ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                          border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isReadyToRender ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                          boxShadow: isRenderDone || !isReadyToRender ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                          cursor: (!isReadyToRender || isRenderingVideo) ? 'not-allowed' : 'pointer',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0
-                        }}
-                        onClick={handleRenderVideo}
-                        disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
-                      >
-                        {isRenderingVideo ? '⏳ Đang render...' : isRenderDone ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
-                      </button>
-                    </div>
-                  </div>
+                  );
+                })()}
 
-                  {/* Skill lồng tiếng ngoài: ảnh xong rồi mà chưa có mp3 thì chỉ rõ phải bỏ file
+                {/* Bước Render video */}
+                {(() => {
+                  const total = result.segments.length;
+                  const isStep1Done = assetCounts.audioCount >= total;
+                  const isStep2Done = isPexelsTalkVideo
+                    ? assetCounts.hasBgVideo
+                    : ((flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
+                  // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs đòi một
+                  // file audio/scene-NN.<ext> cho TỪNG cảnh, thiếu file là Remotion đứt giữa chừng chứ
+                  // không phải chỉ mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào
+                  // một lỗi render khó hiểu.
+                  //
+                  // Đuôi file không nhất thiết là .mp3: luồng cắt giọng ElevenLabs ghi ra .wav. Cả
+                  // render-project.mjs lẫn check-assets đều dò đuôi thật, nên đừng gắn cứng .mp3 ở đây.
+                  const isReadyToRender = isStep1Done && isStep2Done;
+                  const isRenderDone = assetCounts.videoCreated;
+                  const stepNum = isPexelsTalkVideo ? '3' : '4';
+                  // Đã có ảnh, chỉ còn thiếu giọng đọc — trường hợp thường gặp của skill lồng tiếng ngoài.
+                  const waitingForExternalAudio = isExternalVoiceSkill && isStep2Done && !isStep1Done;
+
+                  return (
+                    <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '12px 16px',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isReadyToRender ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                      borderRadius: '10px',
+                      opacity: isReadyToRender ? 1 : 0.5,
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: isRenderDone ? '#10b981' : isReadyToRender ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            flexShrink: 0,
+                            animation: isRenderingVideo ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
+                          }}>
+                            {isRenderDone ? '✓' : stepNum}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                              Bước {stepNum}: Biên tập & Xuất Video
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            title="Cấu hình kiểu render (phụ đề, chuyển cảnh, song ngữ)"
+                            style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                            onClick={() => setShowRenderConfig(!showRenderConfig)}
+                            disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
+                          >
+                            ⚙️
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{
+                              padding: '7px 14px',
+                              fontSize: '0.76rem',
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isReadyToRender ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
+                              color: isRenderDone ? '#2ed573' : isReadyToRender ? '#fff' : 'rgba(255, 255, 255, 0.3)',
+                              border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isReadyToRender ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                              boxShadow: isRenderDone || !isReadyToRender ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                              cursor: (!isReadyToRender || isRenderingVideo) ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0
+                            }}
+                            onClick={handleRenderVideo}
+                            disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
+                          >
+                            {isRenderingVideo ? '⏳ Đang render...' : isRenderDone ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Skill lồng tiếng ngoài: ảnh xong rồi mà chưa có mp3 thì chỉ rõ phải bỏ file
                       vào đâu và đặt tên thế nào — check-assets đếm đúng scene-NN.mp3, đếm được
                       đủ là nút render tự sáng lên, không cần thao tác gì thêm. */}
-                  {waitingForExternalAudio && (
-                    <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
-                      🎙️ Đã đủ hình ảnh / hoạt cảnh, còn thiếu giọng đọc. Bạn có thể bấm nút <strong>🎧 Ghép giọng ElevenLabs</strong> ở Bước 1 để thả file và cắt tự động, hoặc chép file audio vào thư mục <strong>audio/</strong> của dự án:
-                      <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>scene-01.wav</code> (hoặc .mp3)… đủ {total} file.
-                      Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
-                      <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                          onClick={handleOpenVideoFolder}
-                          disabled={isOpeningFolder}
-                        >
-                          {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục dự án'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                          onClick={checkAssets}
-                        >
-                          🔄 Quét lại ({assetCounts.audioCount}/{total} file audio)
-                        </button>
-                      </div>
+                      {waitingForExternalAudio && (
+                        <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
+                          🎙️ Đã đủ hình ảnh / hoạt cảnh, còn thiếu giọng đọc. Bạn có thể bấm nút <strong>🎧 Ghép giọng ElevenLabs</strong> ở Bước 1 để thả file và cắt tự động, hoặc chép file audio vào thư mục <strong>audio/</strong> của dự án:
+                          <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>scene-01.wav</code> (hoặc .mp3)… đủ {total} file.
+                          Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
+                          <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                              onClick={handleOpenVideoFolder}
+                              disabled={isOpeningFolder}
+                            >
+                              {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục dự án'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                              onClick={checkAssets}
+                            >
+                              🔄 Quét lại ({assetCounts.audioCount}/{total} file audio)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Nhắc render lại khi nhạc nền vừa được thay đổi */}
+                      {musicChangedSinceRender && isRenderDone && !isRenderingVideo && (
+                        <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          🎵 Nhạc nền vừa được thay đổi — nhấn <strong>"Tạo Lại Video"</strong> để video áp dụng nhạc mới.
+                        </div>
+                      )}
+
+                      {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
+                      {isRenderingVideo && (
+                        <StepProgressBar
+                          percent={renderProgress}
+                          label={`${renderProgress}%`}
+                          color="#10b981"
+                          showShimmer={true}
+                        />
+                      )}
                     </div>
-                  )}
+                  );
+                })()}
 
-                  {/* Nhắc render lại khi nhạc nền vừa được thay đổi */}
-                  {musicChangedSinceRender && isRenderDone && !isRenderingVideo && (
-                    <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      🎵 Nhạc nền vừa được thay đổi — nhấn <strong>"Tạo Lại Video"</strong> để video áp dụng nhạc mới.
-                    </div>
-                  )}
-
-                  {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
-                  {isRenderingVideo && (
-                    <StepProgressBar
-                      percent={renderProgress}
-                      label={`${renderProgress}%`}
-                      color="#10b981"
-                      showShimmer={true}
-                    />
-                  )}
-                </div>
-              );
-            })()}
-
-          </div>
-
-
-
-          {/* Video Player Preview */}
-          {assetCounts.videoCreated && (
-            <div style={{
-              marginTop: '12px',
-              marginBottom: '20px',
-              padding: '16px',
-              background: 'rgba(0, 0, 0, 0.25)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <h5 style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🎬</span> Review Video Thành Phẩm
-                </h5>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 12px', fontSize: '0.74rem', borderRadius: '6px', fontWeight: 700 }}
-                  onClick={handleOpenVideoFolder}
-                  disabled={isOpeningFolder}
-                >
-                  {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục chứa video'}
-                </button>
               </div>
-              {openFolderError && (
-                <p style={{ margin: '-6px 0 12px 0', fontSize: '0.74rem', color: 'var(--danger)' }}>
-                  ⚠️ {openFolderError}
-                </p>
-              )}
-              <video
-                key={`${result.input?.folderPath || 'video'}-${videoVersion}`}
-                src={`/api/prompts/video-stream?folderPath=${result.input?.folderPath || 'example'}&category=${result.category || ''}&v=${videoVersion}`}
-                controls
-                style={{
-                  width: '100%',
-                  maxHeight: '480px',
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.5)',
-                  outline: 'none',
-                  background: '#000'
-                }}
-              />
-            </div>
-          )}
 
 
 
-          {/* ADVANCED REMOTION CONFIG DETAILS (COLLAPSIBLE) */}
-          <details style={{ marginTop: '16px', outline: 'none' }}>
-            <summary style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-              🛠️ Xem cấu hình Remotion nâng cao (JSON & Copy)
-            </summary>
-            <div style={{ marginTop: '12px', background: 'rgba(0, 0, 0, 0.15)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontWeight: 600 }}>Cấu hình Remotion JSON (configs/ của skill):</span>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                  onClick={() => {
-                    const configToCopy = result.remotionConfig || {
+              {/* Video Player Preview is now displayed in the dedicated sticky right column (VideoResultPanel) */}
+
+
+
+
+              {/* ADVANCED REMOTION CONFIG DETAILS (COLLAPSIBLE) */}
+              <details style={{ marginTop: '16px', outline: 'none' }}>
+                <summary style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                  🛠️ Xem cấu hình Remotion nâng cao (JSON & Copy)
+                </summary>
+                <div style={{ marginTop: '12px', background: 'rgba(0, 0, 0, 0.15)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontWeight: 600 }}>Cấu hình Remotion JSON (configs/ của skill):</span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                      onClick={() => {
+                        const configToCopy = result.remotionConfig || {
+                          title: result.title || "slideshow-video",
+                          captionPosition: "bottom",
+                          imageFit: "cover",
+                          kenBurns: true,
+                          transitionSeconds: 0.5,
+                          bgColor: "#0E0F13",
+                          fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
+                          captionMode: "chunked",
+                          captionWordsPerChunk: 4,
+                          audioPaddingSeconds: 0.4,
+                          bgMusicVolume: 0.12,
+                          scenes: result.segments.map(seg => {
+                            const folder = result.input?.folderPath || 'example';
+                            const imgExt = result.input?.imageExt || 'jpg';
+                            const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
+                            const paddedNum = String(seg.segmentNumber).padStart(2, '0');
+                            return {
+                              image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
+                              audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
+                              caption: seg.subtitle || seg.dialogueOrNarration || ""
+                            };
+                          })
+                        };
+                        onCopy(JSON.stringify(configToCopy, null, 2), 'remotion_config');
+                      }}
+                    >
+                      {copiedKey === 'remotion_config' ? '✓ Đã chép!' : '📋 Sao chép cấu hình'}
+                    </button>
+                  </div>
+                  <pre style={{
+                    margin: 0,
+                    fontSize: '0.78rem',
+                    lineHeight: 1.45,
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    fontFamily: 'monospace',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }}>
+                    {JSON.stringify(result.remotionConfig || {
                       title: result.title || "slideshow-video",
                       captionPosition: "bottom",
                       imageFit: "cover",
@@ -4126,216 +4510,47 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           caption: seg.subtitle || seg.dialogueOrNarration || ""
                         };
                       })
-                    };
-                    onCopy(JSON.stringify(configToCopy, null, 2), 'remotion_config');
-                  }}
-                >
-                  {copiedKey === 'remotion_config' ? '✓ Đã chép!' : '📋 Sao chép cấu hình'}
-                </button>
-              </div>
-              <pre style={{
-                margin: 0,
-                fontSize: '0.78rem',
-                lineHeight: 1.45,
-                color: 'rgba(255, 255, 255, 0.85)',
-                background: 'rgba(0, 0, 0, 0.3)',
-                padding: '12px',
-                borderRadius: '8px',
-                maxHeight: '180px',
-                overflowY: 'auto',
-                fontFamily: 'monospace',
-                border: '1px solid rgba(255,255,255,0.05)'
-              }}>
-                {JSON.stringify(result.remotionConfig || {
-                  title: result.title || "slideshow-video",
-                  captionPosition: "bottom",
-                  imageFit: "cover",
-                  kenBurns: true,
-                  transitionSeconds: 0.5,
-                  bgColor: "#0E0F13",
-                  fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-                  captionMode: "chunked",
-                  captionWordsPerChunk: 4,
-                  audioPaddingSeconds: 0.4,
-                  bgMusicVolume: 0.12,
-                  scenes: result.segments.map(seg => {
-                    const folder = result.input?.folderPath || 'example';
-                    const imgExt = result.input?.imageExt || 'jpg';
-                    const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
-                    const paddedNum = String(seg.segmentNumber).padStart(2, '0');
-                    return {
-                      image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
-                      audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
-                      caption: seg.subtitle || seg.dialogueOrNarration || ""
-                    };
-                  })
-                }, null, 2)}
-              </pre>
-            </div>
-          </details>
+                    }, null, 2)}
+                  </pre>
+                </div>
+              </details>
 
-          {/* Status Message Alerts (Only show error messages, since success is already shown in the step pipeline status above) */}
-          {voiceMsg && !voiceMsg.startsWith('✓') && (
-            <div style={{
-              fontSize: '0.78rem',
-              color: 'var(--danger)',
-              background: 'rgba(255, 71, 87, 0.08)',
-              border: '1px solid rgba(255, 71, 87, 0.15)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginTop: '12px',
-              fontWeight: 500
-            }}>
-              {voiceMsg}
-            </div>
-          )}
-
-          {renderMsg && !renderMsg.startsWith('✓') && (
-            <div style={{
-              fontSize: '0.78rem',
-              color: 'var(--danger)',
-              background: 'rgba(255, 71, 87, 0.08)',
-              border: '1px solid rgba(255, 71, 87, 0.15)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginTop: '12px',
-              fontWeight: 500
-            }}>
-              {renderMsg}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Toàn bộ lời thuyết minh gộp lại - bản dự phòng để dán tay, bổ trợ cho nút tự động lồng tiếng bên dưới.
-          MẶC ĐỊNH THU GỌN: mở sẵn thì riêng khối này đã chiếm ~676px, đẩy Slide 1 xuống tận 1153px —
-          người dùng vào tab "Kịch bản chi tiết" là để xem/sửa từng slide, phải cuộn qua 1.5 màn hình
-          chữ mới tới được slide đầu tiên. Thu lại còn 1 dòng tóm tắt, ai cần bản dán tay thì mở ra. */}
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
-        borderRadius: '12px',
-        padding: '16px',
-        marginBottom: '24px'
-      }}>
-        {(() => {
-          // Một nguồn duy nhất cho cả dòng đếm, khối hiển thị và các nút copy — xem
-          // buildFullNarrationText() để biết vì sao không nối chuỗi tại chỗ nữa.
-          const keepTags = showEmotionTags;
-          const speechText = buildFullNarrationText(result.segments, { keepTags });
-          const ttsParts = splitNarrationForTts(speechText);
-          // Ký tự đếm trên bản ĐANG HIỂN THỊ (có tag thì tính cả tag) vì đó đúng là số ký tự sẽ
-          // dán vào công cụ TTS và bị tính phí/chặn ở mốc 5000. Ngược lại số chữ và thời lượng đọc
-          // phải tính trên bản KHÔNG tag: tag không được đọc lên, tính vào là báo dài hơn sự thật.
-          const totalChars = countCharacters(speechText);
-          const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
-          const isMultiPart = ttsParts.length > 1;
-
-          return (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                  <span>🎙️</span>
-                  <span>Toàn bộ lời thuyết minh</span>
-                </strong>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
-                  {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
-                  {isMultiPart && (
-                    <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
-                      {' '}· chia {ttsParts.length} lần render TTS
-                    </span>
-                  )}
-                </span>
-                {scriptHasEmotionTags && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    title={showEmotionTags
-                      ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
-                      : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
-                    style={{
-                      padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0,
-                      color: showEmotionTags ? '#0f172a' : undefined,
-                      background: showEmotionTags ? 'var(--warning)' : undefined,
-                      borderColor: showEmotionTags ? 'var(--warning)' : undefined
-                    }}
-                    onClick={() => setShowEmotionTags(v => !v)}
-                  >
-                    {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                  onClick={() => setShowFullNarration(v => !v)}
-                >
-                  {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                  onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
-                >
-                  {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
-                </button>
-              </div>
-              {showFullNarration && (
-                <>
-                  <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
-                    để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
-                    {scriptHasEmotionTags && (keepTags
-                      ? ' Đang kèm [tag] cảm xúc — dán thẳng sang ElevenLabs v3 để nó đọc theo sắc thái. Công cụ khác không hiểu tag sẽ đọc to cụm trong ngoặc, khi đó bấm 🏷️ để ẩn tag rồi copy lại.'
-                      : ' Đang ẩn [tag] cảm xúc — bấm 🏷️ ở trên để hiện lại nếu cần dán sang ElevenLabs v3.')}
-                  </p>
-                  {ttsParts.map((part, i) => (
-                    <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
-                      {isMultiPart && (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '8px',
-                          marginBottom: '6px', flexWrap: 'wrap'
-                        }}>
-                          <strong style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
-                            ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
-                          </strong>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {countCharacters(part).toLocaleString('vi-VN')} / {ttsChunkLimitFor(part).toLocaleString('vi-VN')} ký tự
-                          </span>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '5px', fontWeight: 700 }}
-                            onClick={() => onCopy(part, `tts_part_${i}`)}
-                          >
-                            {copiedKey === `tts_part_${i}` ? '✓ Đã chép!' : `📋 Copy phần ${i + 1}`}
-                          </button>
-                        </div>
-                      )}
-                      <p style={{
-                        margin: 0,
-                        fontSize: '0.85rem',
-                        lineHeight: 1.7,
-                        color: 'rgba(255, 255, 255, 0.85)',
-                        whiteSpace: 'pre-wrap',
-                        background: 'rgba(0, 0, 0, 0.2)',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        fontStyle: 'italic'
-                      }}>
-                        {part}
-                      </p>
-                    </div>
-                  ))}
-                </>
+              {/* Status Message Alerts (Only show error messages, since success is already shown in the step pipeline status above) */}
+              {voiceMsg && !voiceMsg.startsWith('✓') && (
+                <div style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--danger)',
+                  background: 'rgba(255, 71, 87, 0.08)',
+                  border: '1px solid rgba(255, 71, 87, 0.15)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  marginTop: '12px',
+                  fontWeight: 500
+                }}>
+                  {voiceMsg}
+                </div>
               )}
-            </>
-          );
-        })()}
-      </div>
 
-      {/* Khối ĐĂNG VIDEO + ẢNH BÌA. Chỉ hiện khi thật sự có dữ liệu: kịch bản sinh TRƯỚC bản cập
+              {renderMsg && !renderMsg.startsWith('✓') && (
+                <div style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--danger)',
+                  background: 'rgba(255, 71, 87, 0.08)',
+                  border: '1px solid rgba(255, 71, 87, 0.15)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  marginTop: '12px',
+                  fontWeight: 500
+                }}>
+                  {renderMsg}
+                </div>
+              )}
+            </div>
+          )}
+
+
+
+          {/* Khối ĐĂNG VIDEO + ẢNH BÌA. Chỉ hiện khi thật sự có dữ liệu: kịch bản sinh TRƯỚC bản cập
           nhật này không có mấy trường đó, hiện khối rỗng ra chỉ làm người dùng tưởng hỏng.
 
           BỎ điều kiện isJapaneseNarrative: tiêu đề + hashtag + mô tả giờ được sinh tự động cho MỌI
@@ -4343,701 +4558,742 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           nguyên điều kiện cũ thì moral_talk, stick_figure, pexels... vẫn có caption trong CSDL mà
           không bao giờ hiện ra màn hình. Riêng prompt ảnh bìa thì vẫn chỉ hai skill Nhật sinh ra,
           nên phần đó tự ẩn theo result.coverPrompts. */}
-      {activeTab === 'script' && (result.youtubeTitle || result.hashtags || result.youtubeDescription || result.coverPrompts) && (
-        <div style={{
-          marginBottom: '16px', padding: '14px 16px', borderRadius: '12px',
-          border: '1px solid rgba(37,244,238,0.25)', background: 'rgba(37,244,238,0.05)',
-          display: 'flex', flexDirection: 'column', gap: '12px'
-        }}>
-          <strong style={{ fontSize: '0.88rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            📤 Đăng video lên YouTube{isJapaneseNarrative ? ' (tiếng Nhật)' : ''}
-          </strong>
-
-          {result.youtubeTitle && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Tiêu đề</strong>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
-                        onClick={() => onCopy(result.youtubeTitle, 'yt_title')}
-                      >
-                        {copiedKey === 'yt_title' ? '✓ Đã chép!' : '📋 Copy'}
-                      </button>
-                    </div>
-                    <p style={{
-                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
-                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
-                      fontWeight: 700
-                    }}>
-                      {result.youtubeTitle}
-                    </p>
-                  </div>
-          )}
-
-          {Array.isArray(result.hashtags) && result.hashtags.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Hashtag</strong>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
-                        onClick={() => onCopy(result.hashtags.join(' '), 'yt_tags')}
-                      >
-                        {copiedKey === 'yt_tags' ? '✓ Đã chép!' : '📋 Copy'}
-                      </button>
-                    </div>
-                    <p style={{
-                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
-                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
-                      fontWeight: 700
-                    }}>
-                      {result.hashtags.join(' ')}
-                    </p>
-                  </div>
-          )}
-
-          {result.youtubeDescription && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Mô tả</strong>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
-                        onClick={() => onCopy(result.youtubeDescription, 'yt_desc')}
-                      >
-                        {copiedKey === 'yt_desc' ? '✓ Đã chép!' : '📋 Copy'}
-                      </button>
-                    </div>
-                    <p style={{
-                      margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
-                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
-                      fontWeight: 700
-                    }}>
-                      {result.youtubeDescription}
-                    </p>
-                  </div>
-          )}
-
-          {result.coverPrompts && (
-            <>
-              <strong style={{ fontSize: '0.88rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                🖼️ Prompt ảnh bìa
+          {activeTab === 'script' && (result.youtubeTitle || result.hashtags || result.youtubeDescription || result.coverPrompts) && (
+            <div style={{
+              marginBottom: '16px', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid rgba(37,244,238,0.25)', background: 'rgba(37,244,238,0.05)',
+              display: 'flex', flexDirection: 'column', gap: '12px'
+            }}>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📤 Đăng video lên YouTube{isJapaneseNarrative ? ' (tiếng Nhật)' : ''}
               </strong>
-              {result.coverPrompts.landscape && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ngang 16:9 — video dài</strong>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
-                        onClick={() => onCopy(result.coverPrompts.landscape, 'cover_landscape')}
-                      >
-                        {copiedKey === 'cover_landscape' ? '✓ Đã chép!' : '📋 Copy'}
-                      </button>
-                    </div>
-                    <p style={{
-                      margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
-                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
-                    }}>
-                      {result.coverPrompts.landscape}
-                    </p>
-                  </div>
-              )}
-              {result.coverPrompts.portrait && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Dọc 9:16 — video ngắn</strong>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
-                        onClick={() => onCopy(result.coverPrompts.portrait, 'cover_portrait')}
-                      >
-                        {copiedKey === 'cover_portrait' ? '✓ Đã chép!' : '📋 Copy'}
-                      </button>
-                    </div>
-                    <p style={{
-                      margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
-                      background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
-                    }}>
-                      {result.coverPrompts.portrait}
-                    </p>
-                  </div>
-              )}
-              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Hai prompt này cố ý KHÔNG chứa chữ — công cụ sinh ảnh viết chữ Nhật rất tệ. Sinh ảnh trước, rồi
-                đặt tiêu đề lên phần khoảng trống bằng công cụ khác.
-              </p>
-            </>
-          )}
-        </div>
-      )}
 
-      {activeTab === 'script' && (
-        <>
-          {/* Đoạn hướng dẫn xuống DÒNG RIÊNG, không nằm cùng hàng với các nút: khi để chung một
-              hàng flex, mỗi nút thêm vào lại bóp đoạn văn hẹp lại (đo được 146px rộng × 245px cao —
-              một cột chữ dựng đứng), vừa xấu vừa ngốn chiều cao hơn cả khi cho nó nguyên một hàng. */}
-          <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', gap: '10px' }}>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-              {allHaveElements
-                ? <>Kịch bản đã chia thành từng slide với ảnh người que PNG. Bấm <strong>✏️ Sửa kịch bản</strong> để chỉnh lời kể/phụ đề, sau đó tạo giọng và nhấn <strong>🎥 Tạo Video (Render)</strong> để xuất video — không cần sinh ảnh AI.</>
-                : <>Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.</>
-              }
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
-                Để riêng 2 nút Lưu/Huỷ thay vì tự lưu khi rời ô, vì mỗi lần lưu ghi vào 3 nơi (DB,
-                remotionConfig, manifest.json) — người dùng cần chủ động quyết định thời điểm ghi. */}
-              {!isEditingScript ? (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  title="Tự sửa tay lời kể, phụ đề và mô tả hoạt cảnh của từng slide"
-                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                  onClick={() => { setIsEditingScript(true); setSaveScriptMsg(''); }}
-                >
-                  ✏️ Sửa kịch bản
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={isSavingScript || !hasUnsavedEdits}
-                    title={hasUnsavedEdits
-                      ? `Lưu ${dirtySegments.length} slide đã sửa — slide nào đổi lời kể mà đã có giọng đọc sẽ được đọc lại ngay bằng đúng giọng cũ`
-                      : 'Chưa có thay đổi nào để lưu'}
-                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
-                    onClick={handleSaveScript}
-                  >
-                    {isResyncingVoice ? '🎙️ Đang đọc lại...' : isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    disabled={isSavingScript}
-                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                    onClick={handleCancelEdits}
-                  >
-                    ✕ Xong / Huỷ
-                  </button>
-                </>
-              )}
-              {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={isRegeneratingNarration || hasUnsavedEdits}
-                  title={hasUnsavedEdits
-                    ? 'Bạn đang có chỉnh sửa chưa lưu — lưu hoặc huỷ trước khi để Gemini viết lại (viết lại sẽ ghi đè toàn bộ lời kể)'
-                    : 'Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide'}
-                  style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isRegeneratingNarration || hasUnsavedEdits) ? 0.5 : 1 }}
-                  onClick={handleRegenerateNarration}
-                >
-                  {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                onClick={() => {
-                  const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${cleanNarrationText(s.dialogueOrNarration, { keepTags: showEmotionTags })}\nPhụ đề: ${s.subtitle}`).join('\n\n');
-                  onCopy(allPrompts, 'all_segments');
-                }}
-              >
-                {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
-                style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
-                onClick={handleOpenImagesFolder}
-                disabled={isOpeningImages}
-              >
-                {isOpeningImages ? '⏳ Đang mở...' : assetCounts.imageCount > 0 ? `📁 Thư mục ảnh (${assetCounts.imageCount})` : '📁 Thư mục ảnh'}
-              </button>
-            </div>
-          </div>
-          {regenerateNarrationMsg && (
-            <div style={{
-              fontSize: '0.8rem',
-              color: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
-              background: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginTop: '-4px',
-              marginBottom: '16px',
-              fontWeight: 500
-            }}>
-              {regenerateNarrationMsg}
-            </div>
-          )}
-          {saveScriptMsg && (
-            <div style={{
-              fontSize: '0.8rem',
-              color: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
-              background: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginTop: '-4px',
-              marginBottom: '16px',
-              fontWeight: 500
-            }}>
-              {saveScriptMsg}
-            </div>
-          )}
-          {isEditingScript && (
-            <div style={{
-              fontSize: '0.78rem',
-              color: hasUnsavedEdits ? 'var(--warning)' : 'var(--text-muted)',
-              background: hasUnsavedEdits ? 'rgba(255, 193, 7, 0.08)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${hasUnsavedEdits ? 'rgba(255, 193, 7, 0.25)' : 'rgba(255,255,255,0.06)'}`,
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginBottom: '16px',
-              fontWeight: 500,
-              lineHeight: 1.5
-            }}>
-              {hasUnsavedEdits
-                ? `⚠️ Đang có ${dirtySegments.length} slide sửa chưa lưu (slide ${dirtySegments.map(s => s.segmentNumber).join(', ')}). Nhấn "💾 Lưu" để ghi lại — ảnh đã tạo vẫn giữ nguyên, chỉ cần tạo lại giọng đọc.`
-                : '✏️ Chế độ sửa đang bật. Gõ trực tiếp vào các ô bên dưới. Sửa mô tả hoạt cảnh chỉ đổi prompt ảnh cho lần sinh ảnh SAU, không tự vẽ lại ảnh đã có.'}
-            </div>
-          )}
-
-          {/* Nền theo TỪNG CÂU (chỉ skill video nền Pexels) */}
-          {isPexelsTalkVideo && (
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: '8px',
-              padding: '12px 14px', marginBottom: '16px', borderRadius: '10px',
-              background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.22)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                  🎬 Nền video theo từng câu
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flex: 1, minWidth: '200px' }}>
-                  AI đọc từng câu rồi chọn cảnh quay khớp với chính câu đó. Đoạn nào không gán được vẫn dùng nền chung ở Bước 2.
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                  onClick={handleAutoAssignSegmentBg}
-                  disabled={isAssigningSegmentBg || isRenderingVideo || isGeneratingVoice}
-                >
-                  {isAssigningSegmentBg ? '⏳ Đang gán...' : '✨ Gán nền theo từng câu'}
-                </button>
-              </div>
-
-              {/* Mọi đoạn đã có nền riêng -> playlist chung chỉ còn dùng cho 1 giây đầu + 3 giây
-                  cuối, giữ cả chục clip nặng hàng trăm MB cho 4 giây hình là thừa. */}
-              {allSegmentsHaveOwnBg && !isAssigningSegmentBg && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
-                  paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)',
-                }}>
-                  <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
-                    ✓ Cả {narratedSegmentCount} đoạn đều có nền riêng.
-                  </span>
-                  <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', flex: 1, minWidth: '180px' }}>
-                    Clip nền chung ở Bước 2 giờ chỉ còn hiện ở 1 giây đầu và 3 giây cuối video.
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                    onClick={handleCleanupSharedBg}
-                    disabled={isCleaningBg || isRenderingVideo}
-                    title="Xoá bớt clip nền chung không còn dùng, giữ lại 1 clip cho đầu/cuối video"
-                  >
-                    {isCleaningBg ? '⏳ Đang dọn...' : '🧹 Dọn clip nền chung thừa'}
-                  </button>
-                </div>
-              )}
-
-              {isAssigningSegmentBg && segmentBgProgress.total > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: '#c4b5fd' }}>
-                  <span style={{ whiteSpace: 'nowrap' }}>
-                    Đoạn {segmentBgProgress.current}/{segmentBgProgress.total}
-                  </span>
-                  <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
-                      width: `${(segmentBgProgress.current / segmentBgProgress.total) * 100}%`,
-                      transition: 'width 0.25s ease',
-                    }} />
-                  </div>
-                </div>
-              )}
-
-              {segmentBgMsg && (
-                <div style={{ fontSize: '0.76rem', color: segmentBgMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
-                  {segmentBgMsg}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {result.segments.map((seg, idx) => {
-              const isThumb = seg.isThumbnail || (seg.dialogueOrNarration && seg.dialogueOrNarration.includes('Thumbnail'));
-              const isSegDirty = dirtySegments.some(d => d.segmentNumber === seg.segmentNumber);
-              const isLandscape = result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9';
-              const isChapterTitle = seg.layout === 'chapter-title';
-              const actMeta = getSegmentActMeta(seg);
-              const editStyle = {
-                width: '100%',
-                boxSizing: 'border-box',
-                background: 'rgba(0,0,0,0.35)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: '8px',
-                padding: '10px',
-                color: '#fff',
-                fontSize: '0.85rem',
-                lineHeight: 1.6,
-                fontFamily: 'inherit',
-                resize: 'vertical',
-                marginTop: '4px'
-              };
-              return (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {isChapterTitle && actMeta && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 18px',
-                      background: `linear-gradient(90deg, ${actMeta.color}26 0%, rgba(18,18,18,0.92) 100%)`,
-                      borderLeft: `4px solid ${actMeta.color}`,
-                      borderTop: `1px solid ${actMeta.color}44`,
-                      borderRight: `1px solid ${actMeta.color}22`,
-                      borderBottom: `1px solid ${actMeta.color}22`,
-                      borderRadius: '10px',
-                      marginTop: idx > 0 ? '14px' : '0',
-                      boxShadow: `0 4px 18px ${actMeta.color}18`
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '1.25rem' }}>{actMeta.icon}</span>
-                        <div>
-                          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: actMeta.color, letterSpacing: '0.5px' }}>
-                            【{actMeta.jp}】 {actMeta.label}
-                          </span>
-                          {seg.actTitle && (
-                            <span style={{ marginLeft: '12px', fontSize: '0.82rem', color: '#e2e8f0', fontWeight: 600 }}>
-                              — {seg.actTitle}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: '0.72rem',
-                        color: actMeta.color,
-                        background: `${actMeta.color}18`,
-                        padding: '3px 10px',
-                        borderRadius: '6px',
-                        border: `1px solid ${actMeta.color}44`,
-                        fontWeight: 700
-                      }}>
-                        🌟 Tiêu đề hồi (Đặt ở phía trên)
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className="timeline-card"
-                    style={
-                      // Slide đang có sửa chưa lưu được viền vàng để tìm lại được ngay trong một
-                      // kịch bản dài 20-30 slide, khỏi phải cuộn dò từng cái.
-                      isSegDirty
-                        ? { border: '1.5px solid var(--warning)', background: 'rgba(255, 193, 7, 0.05)', boxShadow: '0 4px 20px rgba(255, 193, 7, 0.12)' }
-                        : isThumb
-                          ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' }
-                          : isChapterTitle
-                            ? { border: `1.5px solid ${actMeta ? actMeta.color : '#f59e0b'}`, background: `linear-gradient(135deg, ${actMeta ? actMeta.color : '#f59e0b'}12 0%, rgba(20, 16, 12, 0.65) 100%)`, boxShadow: `0 4px 20px ${actMeta ? actMeta.color : '#f59e0b'}20` }
-                            : undefined
-                    }
-                  >
-                    <div className="timeline-meta">
-                      <strong style={{ color: isThumb ? 'var(--secondary)' : isChapterTitle ? (actMeta ? actMeta.color : '#f59e0b') : 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>{isThumb ? '🖼️' : isChapterTitle ? (actMeta ? actMeta.icon : '👑') : '🎬'}</span>
-                        <span>{isThumb ? 'Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)' : `Slide ${seg.segmentNumber}`}</span>
-                        {idx === 0 && !isThumb && !isChapterTitle && (
-                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.4)', fontWeight: 700 }}>
-                            🎯 MỞ ĐẦU &amp; DẪN CHUYỆN (HOOK)
-                          </span>
-                        )}
-                        {isChapterTitle && (
-                          <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
-                            👑 TIÊU ĐỀ HỒI
-                          </span>
-                        )}
-                        {isSegDirty && (
-                          <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(255,193,7,0.18)', color: 'var(--warning)', fontWeight: 700 }}>
-                            chưa lưu
-                          </span>
-                        )}
-                      </strong>
-                    {isThumb && (
-                      <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(37, 244, 238, 0.15)', color: 'var(--secondary)', border: '1px solid rgba(37, 244, 238, 0.3)', fontWeight: 700 }}>
-                        📌 Tóm tắt nội dung video &amp; Tăng tỷ lệ nhấp xem (CTR)
-                      </span>
-                    )}
-                    {/* Nghe thử + đọc lại giọng của RIÊNG slide này. Một slide đọc hỏng trước đây
-                        phải chạy lại "Tạo Giọng Đọc" cho cả kịch bản mới sửa được. */}
-                    {!isThumb && (seg.dialogueOrNarration || '').trim() && !isEditingScript && (
-                      <>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          title={playingSegment === seg.segmentNumber ? 'Dừng nghe' : 'Nghe thử giọng đọc của riêng slide này'}
-                          style={{ padding: '6px 12px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
-                          onClick={() => toggleSegmentAudio(seg)}
-                        >
-                          {playingSegment === seg.segmentNumber ? '⏸️ Dừng' : '▶️ Nghe'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo}
-                          title="Chỉ đọc lại đúng slide này, giữ nguyên giọng cũ — không đụng tới các slide khác"
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '0.78rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            opacity: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 0.5 : 1,
-                            cursor: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer'
-                          }}
-                          onClick={() => handleRegenerateSegmentVoice(seg)}
-                        >
-                          {regeneratingSegment === seg.segmentNumber ? '⏳ Đang đọc...' : '🎙️ Đọc lại'}
-                        </button>
-                      </>
-                    )}
+              {result.youtubeTitle && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Tiêu đề</strong>
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
-                      onClick={() => onCopy(seg.textPrompt, `seg_${seg.segmentNumber}`)}
+                      style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                      onClick={() => onCopy(result.youtubeTitle, 'yt_title')}
                     >
-                      {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
+                      {copiedKey === 'yt_title' ? '✓ Đã chép!' : '📋 Copy'}
                     </button>
-                    {result.category === 'stick_figure_slideshow' && Array.isArray(seg.elements) && seg.elements.length > 0 && (
+                  </div>
+                  <p style={{
+                    margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                    background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                    fontWeight: 700
+                  }}>
+                    {result.youtubeTitle}
+                  </p>
+                </div>
+              )}
+
+              {Array.isArray(result.hashtags) && result.hashtags.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Hashtag</strong>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                      onClick={() => onCopy(result.hashtags.join(' '), 'yt_tags')}
+                    >
+                      {copiedKey === 'yt_tags' ? '✓ Đã chép!' : '📋 Copy'}
+                    </button>
+                  </div>
+                  <p style={{
+                    margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                    background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                    fontWeight: 700
+                  }}>
+                    {result.hashtags.join(' ')}
+                  </p>
+                </div>
+              )}
+
+              {result.youtubeDescription && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Mô tả</strong>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                      onClick={() => onCopy(result.youtubeDescription, 'yt_desc')}
+                    >
+                      {copiedKey === 'yt_desc' ? '✓ Đã chép!' : '📋 Copy'}
+                    </button>
+                  </div>
+                  <p style={{
+                    margin: 0, fontSize: '0.84rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                    background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                    fontWeight: 700
+                  }}>
+                    {result.youtubeDescription}
+                  </p>
+                </div>
+              )}
+
+              {result.coverPrompts && (
+                <>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                    🖼️ Prompt ảnh bìa
+                  </strong>
+                  {result.coverPrompts.landscape && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Ngang 16:9 — video dài</strong>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                          onClick={() => onCopy(result.coverPrompts.landscape, 'cover_landscape')}
+                        >
+                          {copiedKey === 'cover_landscape' ? '✓ Đã chép!' : '📋 Copy'}
+                        </button>
+                      </div>
+                      <p style={{
+                        margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                        background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                      }}>
+                        {result.coverPrompts.landscape}
+                      </p>
+                    </div>
+                  )}
+                  {result.coverPrompts.portrait && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Dọc 9:16 — video ngắn</strong>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '0.66rem', borderRadius: '5px', fontWeight: 700 }}
+                          onClick={() => onCopy(result.coverPrompts.portrait, 'cover_portrait')}
+                        >
+                          {copiedKey === 'cover_portrait' ? '✓ Đã chép!' : '📋 Copy'}
+                        </button>
+                      </div>
+                      <p style={{
+                        margin: 0, fontSize: '0.72rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.88)',
+                        background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '6px', whiteSpace: 'pre-wrap',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                      }}>
+                        {result.coverPrompts.portrait}
+                      </p>
+                    </div>
+                  )}
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Hai prompt này cố ý KHÔNG chứa chữ — công cụ sinh ảnh viết chữ Nhật rất tệ. Sinh ảnh trước, rồi
+                    đặt tiêu đề lên phần khoảng trống bằng công cụ khác.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'script' && (
+            <>
+              {/* Đoạn hướng dẫn xuống DÒNG RIÊNG, không nằm cùng hàng với các nút: khi để chung một
+              hàng flex, mỗi nút thêm vào lại bóp đoạn văn hẹp lại (đo được 146px rộng × 245px cao —
+              một cột chữ dựng đứng), vừa xấu vừa ngốn chiều cao hơn cả khi cho nó nguyên một hàng. */}
+              <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', gap: '10px' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                  Kịch bản đã chia thành từng slide. Bấm <strong>✏️ Sửa kịch bản</strong> để tự sửa lời kể/phụ đề, hoặc sao chép từng prompt ảnh bên dưới để sinh ảnh (Midjourney/Flux) — hoặc nhấn <strong>🚀 Đẩy sang Google Flow</strong> để chạy tự động qua Chrome Extension.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  {/* Sửa tay: bật chế độ sửa thì mọi ô lời kể/phụ đề/mô tả hoạt cảnh đổi thành textarea.
+                Để riêng 2 nút Lưu/Huỷ thay vì tự lưu khi rời ô, vì mỗi lần lưu ghi vào 3 nơi (DB,
+                remotionConfig, manifest.json) — người dùng cần chủ động quyết định thời điểm ghi. */}
+                  {!isEditingScript ? (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      title="Tự sửa tay lời kể, phụ đề và mô tả hoạt cảnh của từng slide"
+                      style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                      onClick={() => { setIsEditingScript(true); setSaveScriptMsg(''); }}
+                    >
+                      ✏️ Sửa kịch bản
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={isSavingScript || !hasUnsavedEdits}
+                        title={hasUnsavedEdits
+                          ? `Lưu ${dirtySegments.length} slide đã sửa — slide nào đổi lời kể mà đã có giọng đọc sẽ được đọc lại ngay bằng đúng giọng cũ`
+                          : 'Chưa có thay đổi nào để lưu'}
+                        style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isSavingScript || !hasUnsavedEdits) ? 0.5 : 1 }}
+                        onClick={handleSaveScript}
+                      >
+                        {isResyncingVoice ? '🎙️ Đang đọc lại...' : isSavingScript ? '⏳ Đang lưu...' : hasUnsavedEdits ? `💾 Lưu ${dirtySegments.length} slide` : '💾 Lưu'}
+                      </button>
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        title="Mở canvas editor để kéo thả bố cục phần tử của slide này"
-                        style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(254,44,85,0.15)', borderColor: 'rgba(254,44,85,0.35)' }}
-                        onClick={() => setCanvasEditorSeg(seg)}
+                        disabled={isSavingScript}
+                        style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                        onClick={handleCancelEdits}
                       >
-                        ✏️ Sửa Canvas ({seg.elements.length} phần tử)
+                        ✕ Xong / Huỷ
                       </button>
-                    )}
+                    </>
+                  )}
+                  {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={isRegeneratingNarration || hasUnsavedEdits}
+                      title={hasUnsavedEdits
+                        ? 'Bạn đang có chỉnh sửa chưa lưu — lưu hoặc huỷ trước khi để Gemini viết lại (viết lại sẽ ghi đè toàn bộ lời kể)'
+                        : 'Giữ nguyên toàn bộ ảnh đã tạo, chỉ nhờ Gemini viết lại lời kể/thoại mới cho từng slide'}
+                      style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700, opacity: (isRegeneratingNarration || hasUnsavedEdits) ? 0.5 : 1 }}
+                      onClick={handleRegenerateNarration}
+                    >
+                      {isRegeneratingNarration ? '⏳ Đang viết lại...' : '🔄 Viết lại lời kể (giữ ảnh)'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                    onClick={() => {
+                      const allPrompts = result.segments.map(s => `--- Slide ${s.segmentNumber} ---\nPrompt Ảnh:\n${s.textPrompt}\n\nThoại: ${cleanNarrationText(s.dialogueOrNarration, { keepTags: showEmotionTags })}\nPhụ đề: ${s.subtitle}`).join('\n\n');
+                      onCopy(allPrompts, 'all_segments');
+                    }}
+                  >
+                    {copiedKey === 'all_segments' ? '✓ Đã sao chép!' : '📋 Sao chép toàn bộ'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
+                    style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
+                    onClick={handleOpenImagesFolder}
+                    disabled={isOpeningImages}
+                  >
+                    {isOpeningImages ? '⏳ Đang mở...' : assetCounts.imageCount > 0 ? `📁 Thư mục ảnh (${assetCounts.imageCount})` : '📁 Thư mục ảnh'}
+                  </button>
+                </div>
+              </div>
+              {regenerateNarrationMsg && (
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
+                  background: regenerateNarrationMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  marginTop: '-4px',
+                  marginBottom: '16px',
+                  fontWeight: 500
+                }}>
+                  {regenerateNarrationMsg}
+                </div>
+              )}
+              {saveScriptMsg && (
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger)' : 'var(--success)',
+                  background: saveScriptMsg.startsWith('Lỗi') ? 'var(--danger-bg)' : 'var(--success-bg)',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  marginTop: '-4px',
+                  marginBottom: '16px',
+                  fontWeight: 500
+                }}>
+                  {saveScriptMsg}
+                </div>
+              )}
+              {isEditingScript && (
+                <div style={{
+                  fontSize: '0.78rem',
+                  color: hasUnsavedEdits ? 'var(--warning)' : 'var(--text-muted)',
+                  background: hasUnsavedEdits ? 'rgba(255, 193, 7, 0.08)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${hasUnsavedEdits ? 'rgba(255, 193, 7, 0.25)' : 'rgba(255,255,255,0.06)'}`,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  marginBottom: '16px',
+                  fontWeight: 500,
+                  lineHeight: 1.5
+                }}>
+                  {hasUnsavedEdits
+                    ? `⚠️ Đang có ${dirtySegments.length} slide sửa chưa lưu (slide ${dirtySegments.map(s => s.segmentNumber).join(', ')}). Nhấn "💾 Lưu" để ghi lại — ảnh đã tạo vẫn giữ nguyên, chỉ cần tạo lại giọng đọc.`
+                    : '✏️ Chế độ sửa đang bật. Gõ trực tiếp vào các ô bên dưới. Sửa mô tả hoạt cảnh chỉ đổi prompt ảnh cho lần sinh ảnh SAU, không tự vẽ lại ảnh đã có.'}
+                </div>
+              )}
+
+              {/* Nền theo TỪNG CÂU (chỉ skill video nền Pexels) */}
+              {isPexelsTalkVideo && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: '8px',
+                  padding: '12px 14px', marginBottom: '16px', borderRadius: '10px',
+                  background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.22)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
+                      🎬 Nền video theo từng câu
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flex: 1, minWidth: '200px' }}>
+                      AI đọc từng câu rồi chọn cảnh quay khớp với chính câu đó. Đoạn nào không gán được vẫn dùng nền chung ở Bước 2.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                      onClick={handleAutoAssignSegmentBg}
+                      disabled={isAssigningSegmentBg || isRenderingVideo || isGeneratingVoice}
+                    >
+                      {isAssigningSegmentBg ? '⏳ Đang gán...' : '✨ Gán nền theo từng câu'}
+                    </button>
                   </div>
 
-                  {segmentVoiceMsg[seg.segmentNumber] && (
+                  {/* Mọi đoạn đã có nền riêng -> playlist chung chỉ còn dùng cho 1 giây đầu + 3 giây
+                  cuối, giữ cả chục clip nặng hàng trăm MB cho 4 giây hình là thừa. */}
+                  {allSegmentsHaveOwnBg && !isAssigningSegmentBg && (
                     <div style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'var(--warning)' : 'var(--success)',
-                      background: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger-bg)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'rgba(255,193,7,0.1)' : 'var(--success-bg)',
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      marginBottom: '8px'
+                      display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                      paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)',
                     }}>
-                      {segmentVoiceMsg[seg.segmentNumber]}
+                      <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
+                        ✓ Cả {narratedSegmentCount} đoạn đều có nền riêng.
+                      </span>
+                      <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', flex: 1, minWidth: '180px' }}>
+                        Clip nền chung ở Bước 2 giờ chỉ còn hiện ở 1 giây đầu và 3 giây cuối video.
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 12px', fontSize: '0.74rem', borderRadius: '6px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                        onClick={handleCleanupSharedBg}
+                        disabled={isCleaningBg || isRenderingVideo}
+                        title="Xoá bớt clip nền chung không còn dùng, giữ lại 1 clip cho đầu/cuối video"
+                      >
+                        {isCleaningBg ? '⏳ Đang dọn...' : '🧹 Dọn clip nền chung thừa'}
+                      </button>
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
-                    {/* Flex row layout: Left for fields, Right for Pexels media preview */}
-                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                      {/* Left: Input Fields */}
-                      <div style={{ flex: '1', minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div>
-                          <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
+                  {isAssigningSegmentBg && segmentBgProgress.total > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: '#c4b5fd' }}>
+                      <span style={{ whiteSpace: 'nowrap' }}>
+                        Đoạn {segmentBgProgress.current}/{segmentBgProgress.total}
+                      </span>
+                      <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
+                          width: `${(segmentBgProgress.current / segmentBgProgress.total) * 100}%`,
+                          transition: 'width 0.25s ease',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {segmentBgMsg && (
+                    <div style={{ fontSize: '0.76rem', color: segmentBgMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
+                      {segmentBgMsg}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {result.segments.map((seg, idx) => {
+                  const isThumb = seg.isThumbnail || (seg.dialogueOrNarration && seg.dialogueOrNarration.includes('Thumbnail'));
+                  const isSegDirty = dirtySegments.some(d => d.segmentNumber === seg.segmentNumber);
+                  const isChapterTitle = seg.layout === 'chapter-title';
+                  const actMeta = getSegmentActMeta(seg);
+                  const editStyle = {
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    background: 'rgba(0,0,0,0.35)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    lineHeight: 1.6,
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    marginTop: '4px'
+                  };
+                  return (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {isChapterTitle && actMeta && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 18px',
+                          background: `linear-gradient(90deg, ${actMeta.color}26 0%, rgba(18,18,18,0.92) 100%)`,
+                          borderLeft: `4px solid ${actMeta.color}`,
+                          borderTop: `1px solid ${actMeta.color}44`,
+                          borderRight: `1px solid ${actMeta.color}22`,
+                          borderBottom: `1px solid ${actMeta.color}22`,
+                          borderRadius: '10px',
+                          marginTop: idx > 0 ? '14px' : '0',
+                          boxShadow: `0 4px 18px ${actMeta.color}18`
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '1.25rem' }}>{actMeta.icon}</span>
+                            <div>
+                              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: actMeta.color, letterSpacing: '0.5px' }}>
+                                【{actMeta.jp}】 {actMeta.label}
+                              </span>
+                              {seg.actTitle && (
+                                <span style={{ marginLeft: '12px', fontSize: '0.82rem', color: '#e2e8f0', fontWeight: 600 }}>
+                                  — {seg.actTitle}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '0.72rem',
+                            color: actMeta.color,
+                            background: `${actMeta.color}18`,
+                            padding: '3px 10px',
+                            borderRadius: '6px',
+                            border: `1px solid ${actMeta.color}44`,
+                            fontWeight: 700
+                          }}>
+                            🌟 Tiêu đề hồi (Đặt ở phía trên)
                           </span>
-                          {isEditingScript ? (
-                            <textarea
-                              value={editedValue(seg, 'visualDescription')}
-                              onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
-                              rows={4}
-                              spellCheck={false}
-                              style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
-                            />
-                          ) : (
-                            <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
-                              {seg.visualDescription}
-                            </p>
+                        </div>
+                      )}
+                      <div
+                        className="timeline-card"
+                        style={
+                          // Slide đang có sửa chưa lưu được viền vàng để tìm lại được ngay trong một
+                          // kịch bản dài 20-30 slide, khỏi phải cuộn dò từng cái.
+                          isSegDirty
+                            ? { border: '1.5px solid var(--warning)', background: 'rgba(255, 193, 7, 0.05)', boxShadow: '0 4px 20px rgba(255, 193, 7, 0.12)' }
+                            : isThumb
+                              ? { border: '1.5px solid var(--secondary)', background: 'rgba(37, 244, 238, 0.04)', boxShadow: '0 4px 20px rgba(37, 244, 238, 0.15)' }
+                              : isChapterTitle
+                                ? { border: `1.5px solid ${actMeta ? actMeta.color : '#f59e0b'}`, background: `linear-gradient(135deg, ${actMeta ? actMeta.color : '#f59e0b'}12 0%, rgba(20, 16, 12, 0.65) 100%)`, boxShadow: `0 4px 20px ${actMeta ? actMeta.color : '#f59e0b'}20` }
+                                : undefined
+                        }
+                      >
+                        <div className="timeline-meta">
+                          <strong style={{ color: isThumb ? 'var(--secondary)' : isChapterTitle ? (actMeta ? actMeta.color : '#f59e0b') : 'var(--primary)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{isThumb ? '🖼️' : isChapterTitle ? (actMeta ? actMeta.icon : '👑') : '🎬'}</span>
+                            <span>{isThumb ? 'Slot Cuối: Ảnh Thu Nhỏ YouTube (Thumbnail)' : `Slide ${seg.segmentNumber}`}</span>
+                            {idx === 0 && !isThumb && !isChapterTitle && (
+                              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.4)', fontWeight: 700 }}>
+                                🎯 MỞ ĐẦU &amp; DẪN CHUYỆN (HOOK)
+                              </span>
+                            )}
+                            {isChapterTitle && (
+                              <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                                👑 TIÊU ĐỀ HỒI
+                              </span>
+                            )}
+                            {isSegDirty && (
+                              <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '5px', background: 'rgba(255,193,7,0.18)', color: 'var(--warning)', fontWeight: 700 }}>
+                                chưa lưu
+                              </span>
+                            )}
+                          </strong>
+                          {isThumb && (
+                            <span style={{ fontSize: '0.72rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(37, 244, 238, 0.15)', color: 'var(--secondary)', border: '1px solid rgba(37, 244, 238, 0.3)', fontWeight: 700 }}>
+                              📌 Tóm tắt nội dung video &amp; Tăng tỷ lệ nhấp xem (CTR)
+                            </span>
+                          )}
+                          {/* Nghe thử + đọc lại giọng của RIÊNG slide này. Một slide đọc hỏng trước đây
+                        phải chạy lại "Tạo Giọng Đọc" cho cả kịch bản mới sửa được. */}
+                          {!isThumb && (seg.dialogueOrNarration || '').trim() && !isEditingScript && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                title={playingSegment === seg.segmentNumber ? 'Dừng nghe' : 'Nghe thử giọng đọc của riêng slide này'}
+                                style={{ padding: '6px 12px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
+                                onClick={() => toggleSegmentAudio(seg)}
+                              >
+                                {playingSegment === seg.segmentNumber ? '⏸️ Dừng' : '▶️ Nghe'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                disabled={regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo}
+                                title="Chỉ đọc lại đúng slide này, giữ nguyên giọng cũ — không đụng tới các slide khác"
+                                style={{
+                                  padding: '6px 12px',
+                                  fontSize: '0.78rem',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  opacity: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 0.5 : 1,
+                                  cursor: (regeneratingSegment !== null || isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer'
+                                }}
+                                onClick={() => handleRegenerateSegmentVoice(seg)}
+                              >
+                                {regeneratingSegment === seg.segmentNumber ? '⏳ Đang đọc...' : '🎙️ Đọc lại'}
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700 }}
+                            onClick={() => onCopy(seg.textPrompt, `seg_${seg.segmentNumber}`)}
+                          >
+                            {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
+                          </button>
+                          {result.category === 'stick_figure_slideshow' && Array.isArray(seg.elements) && seg.elements.length > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              title="Mở canvas editor để kéo thả bố cục phần tử của slide này"
+                              style={{ padding: '6px 14px', fontSize: '0.78rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(254,44,85,0.15)', borderColor: 'rgba(254,44,85,0.35)' }}
+                              onClick={() => setCanvasEditorSeg(seg)}
+                            >
+                              ✏️ Sửa Canvas ({seg.elements.length} phần tử)
+                            </button>
                           )}
                         </div>
 
-                        {(seg.dialogueOrNarration || isEditingScript || isChapterTitle) && !isThumb && (
-                          <div>
-                            <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                              <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
-                              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                                {countNarrationUnits(editedValue(seg, 'dialogueOrNarration')).toLocaleString('vi-VN')} {narrationUnitLabel(editedValue(seg, 'dialogueOrNarration'))} · ~{estimateSeconds(editedValue(seg, 'dialogueOrNarration'))}s
-                              </span>
-                            </span>
-                            {isEditingScript ? (
-                              <textarea
-                                value={editedValue(seg, 'dialogueOrNarration')}
-                                onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
-                                rows={3}
-                                placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
-                                style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
-                              />
-                            ) : (
-                              <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                                {cleanNarrationText(seg.dialogueOrNarration, { keepTags: showEmotionTags })}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {isChapterTitle && !(seg.dialogueOrNarration || '').trim() && !isEditingScript && (
+                        {segmentVoiceMsg[seg.segmentNumber] && (
                           <div style={{
-                            padding: '10px 14px',
-                            borderRadius: '8px',
-                            background: 'rgba(245, 158, 11, 0.08)',
-                            border: '1px dashed rgba(245, 158, 11, 0.35)',
-                            color: '#fbbf24',
-                            fontSize: '0.8rem',
-                            lineHeight: 1.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px'
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'var(--warning)' : 'var(--success)',
+                            background: segmentVoiceMsg[seg.segmentNumber].startsWith('Lỗi') ? 'var(--danger-bg)' : segmentVoiceMsg[seg.segmentNumber].startsWith('⚠️') ? 'rgba(255,193,7,0.1)' : 'var(--success-bg)',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            marginBottom: '8px'
                           }}>
-                            <span style={{ fontSize: '1.2rem' }}>🤫</span>
-                            <span><strong>Slide Tiêu đề Hồi (Khoảng lặng 3 giây):</strong> Không có giọng đọc để người xem tập trung đọc tiêu đề ở phía trên và thưởng thức tranh bìa hồi kết hợp nhạc nền.</span>
+                            {segmentVoiceMsg[seg.segmentNumber]}
                           </div>
                         )}
 
-                        {/* Nền riêng của slide này — clip được chọn theo đúng câu bên trên */}
-                        {isPexelsTalkVideo && !isThumb && (() => {
-                          const bg = segmentBg[seg.segmentNumber];
-                          const busy = reassigningSegment === seg.segmentNumber;
-                          return (
-                            <div>
-                              <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span>🎬</span> <span>Nền video của slide</span>
-                              </span>
-                              {bg ? (
-                                <div style={{
-                                  display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px',
-                                  padding: '7px 9px', borderRadius: '8px',
-                                  background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(167,139,250,0.25)',
-                                }}>
-                                  {bg.thumb && (
-                                    <img
-                                      src={bg.thumb}
-                                      alt=""
-                                      style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0 }}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}>
+                          {/* Flex row layout: Left for fields, Right for Pexels media preview */}
+                          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                            {/* Left: Input Fields */}
+                            <div style={{ flex: '1', minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              <div>
+                                <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span>🖼️</span> <span>Mô tả hoạt cảnh (Visual Description)</span>
+                                </span>
+                                {isEditingScript ? (
+                                  <textarea
+                                    value={editedValue(seg, 'visualDescription')}
+                                    onChange={(e) => handleEditField(seg.segmentNumber, 'visualDescription', e.target.value)}
+                                    rows={4}
+                                    spellCheck={false}
+                                    style={{ ...editStyle, fontStyle: 'italic', color: 'rgba(255,255,255,0.9)' }}
+                                  />
+                                ) : (
+                                  <p className="timeline-field timeline-field-visual" style={{ color: 'rgba(255,255,255,0.85)', fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                                    {seg.visualDescription}
+                                  </p>
+                                )}
+                              </div>
+
+                              {(seg.dialogueOrNarration || isEditingScript || isChapterTitle) && !isThumb && (
+                                <div>
+                                  <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                    <span>🎙️</span> <span>Lời thoại / Lời kể (Audio)</span>
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                      {countNarrationUnits(editedValue(seg, 'dialogueOrNarration')).toLocaleString('vi-VN')} {narrationUnitLabel(editedValue(seg, 'dialogueOrNarration'))} · ~{estimateSeconds(editedValue(seg, 'dialogueOrNarration'))}s
+                                    </span>
+                                  </span>
+                                  {isEditingScript ? (
+                                    <textarea
+                                      value={editedValue(seg, 'dialogueOrNarration')}
+                                      onChange={(e) => handleEditField(seg.segmentNumber, 'dialogueOrNarration', e.target.value)}
+                                      rows={3}
+                                      placeholder="Lời kể sẽ được đọc thành tiếng cho slide này..."
+                                      style={{ ...editStyle, color: 'var(--warning)', fontWeight: 600 }}
                                     />
-                                  )}
-                                  <div style={{ minWidth: 0, flex: 1 }}>
-                                    <div style={{ fontSize: '0.76rem', color: '#c4b5fd', fontWeight: 600 }}>
-                                      {bg.keyword}
-                                    </div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                      {bg.restored
-                                        ? 'Chạy lại "Gán nền theo từng câu" để xem từ khoá & đổi clip'
-                                        : `clip ${bg.duration}s · đoạn dài ~${estimateSpeechSeconds(seg.dialogueOrNarration || '')}s`
-                                          + (bg.duration < estimateSpeechSeconds(seg.dialogueOrNarration || '')
-                                            ? ' · hết clip sẽ trả về nền chung' : '')}
-                                    </div>
-                                  </div>
-                                  {!bg.restored && (
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      style={{ padding: '5px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                                      onClick={() => handleReassignSegmentBg(seg)}
-                                      disabled={busy || isAssigningSegmentBg}
-                                      title={`Tìm clip khác cho "${bg.keyword}"`}
-                                    >
-                                      {busy ? '⏳' : '🔄 Đổi clip'}
-                                    </button>
+                                  ) : (
+                                    <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
+                                      {cleanNarrationText(seg.dialogueOrNarration, { keepTags: showEmotionTags })}
+                                    </p>
                                   )}
                                 </div>
-                              ) : (
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0', fontStyle: 'italic' }}>
-                                  Chưa gán riêng — slide này dùng nền chung ở Bước 2.
-                                </p>
                               )}
-                            </div>
-                          );
-                        })()}
 
-                        {(seg.subtitle || isEditingScript) && !isThumb && (
-                          <div>
-                            <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span>📝</span> <span>Phụ đề hiển thị</span>
-                              {isEditingScript && (
-                                <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
-                                  Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
-                                </span>
+                              {isChapterTitle && !(seg.dialogueOrNarration || '').trim() && !isEditingScript && (
+                                <div style={{
+                                  padding: '10px 14px',
+                                  borderRadius: '8px',
+                                  background: 'rgba(245, 158, 11, 0.08)',
+                                  border: '1px dashed rgba(245, 158, 11, 0.35)',
+                                  color: '#fbbf24',
+                                  fontSize: '0.8rem',
+                                  lineHeight: 1.5,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px'
+                                }}>
+                                  <span style={{ fontSize: '1.2rem' }}>🤫</span>
+                                  <span><strong>Slide Tiêu đề Hồi (Khoảng lặng 3 giây):</strong> Không có giọng đọc để người xem tập trung đọc tiêu đề ở phía trên và thưởng thức tranh bìa hồi kết hợp nhạc nền.</span>
+                                </div>
                               )}
-                            </span>
-                            {isEditingScript ? (
-                              <textarea
-                                value={editedValue(seg, 'subtitle')}
-                                onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
-                                rows={2}
-                                placeholder="Dòng chính&#10;Dòng dịch"
-                                style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
-                              />
-                            ) : (
-                              <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
-                                {seg.subtitle}
-                              </p>
-                            )}
+
+                              {/* Nền riêng của slide này — clip được chọn theo đúng câu bên trên */}
+                              {isPexelsTalkVideo && !isThumb && (() => {
+                                const bg = segmentBg[seg.segmentNumber];
+                                const busy = reassigningSegment === seg.segmentNumber;
+                                return (
+                                  <div>
+                                    <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span>🎬</span> <span>Nền video của slide</span>
+                                    </span>
+                                    {bg ? (
+                                      <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px',
+                                        padding: '7px 9px', borderRadius: '8px',
+                                        background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(167,139,250,0.25)',
+                                      }}>
+                                        {bg.thumb && (
+                                          <img
+                                            src={bg.thumb}
+                                            alt=""
+                                            style={{ width: '84px', height: '48px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0 }}
+                                          />
+                                        )}
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <div style={{ fontSize: '0.76rem', color: '#c4b5fd', fontWeight: 600 }}>
+                                            {bg.keyword}
+                                          </div>
+                                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                            {bg.restored
+                                              ? 'Chạy lại "Gán nền theo từng câu" để xem từ khoá & đổi clip'
+                                              : `clip ${bg.duration}s · đoạn dài ~${estimateSpeechSeconds(seg.dialogueOrNarration || '')}s`
+                                              + (bg.duration < estimateSpeechSeconds(seg.dialogueOrNarration || '')
+                                                ? ' · hết clip sẽ trả về nền chung' : '')}
+                                          </div>
+                                        </div>
+                                        {!bg.restored && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            style={{ padding: '5px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
+                                            onClick={() => handleReassignSegmentBg(seg)}
+                                            disabled={busy || isAssigningSegmentBg}
+                                            title={`Tìm clip khác cho "${bg.keyword}"`}
+                                          >
+                                            {busy ? '⏳' : '🔄 Đổi clip'}
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0', fontStyle: 'italic' }}>
+                                        Chưa gán riêng — slide này dùng nền chung ở Bước 2.
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {(seg.subtitle || isEditingScript) && !isThumb && (
+                                <div>
+                                  <span style={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span>📝</span> <span>Phụ đề hiển thị</span>
+                                    {isEditingScript && (
+                                      <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                                        Xuống dòng = tách dòng phụ đề song ngữ · **chữ** = tô sáng
+                                      </span>
+                                    )}
+                                  </span>
+                                  {isEditingScript ? (
+                                    <textarea
+                                      value={editedValue(seg, 'subtitle')}
+                                      onChange={(e) => handleEditField(seg.segmentNumber, 'subtitle', e.target.value)}
+                                      rows={2}
+                                      placeholder="Dòng chính&#10;Dòng dịch"
+                                      style={{ ...editStyle, color: '#2ed573', fontWeight: 500 }}
+                                    />
+                                  ) : (
+                                    <p className="timeline-field timeline-field-subtitle" style={{ whiteSpace: 'pre-line', color: '#2ed573', fontWeight: 500, margin: '4px 0 0 0' }}>
+                                      {seg.subtitle}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              <div style={{ marginTop: '8px' }}>
+                                <details style={{ width: '100%' }}>
+                                  <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
+                                    Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
+                                  </summary>
+                                  <div style={{
+                                    background: '#0a0912',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    fontSize: '0.76rem',
+                                    fontFamily: 'monospace',
+                                    marginTop: '8px',
+                                    whiteSpace: 'pre-wrap',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    color: 'rgba(255,255,255,0.65)',
+                                    lineHeight: 1.45
+                                  }}>
+                                    {seg.textPrompt}
+                                  </div>
+                                </details>
+                              </div>
+                            </div>
+
                           </div>
-                        )}
-
-                        <div style={{ marginTop: '8px' }}>
-                          <details style={{ width: '100%' }}>
-                            <summary style={{ cursor: 'pointer', color: 'var(--secondary)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                              Xem câu lệnh tạo ảnh đầy đủ (Midjourney/Flux Prompt)
-                            </summary>
-                            <div style={{
-                              background: '#0a0912',
-                              padding: '12px',
-                              borderRadius: '8px',
-                              fontSize: '0.76rem',
-                              fontFamily: 'monospace',
-                              marginTop: '8px',
-                              whiteSpace: 'pre-wrap',
-                              border: '1px solid rgba(255,255,255,0.05)',
-                              color: 'rgba(255,255,255,0.65)',
-                              lineHeight: 1.45
-                            }}>
-                              {seg.textPrompt}
-                            </div>
-                          </details>
                         </div>
                       </div>
-
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </>
+          )}
+
+        </div>
+
+        {/* CỘT PHẢI: Kết quả video (Màn hình chờ kết quả hoặc Video Player thành phẩm) */}
+        {activeTab === 'process' && (
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            <VideoResultPanel
+              result={{
+                ...result,
+                remotionConfig: {
+                  ...(result.remotionConfig || {}),
+                  orientation: currentOrientation,
+                  width: isLandscape ? 1920 : 1080,
+                  height: isLandscape ? 1080 : 1920
+                },
+                input: {
+                  ...(result.input || {}),
+                  aspectRatio: currentAspectRatio,
+                  orientation: currentOrientation
+                }
+              }}
+              allHaveElements={allHaveElements}
+              assetCounts={assetCounts}
+              videoVersion={videoVersion}
+              isRenderingVideo={isRenderingVideo}
+              renderProgress={renderProgress}
+              handleOpenVideoFolder={handleOpenVideoFolder}
+              isOpeningFolder={isOpeningFolder}
+              openFolderError={openFolderError}
+              musicChangedSinceRender={musicChangedSinceRender}
+              isRenderDone={isRenderDone}
+              handleRenderVideo={handleRenderVideo}
+            />
           </div>
-        </>
-      )}
+        )}
+      </div>
 
 
       {/* Voiceover setting block (Modal Dialog via Portal) */}
@@ -5421,7 +5677,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             {(isEdge || isVieneu) && (
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
-                                  const isVietCategory = ['moral_talk_slideshow'].includes(result?.category);
+                                  const isVietCategory = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video'].includes(result?.category);
                                   const activeTabVal = result.input?.narrationLanguage || activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
 
                                   const voiceList = isEdge
@@ -6733,133 +6989,133 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   {/* Nhạc người dùng tự tải lên — cùng một kho, cùng một lưới với 3 bản hệ thống ở
                       trên (xem handleUploadBgMusic để biết chỗ 1 bản mới được thêm vào bgMusicLibrary). */}
                   {bgMusicLibrary.map(item => {
-                      const isSelected = selectedBgMusicTrackId === item.id && assetCounts.hasBgMusic;
-                      const isPlaying = playingPreviewTrackId === item.id;
-                      const isDefaultTrack = item.id === defaultBgMusicTrackId;
-                      const isDeleting = deletingLibraryTrackId === item.id;
+                    const isSelected = selectedBgMusicTrackId === item.id && assetCounts.hasBgMusic;
+                    const isPlaying = playingPreviewTrackId === item.id;
+                    const isDefaultTrack = item.id === defaultBgMusicTrackId;
+                    const isDeleting = deletingLibraryTrackId === item.id;
 
-                      return (
-                        <div
-                          key={item.id}
-                          title={isSelected ? `Đang dùng "${item.name}" cho video này` : `Dùng "${item.name}" làm nhạc nền cho video này`}
-                          onClick={() => handleSelectLibraryTrack(item)}
+                    return (
+                      <div
+                        key={item.id}
+                        title={isSelected ? `Đang dùng "${item.name}" cho video này` : `Dùng "${item.name}" làm nhạc nền cho video này`}
+                        onClick={() => handleSelectLibraryTrack(item)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(255,255,255,0.03)',
+                          border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
+                          boxShadow: isSelected ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
+                          opacity: isDeleting ? 0.5 : 1,
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          userSelect: 'none'
+                        }}
+                      >
+                        {/* Nút Play / Pause nghe thử */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePreviewTrack(item.id, `/audio/bg-music/custom/${item.filename}`);
+                          }}
+                          title={isPlaying ? 'Tạm dừng nghe thử' : 'Nghe thử bản nhạc'}
                           style={{
-                            padding: '8px 12px',
-                            borderRadius: '10px',
-                            background: isSelected ? 'rgba(37, 244, 238, 0.1)' : 'rgba(255,255,255,0.03)',
-                            border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255,255,255,0.08)',
-                            boxShadow: isSelected ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
-                            display: 'flex',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: isPlaying ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
+                            cursor: 'pointer',
+                            background: isPlaying ? 'rgba(37, 244, 238, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                            color: isPlaying ? 'var(--secondary)' : '#fff',
+                            display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            cursor: isSelectingDefaultMusic ? 'wait' : 'pointer',
-                            opacity: isDeleting ? 0.5 : 1,
-                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                            userSelect: 'none'
+                            justifyContent: 'center',
+                            padding: 0,
+                            lineHeight: 0,
+                            flexShrink: 0,
+                            transition: 'all 0.15s'
                           }}
                         >
-                          {/* Nút Play / Pause nghe thử */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePreviewTrack(item.id, `/audio/bg-music/custom/${item.filename}`);
-                            }}
-                            title={isPlaying ? 'Tạm dừng nghe thử' : 'Nghe thử bản nhạc'}
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              border: isPlaying ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.15)',
-                              cursor: 'pointer',
-                              background: isPlaying ? 'rgba(37, 244, 238, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                              color: isPlaying ? 'var(--secondary)' : '#fff',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: 0,
-                              lineHeight: 0,
-                              flexShrink: 0,
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            {isPlaying ? (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
-                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                              </svg>
-                            ) : (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', marginLeft: '1px' }}>
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            )}
-                          </button>
+                          {isPlaying ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}>
+                              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block', marginLeft: '1px' }}>
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          )}
+                        </button>
 
-                          {/* Tên & ngày tải lên */}
-                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                color: isSelected ? 'var(--secondary)' : '#fff',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {item.name}
-                              </span>
-                              {isDefaultTrack && (
-                                <span style={{
-                                  fontSize: '0.58rem',
-                                  fontWeight: 800,
-                                  color: '#FFCB4D',
-                                  background: 'rgba(255, 203, 77, 0.2)',
-                                  border: '1px solid rgba(255, 203, 77, 0.4)',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  flexShrink: 0
-                                }}>
-                                  📌 Mặc định
-                                </span>
-                              )}
-                            </div>
+                        {/* Tên & ngày tải lên */}
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{
-                              fontSize: '0.68rem',
-                              color: isSelected ? 'rgba(37, 244, 238, 0.7)' : 'rgba(255, 255, 255, 0.45)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: isSelected ? 'var(--secondary)' : '#fff',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap'
                             }}>
-                              {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                              {item.name}
                             </span>
+                            {isDefaultTrack && (
+                              <span style={{
+                                fontSize: '0.58rem',
+                                fontWeight: 800,
+                                color: '#FFCB4D',
+                                background: 'rgba(255, 203, 77, 0.2)',
+                                border: '1px solid rgba(255, 203, 77, 0.4)',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                flexShrink: 0
+                              }}>
+                                📌 Mặc định
+                              </span>
+                            )}
                           </div>
-
-                          {/* Nút xoá khỏi thư viện */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteLibraryTrack(item, e)}
-                            disabled={isDeleting}
-                            title="Xoá khỏi thư viện"
-                            style={{
-                              width: '26px',
-                              height: '26px',
-                              borderRadius: '6px',
-                              border: '1px solid rgba(255,107,107,0.3)',
-                              cursor: isDeleting ? 'wait' : 'pointer',
-                              background: 'rgba(255,107,107,0.08)',
-                              color: '#ff6b6b',
-                              fontSize: '0.72rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: 0,
-                              flexShrink: 0
-                            }}
-                          >
-                            🗑
-                          </button>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            color: isSelected ? 'rgba(37, 244, 238, 0.7)' : 'rgba(255, 255, 255, 0.45)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                          </span>
                         </div>
-                      );
-                    })}
+
+                        {/* Nút xoá khỏi thư viện */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteLibraryTrack(item, e)}
+                          disabled={isDeleting}
+                          title="Xoá khỏi thư viện"
+                          style={{
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(255,107,107,0.3)',
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                            background: 'rgba(255,107,107,0.08)',
+                            color: '#ff6b6b',
+                            fontSize: '0.72rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                            flexShrink: 0
+                          }}
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

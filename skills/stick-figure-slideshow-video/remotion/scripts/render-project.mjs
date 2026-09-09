@@ -198,14 +198,29 @@ const scenes = manifest.segments.map((seg) => {
     }
   }
 
+  const hasGeneratedImage = fs.existsSync(path.join(root, "public", imagePath));
+
+  // Bullets slide: Remotion draws text list directly, no image file needed
+  if (!hasGeneratedImage && (seg.layout === 'bullets' || (Array.isArray(seg.bullets) && seg.bullets.length > 0))) {
+    return {
+      image: "",
+      audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
+      caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
+      ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
+      layout: 'bullets',
+      ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),
+    };
+  }
+
   // Composed scene: elements[] drives Remotion directly, no image file needed
-  if (Array.isArray(seg.elements) && seg.elements.length > 0) {
+  if (!hasGeneratedImage && Array.isArray(seg.elements) && seg.elements.length > 0) {
     return {
       image: "",
       audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
       caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
       ...(Array.isArray(seg.wordTimings) && seg.wordTimings.length > 0 ? { wordTimings: seg.wordTimings } : {}),
       elements: seg.elements,
+      ...(seg.layout ? { layout: seg.layout } : {}),
     };
   }
 

@@ -8,11 +8,17 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
+    const id = searchParams.get('id');
     const db = await getMongoClientDb();
-    const query = category && category !== 'all' ? { category } : {};
+    let query = {};
+    if (id) {
+      query.id = id;
+    } else if (category && category !== 'all') {
+      query.category = category;
+    }
     const items = await db.collection('promptHistory').find(query).sort({ createdAt: -1 }).limit(100).toArray();
     const clean = items.map(({ _id, ...rest }) => rest);
-    return NextResponse.json({ success: true, items: clean });
+    return NextResponse.json({ success: true, items: clean, item: clean[0] || null });
   } catch (error) {
     console.error('[API Prompt History GET Error]:', error);
     return NextResponse.json({ error: error.message || 'Lỗi tải lịch sử.' }, { status: 500 });
@@ -21,24 +27,50 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { id, remotionConfig } = await request.json();
+    const { id, remotionConfig, input, segments } = await request.json();
     if (!id) {
       return NextResponse.json({ error: 'Thiếu id.' }, { status: 400 });
     }
-    if (!remotionConfig || typeof remotionConfig !== 'object') {
-      return NextResponse.json({ error: 'Thiếu remotionConfig.' }, { status: 400 });
+    const updateFields = {};
+    if (remotionConfig && typeof remotionConfig === 'object') {
+      updateFields.remotionConfig = remotionConfig;
+    }
+    if (input && typeof input === 'object') {
+      updateFields.input = input;
+    }
+    if (Array.isArray(segments)) {
+      updateFields.segments = segments;
+    }
+    if (Object.keys(updateFields).length === 0) {
+      return NextResponse.json({ error: 'Không có dữ liệu cần cập nhật.' }, { status: 400 });
     }
 
     const db = await getMongoClientDb();
-    const result = await db.collection('promptHistory').updateOne({ id }, { $set: { remotionConfig } });
+    const result = await db.collection('promptHistory').updateOne({ id }, { $set: updateFields });
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Không tìm thấy kịch bản trong lịch sử.' }, { status: 404 });
+    }
+
+    if (remotionConfig?.orientation && input?.folderPath) {
+      try {
+        const preferredDir = resolveProjectDir(input.folderPath);
+        if (preferredDir && fs.existsSync(preferredDir)) {
+          const mfPath = path.join(preferredDir, 'manifest.json');
+          if (fs.existsSync(mfPath)) {
+            const mf = JSON.parse(fs.readFileSync(mfPath, 'utf8'));
+            mf.orientation = remotionConfig.orientation;
+            fs.writeFileSync(mfPath, JSON.stringify(mf, null, 2), 'utf8');
+          }
+        }
+      } catch (mfErr) {
+        console.warn('Could not sync orientation to manifest.json:', mfErr);
+      }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[API Prompt History PATCH Error]:', error);
-    return NextResponse.json({ error: error.message || 'Lỗi lưu cấu hình render.' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Lỗi lưu cấu hình.' }, { status: 500 });
   }
 }
 

@@ -271,62 +271,64 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     throw new Error('Chủ đề không hợp lệ.');
   }
 
-  // --- Nếu là Slide Ảnh Người Que (PNG asset approach) ---
+  // --- Nếu là Slide Hoạt Hình Người Que Phong Cách Phóng Sự Mack (Có màu sắc bối cảnh & đạo cụ xen kẽ) ---
   if (categoryKey === 'stick_figure_slideshow') {
+    const selectedAspectRatio = input.aspectRatio === '16:9' ? '16:9' : '9:16';
+    const isLandscape = selectedAspectRatio === '16:9';
+
     return segments.map(seg => {
-      const hasElements = Array.isArray(seg.elements) && seg.elements.length > 0;
+      const rawDesc = seg.visualDescription || seg.dialogueOrNarration || seg.subtitle || `Scene illustration for slide ${seg.segmentNumber}`;
+      // Làm sạch mô tả: bỏ thẻ emotion, bỏ ngoặc kép (tránh AI hiểu nhầm chuỗi trong ngoặc kép là text cần in lên ảnh)
+      const cleanDesc = String(rawDesc || '')
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/["“”'‘’]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      // Nếu segment có elements[] (PNG assets) thì KHÔNG cần sinh textPrompt / image generation.
-      // Nếu không có elements (kịch bản cũ vẫn dùng visualDescription) thì giữ nguyên hành vi cũ.
-      if (hasElements) {
-        return {
-          segmentNumber: seg.segmentNumber,
-          durationSeconds: seg.durationSeconds || 5,
-          dialogueOrNarration: seg.dialogueOrNarration,
-          subtitle: seg.subtitle,
-          elements: seg.elements,
-          ...(seg.layout ? { layout: seg.layout } : {}),
-        };
-      }
+      // Tự động phân loại cảnh: Cận cảnh đồ vật / biểu tượng / hiện tượng xen kẽ (object focus) hay Cảnh nhân vật người que tương tác (character scene)
+      const isObjectFocus = /(ngọn lửa|đốm lửa|bản đồ|máy móc|máy tính|con chip|bộ não|đồng hồ|hóa thạch|công cụ|vũ khí|lửa trại|tài liệu|báo cáo|dấu chân|chiếc áo|ngôi sao|hành tinh|fire|campfire|flame|map|brain|clock|machine|computer|chip|fossil|tool|shoe|clothes|document|desk|report)/i.test(cleanDesc);
 
-      // --- Backward-compat: kịch bản cũ có visualDescription + imageGroup ---
-      const imageStyle = {
-        label: 'Người Que (Whiteboard)',
-        visualStyle: 'Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background.',
-        background: "Plain white/cream background, no scenery, no props other than the character's own distinguishing accessory",
-        colorPalette: ['#000000', '#FFFFFF', '#FE2C55 (single small accent only)']
-      };
-      const selectedAspectRatio = input.aspectRatio || '9:16';
-      const paletteList = Array.isArray(imageStyle.colorPalette) ? imageStyle.colorPalette.join(', ') : String(imageStyle.colorPalette || '');
-      const { selectedCharacters } = getStickFigureCastOverrides(input);
-      const charactersDescription = selectedCharacters
-        .map(c => `${c.name} (${c.en.personality}, distinguishing look: ${c.en.trait})`)
-        .join(', and ');
-      const sceneRenderNote = 'This is a single static story-illustration frame (NOT a character reference sheet) — depict the scene naturally exactly as described, with no labeled callouts, no arrows, no technical annotations, and no character name text anywhere in the image.';
+      const compositionGuide = isLandscape
+        ? 'Widescreen 16:9 cinematic horizontal layout: dynamic wide framing, character positioned with environmental storytelling elements, props, or background map/infographic naturally filling the horizontal frame without empty dead zones.'
+        : 'Full-bleed 9:16 vertical layout: strong vertical composition optimized for mobile screens, character and environment vertically balanced with rich visual hierarchy.';
+
+      const visualStyle = 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn stick figure comic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation frame with humorous witty cartoon charm.';
+
+      // Tuyệt đối không dùng dấu ngoặc kép bọc chuỗi mô tả cảnh, vì các model (Flux/Midjourney/Imagen) sẽ coi chuỗi trong ngoặc kép là text cần vẽ lên ảnh
+      const sceneDirective = isObjectFocus
+        ? `Vibrant symbolic prop or conceptual close-up: visual depiction of ${cleanDesc} in bold stylized 2D cartoon illustration with glowing warm colors, curly artistic smoke/details, bold ink outlines, and a rich colored background atmosphere. Single static story frame, purely visual with no arrows, no speech bubbles, and absolutely zero text labels.`
+        : `Expressive cartoon stick figure in context: visual depiction of ${cleanDesc} with a funny expressive face, relatable posture, contextual clothing or accessories (e.g. explorer safari hat, prehistoric fur, office wear, scientist coat), situated inside the colorful stylized environment. Single static story frame, purely visual with no arrows, no speech bubbles, and absolutely zero text labels.`;
+
+      // Cấm tuyệt đối chữ, phụ đề, bong bóng thoại, thanh banner chữ trên ảnh
+      const strictNoTextRule = 'ABSOLUTE ZERO TEXT MANDATE: The final artwork must be completely textless, wordless, and letterless. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only, 100% clean of any written characters or typography.';
+
+      const negativePrompt = '--no text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry';
 
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
-        category: 'Image Slideshow Video',
-        image_style: imageStyle.label,
+        category: 'Animated Documentary Stick Figure',
+        image_style: 'Mack Explainer Cartoon Style (Colorful Environment, Textless)',
         aspect_ratio: selectedAspectRatio,
         style: {
-          visual_style: imageStyle.visualStyle,
-          background: imageStyle.background,
-          color_palette: imageStyle.colorPalette,
-          render_note: sceneRenderNote
+          visual_style: visualStyle,
+          composition: compositionGuide,
+          color_palette: ['#18181B (bold ink outlines)', 'Warm Earthy Tones (ochre, clay brown, warm greys)', 'Stylized Accents (campfire amber, warm orange, olive, terracotta)'],
+          render_note: `${sceneDirective} ${strictNoTextRule}`
         },
-        scene: { setting: seg.visualDescription, characters: charactersDescription || 'None' },
+        scene: {
+          setting: cleanDesc,
+          scene_type: isObjectFocus ? 'symbolic_object_focus' : 'character_action_scene'
+        },
         audio: { dialogue_lines: [seg.dialogueOrNarration] },
         on_screen_captions: { subtitle: seg.subtitle }
       };
 
       const textPrompt = [
-        `${imageStyle.visualStyle}.`,
-        `Scene description: ${seg.visualDescription}.`,
-        charactersDescription ? `Featuring characters: ${charactersDescription}.` : '',
-        `Background setting: ${imageStyle.background}.`,
-        `Color palette: ${paletteList}.`,
-        `${sceneRenderNote}`,
+        `${visualStyle}`,
+        `Visual scene: ${cleanDesc}.`,
+        `${sceneDirective}`,
+        `${strictNoTextRule}`,
+        `${compositionGuide}`,
         `Format: aspect ratio ${selectedAspectRatio}.`,
         `${negativePrompt}`
       ].filter(Boolean).join(' ');
@@ -334,9 +336,10 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       return {
         segmentNumber: seg.segmentNumber,
         durationSeconds: seg.durationSeconds || 10,
-        visualDescription: seg.visualDescription,
+        visualDescription: cleanDesc,
         dialogueOrNarration: seg.dialogueOrNarration,
         subtitle: seg.subtitle,
+        ...(Array.isArray(seg.elements) && seg.elements.length > 0 ? { elements: seg.elements } : {}),
         ...(seg.layout ? { layout: seg.layout } : {}),
         ...(seg.splitSide ? { splitSide: seg.splitSide } : {}),
         ...(Array.isArray(seg.bullets) && seg.bullets.length > 0 ? { bullets: seg.bullets } : {}),

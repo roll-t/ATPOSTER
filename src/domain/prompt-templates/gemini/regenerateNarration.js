@@ -22,7 +22,7 @@ import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
  */
 export function buildRegenerateNarrationPrompt(category, input, segments) {
   const isMoralTalk = category === 'moral_talk_slideshow';
-  const isVietnamesePrimary = isMoralTalk ? (input.narrationLanguage || 'vi') !== 'en' : false;
+  const isVietnamesePrimary = (input.narrationLanguage || 'vi') !== 'en';
   const theme = input.moralTheme || 'self_help';
   const moralStyle = isMoralTalk ? getMoralTalkStyleReference(theme) : null;
 
@@ -34,8 +34,12 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
 - ${buildVietnamesePronunciationNote()}`
       : `- The narration (dialogueOrNarration) MUST be written in simple, natural, spoken ENGLISH (CEFR A2-B1 level) — it will be sent directly to an English voice narrator.
 - Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`)
-    : `- The narration (dialogueOrNarration) MUST be written in simple, basic English (suitable for high school level, TOEIC 300+ level). Short, clear sentences, no advanced expressions.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`;
+    : (isVietnamesePrimary
+      ? `- The narration (dialogueOrNarration) MUST be written in natural, spoken VIETNAMESE — it will be sent directly to a Vietnamese voice narrator. Short, clear sentences, everyday conversational storytelling language.
+- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate English translation of that same line.
+- ${buildVietnamesePronunciationNote()}`
+      : `- The narration (dialogueOrNarration) MUST be written in simple, basic English (suitable for high school level, TOEIC 300+ level). Short, clear sentences, no advanced expressions.
+- Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`);
 
   const narrationModeLine = isMoralTalk
     ? moralStyle.narrationModeLine

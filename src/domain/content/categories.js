@@ -283,10 +283,10 @@ export const PROMPT_CATEGORIES = {
         label: 'Ngôn ngữ thuyết minh (lồng tiếng)',
         type: 'select',
         required: true,
-        defaultValue: 'en',
+        defaultValue: 'vi',
         options: [
-          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' },
-          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' }
+          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' },
+          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' }
         ]
       },
       {
@@ -326,7 +326,7 @@ export const PROMPT_CATEGORIES = {
       { key: 'script', label: 'Gợi ý nội dung thuyết minh (tuỳ chọn — hệ thống sẽ viết lại thành lời thuyết minh mạch lạc)', type: 'textarea', required: false, placeholder: 'Ví dụ: Mọi người liên tục kiểm tra điện thoại thay vì tập trung vào đời thực, làm ảnh hưởng giấc ngủ và các mối quan hệ...' }
     ],
     defaultStyle: {
-      series: 'Stick Figure English Slideshow',
+      series: 'Stick Figure Slideshow',
       aspectRatio: '9:16',
       durationSeconds: 30
     }

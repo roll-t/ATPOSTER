@@ -89,9 +89,9 @@ const ZERO_QUOTA_COOLDOWN_MS = 30 * 60_000;
 // Trần thời gian cho TOÀN BỘ 1 lệnh gọi (gồm cả các lần thử lại) — thà báo lỗi sớm còn hơn để
 // người dùng nhìn thanh tiến độ đứng im vô thời hạn.
 const DEFAULT_DEADLINE_MS = 90_000;
-// Trần thời gian cho MỘT request HTTP đơn lẻ. Không có nó, một kết nối bị treo phía Google sẽ
-// giữ `fetch` chờ vĩnh viễn (bản cũ không hề đặt timeout).
-const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
+// Trần thời gian cho MỘT request HTTP đơn lẻ.
+const DEFAULT_REQUEST_TIMEOUT_MS = AI_CONFIG.REQUEST_TIMEOUT_MS || 25_000;
+const FAST_REQUEST_TIMEOUT_MS = AI_CONFIG.FAST_TIMEOUT_MS || 15_000;
 // Quãng thời gian tối thiểu còn lại thì mới đáng khởi động thêm một lượt gọi. Ít hơn mức này thì
 // lượt đó cầm chắc hết giờ giữa chừng — thà báo lỗi ngay còn hơn đốt thêm một request chết.
 const MIN_ATTEMPT_BUDGET_MS = 8_000;
@@ -371,7 +371,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
 
   const {
     tier = DEFAULT_TIER,
-    timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    timeoutMs = (tier === 'fast' ? FAST_REQUEST_TIMEOUT_MS : DEFAULT_REQUEST_TIMEOUT_MS),
     deadlineMs = DEFAULT_DEADLINE_MS,
     label = '',
     maxOutputTokens,
@@ -556,8 +556,16 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
         continue;
       }
 
-      // 'overloaded': Google đang quá tải. Cặp khác thường vẫn chạy được nên không cần ngủ ngay,
-      // chỉ cho model này nghỉ ngắn rồi đi tiếp.
+      // 'overloaded': Google đang quá tải.
+      if (error.status === 503 || /high demand/i.test(String(error?.message || ''))) {
+        // 503 là lỗi quá tải theo MODEL phía Google — thử tiếp 4 key khác với cùng model này chỉ làm phí thời gian.
+        // Đánh dấu cả MODEL nghỉ 60s để engine lập tức chuyển sang model khác trong tier.
+        modelSlowUntil.set(model, Date.now() + 60_000);
+        console.warn(`${tag} Model ${model} đang bị quá tải (Google báo lỗi 503) — cho model này nghỉ 1 phút, chuyển sang MODEL khác.`);
+        continue;
+      }
+
+      // Cặp khác thường vẫn chạy được nên không cần ngủ ngay, chỉ cho model này nghỉ ngắn rồi đi tiếp.
       cooldownUntil.set(`${model}::${key}`, Date.now() + withJitter(2000));
       const reason = error.status ? `Google báo lỗi ${error.status}` : `lỗi mạng: ${error.message}`;
       console.warn(`${tag} ${model}${keyLabel} tạm thời không dùng được (${reason}) — chuyển sang lượt thử kế tiếp.`);
