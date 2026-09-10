@@ -26,7 +26,8 @@ export async function POST(req) {
       captionFont, captionFontSize, captionSecondaryFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
       contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume,
-      imageScale, imageTranslateY, captionMarginY, kenBurnsMode, cornerPatch, channelLogo,
+      imageScale, imageTranslateY, captionMarginY, captionWidth, captionPosition, kenBurnsMode, cornerPatch, channelLogo,
+      logoTranslateX, logoTranslateY, logoScale,
       // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
       segments: segmentsForManifest, title: titleForManifest
     } = await req.json();
@@ -232,6 +233,13 @@ export async function POST(req) {
     pushRangedNumber(imageScale, 'imageScale', 0.2, 2.0);
     pushRangedNumber(imageTranslateY, 'imageTranslateY', -100, 100);
     pushRangedNumber(captionMarginY, 'captionMarginY', -500, 500);
+    pushRangedNumber(captionWidth, 'captionWidth', 30, 100);
+    pushRangedNumber(logoTranslateX, 'logoTranslateX', -1000, 1000);
+    pushRangedNumber(logoTranslateY, 'logoTranslateY', -1600, 1000);
+    pushRangedNumber(logoScale, 'logoScale', 0.1, 4.0);
+    if (captionPosition === 'top' || captionPosition === 'bottom' || captionPosition === 'center') {
+      extraArgs.push(`--captionPosition=${captionPosition}`);
+    }
 
     console.log(`[API RenderVideo] Bắt đầu render cho dự án: ${relativeFolder} (${extraArgs.join(' ') || 'mặc định'})`);
 

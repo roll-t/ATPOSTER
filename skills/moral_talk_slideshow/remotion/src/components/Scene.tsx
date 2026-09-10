@@ -68,6 +68,9 @@ export const Scene: React.FC<{
   globalImageFit: "cover" | "contain";
   imageCornerPatch: boolean;
   channelLogo: boolean;
+  logoTranslateX?: number;
+  logoTranslateY?: number;
+  logoScale?: number;
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
@@ -99,6 +102,9 @@ export const Scene: React.FC<{
   globalImageFit,
   imageCornerPatch,
   channelLogo,
+  logoTranslateX = 0,
+  logoTranslateY = 0,
+  logoScale = 1,
   imageScale,
   imageTranslateY,
   captionMarginY,
@@ -286,6 +292,7 @@ export const Scene: React.FC<{
           pointerEvents: "none",
           zIndex: 4,
           opacity: 0.45,
+          transform: `translate(${logoTranslateX}px, ${logoTranslateY}px) scale(${logoScale})`,
         }}
       >
         <Img

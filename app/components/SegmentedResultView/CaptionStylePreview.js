@@ -19,7 +19,10 @@ export default function CaptionStylePreview({
   imageUrl = '',
   imageScale = 1,
   imageTranslateY = 0,
-  captionMarginY = 0
+  captionMarginY = 0,
+  logoTranslateX = 0,
+  logoTranslateY = 0,
+  logoScale = 1
 }) {
   const strokeShadow = '-1.5px -1.5px 0 #000, 0 -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, -1.5px 1.5px 0 #000, 0 1.5px 0 #000, 1.5px 1.5px 0 #000';
 
@@ -233,6 +236,7 @@ export default function CaptionStylePreview({
           pointerEvents: 'none',
           zIndex: 1,
           opacity: 0.45,
+          transform: `translate(${Math.round(logoTranslateX * (isFullLiveScreen ? 0.3 : 0.1))}px, ${Math.round(logoTranslateY * (isFullLiveScreen ? 0.3 : 0.1))}px) scale(${logoScale})`
         }}
       >
         <img

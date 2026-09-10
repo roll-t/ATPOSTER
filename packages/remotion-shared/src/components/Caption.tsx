@@ -179,6 +179,7 @@ export const Caption: React.FC<{
   videoTitle?: string;
   position: "top" | "bottom" | "center";
   captionMarginY?: number;
+  captionWidth?: number;
   fontFamily: string;
   mode: "chunked" | "full";
   wordsPerChunk: number;
@@ -199,6 +200,7 @@ export const Caption: React.FC<{
   videoTitle,
   position,
   captionMarginY = 0,
+  captionWidth,
   fontFamily,
   mode,
   wordsPerChunk,
@@ -223,7 +225,9 @@ export const Caption: React.FC<{
         text={text}
         sceneIndex={sceneIndex}
         videoTitle={videoTitle}
+        position={position}
         captionMarginY={captionMarginY}
+        captionWidth={captionWidth}
         fontFamily={fontFamily}
         captionFont={captionFont}
         captionFontSize={captionFontSize}
@@ -320,7 +324,7 @@ export const Caption: React.FC<{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
             transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
-            maxWidth: "88%",
+            maxWidth: captionWidth ? `${captionWidth}%` : "88%",
             textAlign: "center",
           }}
         >
@@ -333,7 +337,7 @@ export const Caption: React.FC<{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
             transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
-            maxWidth: "84%",
+            maxWidth: captionWidth ? `${captionWidth}%` : "84%",
             background: boxBgColor,
             border: isTransparentBg ? "none" : "1px solid rgba(42, 33, 24, 0.08)",
             borderRadius: 28,
@@ -351,7 +355,7 @@ export const Caption: React.FC<{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
             transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
-            maxWidth: "82%",
+            maxWidth: captionWidth ? `${captionWidth}%` : "82%",
             background: boxBgColor,
             borderRadius: 18,
             padding: "22px 40px",
@@ -373,7 +377,9 @@ const HookCaption: React.FC<{
   text: string;
   sceneIndex: number;
   videoTitle?: string;
+  position?: "top" | "bottom" | "center";
   captionMarginY?: number;
+  captionWidth?: number;
   fontFamily: string;
   captionFont?: CaptionFont;
   captionFontSize?: number;
@@ -388,7 +394,9 @@ const HookCaption: React.FC<{
   text,
   sceneIndex,
   videoTitle,
+  position = "top",
   captionMarginY = 0,
+  captionWidth,
   fontFamily,
   captionFont,
   captionFontSize,
@@ -447,10 +455,13 @@ const HookCaption: React.FC<{
   const animOpacity = animProgress;
   const animTranslateY = interpolate(animProgress, [0, 1], [-28, 0]);
 
+  const isBottom = position === "bottom";
+  const isCenter = position === "center";
+
   return (
     <AbsoluteFill
       style={{
-        justifyContent: "flex-start",
+        justifyContent: isCenter ? "center" : isBottom ? "flex-end" : "flex-start",
         alignItems: "center",
         padding: "0 56px",
         opacity: opacity * animOpacity,
@@ -458,14 +469,15 @@ const HookCaption: React.FC<{
     >
       <div
         style={{
-          marginTop: (isFirstScene ? 48 : 96) - captionMarginY,
-          maxWidth: "92%",
+          marginTop: isBottom ? 0 : (isCenter ? 0 : (isFirstScene ? 48 : 96) - captionMarginY),
+          marginBottom: isBottom ? (isFirstScene ? 48 : 96) + captionMarginY : 0,
+          maxWidth: captionWidth ? `${captionWidth}%` : "92%",
           background: isTransparentBg ? "transparent" : boxBgColor,
           borderRadius: 24,
           padding: isFirstScene ? "32px 40px" : "20px 32px",
           boxShadow: isTransparentBg ? "none" : "0 12px 40px rgba(0,0,0,0.45)",
           textAlign: "center",
-          transform: `translateY(${animTranslateY}px)`,
+          transform: isCenter && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : `translateY(${animTranslateY}px)`,
         }}
       >
         <div

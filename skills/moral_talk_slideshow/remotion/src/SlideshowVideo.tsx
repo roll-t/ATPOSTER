@@ -50,6 +50,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     imageFit,
     imageCornerPatch,
     channelLogo,
+    logoTranslateX,
+    logoTranslateY,
+    logoScale,
     imageScale,
     imageTranslateY,
     captionMarginY,
@@ -111,6 +114,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               globalImageFit={imageFit}
               imageCornerPatch={imageCornerPatch}
               channelLogo={channelLogo}
+              logoTranslateX={logoTranslateX}
+              logoTranslateY={logoTranslateY}
+              logoScale={logoScale}
               imageScale={imageScale}
               imageTranslateY={imageTranslateY}
               captionMarginY={captionMarginY}

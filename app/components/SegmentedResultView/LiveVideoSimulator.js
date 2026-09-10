@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import TimelineSegmentPopup from './TimelineSegmentPopup.js';
+import { PlatformSelectorToolbar, PlatformMockupOverlay } from './PlatformOverlaySimulator.js';
+import TransformGizmoOverlay from './TransformGizmoOverlay.js';
 
 function strokeShadow(color = '#000000', width = 2.5) {
   const steps = 12;
@@ -64,7 +67,12 @@ export default function LiveVideoSimulator({
   category = '',
   folderPath = 'example',
   activeSceneIndex,
-  onSceneIndexChange
+  onSceneIndexChange,
+  onResult,
+  resyncVoiceForSegments,
+  checkAssets,
+  bgMusicVersion,
+  onUpdateRenderConfig
 }) {
   const segments = useMemo(() => result?.segments || [], [result?.segments]);
   const totalScenes = segments.length;
@@ -78,20 +86,30 @@ export default function LiveVideoSimulator({
     return Boolean(isPortrait);
   }, [rc, result, isPortrait]);
 
-  const fontFamily = FONT_MAP[rc.captionFont || rc.font] || FONT_MAP['be-vietnam-pro'];
+  const fontFamily = FONT_MAP[rc.font || rc.captionFont] || FONT_MAP['be-vietnam-pro'];
 
-  const baseFontSize = Number(rc.captionFontSize || rc.fontSize || (effectiveIsPortrait ? 38 : 34));
+  const baseFontSize = Number(rc.fontSize || rc.captionFontSize || (effectiveIsPortrait ? 46 : 38));
   const fontScale = effectiveIsPortrait ? 0.52 : 0.48;
   const scaledFontSize = Math.max(14, Math.round(baseFontSize * fontScale));
 
-  const textColor = rc.captionTextColor || rc.textColor || '#ffffff';
+  const textColor = rc.textColor || rc.captionTextColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
-  const bgColor = rc.captionBgColor || rc.bgColor || '#000000';
+  const bgColor = rc.bgColor || rc.captionBgColor || '#000000';
   const bgOpacity = Number(rc.bgOpacity !== undefined ? rc.bgOpacity : 65) / 100;
-  const isBgTransparent = Boolean(rc.isBgTransparent);
-  const captionPosition = rc.captionPosition || 'bottom';
+  const isBgTransparent = Boolean(rc.isBgTransparent || rc.captionBgTransparent);
   const captionStyle = rc.captionStyle || 'classic';
-  const captionMarginY = Number(rc.captionMarginY || 0);
+  const captionPosition = rc.captionPosition || (
+    ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(category)
+      ? 'top'
+      : (captionStyle === 'page' ? 'center' : 'bottom')
+  );
+  const captionMarginY = Number(rc.captionMarginY !== undefined && rc.captionMarginY !== null ? rc.captionMarginY : 0);
+  const captionWidth = Math.max(30, Math.min(98, Number(rc.captionWidth !== undefined && rc.captionWidth !== null ? rc.captionWidth : 92)));
+  const visualMarginY = Math.round(captionMarginY * (effectiveIsPortrait ? 0.28 : 0.22));
+  const showChannelLogo = rc.channelLogo !== false;
+  const logoTranslateX = Number(rc.logoTranslateX !== undefined && rc.logoTranslateX !== null ? rc.logoTranslateX : 0);
+  const logoTranslateY = Number(rc.logoTranslateY !== undefined && rc.logoTranslateY !== null ? rc.logoTranslateY : 0);
+  const logoScale = Number(rc.logoScale !== undefined && rc.logoScale !== null ? rc.logoScale : 1);
 
   const globalKenBurns = rc.kenBurns || rc.globalKenBurns !== false;
   const globalImageFit = rc.globalImageFit || 'cover';
@@ -153,23 +171,36 @@ export default function LiveVideoSimulator({
     return { sceneOffsets: offsets, totalDuration: Math.max(0.1, currentOffset) };
   }, [sceneDurations, totalScenes]);
 
-  const [currentSlideIndex, setCurrentSlideIndexState] = useState(activeSceneIndex || 0);
+  const isControlled = typeof activeSceneIndex === 'number' && typeof onSceneIndexChange === 'function';
+  const [internalSlideIndex, setInternalSlideIndex] = useState(typeof activeSceneIndex === 'number' ? activeSceneIndex : 0);
 
   useEffect(() => {
-    if (activeSceneIndex !== undefined && activeSceneIndex !== currentSlideIndex) {
-      setCurrentSlideIndexState(activeSceneIndex);
+    if (!isControlled && typeof activeSceneIndex === 'number') {
+      setInternalSlideIndex(activeSceneIndex);
     }
-  }, [activeSceneIndex]);
+  }, [activeSceneIndex, isControlled]);
 
-  const setCurrentSlideIndex = (val) => {
-    setCurrentSlideIndexState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      if (onSceneIndexChange && next !== prev) {
-        onSceneIndexChange(next);
+  const currentSlideIndex = isControlled ? activeSceneIndex : internalSlideIndex;
+
+  const goToScene = useCallback(
+    (val) => {
+      const next = typeof val === 'function' ? val(currentSlideIndex) : val;
+      const clamped = Math.max(0, Math.min(Math.max(0, totalScenes - 1), next));
+      if (isControlled) {
+        if (clamped !== activeSceneIndex) {
+          onSceneIndexChange(clamped);
+        }
+      } else {
+        setInternalSlideIndex(clamped);
+        if (onSceneIndexChange && clamped !== activeSceneIndex) {
+          onSceneIndexChange(clamped);
+        }
       }
-      return next;
-    });
-  };
+    },
+    [currentSlideIndex, totalScenes, onSceneIndexChange, activeSceneIndex, isControlled]
+  );
+
+  const setCurrentSlideIndex = goToScene;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [slideCurrentTime, setSlideCurrentTime] = useState(0);
@@ -183,15 +214,450 @@ export default function LiveVideoSimulator({
   const bgMusicAudioRef = useRef(null);
   const hideControlsTimerRef = useRef(null);
 
+  const remotionCanvasWidth = effectiveIsPortrait ? 1080 : 1920;
+  const currentContainerWidth = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+  const remotionScale = currentContainerWidth / remotionCanvasWidth;
+  const visualLogoX = Math.round(logoTranslateX * remotionScale);
+  const visualLogoY = Math.round(logoTranslateY * remotionScale);
+
   const currentSegment = segments[currentSlideIndex] || segments[0] || {};
   const currentPaddedNum = String(currentSegment.segmentNumber || currentSlideIndex + 1).padStart(2, '0');
+  const currentSceneNumber = Number(currentSegment.segmentNumber || currentSlideIndex + 1);
   const currentSceneDuration = sceneDurations[currentSlideIndex] || 3.5;
 
   const isPexelsTalk = category === 'pexels_talk_video';
-  const currentImageSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${currentSlideIndex}`;
+
+  // Tránh gọi request ảnh nếu dự án chưa có ảnh hoặc cảnh này chưa sinh ảnh
+  const hasSceneImage = useMemo(() => {
+    if (assetCounts?.imageCount !== undefined && assetCounts.imageCount === 0) {
+      return false;
+    }
+    if (Array.isArray(assetCounts?.existingImageNumbers)) {
+      return assetCounts.existingImageNumbers.includes(currentSceneNumber);
+    }
+    if (typeof assetCounts?.imageCount === 'number') {
+      return assetCounts.imageCount > 0;
+    }
+    return true;
+  }, [assetCounts?.imageCount, assetCounts?.existingImageNumbers, currentSceneNumber]);
+
+  const failedImagesRef = useRef(new Set());
+  const isImageFailed = failedImagesRef.current.has(currentSceneNumber);
+  const showImage = hasSceneImage && !imageError && !isImageFailed;
+
+  const currentImageSrc = showImage
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${currentSlideIndex}`
+    : null;
   const currentVideoSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=bg/bg-${currentPaddedNum}.mp4&category=${encodeURIComponent(category)}`;
-  const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}`;
-  const bgMusicSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/bg-music.mp3&category=${encodeURIComponent(category)}`;
+  const [audioVersion, setAudioVersion] = useState(0);
+  const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}&v=${audioVersion}`;
+  const bgMusicFile = assetCounts?.bgMusicFile || 'bg-music.mp3';
+  const bgMusicVersionParam = bgMusicVersion || assetCounts?.updatedAt || 0;
+  const bgMusicSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/${encodeURIComponent(bgMusicFile)}&category=${encodeURIComponent(category)}&v=${bgMusicVersionParam}`;
+
+  // State cho hover popup hiển thị lời đọc & sửa / đọc lại từng đoạn trên thanh tiến độ
+  const [activePopupIndex, setActivePopupIndex] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [popupMsg, setPopupMsg] = useState(null);
+  const isPopupFocusedRef = useRef(false);
+  const isMouseOverPopupRef = useRef(false);
+  const isMouseOverSegmentRef = useRef(false);
+  const playOnlySceneIndexRef = useRef(null);
+  const closeTimerRef = useRef(null);
+
+  // State cho bộ mô phỏng giao diện nền tảng ngắn (TikTok, YouTube Shorts, FB Reels, Zalo)
+  const [activePlatform, setActivePlatform] = useState('none');
+  const [showSafeZoneGrid, setShowSafeZoneGrid] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.85);
+
+  // State quản lý thành phần đang được chọn để kéo di chuyển & thu phóng như Photoshop
+  const [selectedElement, setSelectedElement] = useState('none'); // 'none' | 'caption' | 'image'
+
+  // Nhấn Escape để bỏ chọn
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedElement('none');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Ấn vào vùng khác (vùng trống trên canvas hoặc bên ngoài) để bỏ chọn item đang chọn
+  useEffect(() => {
+    if (selectedElement === 'none') return;
+
+    const handlePointerDownOutside = (e) => {
+      const target = e.target;
+      if (!target) return;
+
+      // Không bỏ chọn nếu bấm vào chính item đang chọn (gizmo, 4 góc neo, badge, các nút trên badge)
+      if (target.closest?.('[data-transform-gizmo="active"]')) {
+        return;
+      }
+
+      // Không bỏ chọn nếu bấm vào thanh công cụ chọn thành phần (toolbar mini dưới video)
+      if (target.closest?.('.element-selector-toolbar')) {
+        return;
+      }
+
+      // Không bỏ chọn nếu bấm vào các nút/input điều khiển form (như kéo slider, chọn font, đổi tab ở VideoEditorPanel)
+      if (target.closest?.('input') || target.closest?.('select') || target.closest?.('button')) {
+        return;
+      }
+
+      // Bấm vào bất kỳ vùng khác nào (khoảng trống canvas, nền đen, xung quanh) -> Bỏ chọn vùng đang chọn
+      setSelectedElement('none');
+    };
+
+    window.addEventListener('pointerdown', handlePointerDownOutside);
+    return () => window.removeEventListener('pointerdown', handlePointerDownOutside);
+  }, [selectedElement]);
+
+  // Ref lưu giá trị gốc tại thời điểm bắt đầu kéo để tính toán chính xác tuyệt đối, không bị lệch hoặc làm tròn về 0
+  const dragStartValuesRef = useRef({
+    captionMarginY: 0,
+    captionFontSize: 50,
+    captionWidth: 92,
+    imageScale: 1,
+    imageTranslateY: 0,
+    logoTranslateX: 0,
+    logoTranslateY: 0,
+    logoScale: 1
+  });
+
+  const handleCaptionDragStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo di chuyển phụ đề trực tiếp trên màn hình video (tính độ dịch chuyển từ startMarginY)
+  const handleCaptionDrag = useCallback(({ deltaY }) => {
+    if (!onUpdateRenderConfig) return;
+    const scaleFactor = effectiveIsPortrait ? 0.28 : 0.22;
+    const nextMarginY = Math.round(dragStartValuesRef.current.captionMarginY - (deltaY / scaleFactor));
+    onUpdateRenderConfig({ captionMarginY: Math.max(-500, Math.min(500, nextMarginY)) });
+  }, [effectiveIsPortrait, onUpdateRenderConfig]);
+
+  const handleCaptionScaleStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo 4 góc neo để thu phóng cỡ chữ phụ đề trực tiếp (theo tỉ lệ ratio từ startFontSize)
+  const handleCaptionScale = useCallback(({ ratio, deltaDistance }) => {
+    if (!onUpdateRenderConfig) return;
+    const startSize = dragStartValuesRef.current.captionFontSize || 50;
+    // Cho phép phóng to/thu nhỏ mượt mà theo ratio kết hợp delta
+    const nextFontSize = Math.max(16, Math.min(84, Math.round(startSize * ratio)));
+    onUpdateRenderConfig({ captionFontSize: nextFontSize });
+  }, [onUpdateRenderConfig]);
+
+  const handleCaptionResizeWidthStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo tay cầm trái/phải để co giãn độ rộng ngang của phụ đề trực tiếp
+  const handleCaptionResizeWidth = useCallback(({ effectiveDeltaX }) => {
+    if (!onUpdateRenderConfig) return;
+    const containerW = containerRef.current?.clientWidth || 360;
+    // Vì đối tượng căn giữa, việc kéo tay cầm 1 bên nới rộng deltaX tương ứng tăng độ rộng 2 bên: 2 * deltaX
+    const percentDelta = ((effectiveDeltaX * 2) / containerW) * 100;
+    const startWidth = dragStartValuesRef.current.captionWidth || 92;
+    const nextWidth = Math.max(30, Math.min(98, Math.round(startWidth + percentDelta)));
+    onUpdateRenderConfig({ captionWidth: nextWidth });
+  }, [onUpdateRenderConfig]);
+
+  const handleImageDragStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo dịch chuyển ảnh nền trực tiếp (tính độ dịch chuyển từ startTranslateY)
+  const handleImageDrag = useCallback(({ deltaY }) => {
+    if (!onUpdateRenderConfig) return;
+    const containerH = containerRef.current?.clientHeight || 550;
+    const percentDelta = (deltaY / containerH) * 100;
+    const nextTranslateY = Math.round(dragStartValuesRef.current.imageTranslateY + percentDelta);
+    onUpdateRenderConfig({ imageTranslateY: Math.max(-60, Math.min(60, nextTranslateY)) });
+  }, [onUpdateRenderConfig]);
+
+  const handleImageScaleStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo 4 góc neo để thu phóng kích thước ảnh nền (theo tỉ lệ ratio từ startScale)
+  const handleImageScale = useCallback(({ ratio }) => {
+    if (!onUpdateRenderConfig) return;
+    const startScale = dragStartValuesRef.current.imageScale || 1;
+    const nextScale = Math.max(0.4, Math.min(3.0, Number((startScale * ratio).toFixed(2))));
+    onUpdateRenderConfig({ imageScale: nextScale });
+  }, [onUpdateRenderConfig]);
+
+  const handleLogoDragStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo di chuyển Logo kênh thương hiệu tự do (X, Y) trực tiếp trên màn hình video
+  const handleLogoDrag = useCallback(({ deltaX, deltaY }) => {
+    if (!onUpdateRenderConfig) return;
+    const canvasWidth = effectiveIsPortrait ? 1080 : 1920;
+    const containerW = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+    const rScale = containerW / canvasWidth;
+    const deltaRemotionX = deltaX / rScale;
+    const deltaRemotionY = deltaY / rScale;
+    const nextX = Math.round(dragStartValuesRef.current.logoTranslateX + deltaRemotionX);
+    const nextY = Math.round(dragStartValuesRef.current.logoTranslateY + deltaRemotionY);
+    onUpdateRenderConfig({
+      logoTranslateX: Math.max(-800, Math.min(800, nextX)),
+      logoTranslateY: Math.max(-1600, Math.min(300, nextY))
+    });
+  }, [effectiveIsPortrait, onUpdateRenderConfig]);
+
+  const handleLogoScaleStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+
+  // Xử lý kéo 4 góc neo để thu phóng kích thước Logo trực tiếp
+  const handleLogoScale = useCallback(({ ratio }) => {
+    if (!onUpdateRenderConfig) return;
+    const startScale = dragStartValuesRef.current.logoScale || 1;
+    const nextScale = Math.max(0.3, Math.min(3.0, Number((startScale * ratio).toFixed(2))));
+    onUpdateRenderConfig({ logoScale: nextScale });
+  }, [onUpdateRenderConfig]);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const schedulePopupClose = (delay = 300) => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      if (!isPopupFocusedRef.current && !isMouseOverPopupRef.current && !isMouseOverSegmentRef.current && !isRegenerating) {
+        setActivePopupIndex(null);
+        setPopupMsg(null);
+      }
+    }, delay);
+  };
+
+  // Khi người dùng chọn/ấn vào item của mô phỏng (Phụ đề / Ảnh nền), lập tức đóng và tạm disable popup sửa voice
+  useEffect(() => {
+    if (selectedElement !== 'none') {
+      setActivePopupIndex(null);
+      setPopupMsg(null);
+      isMouseOverSegmentRef.current = false;
+      isMouseOverPopupRef.current = false;
+      clearCloseTimer();
+    }
+  }, [selectedElement]);
+
+  const handleSegmentMouseEnter = (idx) => {
+    if (selectedElement !== 'none') return; // Tạm disable chức năng hover & popup sửa voice khi đang thao tác item mô phỏng
+    isMouseOverSegmentRef.current = true;
+    clearCloseTimer();
+    if (!isRegenerating) {
+      if (activePopupIndex !== idx) {
+        setActivePopupIndex(idx);
+        const seg = segments[idx];
+        setEditText(seg?.dialogueOrNarration || seg?.subtitle || '');
+        setPopupMsg(null);
+      }
+    }
+  };
+
+  const handleSegmentMouseLeave = () => {
+    isMouseOverSegmentRef.current = false;
+    if (isRegenerating || isPopupFocusedRef.current) return;
+    schedulePopupClose(320);
+  };
+
+  const handlePopupMouseEnter = () => {
+    isMouseOverPopupRef.current = true;
+    clearCloseTimer();
+  };
+
+  const handlePopupMouseLeave = () => {
+    isMouseOverPopupRef.current = false;
+    if (isRegenerating || isPopupFocusedRef.current) return;
+    schedulePopupClose(320);
+  };
+
+  const handlePopupFocus = () => {
+    isPopupFocusedRef.current = true;
+    clearCloseTimer();
+  };
+
+  const handlePopupBlur = () => {
+    isPopupFocusedRef.current = false;
+    schedulePopupClose(250);
+  };
+
+  const handleRegenerateVoice = async (sceneIndex, newText) => {
+    const seg = segments[sceneIndex];
+    if (!seg) return;
+    const segNum = seg.segmentNumber || sceneIndex + 1;
+    const originalText = (seg.dialogueOrNarration || seg.subtitle || '').trim();
+    const textToRead = (newText !== undefined ? newText : originalText).trim();
+    if (!textToRead) {
+      setPopupMsg({ type: 'error', text: 'Cảnh này chưa có lời đọc để lồng tiếng.' });
+      return;
+    }
+
+    setIsRegenerating(true);
+    setPopupMsg({ type: 'loading', text: '🎙️ Đang tạo lại giọng đọc...' });
+
+    try {
+      let currentSegments = segments;
+      const textChanged = newText !== undefined && newText.trim() !== originalText;
+
+      if (textChanged) {
+        const updateRes = await fetch('/api/prompts/update-segments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: result.id,
+            folderPath: result.input?.folderPath || folderPath,
+            category: result.category || category,
+            segments: [
+              {
+                segmentNumber: segNum,
+                subtitle: seg.subtitle === seg.dialogueOrNarration || !seg.subtitle ? newText.trim() : seg.subtitle,
+                dialogueOrNarration: newText.trim()
+              }
+            ]
+          })
+        });
+        const updateData = await updateRes.json();
+        if (updateRes.ok && updateData.success) {
+          currentSegments = updateData.segments;
+          onResult?.({
+            ...result,
+            segments: updateData.segments,
+            remotionConfig: updateData.remotionConfig ?? result.remotionConfig
+          });
+        } else {
+          throw new Error(updateData.error || 'Không thể lưu nội dung mới.');
+        }
+      }
+
+      if (resyncVoiceForSegments) {
+        const r = await resyncVoiceForSegments([segNum], currentSegments, { onlyExistingAudio: false });
+        if (r && r.error) {
+          throw new Error(r.error);
+        }
+      } else {
+        const res = await fetch('/api/prompts/voiceover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folderPath: result.input?.folderPath || folderPath,
+            title: result.title || '',
+            category: result.category || category,
+            imageExt: result.input?.imageExt || 'jpg',
+            audioExt: assetCounts?.audioExt || result.input?.audioExt || 'mp3',
+            onlyExistingAudio: false,
+            reuseExistingVoice: true,
+            scenes: [{ segmentNumber: segNum, dialogueOrNarration: textToRead }]
+          })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Lỗi khi tạo lại giọng đọc.');
+        }
+      }
+
+      setAudioVersion((v) => v + 1);
+      checkAssets?.();
+
+      const pad = String(segNum).padStart(2, '0');
+      const probeSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${pad}.mp3&category=${encodeURIComponent(category)}&v=${Date.now()}`;
+      const probe = new Audio(probeSrc);
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        if (probe.duration && Number.isFinite(probe.duration) && probe.duration > 0) {
+          setSceneDurations((prev) => {
+            const next = [...prev];
+            next[sceneIndex] = probe.duration;
+            return next;
+          });
+        }
+      };
+
+      setPopupMsg({ type: 'success', text: '✓ Đã tạo lại giọng đọc thành công!' });
+
+      playOnlySceneIndexRef.current = sceneIndex;
+      goToScene(sceneIndex);
+      setSlideCurrentTime(0);
+      setIsPlaying(true);
+    } catch (err) {
+      setPopupMsg({ type: 'error', text: `Lỗi: ${err?.message || err}` });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   useEffect(() => {
     setSlideCurrentTime(0);
@@ -217,11 +683,17 @@ export default function LiveVideoSimulator({
     };
     const onTime = () => setSlideCurrentTime(voiceAudio.currentTime || 0);
     const onEnd = () => {
+      if (playOnlySceneIndexRef.current !== null) {
+        playOnlySceneIndexRef.current = null;
+        setIsPlaying(false);
+        setSlideCurrentTime(0);
+        return;
+      }
       if (currentSlideIndex < totalScenes - 1) {
-        setCurrentSlideIndex((prev) => prev + 1);
+        goToScene(currentSlideIndex + 1);
       } else {
         setIsPlaying(false);
-        setCurrentSlideIndex(0);
+        goToScene(0);
       }
     };
     const onErr = () => {
@@ -233,7 +705,7 @@ export default function LiveVideoSimulator({
     voiceAudio.addEventListener('ended', onEnd);
     voiceAudio.addEventListener('error', onErr);
 
-    if (isPlaying) voiceAudio.play().catch(() => {});
+    if (isPlaying) voiceAudio.play().catch(() => { });
 
     return () => {
       voiceAudio.removeEventListener('loadedmetadata', onMeta);
@@ -241,41 +713,83 @@ export default function LiveVideoSimulator({
       voiceAudio.removeEventListener('ended', onEnd);
       voiceAudio.removeEventListener('error', onErr);
     };
-  }, [currentAudioSrc, currentSlideIndex, totalScenes, isPlaying]);
+  }, [currentAudioSrc, currentSlideIndex, totalScenes, isPlaying, goToScene]);
 
+  // Dùng requestAnimationFrame để mô phỏng chuyển động Ken Burns & tiến độ mượt mà chuẩn 60fps
+  // (tránh hiện tượng giật do sự kiện timeupdate của audio chỉ bắn ~4 lần/giây)
   useEffect(() => {
     if (!isPlaying) return;
-    const voiceAudio = voiceAudioRef.current;
-    if (voiceAudio && voiceAudio.readyState >= 2 && !voiceAudio.paused && !voiceAudio.error) return;
 
-    const interval = setInterval(() => {
-      setSlideCurrentTime((prev) => {
-        const next = prev + 0.1;
-        if (next >= currentSceneDuration) {
+    let animId;
+    let lastPerfTime = performance.now();
+
+    const tick = () => {
+      const va = voiceAudioRef.current;
+      const isAudioActive = va && !va.paused && !va.error && va.readyState >= 2;
+
+      if (isAudioActive) {
+        const curTime = va.currentTime || 0;
+        setSlideCurrentTime(curTime);
+
+        // Chuyển cảnh chuẩn xác khi audio kết thúc
+        if (va.duration && Number.isFinite(va.duration) && curTime >= va.duration - 0.05) {
+          if (playOnlySceneIndexRef.current !== null) {
+            playOnlySceneIndexRef.current = null;
+            setIsPlaying(false);
+            setSlideCurrentTime(0);
+            return;
+          }
           if (currentSlideIndex < totalScenes - 1) {
-            setCurrentSlideIndex((s) => s + 1);
+            goToScene(currentSlideIndex + 1);
           } else {
             setIsPlaying(false);
-            setCurrentSlideIndex(0);
+            goToScene(0);
           }
-          return 0;
+          return;
         }
-        return next;
-      });
-    }, 100);
+      } else {
+        const now = performance.now();
+        const delta = Math.min(0.1, (now - lastPerfTime) / 1000);
+        lastPerfTime = now;
 
-    return () => clearInterval(interval);
-  }, [isPlaying, currentSceneDuration, currentSlideIndex, totalScenes]);
+        setSlideCurrentTime((prev) => {
+          const next = prev + delta;
+          if (next >= currentSceneDuration) {
+            if (playOnlySceneIndexRef.current !== null) {
+              playOnlySceneIndexRef.current = null;
+              setIsPlaying(false);
+              return 0;
+            }
+            if (currentSlideIndex < totalScenes - 1) {
+              goToScene(currentSlideIndex + 1);
+            } else {
+              setIsPlaying(false);
+              goToScene(0);
+            }
+            return 0;
+          }
+          return next;
+        });
+      }
+
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, currentSceneDuration, currentSlideIndex, totalScenes, goToScene]);
 
   useEffect(() => {
     const voiceAudio = voiceAudioRef.current;
     const bgAudio = bgMusicAudioRef.current;
 
     if (isPlaying) {
-      if (voiceAudio) voiceAudio.play().catch(() => {});
+      if (voiceAudio) voiceAudio.play().catch(() => { });
       if (bgAudio && bgMusicEnabled) {
         bgAudio.volume = isMuted ? 0 : bgMusicVolume;
-        bgAudio.play().catch(() => {});
+        bgAudio.play().catch(() => { });
       }
     } else {
       if (voiceAudio) voiceAudio.pause();
@@ -291,21 +805,65 @@ export default function LiveVideoSimulator({
     }
   }, [isMuted, bgMusicEnabled, bgMusicVolume]);
 
-  const togglePlay = () => setIsPlaying((p) => !p);
-  const handlePrevSlide = () => setCurrentSlideIndex((p) => Math.max(0, p - 1));
-  const handleNextSlide = () => setCurrentSlideIndex((p) => Math.min(totalScenes - 1, p + 1));
+  // Khi nhạc nền thay đổi (đổi bài hoặc tải bài mới), nạp ngay bản mới và phát nếu đang chạy
+  useEffect(() => {
+    const bgAudio = bgMusicAudioRef.current;
+    if (!bgAudio) return;
+    bgAudio.src = bgMusicSrc;
+    bgAudio.load();
+    if (isPlaying && bgMusicEnabled) {
+      bgAudio.currentTime = 0;
+      bgAudio.volume = isMuted ? 0 : bgMusicVolume;
+      bgAudio.play().catch(() => { });
+    }
+  }, [bgMusicSrc]);
+
+  const togglePlay = () => {
+    playOnlySceneIndexRef.current = null;
+    setIsPlaying((p) => !p);
+  };
+  const handlePrevSlide = () => {
+    playOnlySceneIndexRef.current = null;
+    setCurrentSlideIndex((p) => Math.max(0, p - 1));
+  };
+  const handleNextSlide = () => {
+    playOnlySceneIndexRef.current = null;
+    setCurrentSlideIndex((p) => Math.min(totalScenes - 1, p + 1));
+  };
+
+  const handlePlaySingleScene = (sceneIdx) => {
+    if (isPlaying && currentSlideIndex === sceneIdx) {
+      playOnlySceneIndexRef.current = null;
+      setIsPlaying(false);
+      if (voiceAudioRef.current) voiceAudioRef.current.pause();
+      return;
+    }
+
+    playOnlySceneIndexRef.current = sceneIdx;
+    setSlideCurrentTime(0);
+    if (currentSlideIndex === sceneIdx) {
+      if (voiceAudioRef.current) {
+        voiceAudioRef.current.currentTime = 0;
+        voiceAudioRef.current.play().catch(() => { });
+      }
+    } else {
+      goToScene(sceneIdx);
+    }
+    setIsPlaying(true);
+  };
 
   const handleReplay = () => {
+    playOnlySceneIndexRef.current = null;
     setCurrentSlideIndex(0);
     setSlideCurrentTime(0);
     setIsPlaying(true);
     if (voiceAudioRef.current) {
       voiceAudioRef.current.currentTime = 0;
-      voiceAudioRef.current.play().catch(() => {});
+      voiceAudioRef.current.play().catch(() => { });
     }
     if (bgMusicAudioRef.current && bgMusicEnabled) {
       bgMusicAudioRef.current.currentTime = 0;
-      bgMusicAudioRef.current.play().catch(() => {});
+      bgMusicAudioRef.current.play().catch(() => { });
     }
   };
 
@@ -318,6 +876,7 @@ export default function LiveVideoSimulator({
 
   // Tua trực tiếp trên TOÀN BỘ VIDEO (bấm vào bất kỳ đâu trên thanh để nhảy đến cảnh và giây tương ứng)
   const handleSeekTotalTimeline = (e) => {
+    playOnlySceneIndexRef.current = null;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const targetTotalTime = clickRatio * totalDuration;
@@ -349,10 +908,10 @@ export default function LiveVideoSimulator({
     const target = stageRef.current || containerRef.current;
     if (!target) return;
     if (!document.fullscreenElement) {
-      target.requestFullscreen().catch(() => {});
+      target.requestFullscreen().catch(() => { });
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   };
@@ -397,6 +956,7 @@ export default function LiveVideoSimulator({
       style={{
         position: 'relative',
         width: '100%',
+        boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -404,179 +964,394 @@ export default function LiveVideoSimulator({
         gap: isFullscreen ? '0px' : '10px',
         background: isFullscreen ? '#000000' : 'transparent',
         borderRadius: 0,
-        padding: isFullscreen ? 0 : (effectiveIsPortrait ? '14px 10px 12px 10px' : 0),
+        padding: isFullscreen ? 0 : (effectiveIsPortrait ? '14px 0 12px 0' : 0),
         border: 'none',
         boxShadow: 'none',
-        overflow: 'hidden'
+        overflow: 'visible'
+      }}
+      onClick={(e) => {
+        if (e.target === stageRef.current) {
+          setSelectedElement('none');
+        }
       }}
     >
+      {/* Vùng bọc giữa khung video và hàng nút mô phỏng bên phải */}
       <div
-        ref={containerRef}
         style={{
           position: 'relative',
-          width: isFullscreen
-            ? (effectiveIsPortrait ? 'calc(100vh * 9 / 16)' : '100vw')
-            : (effectiveIsPortrait ? 'calc(min(620px, calc(100vh - 240px)) * 9 / 16)' : '100%'),
-          height: isFullscreen
-            ? '100vh'
-            : (effectiveIsPortrait ? 'min(620px, calc(100vh - 240px))' : 'auto'),
-          aspectRatio: effectiveIsPortrait ? '9 / 16' : '16 / 9',
-          maxHeight: isFullscreen ? '100vh' : (effectiveIsPortrait ? '620px' : '400px'),
-          maxWidth: '100%',
-          flexShrink: 0,
-          borderRadius: 0,
-          overflow: 'hidden',
-          background: '#07060e',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: 'none',
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          userSelect: 'none'
+          width: '100%',
+          boxSizing: 'border-box'
         }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => isPlaying && setShowControls(false)}
+        onClick={() => {
+          if (selectedElement !== 'none') {
+            setSelectedElement('none');
+          }
+        }}
       >
-      <audio ref={voiceAudioRef} preload="auto" />
-      <audio ref={bgMusicAudioRef} src={bgMusicSrc} loop preload="auto" />
-
-      {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        {hasBullets ? (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              background: rc.slideBgColor || '#0a0914',
-              padding: '24px 10%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: `${scaledFontSize * 0.8}px`
-            }}
-          >
-            {bullets.map((bullet, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <span style={{ fontFamily, fontSize: `${scaledFontSize * 1.1}px`, fontWeight: 800, color: highlightColor, flexShrink: 0 }}>•</span>
-                <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35 }}>
-                  {renderWithHighlights(bullet, highlightColor)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : isPexelsTalk ? (
-          <video key={`bg-vid-${currentSlideIndex}`} src={currentVideoSrc} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: globalImageFit }} />
-        ) : !imageError ? (
-          <div
-            key={`img-${currentSlideIndex}`}
-            style={{
-              width: '100%',
-              height: '100%',
-              backgroundImage: `url(${currentImageSrc})`,
-              backgroundSize: globalImageFit,
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
-              transformOrigin: 'center center',
-              transition: isPlaying ? 'none' : 'transform 0.4s ease'
-            }}
-          >
-            <img src={currentImageSrc} alt="" style={{ display: 'none' }} onError={() => setImageError(true)} />
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              background: 'radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.25) 0%, rgba(10, 8, 24, 0.95) 75%)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '20px',
-              textAlign: 'center'
-            }}
-          >
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))', border: '1px solid rgba(168, 85, 247, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', marginBottom: '10px' }}>🎬</div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cảnh {currentSlideIndex + 1}: Bản Thảo</span>
-            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>{currentSegment?.visualDescription || 'Chưa sinh ảnh cho cảnh này'}</span>
-          </div>
-        )}
-
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 25%, transparent 68%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
-      </div>
-
-
-
-      {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
-      {!hasBullets && cleanPrimary && (
         <div
-          key={`sub-${currentSlideIndex}`}
+          ref={containerRef}
           style={{
-            position: 'absolute',
-            left: '12px',
-            right: '12px',
-            bottom: captionPosition === 'bottom' ? `${Math.max(60, 75 + captionMarginY * 0.48)}px` : captionPosition === 'center' ? '45%' : `${Math.max(50, 60 - captionMarginY * 0.48)}px`,
+            position: 'relative',
+            width: isFullscreen
+              ? (effectiveIsPortrait ? 'calc(100vh * 9 / 16)' : '100vw')
+              : (effectiveIsPortrait ? 'calc(min(620px, calc(100vh - 240px)) * 9 / 16)' : '100%'),
+            height: isFullscreen
+              ? '100vh'
+              : (effectiveIsPortrait ? 'min(620px, calc(100vh - 240px))' : 'auto'),
+            aspectRatio: effectiveIsPortrait ? '9 / 16' : '16 / 9',
+            maxHeight: isFullscreen ? '100vh' : (effectiveIsPortrait ? '620px' : '400px'),
+            maxWidth: '100%',
+            flexShrink: 0,
+            borderRadius: 0,
+            overflow: 'hidden',
+            background: '#07060e',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: 'none',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            textAlign: 'center',
-            zIndex: 6,
-            pointerEvents: 'none'
+            userSelect: 'none'
+          }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => isPlaying && setShowControls(false)}
+          onClick={() => {
+            if (selectedElement !== 'none') {
+              setSelectedElement('none');
+            }
           }}
         >
-          {captionStyle === 'hook' && currentSlideIndex === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '92%' }}>
-              <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66` }}>
-                ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
+          <audio ref={voiceAudioRef} preload="auto" />
+          <audio key={bgMusicSrc} ref={bgMusicAudioRef} src={bgMusicSrc} loop preload="auto" />
+
+          {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
+          <div
+            style={{ position: 'absolute', inset: 0, overflow: selectedElement === 'image' ? 'visible' : 'hidden' }}
+            onClick={() => {
+              if (selectedElement !== 'none') {
+                setSelectedElement('none');
+              }
+            }}
+          >
+            {hasBullets ? (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: rc.slideBgColor || '#0a0914',
+                  padding: '24px 10%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  gap: `${scaledFontSize * 0.8}px`
+                }}
+              >
+                {bullets.map((bullet, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <span style={{ fontFamily, fontSize: `${scaledFontSize * 1.1}px`, fontWeight: 800, color: highlightColor, flexShrink: 0 }}>•</span>
+                    <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35 }}>
+                      {renderWithHighlights(bullet, highlightColor)}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, textShadow: strokeShadow('#000000', 2.5), background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px' }}>
-                {renderWithHighlights(cleanPrimary, highlightColor)}
+            ) : isPexelsTalk ? (
+              <video key={`bg-vid-${currentSlideIndex}`} src={currentVideoSrc} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: globalImageFit }} />
+            ) : showImage && currentImageSrc ? (
+              <TransformGizmoOverlay
+                active={selectedElement === 'image' && !isPlaying}
+                label="Ảnh nền"
+                detail={`${Math.round(imageScale * 100)}% • Y: ${Math.round(imageTranslateY)}%`}
+                boxInset="0px"
+                counterScale={kbScale * imageScale}
+                badgePosition={imageTranslateY < -20 ? 'inside-top' : 'outside-top'}
+                onDragStart={handleImageDragStart}
+                onDrag={handleImageDrag}
+                onScaleStart={handleImageScaleStart}
+                onScale={handleImageScale}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({ imageScale: 1, imageTranslateY: 0 })}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
+                  transformOrigin: 'center center',
+                  willChange: 'transform',
+                  transition: selectedElement === 'image' || isPlaying ? 'none' : 'transform 0.4s ease',
+                  pointerEvents: isPlaying ? 'none' : 'auto'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('image');
+                }}
+              >
+                <div
+                  key={`img-${currentSlideIndex}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: `url(${currentImageSrc})`,
+                    backgroundSize: globalImageFit,
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                  }}
+                >
+                  <img
+                    src={currentImageSrc}
+                    alt=""
+                    style={{ display: 'none' }}
+                    onError={() => {
+                      failedImagesRef.current.add(currentSceneNumber);
+                      setImageError(true);
+                    }}
+                  />
+                </div>
+              </TransformGizmoOverlay>
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.25) 0%, rgba(10, 8, 24, 0.95) 75%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '20px',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))', border: '1px solid rgba(168, 85, 247, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', marginBottom: '10px' }}>🎬</div>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cảnh {currentSlideIndex + 1}: Bản Thảo</span>
+                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>{currentSegment?.visualDescription || 'Chưa sinh ảnh cho cảnh này'}</span>
               </div>
-            </div>
-          ) : captionStyle === 'tiktok' ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', maxWidth: '94%', padding: '6px 12px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
-              {words.map((word, i) => {
-                const isActive = i === activeWordIdx && isPlaying;
-                return (
-                  <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', textShadow: isActive ? `0 2px 10px ${highlightColor}` : strokeShadow('#000000', 2) }}>
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
-          ) : captionStyle === 'karaoke' ? (
-            <div style={{ maxWidth: '92%', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800 }}>
-              {words.map((word, i) => {
-                const hasSpoken = i <= activeWordIdx;
-                return (
-                  <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88, ${strokeShadow('#000000', 2)}` : strokeShadow('#000000', 1.5), marginRight: '6px', transition: 'color 0.15s ease' }}>
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
-          ) : captionStyle === 'pill' ? (
-            <div style={{ maxWidth: '92%', padding: '8px 22px', borderRadius: '9999px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2) }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
-            </div>
-          ) : captionStyle === 'news' ? (
-            <div style={{ width: '100%', padding: '8px 14px', background: `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, 0.88)`, borderLeft: `5px solid ${highlightColor}`, textAlign: 'left', fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 700, color: textColor, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
-            </div>
-          ) : (
-            <div style={{ maxWidth: '92%', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2.2) }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
+            )}
+
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 25%, transparent 68%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
+          </div>
+
+
+
+          {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
+          {!hasBullets && cleanPrimary && (
+            <div
+              key={`sub-${currentSlideIndex}`}
+              style={{
+                position: 'absolute',
+                left: '12px',
+                right: '12px',
+                ...(captionPosition === 'top' ? {
+                  top: `${Math.max(16, 26 - visualMarginY)}px`
+                } : captionPosition === 'center' || captionStyle === 'page' ? {
+                  top: '50%',
+                  transform: `translateY(calc(-50% - ${visualMarginY}px))`
+                } : {
+                  bottom: `${Math.max(12, 56 + visualMarginY)}px`
+                }),
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                zIndex: 25,
+                pointerEvents: 'none',
+                transition: selectedElement === 'caption' ? 'none' : 'all 0.15s ease-out'
+              }}
+            >
+              <TransformGizmoOverlay
+                active={selectedElement === 'caption' && !isPlaying}
+                label="Phụ đề"
+                detail={`${baseFontSize}px • Rộng: ${captionWidth}% • Y: ${captionMarginY}px`}
+                boxInset="-2px"
+                enableHorizontalResize={true}
+                onDragStart={handleCaptionDragStart}
+                onDrag={handleCaptionDrag}
+                onScaleStart={handleCaptionScaleStart}
+                onScale={handleCaptionScale}
+                onResizeWidthStart={handleCaptionResizeWidthStart}
+                onResizeWidth={handleCaptionResizeWidth}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({
+                  captionMarginY: ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(category) ? -215 : 0,
+                  captionFontSize: 50,
+                  captionWidth: 92
+                })}
+                style={{
+                  pointerEvents: isPlaying ? 'none' : 'auto',
+                  width: `${captionWidth}%`,
+                  maxWidth: '98%',
+                  boxSizing: 'border-box'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('caption');
+                }}
+              >
+                {captionStyle === 'hook' ? (
+                  currentSlideIndex === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+                      <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66` }}>
+                        ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
+                      </div>
+                      <div style={{ width: '100%', boxSizing: 'border-box', fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, textShadow: 'none', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px' }}>
+                        {renderWithHighlights(cleanPrimary, highlightColor)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px 10px' : '8px 18px', borderRadius: '12px', background: isBgTransparent ? 'transparent' : (bgColor && bgColor !== 'transparent' ? bgColor : 'rgba(8, 8, 11, 0.88)'), border: 'none', boxShadow: isBgTransparent ? 'none' : '0 4px 20px rgba(0,0,0,0.5)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
+                      {renderWithHighlights(cleanPrimary, highlightColor)}
+                    </div>
+                  )
+                ) : captionStyle === 'tiktok' ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '6px 12px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
+                    {words.map((word, i) => {
+                      const isActive = i === activeWordIdx && isPlaying;
+                      return (
+                        <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', textShadow: 'none' }}>
+                          {word}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : captionStyle === 'karaoke' ? (
+                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800 }}>
+                    {words.map((word, i) => {
+                      const hasSpoken = i <= activeWordIdx;
+                      return (
+                        <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88` : 'none', marginRight: '6px', transition: 'color 0.15s ease' }}>
+                          {word}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : captionStyle === 'pill' ? (
+                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 24px', borderRadius: '9999px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, border: isBgTransparent ? 'none' : '1px solid rgba(255,255,255,0.14)', backdropFilter: isBgTransparent ? 'none' : 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
+                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  </div>
+                ) : captionStyle === 'news' ? (
+                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 14px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.88)`, borderLeft: 'none', textAlign: 'left', fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 700, color: textColor, boxShadow: isBgTransparent ? 'none' : '0 4px 20px rgba(0,0,0,0.5)', textShadow: 'none' }}>
+                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  </div>
+                ) : captionStyle === 'box' ? (
+                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 16px', borderRadius: '8px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.85)`, border: 'none', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
+                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  </div>
+                ) : (
+                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
+                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  </div>
+                )}
+              </TransformGizmoOverlay>
             </div>
           )}
-        </div>
-      )}
 
+          {/* LỚP 4: LOGO KÊNH THƯƠNG HIỆU */}
+          {showChannelLogo && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: effectiveIsPortrait ? '8%' : '7%',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                pointerEvents: 'none',
+                opacity: selectedElement === 'logo' ? 1 : 0.75,
+                zIndex: selectedElement === 'logo' ? 30 : 20,
+                transition: selectedElement === 'logo' ? 'none' : 'all 0.2s ease'
+              }}
+            >
+              <TransformGizmoOverlay
+                active={selectedElement === 'logo' && !isPlaying}
+                label="Logo thương hiệu"
+                detail={`${Math.round(logoScale * 100)}% • X: ${Math.round(logoTranslateX)}px • Y: ${Math.round(logoTranslateY)}px`}
+                boxInset="-4px"
+                counterScale={logoScale}
+                badgePosition={logoTranslateY < -1300 ? 'inside-top' : 'outside-top'}
+                onDragStart={handleLogoDragStart}
+                onDrag={handleLogoDrag}
+                onScaleStart={handleLogoScaleStart}
+                onScale={handleLogoScale}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0, logoScale: 1 })}
+                style={{
+                  transform: `translate(${visualLogoX}px, ${visualLogoY}px) scale(${logoScale})`,
+                  transformOrigin: 'center center',
+                  pointerEvents: isPlaying ? 'none' : 'auto',
+                  cursor: isPlaying ? 'default' : (selectedElement === 'logo' ? 'move' : 'pointer'),
+                  transition: selectedElement === 'logo' || isPlaying ? 'none' : 'transform 0.2s ease'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('logo');
+                }}
+              >
+                <img
+                  src="/images/watermark/the-mind-logo.png"
+                  alt="Logo thương hiệu"
+                  style={{
+                    width: effectiveIsPortrait ? (isFullscreen ? '115px' : '90px') : '75px',
+                    maxWidth: '28%',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    mixBlendMode: 'screen',
+                    filter: 'brightness(1.15) drop-shadow(0 2px 8px rgba(0,0,0,0.7))',
+                    display: 'block',
+                    userSelect: 'none',
+                    pointerEvents: 'none'
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </TransformGizmoOverlay>
+            </div>
+          )}
 
+          {/* LỚP MÔ PHỎNG GIAO DIỆN NỀN TẢNG (TIKTOK / YOUTUBE SHORTS / FB REELS / ZALO) */}
+          {(activePlatform !== 'none' || showSafeZoneGrid) && (
+            <PlatformMockupOverlay
+              platform={activePlatform}
+              showSafeZoneGrid={showSafeZoneGrid}
+              overlayOpacity={overlayOpacity}
+              title={result?.title}
+              channelName={rc.channelName || 'ATPOSTER'}
+            />
+          )}
 
-      </div> {/* Đóng containerRef - khung video màn mô phỏng */}
+        </div> {/* Đóng containerRef - khung video màn mô phỏng */}
+
+        {/* HÀNG NÚT BÊN PHẢI KHUNG VIDEO ĐỂ CHỌN NỀN TẢNG MÔ PHỎNG */}
+        {effectiveIsPortrait && !isFullscreen && (
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 35
+            }}
+          >
+            <PlatformSelectorToolbar
+              activePlatform={activePlatform}
+              setActivePlatform={setActivePlatform}
+              showSafeZoneGrid={showSafeZoneGrid}
+              setShowSafeZoneGrid={setShowSafeZoneGrid}
+              overlayOpacity={overlayOpacity}
+              setOverlayOpacity={setOverlayOpacity}
+            />
+          </div>
+        )}
+      </div> {/* Đóng wrapper của video và thanh nút bên phải */}
 
       {/* LỚP 5: THANH TIẾN ĐỘ TỔNG HỢP TOÀN BỘ VIDEO & NÚT ĐIỀU KHIỂN ĐẶT BÊN DƯỚI KHUNG MÔ PHỎNG */}
       <div
@@ -608,50 +1383,107 @@ export default function LiveVideoSimulator({
           boxSizing: 'border-box'
         }}
       >
-        {/* Thanh tiến độ CỘNG DỒN TOÀN BỘ VIDEO — dài từ đầu này qua đầu kia như TikTok */}
+        {/* Thanh tiến độ THEO TỪNG ĐOẠN (Segmented Timeline with Hover Preview & Quick Action) */}
         <div
-          onClick={handleSeekTotalTimeline}
           style={{
+            position: 'relative',
             width: '100%',
-            height: '6px',
-            background: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: '999px',
-            overflow: 'hidden',
-            cursor: 'pointer',
-            position: 'relative'
+            padding: '4px 0'
           }}
-          title="Bấm bất kỳ đâu trên thanh để tua toàn bộ video"
         >
-          {/* Vạch tiến độ đã phát trên toàn video */}
+          {/* POPUP HOVER KHI RÊ CHUỘT VÀO TỪNG ĐOẠN (Chỉ hiển thị khi KHÔNG chọn item mô phỏng) */}
+          {selectedElement === 'none' && activePopupIndex !== null && segments[activePopupIndex] && (
+            <TimelineSegmentPopup
+              segment={segments[activePopupIndex]}
+              sceneIndex={activePopupIndex}
+              totalScenes={totalScenes}
+              duration={sceneDurations[activePopupIndex] || 3.5}
+              sceneOffsets={sceneOffsets}
+              totalDuration={totalDuration}
+              editText={editText}
+              setEditText={setEditText}
+              isRegenerating={isRegenerating}
+              popupMsg={popupMsg}
+              isScenePlaying={isPlaying && currentSlideIndex === activePopupIndex}
+              onClose={() => {
+                setActivePopupIndex(null);
+                setPopupMsg(null);
+              }}
+              onPlay={handlePlaySingleScene}
+              onRegenerate={handleRegenerateVoice}
+              onMouseEnter={handlePopupMouseEnter}
+              onMouseLeave={handlePopupMouseLeave}
+              onFocus={handlePopupFocus}
+              onBlur={handlePopupBlur}
+            />
+          )}
+
+          {/* Dãy các đoạn của thanh tiến độ */}
           <div
             style={{
-              height: '100%',
-              width: `${totalProgressPercent}%`,
-              background: 'linear-gradient(90deg, #10b981, #25f4ee)',
-              transition: isPlaying ? 'width 0.1s linear' : 'none'
+              width: '100%',
+              height: '8px',
+              display: 'flex',
+              gap: '2.5px',
+              alignItems: 'center',
+              borderRadius: '6px'
             }}
-          />
+          >
+            {segments.map((seg, idx) => {
+              const dur = sceneDurations[idx] || 3.5;
+              const isPast = idx < currentSlideIndex;
+              const isCurrent = idx === currentSlideIndex;
+              const segProgress = isPast
+                ? 100
+                : isCurrent
+                  ? Math.min(100, Math.max(0, (slideCurrentTime / dur) * 100))
+                  : 0;
+              const isHovered = selectedElement === 'none' && activePopupIndex === idx;
 
-          {/* Các vạch phân cách chia ranh giới từng cảnh (Scene chapters) */}
-          {sceneOffsets.map((offset, i) => {
-            if (i === 0) return null;
-            const leftPercent = (offset / totalDuration) * 100;
-            return (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  bottom: 0,
-                  left: `${leftPercent}%`,
-                  width: '1.5px',
-                  background: 'rgba(0, 0, 0, 0.65)',
-                  pointerEvents: 'none',
-                  zIndex: 2
-                }}
-              />
-            );
-          })}
+              return (
+                <div
+                  key={idx}
+                  onMouseEnter={selectedElement === 'none' ? () => handleSegmentMouseEnter(idx) : undefined}
+                  onMouseLeave={selectedElement === 'none' ? handleSegmentMouseLeave : undefined}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playOnlySceneIndexRef.current = null;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    const targetInSceneTime = ratio * dur;
+                    goToScene(idx);
+                    setSlideCurrentTime(targetInSceneTime);
+                    if (voiceAudioRef.current) voiceAudioRef.current.currentTime = targetInSceneTime;
+                  }}
+                  style={{
+                    flex: Math.max(0.1, dur),
+                    height: isHovered ? '10px' : '7px',
+                    background: isHovered ? 'rgba(255, 255, 255, 0.32)' : 'rgba(255, 255, 255, 0.18)',
+                    borderRadius: '3px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isHovered ? '0 0 8px rgba(37, 244, 238, 0.7)' : 'none',
+                    border: isHovered ? '1px solid #25f4ee' : 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  title={selectedElement === 'none'
+                    ? `Cảnh ${idx + 1}: ${dur.toFixed(1)}s (Rê chuột xem kịch bản / sửa / đọc lại)`
+                    : `Cảnh ${idx + 1}: ${dur.toFixed(1)}s`}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${segProgress}%`,
+                      background: 'linear-gradient(90deg, #10b981, #25f4ee)',
+                      transition: isCurrent && isPlaying ? 'none' : 'width 0.15s ease'
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -687,6 +1519,93 @@ export default function LiveVideoSimulator({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* CÔNG CỤ CHỌN THÀNH PHẦN ĐỂ KÉO / SCALE KIỂU PHOTOSHOP */}
+            {!isPlaying && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.06)', padding: '2px 4px', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, padding: '0 2px' }}>✥ Kéo:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedElement(selectedElement === 'caption' ? 'none' : 'caption')}
+                  style={{
+                    background: selectedElement === 'caption' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
+                    border: selectedElement === 'caption' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
+                    color: selectedElement === 'caption' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                  title="Chọn Phụ đề để kéo di chuyển & scale trực tiếp"
+                >
+                  <span>📝</span> Phụ đề
+                </button>
+                {showImage && currentImageSrc && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement(selectedElement === 'image' ? 'none' : 'image')}
+                    style={{
+                      background: selectedElement === 'image' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
+                      border: selectedElement === 'image' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
+                      color: selectedElement === 'image' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title="Chọn Ảnh nền để kéo di chuyển & scale trực tiếp"
+                  >
+                    <span>🖼️</span> Ảnh nền
+                  </button>
+                )}
+                {showChannelLogo && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement(selectedElement === 'logo' ? 'none' : 'logo')}
+                    style={{
+                      background: selectedElement === 'logo' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
+                      border: selectedElement === 'logo' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
+                      color: selectedElement === 'logo' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title="Chọn Logo để kéo di chuyển & scale trực tiếp"
+                  >
+                    <span>🏷️</span> Logo
+                  </button>
+                )}
+                {selectedElement !== 'none' && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement('none')}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'rgba(255,255,255,0.45)',
+                      fontSize: '0.62rem',
+                      padding: '2px 4px',
+                      cursor: 'pointer'
+                    }}
+                    title="Bỏ chọn (hoặc phím Escape)"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
             <button type="button" onClick={() => setIsMuted((m) => !m)} style={{ background: 'none', border: 'none', color: isMuted ? '#f87171' : 'rgba(255,255,255,0.85)', fontSize: '0.95rem', cursor: 'pointer', padding: '4px' }} title={isMuted ? 'Bật âm thanh' : 'Tắt tiếng'}>
               {isMuted ? '🔇' : '🔊'}
             </button>

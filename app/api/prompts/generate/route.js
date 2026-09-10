@@ -159,6 +159,67 @@ export async function POST(request) {
       record.remotionConfig = skill.buildRemotionConfig(record, processedInput);
     }
 
+    // Áp dụng định dạng style đã lưu cho skill này nếu người dùng đã lưu trước đó
+    if (record.isSegmented && record.remotionConfig && settingsRecord && record.category) {
+      const catKey = record.category;
+      const savedConfig = settingsRecord[`defaultStyleConfig__${catKey}`]
+        || settingsRecord.defaultSkillStyles?.[catKey]
+        || (catKey === 'reading_practice' ? settingsRecord.readingPracticeConfig : null);
+
+      if (savedConfig && typeof savedConfig === 'object') {
+        record.remotionConfig = {
+          ...record.remotionConfig,
+          ...(savedConfig.captionStyle ? { captionStyle: savedConfig.captionStyle } : {}),
+          ...(savedConfig.font ? { font: savedConfig.font, captionFont: savedConfig.font } : {}),
+          ...(savedConfig.fontSize ? { fontSize: Number(savedConfig.fontSize), captionFontSize: Number(savedConfig.fontSize) } : {}),
+          ...(savedConfig.secondaryFontSize ? { secondaryFontSize: Number(savedConfig.secondaryFontSize) } : {}),
+          ...(savedConfig.textColor ? { textColor: savedConfig.textColor, captionTextColor: savedConfig.textColor } : {}),
+          ...(savedConfig.bgColor ? { bgColor: savedConfig.bgColor, captionBgColor: savedConfig.bgColor } : {}),
+          ...(savedConfig.bgOpacity !== undefined ? { bgOpacity: savedConfig.bgOpacity } : {}),
+          ...(savedConfig.isBgTransparent !== undefined ? { isBgTransparent: savedConfig.isBgTransparent, bgTransparent: savedConfig.isBgTransparent } : {}),
+          ...(savedConfig.highlightColor ? { highlightColor: savedConfig.highlightColor } : {}),
+          ...(savedConfig.transitionStyle ? { transitionStyle: savedConfig.transitionStyle, transitionEffect: savedConfig.transitionStyle } : {}),
+          ...(savedConfig.channelLogo !== undefined ? { channelLogo: savedConfig.channelLogo } : {}),
+          ...(savedConfig.captionMarginY !== undefined ? { captionMarginY: Number(savedConfig.captionMarginY) } : {}),
+          ...(savedConfig.captionWidth !== undefined ? { captionWidth: Number(savedConfig.captionWidth) } : {}),
+          ...(savedConfig.imageScale !== undefined ? { imageScale: Number(savedConfig.imageScale) } : {}),
+          ...(savedConfig.imageTranslateY !== undefined ? { imageTranslateY: Number(savedConfig.imageTranslateY) } : {}),
+          ...(savedConfig.bilingual !== undefined ? { bilingual: savedConfig.bilingual } : {}),
+        };
+      } else {
+        // Fallback kiểm tra các khoá phẳng đã lưu theo skill
+        const scopedCaptionStyle = settingsRecord[`defaultCaptionStyle__${catKey}`];
+        const scopedFont = settingsRecord[`defaultCaptionFont__${catKey}`];
+        const scopedFontSize = settingsRecord[`defaultCaptionFontSize__${catKey}`];
+        const scopedTextColor = settingsRecord[`defaultCaptionTextColor__${catKey}`];
+        const scopedBgColor = settingsRecord[`defaultCaptionBgColor__${catKey}`];
+        const scopedHighlightColor = settingsRecord[`defaultHighlightColor__${catKey}`];
+        const scopedMarginY = settingsRecord[`defaultCaptionMarginY__${catKey}`];
+        const scopedWidth = settingsRecord[`defaultCaptionWidth__${catKey}`];
+        const scopedImageScale = settingsRecord[`defaultImageScale__${catKey}`];
+        const scopedImageTranslateY = settingsRecord[`defaultImageTranslateY__${catKey}`];
+        const scopedTransition = settingsRecord[`defaultTransitionStyle__${catKey}`];
+
+        if (scopedCaptionStyle) record.remotionConfig.captionStyle = scopedCaptionStyle;
+        if (scopedFont) {
+          record.remotionConfig.font = scopedFont;
+          record.remotionConfig.captionFont = scopedFont;
+        }
+        if (scopedFontSize) {
+          record.remotionConfig.fontSize = Number(scopedFontSize);
+          record.remotionConfig.captionFontSize = Number(scopedFontSize);
+        }
+        if (scopedTextColor) record.remotionConfig.textColor = scopedTextColor;
+        if (scopedBgColor) record.remotionConfig.bgColor = scopedBgColor;
+        if (scopedHighlightColor) record.remotionConfig.highlightColor = scopedHighlightColor;
+        if (scopedMarginY !== undefined) record.remotionConfig.captionMarginY = Number(scopedMarginY);
+        if (scopedWidth !== undefined) record.remotionConfig.captionWidth = Number(scopedWidth);
+        if (scopedImageScale !== undefined) record.remotionConfig.imageScale = Number(scopedImageScale) / 100;
+        if (scopedImageTranslateY !== undefined) record.remotionConfig.imageTranslateY = Number(scopedImageTranslateY);
+        if (scopedTransition) record.remotionConfig.transitionStyle = scopedTransition;
+      }
+    }
+
     // 1. Tạo thư mục và lưu manifest.json trực tiếp xuống ổ cứng local
     try {
       saveLocalPrompt(record);

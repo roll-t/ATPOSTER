@@ -142,6 +142,9 @@ export const slideshowVideoSchema = z.object({
   // giáo, nơi người dùng có thể không muốn gắn thương hiệu lên tranh.
   // Mặc định true để mọi video cũ giữ nguyên logo như trước.
   channelLogo: z.boolean().default(true),
+  logoTranslateX: z.number().default(0),
+  logoTranslateY: z.number().default(0),
+  logoScale: z.number().default(1),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),

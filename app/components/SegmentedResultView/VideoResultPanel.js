@@ -18,7 +18,12 @@ export default function VideoResultPanel({
   isRenderDone = false,
   handleRenderVideo,
   activeSceneIndex,
-  onSceneIndexChange
+  onSceneIndexChange,
+  onResult,
+  resyncVoiceForSegments,
+  checkAssets,
+  bgMusicVersion,
+  onUpdateRenderConfig
 }) {
   const [viewMode, setViewMode] = useState('auto'); // 'auto' | 'rendered' | 'simulator'
 
@@ -192,6 +197,11 @@ export default function VideoResultPanel({
               folderPath={folderPath}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={onSceneIndexChange}
+              onResult={onResult}
+              resyncVoiceForSegments={resyncVoiceForSegments}
+              checkAssets={checkAssets}
+              bgMusicVersion={bgMusicVersion}
+              onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (
             <div
@@ -406,6 +416,11 @@ export default function VideoResultPanel({
               folderPath={folderPath}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={onSceneIndexChange}
+              onResult={onResult}
+              resyncVoiceForSegments={resyncVoiceForSegments}
+              checkAssets={checkAssets}
+              bgMusicVersion={bgMusicVersion}
+              onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (
             /* Khung mô phỏng màn hình chờ kết quả mặc định */
