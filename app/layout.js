@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "AI Video Studio & Auto Render Video - ATPOSTER",
+  title: "Nexora Video - AI Video Studio & Auto Render Video",
   description: "Hệ thống tự động biên soạn kịch bản AI, lồng tiếng TTS và render video Remotion chuyên nghiệp.",
 };
 

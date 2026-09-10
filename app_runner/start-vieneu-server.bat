@@ -15,13 +15,15 @@ echo   Dang khoi dong VieNeu-TTS API Server (FastAPI)
 echo ===================================================
 echo.
 
-where uv >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [VieNeu-TTS] Phat hien cong cu 'uv'. Dang khoi dong bang uv...
-    uv run python vieneu_server.py
+if exist "%~dp0..\SERVER\VieNeu\.venv\Scripts\python.exe" (
+    echo [VieNeu-TTS] Phat hien virtual environment tai SERVER/VieNeu. Dang khoi dong...
+    "%~dp0..\SERVER\VieNeu\.venv\Scripts\python.exe" vieneu_server.py
 ) else (
-    if exist "%~dp0..\SERVER\VieNeu\.venv\Scripts\python.exe" (
-        echo [VieNeu-TTS] Phat hien virtual environment tai SERVER/VieNeu. Dang khoi dong...
+    where uv >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [VieNeu-TTS] Phat hien cong cu 'uv'. Dang tao moi truong va khoi dong...
+        uv venv --python 3.11 .venv
+        uv pip install -p .venv\Scripts\python.exe vieneu "numba>=0.57.0" fastapi uvicorn soundfile imageio-ffmpeg
         "%~dp0..\SERVER\VieNeu\.venv\Scripts\python.exe" vieneu_server.py
     ) else (
         echo [VieNeu-TTS] Khong thay 'uv' hay virtual environment. Dung python he thong...

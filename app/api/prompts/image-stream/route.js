@@ -23,6 +23,36 @@ export async function GET(request) {
     const projectDir = resolveProjectDir(folderPath.trim(), category);
     let imagePath = path.join(projectDir, file);
 
+    // Hỗ trợ linh hoạt cả thư mục 'images/' lẫn 'image/'
+    if (!fs.existsSync(imagePath)) {
+      if (file.startsWith('images/')) {
+        const alt = path.join(projectDir, file.replace(/^images\//, 'image/'));
+        if (fs.existsSync(alt)) imagePath = alt;
+      } else if (file.startsWith('image/')) {
+        const alt = path.join(projectDir, file.replace(/^image\//, 'images/'));
+        if (fs.existsSync(alt)) imagePath = alt;
+      }
+    }
+
+    // Tự động tìm file ảnh khớp basename bất kể đuôi file (.jpg, .png, .webp, .jpeg)
+    if (!fs.existsSync(imagePath) && /(images|image)[\\/][^./\\]+\.[^./\\]+$/.test(file)) {
+      const dirName = file.startsWith('image/') ? 'image' : 'images';
+      const imgDirPath = path.join(projectDir, dirName);
+      const altDirName = dirName === 'images' ? 'image' : 'images';
+      const altImgDirPath = path.join(projectDir, altDirName);
+
+      const wanted = path.basename(file).replace(/\.[^.]+$/, '') + '.';
+      let match = null;
+      if (fs.existsSync(imgDirPath)) {
+        match = fs.readdirSync(imgDirPath).find((f) => f.startsWith(wanted));
+        if (match) imagePath = path.join(imgDirPath, match);
+      }
+      if (!match && fs.existsSync(altImgDirPath)) {
+        match = fs.readdirSync(altImgDirPath).find((f) => f.startsWith(wanted));
+        if (match) imagePath = path.join(altImgDirPath, match);
+      }
+    }
+
     // Ảnh hero tách theo tỉ lệ (scene-NN-landscape/-portrait, dùng cho reading_practice khi có
     // đủ 2 bản - xem buildSegmentedPrompts.js) có thể chưa tồn tại ở các dự án cũ hơn tính năng
     // này. Lùi về file gốc chưa tách bản (scene-NN.<ext>) trước khi báo lỗi, để UI luôn xin đúng

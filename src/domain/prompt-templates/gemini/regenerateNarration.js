@@ -36,10 +36,10 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
 - Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`)
     : (isVietnamesePrimary
       ? `- The narration (dialogueOrNarration) MUST be written in natural, spoken VIETNAMESE — it will be sent directly to a Vietnamese voice narrator. Short, clear sentences, everyday conversational storytelling language.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate English translation of that same line.
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the Vietnamese line (single line matching narration, strictly NO "\\n", NO English translation).
 - ${buildVietnamesePronunciationNote()}`
       : `- The narration (dialogueOrNarration) MUST be written in simple, basic English (suitable for high school level, TOEIC 300+ level). Short, clear sentences, no advanced expressions.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`);
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the English line (single line matching narration, strictly NO "\\n", NO Vietnamese translation).`);
 
   const narrationModeLine = isMoralTalk
     ? moralStyle.narrationModeLine

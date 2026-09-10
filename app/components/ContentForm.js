@@ -531,13 +531,13 @@ export default function ContentForm({
                 </>
               ) : activeCategory === 'stick_figure_slideshow' ? (
                 <>
-                  <option value="under_1m">Dưới 1 phút</option>
-                  <option value="1_2m">Từ 1 - 2 phút</option>
-                  <option value="2_3m">Từ 2 - 3 phút</option>
-                  <option value="3_4m">Từ 3 - 4 phút</option>
-                  <option value="4_6m">Từ 4 - 6 phút</option>
-                  <option value="6_8m">Từ 6 - 8 phút</option>
-                  <option value="8_10m">Từ 8 - 10 phút</option>
+                  <option value="under_1m">Dưới 1 phút (20 - 25 ảnh, 2-3s/ảnh)</option>
+                  <option value="1_2m">Từ 1 - 2 phút (35 - 48 ảnh)</option>
+                  <option value="2_3m">Từ 2 - 3 phút (50 - 70 ảnh)</option>
+                  <option value="3_4m">Từ 3 - 4 phút (70 - 95 ảnh)</option>
+                  <option value="4_6m">Từ 4 - 6 phút (100 - 140 ảnh)</option>
+                  <option value="6_8m">Từ 6 - 8 phút (140 - 190 ảnh)</option>
+                  <option value="8_10m">Từ 8 - 10 phút (190 - 250 ảnh)</option>
                 </>
               ) : (
                 <>
@@ -740,66 +740,26 @@ export default function ContentForm({
                   ))}
                 </select>
               ) : field.type === 'textarea' ? (
-                <div style={{ position: 'relative' }}>
-                  <textarea
-                    className="form-control"
-                    rows={4}
-                    placeholder={displayFieldPlaceholder}
-                    value={currentInput[field.key] || ''}
-                    onChange={(e) => onFieldChange(field.key, e.target.value)}
-                    onKeyDown={(e) => {
-                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                        e.preventDefault();
-                        if (!isGenerating) onGenerate();
-                      }
-                    }}
-                    style={{
-                      resize: 'vertical',
-                      fontFamily: 'inherit',
-                      lineHeight: 1.55,
-                      paddingBottom: '28px',
-                      background: 'rgba(15, 14, 25, 0.8)',
-                      borderColor: 'rgba(255, 255, 255, 0.12)'
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '6px',
-                    left: '10px',
-                    right: '10px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    pointerEvents: 'none'
-                  }}>
-                    <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)' }}>
-                      Gõ <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(255,255,255,0.15)' }}>Ctrl+Enter</kbd> để tạo
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
-                      {currentInput[field.key] && (
-                        <button
-                          type="button"
-                          onClick={() => onFieldChange(field.key, '')}
-                          style={{
-                            background: 'rgba(255,255,255,0.08)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            color: 'rgba(255,255,255,0.6)',
-                            fontSize: '0.68rem',
-                            padding: '1px 5px',
-                            cursor: 'pointer'
-                          }}
-                          title="Xóa nội dung"
-                        >
-                          ✕ Xóa
-                        </button>
-                      )}
-                      <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.4)', fontVariantNumeric: 'tabular-nums' }}>
-                        {(currentInput[field.key] || '').length} ký tự
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <textarea
+                  className="form-control"
+                  rows={4}
+                  placeholder={displayFieldPlaceholder}
+                  value={currentInput[field.key] || ''}
+                  onChange={(e) => onFieldChange(field.key, e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!isGenerating) onGenerate();
+                    }
+                  }}
+                  style={{
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.55,
+                    background: 'rgba(15, 14, 25, 0.8)',
+                    borderColor: 'rgba(255, 255, 255, 0.12)'
+                  }}
+                />
               ) : (
                 <input
                   type="text"

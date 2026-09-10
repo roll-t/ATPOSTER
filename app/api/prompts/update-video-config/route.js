@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getLocalPromptHistory } from '@/src/infrastructure/persistence/localPromptRepository.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
@@ -15,15 +16,26 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Thiếu id kịch bản.' }, { status: 400 });
     }
 
-    const db = await getMongoClientDb();
-    const record = await db.collection('promptHistory').findOne({ id });
+    let record = null;
+    const localRes = getLocalPromptHistory({ id });
+    if (localRes?.item) {
+      record = localRes.item;
+    } else {
+      try {
+        const db = await getMongoClientDb();
+        record = await db.collection('promptHistory').findOne({ id });
+      } catch (e) {
+        console.warn('[update-video-config] Mongo lookup failed:', e.message);
+      }
+    }
+
     if (!record) {
       return NextResponse.json({ error: 'Không tìm thấy kịch bản.' }, { status: 404 });
     }
 
     const update = { updatedAt: Date.now() };
 
-    // Merge remotionConfig fields (chỉ ghi đè những field được gửi lên, giữ lại phần còn lại)
+    // Merge remotionConfig fields
     if (remotionConfig && typeof remotionConfig === 'object') {
       update.remotionConfig = { ...(record.remotionConfig || {}), ...remotionConfig };
     }
@@ -39,24 +51,41 @@ export async function POST(request) {
       update.segments = updatedSegments;
     }
 
-    await db.collection('promptHistory').updateOne({ id }, { $set: update });
+    // Cập nhật nền vào database nếu có (không chặn luồng)
+    getMongoClientDb().then(db => {
+      db.collection('promptHistory').updateOne({ id }, { $set: update }).catch(err => {
+        console.warn('[update-video-config] Mongo update warning:', err.message);
+      });
+    }).catch(() => {});
 
-    // Cập nhật manifest.json trên đĩa nếu tồn tại và có thay đổi thứ tự
+    // Cập nhật manifest.json trên đĩa
     let manifestUpdated = false;
     const cleanFolder = (record.input?.folderPath || '').trim();
     const cat = record.category;
-    if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder) && update.segments) {
+    if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder)) {
       const manifestPath = path.join(resolveProjectDir(cleanFolder, cat), 'manifest.json');
       if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const manifestByNumber = new Map((manifest.segments || []).map(s => [s.segmentNumber, s]));
-        const reordered = segmentsOrder.map(n => manifestByNumber.get(n)).filter(Boolean);
-        const inOrder = new Set(segmentsOrder);
-        const rest = (manifest.segments || []).filter(s => !inOrder.has(s.segmentNumber));
-        manifest.segments = [...reordered, ...rest];
-        manifest.updatedAt = Date.now();
-        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-        manifestUpdated = true;
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (update.segments) {
+            const manifestByNumber = new Map((manifest.segments || []).map(s => [s.segmentNumber, s]));
+            const reordered = segmentsOrder.map(n => manifestByNumber.get(n)).filter(Boolean);
+            const inOrder = new Set(segmentsOrder);
+            const rest = (manifest.segments || []).filter(s => !inOrder.has(s.segmentNumber));
+            manifest.segments = [...reordered, ...rest];
+          }
+          if (update.remotionConfig) {
+            manifest.remotionConfig = { ...(manifest.remotionConfig || {}), ...update.remotionConfig };
+            if (update.remotionConfig.orientation) {
+              manifest.orientation = update.remotionConfig.orientation;
+            }
+          }
+          manifest.updatedAt = Date.now();
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+          manifestUpdated = true;
+        } catch (mErr) {
+          console.warn('[update-video-config] Error writing manifest.json:', mErr.message);
+        }
       }
     }
 

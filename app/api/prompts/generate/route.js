@@ -4,6 +4,7 @@ import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCov
 import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta } from '@/src/infrastructure/composition/video-studio.js';
 import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
 import { getSkill } from '@/src/application/video-studio/skills/index.js';
+import { saveLocalPrompt } from '@/src/infrastructure/persistence/localPromptRepository.js';
 
 export async function POST(request) {
   try {
@@ -158,7 +159,17 @@ export async function POST(request) {
       record.remotionConfig = skill.buildRemotionConfig(record, processedInput);
     }
 
-    await db.collection('promptHistory').insertOne({ ...record });
+    // 1. Tạo thư mục và lưu manifest.json trực tiếp xuống ổ cứng local
+    try {
+      saveLocalPrompt(record);
+    } catch (saveErr) {
+      console.warn('[API Prompt Generate] Cảnh báo lưu local disk:', saveErr.message);
+    }
+
+    // 2. Lưu dự phòng vào database (không chặn phản hồi nếu kết nối DB chậm)
+    db.collection('promptHistory').insertOne({ ...record }).catch(dbErr => {
+      console.warn('[API Prompt Generate] Lưu Mongo nền thất bại (không ảnh hưởng):', dbErr.message);
+    });
 
     return NextResponse.json({ success: true, result: record });
   } catch (error) {

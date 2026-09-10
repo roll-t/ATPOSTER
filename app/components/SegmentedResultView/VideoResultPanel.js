@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import StepProgressBar from './StepProgressBar.js';
+import LiveVideoSimulator from './LiveVideoSimulator.js';
 
 export default function VideoResultPanel({
   result,
@@ -15,12 +16,18 @@ export default function VideoResultPanel({
   openFolderError = '',
   musicChangedSinceRender = false,
   isRenderDone = false,
-  handleRenderVideo
+  handleRenderVideo,
+  activeSceneIndex,
+  onSceneIndexChange
 }) {
+  const [viewMode, setViewMode] = useState('auto'); // 'auto' | 'rendered' | 'simulator'
+
   const isPortrait =
-    result?.remotionConfig?.orientation
-      ? result.remotionConfig.orientation === 'portrait'
-      : (result?.input?.aspectRatio ? result.input.aspectRatio === '9:16' : true);
+    result?.remotionConfig?.aspectRatio
+      ? result.remotionConfig.aspectRatio === '9:16'
+      : (result?.remotionConfig?.orientation
+          ? result.remotionConfig.orientation === 'portrait'
+          : (result?.input?.aspectRatio ? result.input.aspectRatio === '9:16' : (result?.aspectRatio ? result.aspectRatio === '9:16' : true)));
 
   const isPexelsTalk = result?.category === 'pexels_talk_video';
   const isAutoImage = isPexelsTalk;
@@ -31,6 +38,7 @@ export default function VideoResultPanel({
     ? (isPexelsTalk ? !!assetCounts?.hasBgVideo : true)
     : ((assetCounts?.imageCount || 0) >= total && total > 0);
   const hasVideo = !!assetCounts?.videoCreated;
+  const canSimulate = (assetCounts?.audioCount > 0 || assetCounts?.imageCount > 0) && total > 0;
 
   const folderPath = result?.input?.folderPath || 'example';
   const category = result?.category || '';
@@ -39,16 +47,22 @@ export default function VideoResultPanel({
 
   return (
     <div
-      className="glass-card"
       style={{
-        padding: '18px 20px',
+        padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '12px',
+        height: '100%',
+        maxHeight: '100%',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
         background: 'rgba(255, 255, 255, 0.025)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '14px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.36)'
+        borderRight: 'none',
+        borderRadius: '0px',
+        boxShadow: 'none',
+        transform: 'none',
+        transition: 'none'
       }}
     >
       {/* Header của cột Kết quả */}
@@ -56,68 +70,165 @@ export default function VideoResultPanel({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '1.2rem' }}>🎬</span>
           <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#fff' }}>
-            Kết quả Video
+            {hasVideo ? (viewMode === 'simulator' ? 'Mô phỏng Video Live' : 'Kết quả Video') : canSimulate ? 'Mô phỏng Video Trực tiếp' : 'Kết quả Video'}
           </h4>
         </div>
 
-        {/* Badge trạng thái */}
-        <span
-          style={{
-            padding: '3px 10px',
-            borderRadius: '12px',
-            fontSize: '0.72rem',
-            fontWeight: 700,
-            letterSpacing: '0.3px',
-            background: isRenderingVideo
-              ? 'rgba(99, 102, 241, 0.2)'
-              : hasVideo
-              ? 'rgba(16, 185, 129, 0.15)'
-              : 'rgba(255, 255, 255, 0.06)',
-            color: isRenderingVideo
-              ? '#818cf8'
-              : hasVideo
-              ? '#10b981'
-              : 'rgba(255, 255, 255, 0.65)',
-            border: isRenderingVideo
-              ? '1px solid rgba(99, 102, 241, 0.4)'
-              : hasVideo
-              ? '1px solid rgba(16, 185, 129, 0.3)'
-              : '1px solid rgba(255, 255, 255, 0.1)'
-          }}
-        >
-          {isRenderingVideo ? `⏳ Đang xuất (${renderProgress}%)` : hasVideo ? '✓ Video thành phẩm' : 'Chờ xuất bản'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {hasVideo && canSimulate && (
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'rgba(0, 0, 0, 0.45)',
+                padding: '2px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                gap: '2px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('rendered')}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: viewMode !== 'simulator' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                  color: viewMode !== 'simulator' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Xem video MP4 đã xuất"
+              >
+                🎬 MP4
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('simulator')}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: viewMode === 'simulator' ? 'linear-gradient(135deg, #25f4ee, #00bdff)' : 'transparent',
+                  color: viewMode === 'simulator' ? '#0b1120' : 'rgba(255, 255, 255, 0.65)',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Xem mô phỏng video tức thì"
+              >
+                👁️ Mô phỏng
+              </button>
+            </div>
+          )}
+
+
+          {/* Nút Tạo Video thay cho chỗ xem trước mô phỏng */}
+          {isRenderingVideo ? (
+            <span
+              style={{
+                padding: '4px 12px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: 'rgba(99, 102, 241, 0.2)',
+                color: '#818cf8',
+                border: '1px solid rgba(99, 102, 241, 0.4)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              ⏳ Đang xuất ({renderProgress}%)
+            </span>
+          ) : handleRenderVideo ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => handleRenderVideo(result?.segments)}
+              disabled={isRenderingVideo || !(isAudioReady && isImageReady)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '7px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: (isAudioReady && isImageReady)
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : 'rgba(255, 255, 255, 0.08)',
+                boxShadow: (isAudioReady && isImageReady)
+                  ? '0 2px 12px rgba(16, 185, 129, 0.4)'
+                  : 'none',
+                cursor: (isAudioReady && isImageReady) ? 'pointer' : 'not-allowed',
+                border: (isAudioReady && isImageReady) ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                color: (isAudioReady && isImageReady) ? '#fff' : 'rgba(255, 255, 255, 0.4)',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+              title={isAudioReady && isImageReady ? 'Nhấn để bắt đầu xuất/render video' : 'Cần hoàn thành lồng tiếng và hình ảnh trước khi tạo video'}
+            >
+              <span>🎬</span>
+              <span>{hasVideo ? 'Tạo lại video' : 'Tạo video'}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* Trường hợp 1: ĐÃ CÓ VIDEO THÀNH PHẨM */}
       {hasVideo ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Video Player */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              background: '#000',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
-          >
-            <video
-              key={`${folderPath}-${videoVersion}`}
-              src={videoSrc}
-              controls
-              playsInline
-              style={{
-                width: '100%',
-                maxHeight: isPortrait ? '480px' : '340px',
-                display: 'block',
-                outline: 'none',
-                background: '#000'
-              }}
+          {/* Video Player hoặc Trình mô phỏng Live */}
+          {viewMode === 'simulator' ? (
+            <LiveVideoSimulator
+              result={result}
+              assetCounts={assetCounts}
+              isPortrait={isPortrait}
+              category={category}
+              folderPath={folderPath}
+              activeSceneIndex={activeSceneIndex}
+              onSceneIndexChange={onSceneIndexChange}
             />
-          </div>
+          ) : (
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                background: isPortrait ? 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.04) 0%, rgba(0, 0, 0, 0.5) 100%)' : '#000',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: isPortrait ? '14px 10px' : 0
+              }}
+            >
+              <video
+                key={`${folderPath}-${videoVersion}`}
+                src={videoSrc}
+                controls
+                playsInline
+                style={{
+                  height: isPortrait ? 'min(620px, calc(100vh - 240px))' : 'auto',
+                  maxHeight: isPortrait ? '620px' : '400px',
+                  width: isPortrait ? 'calc(min(620px, calc(100vh - 240px)) * 9 / 16)' : '100%',
+                  aspectRatio: isPortrait ? '9 / 16' : '16 / 9',
+                  maxWidth: '100%',
+                  borderRadius: 0,
+                  display: 'block',
+                  outline: 'none',
+                  background: '#000',
+                  boxShadow: 'none'
+                }}
+              />
+            </div>
+          )}
 
           {/* Thanh công cụ thao tác */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -232,36 +343,29 @@ export default function VideoResultPanel({
           </div>
         </div>
       ) : (
-        /* Trường hợp 2: MÀN HÌNH CHỜ KẾT QUẢ */
+        /* Trường hợp 2: MÀN HÌNH CHỜ KẾT QUẢ HOẶC MÔ PHỎNG LIVE */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Khung mô phỏng màn hình phát video */}
-          <div
-            style={{
-              width: '100%',
-              aspectRatio: isPortrait ? '9 / 16' : '16 / 9',
-              maxHeight: isPortrait ? '440px' : '280px',
-              borderRadius: '12px',
-              background: isRenderingVideo
-                ? 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.12) 0%, rgba(10, 15, 30, 0.8) 100%)'
-                : 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.6) 100%)',
-              border: isRenderingVideo
-                ? '1.5px solid rgba(99, 102, 241, 0.5)'
-                : '1.5px dashed rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '24px 20px',
-              textAlign: 'center',
-              position: 'relative',
-              boxShadow: isRenderingVideo
-                ? '0 0 30px rgba(99, 102, 241, 0.2)'
-                : 'inset 0 2px 10px rgba(0, 0, 0, 0.4)',
-              overflow: 'hidden'
-            }}
-          >
-            {isRenderingVideo ? (
-              /* Trạng thái đang render video */
+          {isRenderingVideo ? (
+            /* Khung khi đang render video */
+            <div
+              style={{
+                width: '100%',
+                aspectRatio: isPortrait ? '9 / 16' : '16 / 9',
+                maxHeight: isPortrait ? '440px' : '280px',
+                borderRadius: '12px',
+                background: 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.12) 0%, rgba(10, 15, 30, 0.8) 100%)',
+                border: '1.5px solid rgba(99, 102, 241, 0.5)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px 20px',
+                textAlign: 'center',
+                position: 'relative',
+                boxShadow: '0 0 30px rgba(99, 102, 241, 0.2)',
+                overflow: 'hidden'
+              }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', width: '100%', maxWidth: '300px' }}>
                 <div
                   style={{
@@ -291,8 +395,41 @@ export default function VideoResultPanel({
                   />
                 </div>
               </div>
-            ) : (
-              /* Trạng thái chờ kết quả */
+            </div>
+          ) : canSimulate ? (
+            /* Có tài nguyên đã tạo -> Hiển thị Trình mô phỏng Live Video */
+            <LiveVideoSimulator
+              result={result}
+              assetCounts={assetCounts}
+              isPortrait={isPortrait}
+              category={category}
+              folderPath={folderPath}
+              activeSceneIndex={activeSceneIndex}
+              onSceneIndexChange={onSceneIndexChange}
+            />
+          ) : (
+            /* Khung mô phỏng màn hình chờ kết quả mặc định */
+            <div
+              style={{
+                width: isPortrait ? 'calc(min(440px, calc(100vh - 320px)) * 9 / 16)' : '100%',
+                height: isPortrait ? '440px' : 'auto',
+                aspectRatio: isPortrait ? '9 / 16' : '16 / 9',
+                maxHeight: isPortrait ? 'calc(100vh - 320px)' : '280px',
+                margin: '0 auto',
+                borderRadius: '12px',
+                background: 'radial-gradient(ellipse at center, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0.6) 100%)',
+                border: '1.5px dashed rgba(255, 255, 255, 0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px 20px',
+                textAlign: 'center',
+                position: 'relative',
+                boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.4)',
+                overflow: 'hidden'
+              }}
+            >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <div
                   style={{
@@ -314,100 +451,10 @@ export default function VideoResultPanel({
                   Màn hình chờ kết quả
                 </h5>
                 <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.55)', fontSize: '0.76rem', maxWidth: '280px', lineHeight: 1.5 }}>
-                  Hoàn thành các bước bên trái và nhấn <strong>&quot;Tạo Video (Render)&quot;</strong> ở Bước {isAutoImage ? '3' : '4'} để xem video thành phẩm tại đây.
+                  Hoàn thành các bước bên trái để xem mô phỏng tức thì hoặc nhấn nút <strong>&quot;Tạo video&quot;</strong> ở góc trên để xuất file MP4.
                 </p>
               </div>
-            )}
-          </div>
-
-          {/* Bảng checklist trạng thái chuẩn bị */}
-          <div
-            style={{
-              padding: '14px 16px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              borderRadius: '10px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}
-          >
-            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Tiến độ chuẩn bị:
             </div>
-
-            {/* Giọng lồng tiếng */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.85)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🎙️</span> Lồng tiếng (Bước 1):
-              </span>
-              <span style={{ fontWeight: 700, color: isAudioReady ? '#10b981' : '#fbbf24' }}>
-                {isAudioReady ? `✓ Đã sẵn sàng (${assetCounts.audioCount || 0}/${total})` : `Chưa đủ (${assetCounts.audioCount || 0}/${total})`}
-              </span>
-            </div>
-
-            {/* Hình ảnh */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.85)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🖼️</span> Hình ảnh {isAutoImage ? '' : '(Bước 2)'}:
-              </span>
-              <span style={{ fontWeight: 700, color: (isAutoImage ? '#10b981' : (isImageReady ? '#10b981' : '#fbbf24')) }}>
-                {isPexelsTalk
-                  ? (assetCounts?.hasBgVideo ? '✓ Đã tải video Pexels' : 'Chưa chọn video')
-                  : isImageReady
-                  ? `✓ Đã đủ ảnh (${assetCounts.imageCount || 0}/${total})`
-                  : `Chưa đủ (${assetCounts.imageCount || 0}/${total})`}
-              </span>
-            </div>
-
-            {/* Nhạc nền */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.85)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🎵</span> Nhạc nền {isAutoImage ? '(Bước 2)' : '(Bước 3)'}:
-              </span>
-              <span style={{ fontWeight: 700, color: '#10b981' }}>
-                {assetCounts.hasBgMusic ? '✓ Đã chọn file nhạc' : '✓ Nhạc nền mặc định'}
-              </span>
-            </div>
-
-            {/* Video thành phẩm */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.85)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🎬</span> Video thành phẩm {isAutoImage ? '(Bước 3)' : '(Bước 4)'}:
-              </span>
-              <span style={{ fontWeight: 700, color: isRenderingVideo ? '#818cf8' : 'rgba(255, 255, 255, 0.45)' }}>
-                {isRenderingVideo ? '⏳ Đang render...' : 'Chưa xuất'}
-              </span>
-            </div>
-          </div>
-
-          {/* Nút Tạo video ngay nếu mọi tài nguyên đã sẵn sàng */}
-          {isAudioReady && isImageReady && !isRenderingVideo && handleRenderVideo && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => handleRenderVideo(result?.segments)}
-              style={{
-                padding: '11px 16px',
-                borderRadius: '8px',
-                fontSize: '0.86rem',
-                fontWeight: 800,
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
-                cursor: 'pointer',
-                border: 'none',
-                color: '#fff',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span>🎬</span>
-              <span>Tạo Video ngay (Render)</span>
-            </button>
           )}
         </div>
       )}

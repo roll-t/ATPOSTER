@@ -30,14 +30,15 @@ export async function getMongoClientDb() {
   }
   try {
     if (!clientPromise) {
-      clientPromise = createMongoClient(DATABASE_CONFIG.DEFAULT_URI);
+      const uri = process.env.MONGODB_URI || DATABASE_CONFIG.DEFAULT_URI;
+      clientPromise = createMongoClient(uri);
     }
     const clientConnected = await clientPromise;
     isMongoOnline = true;
     return clientConnected.db();
   } catch (error) {
     if (isMongoOnline) {
-      console.warn('[DB Info] MongoDB local chưa bật. Đang tự động chuyển sang chế độ Local File DB (data/db.json) để ứng dụng chạy bình thường.');
+      console.warn(`[DB Info] MongoDB chưa sẵn sàng (${error?.message || error}). Đang tự động chuyển sang chế độ Local File DB (data/db.json) để ứng dụng chạy bình thường.`);
     }
     isMongoOnline = false;
     lastFallbackAt = now;

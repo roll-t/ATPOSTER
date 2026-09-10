@@ -164,7 +164,7 @@ NARRATION SCRIPT GUIDELINES:
 5. MANDATORY ON-SCREEN SUBTITLE RULES (CONCISE, MAX 2 LINES):
    - In the "subtitle" field, keep the primary text EXTREMELY concise and punchy (about 8 to 14 words at most, designed to fit cleanly in at most 2 lines on a mobile phone screen). NEVER write long, wordy paragraphs in "subtitle".
    - Do NOT include numbering prefixes like "Một.", "Hai.", "Ba.", "1.", "2." inside the "subtitle" field — start directly on the core statement (e.g. "Có **mượn** thì phải **trả**, đừng để nhắc.").
-   - Wrap 1 to 2 key phrases per line in double asterisks **...** so they render with a bold gold highlight on screen. Keep the translation line below simple and accurate.
+   - Wrap 1 to 2 key phrases in double asterisks **...** so they render with a bold gold highlight on screen. Write single-language subtitle in the primary language only (strictly NO translation, NO second language line, NO bilingual text).
 
 Return the result as a JSON object matching exactly this schema:
 {
@@ -175,8 +175,8 @@ Return the result as a JSON object matching exactly this schema:
       "visualDescription": "Detailed visual description in English of the flat white pictogram slide image, focusing on which symbolic figure(s)/props best depict this exact narration moment, their pose/positioning, and the flat white silhouettes (no glow) on full-bleed solid black background. No text/labels in the image. Figure sized moderately relative to the frame (about 50-65% height). (e.g. A single small flat pure white silhouette pictogram figure sits on the ground in the lower half of the 9:16 frame, head resting on knees, a small flat white question-mark symbol above their head. The entire canvas from edge to edge is full-bleed solid pitch black (#000000), crisp razor-sharp edges with zero glow, zero white borders, zero frames, generous empty black negative space, minimalist 2D graphic composition.)",
       "dialogueOrNarration": "Full spoken narration line following the VOICE & STYLE REFERENCE above, in the primary language specified above.",
       "subtitle": "${isVietnamesePrimary
-        ? 'Một hành động **tử tế** có thể thay đổi cả cuộc đời.\\nA small act of kindness can change a life.'
-        : 'A small act of **kindness** can change a life.\\nMột hành động tử tế có thể thay đổi cả cuộc đời.'}"
+        ? 'Một hành động **tử tế** có thể thay đổi cả cuộc đời.'
+        : 'A small act of **kindness** can change a life.'}"
     }
   ]
 }

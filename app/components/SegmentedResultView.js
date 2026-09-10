@@ -14,6 +14,7 @@ import CaptionStylePreview from './SegmentedResultView/CaptionStylePreview.js';
 import TransitionStylePreview from './SegmentedResultView/TransitionStylePreview.js';
 import ReadingPageLivePreview from './SegmentedResultView/ReadingPageLivePreview.js';
 import VideoResultPanel from './SegmentedResultView/VideoResultPanel.js';
+import VideoEditorPanel from './SegmentedResultView/VideoEditorPanel.js';
 import {
   BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
@@ -28,6 +29,7 @@ import {
   countCharacters, ttsChunkLimitFor
 } from './SegmentedResultView/utils.js';
 import { showToast } from './Toast.js';
+import { detectTimeEra } from '@/src/domain/content/timeEraDetector.js';
 
 // Map moralTheme key → DANH SÁCH từ khoá tìm video nền (tiếng Anh, vì Pexels tìm chuẩn hơn).
 //
@@ -201,6 +203,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // render (cùng folderPath), nên nếu không có tham số phân biệt, thẻ <video> vẫn giữ nguyên
   // bytes video CŨ đã tải trước đó thay vì tải lại bản vừa render xong.
   const [videoVersion, setVideoVersion] = useState(0);
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const isReadingPractice = result.category === 'reading_practice';
   const isPexelsTalkVideo = result.category === 'pexels_talk_video';
   // Skill Phật giáo là skill DUY NHẤT cố ý sinh [tag] cảm xúc trong lời kể, vì kịch bản của nó
@@ -421,7 +424,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
   const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => result.remotionConfig?.transitionStyle || result.remotionConfig?.transitionEffect || 'crossfade');
-  const [renderBilingual, setRenderBilingual] = useState(() => result.remotionConfig?.bilingual !== undefined ? result.remotionConfig.bilingual : (result.remotionConfig?.showBilingual !== undefined ? result.remotionConfig.showBilingual : true));
+  const [renderBilingual, setRenderBilingual] = useState(false);
   // Logo kênh mờ ở đáy mọi slide. Mặc định BẬT — trước đây nó gắn cứng trong Scene.tsx nên mọi
   // video đã render đều có, để mặc định tắt sẽ âm thầm đổi diện mạo các dự án cũ khi render lại.
   const [renderChannelLogo, setRenderChannelLogo] = useState(() => (
@@ -2114,7 +2117,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     // Đảm bảo không bị lọc bớt và luôn có textPrompt đầy đủ
     const aspectRatio = currentAspectRatio;
     const seenImageGroups = new Set();
-    const segmentsToGenerate = (result.segments || []).filter((s) => {
+    const filteredSegments = (result.segments || []).filter((s) => {
       if (['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative) {
         return true;
       }
@@ -2122,13 +2125,73 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (seenImageGroups.has(s.imageGroup)) return false;
       seenImageGroups.add(s.imageGroup);
       return true;
-    }).map((s) => {
+    });
+
+    const fullCorpus = (result.segments || []).map((s) => `${s.dialogueOrNarration || ''} ${s.visualDescription || ''}`).join(' ');
+    const detectedEra = detectTimeEra({
+      explicitEra: result.input?.timeEra || result.timeEra,
+      title: result.title || '',
+      scenario: result.input?.scenario || '',
+      fullText: fullCorpus
+    });
+
+    const segmentsToGenerate = filteredSegments.map((s) => {
       let prompt = s.textPrompt;
       if (!prompt || !prompt.trim()) {
         const rawDesc = s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${s.segmentNumber}`;
         const cleanDesc = String(rawDesc || '').replace(/\[[^\]]*\]/g, '').replace(/["“”'‘’]/g, ' ').replace(/\s+/g, ' ').trim();
+        const characterStyle = result.input?.characterStyle || result.characterStyle || 'stick_figure';
+        const isStickFigure = characterStyle !== 'regular_human';
+
         if (result.category === 'stick_figure_slideshow') {
-          prompt = `Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn stick figure comic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation frame with humorous witty cartoon charm. Visual scene: ${cleanDesc}. Expressive cartoon stick figure or vibrant symbolic prop in context. ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. ${aspectRatio === '16:9' ? 'Widescreen 16:9 cinematic horizontal layout: dynamic wide framing, character positioned with environmental storytelling elements, props, or background map/infographic naturally filling the horizontal frame without empty dead zones.' : 'Full-bleed 9:16 vertical layout: strong vertical composition optimized for mobile screens, character and environment vertically balanced with rich visual hierarchy.'} Format: aspect ratio ${aspectRatio}. --no text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
+          const hasExplicitNoChar = /(no character|no people|no human|no stick|without character|without people|không có người|thuần cảnh|pure scenery|pure environment|cutaway|cross-section)/i.test(cleanDesc);
+          const mentionsCharacter = /(stick figure|stickman|character|person|people|human|humans|man|men|woman|women|cavem[ae]n|neanderthals?|homo sapiens|hunter|hunters|scientist|scientists|explorer|explorers|student|students|worker|workers|boy|boys|girl|girls|kid|kids|child|children|elder|elders|villager|villagers|warrior|warriors|diver|divers|astronaut|astronauts|individual|individuals|figure|figures|người que|nhân vật|con người|người|nhà khoa học|nhà thám hiểm|người tiền sử|thợ săn|thợ lặn|phi hành gia|cư dân|bộ lạc|thổ dân|đứa trẻ|trẻ em)/i.test(cleanDesc);
+          const isCharacterScene = !detectedEra.isPreHuman && mentionsCharacter && !hasExplicitNoChar;
+
+          let sanitizedDesc = cleanDesc;
+          if (detectedEra.isPreHuman) {
+            sanitizedDesc = sanitizedDesc
+              .replace(/\b(a\s+)?(cartoon\s+)?(stick\s*figure|stickman|person|people|human|man|woman|character|explorer|scientist|guy)\b(\s+(in\s+a\s+\w+\s+)?(shivering|running|standing|looking|kneeling|panicking|sweating|exploring|walking|sitting|scratching\s+head))?/gi, ' pristine untamed geological terrain ')
+              .replace(/\b(ancient\s+)?(greek|roman|egyptian)?\s*(temple|colonnade|pillar|ruin|piazza|monument)s?\b/gi, ' natural rock and ice formation ')
+              .replace(/\b(wearing|dressed in)\s+[^,.;]*/gi, '')
+              .replace(/\b(tunic|toga|robe|cloak|hoodie|jeans|clothes|clothing|shoes|sandals|hat|cap)\b/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+          } else if (isCharacterScene) {
+            if (isStickFigure) {
+              sanitizedDesc = sanitizedDesc
+                .replace(/\b(two|three|several|a group of)?\s*(primitive\s+)?(cavem[ae]n|neanderthals?|homo sapiens|early humans?)\b/gi, (m) => `cartoon stick figure ${m.trim()}`)
+                .replace(/\b(a\s+)?(hunter|scientist|explorer|diver|astronaut|student|worker|boy|girl|kid|child|villager|person|human|man|woman)\b/gi, 'a cartoon stick figure $2')
+                .replace(/\b(people|humans)\b/gi, 'cartoon stick figures')
+                .replace(/\bcartoon stick figure\s+cartoon stick figure\b/gi, 'cartoon stick figure')
+                .replace(/\s+/g, ' ')
+                .trim();
+            } else {
+              sanitizedDesc = sanitizedDesc
+                .replace(/\b(a\s+)?(cartoon\s+)?(stick\s*figure|stickman)\b/gi, 'a stylized 2D cartoon human')
+                .replace(/\b(cartoon\s+)?(stick\s*figures|stickmen)\b/gi, 'stylized 2D cartoon humans')
+                .replace(/\s+/g, ' ')
+                .trim();
+            }
+          }
+
+          const eraDirective = detectedEra.directive;
+          const eraNegative = detectedEra.negative ? `, ${detectedEra.negative}` : '';
+          const noBorderNegative = 'border, white border, frame, white frame, outer frame, picture frame, border lines, margin, white margin, white edge, borders, padding, matting, vignette, postcard, polaroid, sticker, white outline, card border, comic panel border, blank margin, framed, ';
+          const strictBorderlessRule = 'BORDERLESS FULL-BLEED ARTWORK: The illustration must fill the canvas edge-to-edge completely. Strictly zero white borders, zero white margins, zero white outlines, zero frame, zero border lines, zero polaroid borders, zero sticker borders, zero card borders.';
+          const compositionGuide = aspectRatio === '16:9'
+            ? 'Edge-to-edge borderless widescreen 16:9 cinematic horizontal layout: artwork extends completely to all edges filling 100% of the canvas with dynamic wide framing, zero white borders, zero margins, zero padding, and zero outer frame.'
+            : 'Edge-to-edge borderless full-bleed 9:16 vertical layout: artwork extends completely to all edges filling 100% of the canvas with zero white borders, zero margins, zero padding, and zero outer frame.';
+
+          if (isCharacterScene) {
+            if (isStickFigure) {
+              prompt = `Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. ${eraDirective} MANDATORY UNIFIED CHARACTER STYLE — 100% CARTOON STICK FIGURE THROUGHOUT ENTIRE VIDEO: All characters, humans, cavemen, hunters, and scientists across every scene MUST strictly be rendered as expressive 2D cartoon stick figures (round minimalist white ball head, simple expressive dot eyes, line mouth, black ink limbs, dressed in contextual attire). STRICTLY ZERO realistic humans, ZERO detailed human facial features, ZERO realistic human anatomy. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation illustration with witty cartoon charm, borderless full-bleed composition. Visual scene: ${sanitizedDesc}. ${strictBorderlessRule} ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. ${compositionGuide} Format: aspect ratio ${aspectRatio}. --no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, realistic human, photorealistic human, detailed human face, realistic anatomy, realistic human facial features, realistic Neanderthal, realistic caveman, realistic human skin texture, semi-realistic human, realistic nose, realistic lips, anime human, 3d render, cgi, photorealistic, plain blank white void background, airbrushed shading, gradient clip art, blurry${eraNegative}`;
+            } else {
+              prompt = `Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. ${eraDirective} MANDATORY UNIFIED CHARACTER STYLE — 100% STYLIZED 2D CARTOON HUMAN THROUGHOUT ENTIRE VIDEO: All characters, cavemen, hunters, and scientists across every scene MUST strictly be rendered as stylized 2D cartoon humans with stylized animated features and cartoon human proportions. STRICTLY ZERO stick figures, ZERO stickman wire bodies. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette. Clean 2D cel-shaded animation illustration with stylized cartoon human proportions, borderless full-bleed composition. Visual scene: ${sanitizedDesc}. ${strictBorderlessRule} ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. ${compositionGuide} Format: aspect ratio ${aspectRatio}. --no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, stick figure, stickman, stick body, wire limbs, minimalist ball head, meme face, 3d render, cgi, photorealistic, plain blank white void background, airbrushed shading, gradient clip art, blurry${eraNegative}`;
+            }
+          } else {
+            prompt = `Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn scientific concept art and environmental landscape with bold clean black ink line work and rich stylized flat color fills. ${eraDirective} Atmospheric educational scenery with detailed cross-section layers, textured geology, celestial or planetary environment, and warm earthy cartoon color palette (warm ochre, deep cobalt, clay brown, glowing magma orange, slate grey). Pure scenery and environmental phenomena, NO human characters. NOT a plain white background void. Clean 2D cel-shaded animation artwork, borderless full-bleed composition. Visual scene: ${sanitizedDesc}. Purely environmental and conceptual visual scene WITHOUT any characters, people, or stick figures. ${strictBorderlessRule} ABSOLUTELY NO TEXT: Completely textless, wordless, and letterless artwork. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only. ${compositionGuide} Format: aspect ratio ${aspectRatio}. --no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, human, person, man, woman, stick figure, stickman, character, face, safari hat, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry${eraNegative}`;
+          }
         } else {
           prompt = `Minimalist whiteboard-animation style, hand-drawn black ink stick figures on a plain white background. Scene description: ${cleanDesc}. Plain white background, no scenery. Color palette: #000000, #FFFFFF, #FE2C55. This is a single static story-illustration frame. Format: aspect ratio ${aspectRatio}. --no text, words, letters, subtitles, captions, speech bubble, dialogue box, banner, realistic textures, 3d render, photo, gradient background`;
         }
@@ -2137,7 +2200,90 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         prompt = prompt.replace(new RegExp(`aspect ratio ${fromRatio}`, 'g'), `aspect ratio ${aspectRatio}`);
         prompt = prompt.replace(new RegExp(`--ar ${fromRatio}`, 'g'), `--ar ${aspectRatio}`);
         if (result.category === 'stick_figure_slideshow') {
+          const characterStyle = result.input?.characterStyle || result.characterStyle || 'stick_figure';
+          const isStickFigure = characterStyle !== 'regular_human';
+
           prompt = prompt.replace(/depict\s*["“]([^"”]+)["”]/gi, 'visual depiction of $1');
+          prompt = prompt
+            .replace(/\banimation frame\b/gi, 'animation artwork, borderless edge-to-edge full-bleed composition')
+            .replace(/\bstory frame\b/gi, 'story illustration, borderless edge-to-edge full-bleed composition');
+          if (detectedEra.isPreHuman) {
+            prompt = prompt
+              .replace(/Expressive cartoon stick figure in context:?[^.]*\./gi, 'Purely environmental and conceptual visual scene WITHOUT any characters, people, or stick figures.')
+              .replace(/Expressive cartoon stick figure in context\.?/gi, 'Pure environmental landscape, NO human characters.')
+              .replace(/\b(a\s+)?(cartoon\s+)?(stick\s*figure|stickman|person|people|human|man|woman|character|explorer|scientist|guy)\b(\s+(in\s+a\s+\w+\s+)?(shivering|running|standing|looking|kneeling|panicking|sweating|exploring|walking|sitting|scratching\s+head))?/gi, 'pristine untamed geological terrain')
+              .replace(/\b(ancient\s+)?(greek|roman|egyptian)?\s*(temple|colonnade|pillar|ruin|piazza|monument)s?\b/gi, 'natural rock and ice formation')
+              .replace(/\b(wearing|dressed in)\s+[^,.;]*/gi, '')
+              .replace(/\b(tunic|toga|robe|cloak|hoodie|jeans|clothes|clothing|shoes|sandals|hat|cap)\b/gi, '')
+              .replace(/\s+/g, ' ');
+          } else {
+            // Đảm bảo đồng bộ 100% kiểu nhân vật
+            if (isStickFigure) {
+              prompt = prompt
+                .replace(/\b(two|three|several|a group of)?\s*(primitive\s+)?(cavem[ae]n|neanderthals?|homo sapiens|early humans?)\b/gi, (m) => `cartoon stick figure ${m.trim()}`)
+                .replace(/\b(a\s+)?(hunter|scientist|explorer|diver|astronaut|student|worker|boy|girl|kid|child|villager|person|human|man|woman)\b/gi, 'a cartoon stick figure $2')
+                .replace(/\b(people|humans)\b/gi, 'cartoon stick figures')
+                .replace(/\bcartoon stick figure\s+cartoon stick figure\b/gi, 'cartoon stick figure');
+              if (!prompt.includes('100% CARTOON STICK FIGURE')) {
+                prompt = prompt.replace(
+                  /Visual scene:/gi,
+                  'MANDATORY UNIFIED CHARACTER STYLE — 100% CARTOON STICK FIGURE THROUGHOUT ENTIRE VIDEO: All characters, humans, cavemen, hunters, and scientists across every scene MUST strictly be rendered as expressive 2D cartoon stick figures (round minimalist white ball head, simple expressive dot eyes, line mouth, black ink limbs, dressed in contextual attire). STRICTLY ZERO realistic humans, ZERO detailed human facial features, ZERO realistic human anatomy. Visual scene:'
+                );
+              }
+              if (!prompt.includes('realistic human, photorealistic human')) {
+                prompt = prompt.replace(
+                  /--no\s+/gi,
+                  '--no realistic human, photorealistic human, detailed human face, realistic anatomy, realistic human facial features, realistic Neanderthal, realistic caveman, realistic human skin texture, semi-realistic human, realistic nose, realistic lips, anime human, '
+                );
+              }
+            } else {
+              prompt = prompt
+                .replace(/\b(a\s+)?(cartoon\s+)?(stick\s*figure|stickman)\b/gi, 'a stylized 2D cartoon human')
+                .replace(/\b(cartoon\s+)?(stick\s*figures|stickmen)\b/gi, 'stylized 2D cartoon humans');
+              if (!prompt.includes('100% STYLIZED 2D CARTOON HUMAN')) {
+                prompt = prompt.replace(
+                  /Visual scene:/gi,
+                  'MANDATORY UNIFIED CHARACTER STYLE — 100% STYLIZED 2D CARTOON HUMAN THROUGHOUT ENTIRE VIDEO: All characters, cavemen, hunters, and scientists across every scene MUST strictly be rendered as stylized 2D cartoon humans with stylized animated features and cartoon human proportions. STRICTLY ZERO stick figures, ZERO stickman wire bodies. Visual scene:'
+                );
+              }
+              if (!prompt.includes('stick figure, stickman')) {
+                prompt = prompt.replace(
+                  /--no\s+/gi,
+                  '--no stick figure, stickman, stick body, wire limbs, minimalist ball head, meme face, '
+                );
+              }
+            }
+          }
+          if (!prompt.includes(detectedEra.directive)) {
+            prompt = prompt.replace(
+              /Visual scene:/gi,
+              `${detectedEra.directive} Visual scene:`
+            );
+          }
+          if (!prompt.includes('BORDERLESS FULL-BLEED ARTWORK')) {
+            prompt = prompt.replace(
+              /Visual scene:/gi,
+              'BORDERLESS FULL-BLEED ARTWORK: The illustration must fill the canvas edge-to-edge completely. Strictly zero white borders, zero white margins, zero white outlines, zero frame, zero border lines. Visual scene:'
+            );
+          }
+          if (detectedEra.negative && !prompt.includes(detectedEra.negative)) {
+            prompt = prompt.replace(
+              /--no\s+/gi,
+              `--no ${detectedEra.negative}, `
+            );
+          }
+          if (!prompt.includes('white border')) {
+            prompt = prompt.replace(
+              /--no\s+/gi,
+              '--no border, white border, frame, white frame, outer frame, picture frame, border lines, margin, white margin, white edge, borders, padding, matting, vignette, postcard, polaroid, sticker, white outline, card border, comic panel border, blank margin, framed, '
+            );
+          }
+          if (detectedEra.isPreHuman && !prompt.includes('human, person, man, woman, stick figure')) {
+            prompt = prompt.replace(
+              /--no\s+/gi,
+              `--no human, person, man, woman, stick figure, stickman, character, face, temple, Greek temple, Roman temple, colonnade, pillar, ruins, clothing, tunic, `
+            );
+          }
           if (!prompt.includes('ABSOLUTELY NO TEXT')) {
             prompt = prompt.replace(
               /--no\s+/gi,
@@ -3267,95 +3413,106 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             <span style={{ whiteSpace: 'pre-line' }}>Kịch bản: {result.title}</span>
           )}
         </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Bộ chọn tỉ lệ khung hình (Chuyển nhanh 9:16 <-> 16:9) */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: 'rgba(0, 0, 0, 0.45)',
-              padding: '3px',
-              borderRadius: '9px',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              gap: '2px'
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => handleToggleOrientation('9:16')}
-              disabled={isSwitchingRatio}
-              style={{
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                borderRadius: '7px',
-                border: 'none',
-                cursor: isSwitchingRatio ? 'wait' : 'pointer',
-                background: !isLandscape ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'transparent',
-                color: !isLandscape ? '#fff' : 'rgba(255, 255, 255, 0.65)',
-                boxShadow: !isLandscape ? '0 2px 8px rgba(254, 44, 85, 0.35)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-              title="Chuyển sang tỉ lệ Màn dọc 9:16 (TikTok, Shorts, Reels) — Tự động cập nhật prompt ảnh và Remotion"
-            >
-              <span>📱</span>
-              <span>Dọc 9:16</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleOrientation('16:9')}
-              disabled={isSwitchingRatio}
-              style={{
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                borderRadius: '7px',
-                border: 'none',
-                cursor: isSwitchingRatio ? 'wait' : 'pointer',
-                background: isLandscape ? 'linear-gradient(135deg, #25f4ee, #00bdff)' : 'transparent',
-                color: isLandscape ? '#0b1120' : 'rgba(255, 255, 255, 0.65)',
-                boxShadow: isLandscape ? '0 2px 8px rgba(37, 244, 238, 0.35)' : 'none',
-                transition: 'all 0.15s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-              title="Chuyển sang tỉ lệ Màn ngang 16:9 (YouTube Dài, Máy tính) — Tự động cập nhật prompt ảnh và Remotion"
-            >
-              <span>🖥️</span>
-              <span>Ngang 16:9</span>
-            </button>
-          </div>
 
-          {activeTab === 'process' && onOpenScriptDetail && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{
-                padding: '6px 14px',
-                fontSize: '0.78rem',
-                borderRadius: '8px',
-                fontWeight: 700,
+        {/* Khối Lời thuyết minh & các nút hành động được dời lên đây */}
+        {(() => {
+          const keepTags = showEmotionTags;
+          const speechText = buildFullNarrationText(result.segments, { keepTags });
+          const ttsParts = splitNarrationForTts(speechText);
+          const totalChars = countCharacters(speechText);
+          const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
+          const isMultiPart = ttsParts.length > 1;
+
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.35)',
-                color: '#a5b4fc',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-              onClick={onOpenScriptDetail}
-              title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
-            >
-              <span>📜</span>
-              <span>Xem chi tiết kịch bản</span>
-            </button>
-          )}
-        </div>
+                padding: '5px 10px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                fontSize: '0.74rem',
+                color: 'var(--text-muted)'
+              }}>
+                <span style={{ color: 'var(--warning)', fontWeight: 700 }}>🎙️ Lời thuyết minh:</span>
+                <span>
+                  {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · ~{formatDuration(estimateSeconds(spokenOnlyText))}
+                  {isMultiPart && (
+                    <strong style={{ color: 'var(--warning)', marginLeft: '4px' }}>
+                      (chia {ttsParts.length} phần)
+                    </strong>
+                  )}
+                </span>
+              </div>
+
+              {scriptHasEmotionTags && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  title={showEmotionTags
+                    ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
+                    : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
+                  style={{
+                    padding: '5px 10px', fontSize: '0.74rem', borderRadius: '7px', fontWeight: 700, flexShrink: 0,
+                    color: showEmotionTags ? '#0f172a' : undefined,
+                    background: showEmotionTags ? 'var(--warning)' : undefined,
+                    borderColor: showEmotionTags ? 'var(--warning)' : undefined
+                  }}
+                  onClick={() => setShowEmotionTags(v => !v)}
+                >
+                  {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
+                </button>
+              )}
+
+              {onOpenScriptDetail && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '5px 12px',
+                    fontSize: '0.74rem',
+                    borderRadius: '7px',
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: 'rgba(99, 102, 241, 0.15)',
+                    border: '1px solid rgba(99, 102, 241, 0.35)',
+                    color: '#a5b4fc',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => onOpenScriptDetail()}
+                  title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
+                >
+                  <span>📜</span>
+                  <span>Xem chi tiết kịch bản</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '5px 10px', fontSize: '0.74rem', borderRadius: '7px', fontWeight: 700, flexShrink: 0 }}
+                onClick={() => setShowFullNarration(v => !v)}
+              >
+                {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '5px 10px', fontSize: '0.74rem', borderRadius: '7px', fontWeight: 700, flexShrink: 0 }}
+                onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
+              >
+                {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
+              </button>
+            </div>
+          );
+        })()}
+
         {!isSlideshowPipeline && (
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -3389,174 +3546,102 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         )}
       </div>
 
-      {/* Layout 2 cột cho trình tạo video (Cột trái: Quy trình 4 bước & các phân cảnh; Cột phải: Màn hình kết quả video) */}
+      {/* Khung toàn văn lời thuyết minh (mở ra khi bấm Xem toàn văn) */}
+      {showFullNarration && (
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          padding: '16px',
+          marginBottom: '20px'
+        }}>
+          {(() => {
+            const keepTags = showEmotionTags;
+            const speechText = buildFullNarrationText(result.segments, { keepTags });
+            const ttsParts = splitNarrationForTts(speechText);
+            const isMultiPart = ttsParts.length > 1;
+            return (
+              <>
+                <p style={{ margin: '0 0 8px 0', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
+                  để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
+                  {scriptHasEmotionTags && (keepTags
+                    ? ' Đang kèm [tag] cảm xúc — dán thẳng sang ElevenLabs v3 để nó đọc theo sắc thái.'
+                    : ' Đang ẩn [tag] cảm xúc — bấm 🏷️ ở trên để hiện lại tag nếu cần.')}
+                </p>
+                {ttsParts.map((part, i) => (
+                  <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
+                    {isMultiPart && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
+                          ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
+                        </strong>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {countCharacters(part).toLocaleString('vi-VN')} / {ttsChunkLimitFor(part).toLocaleString('vi-VN')} ký tự
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '5px', fontWeight: 700 }}
+                          onClick={() => onCopy(part, `tts_part_${i}`)}
+                        >
+                          {copiedKey === `tts_part_${i}` ? '✓ Đã chép!' : `📋 Copy phần ${i + 1}`}
+                        </button>
+                      </div>
+                    )}
+                    <p style={{
+                      margin: 0,
+                      fontSize: '0.85rem',
+                      lineHeight: 1.7,
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      whiteSpace: 'pre-wrap',
+                      background: 'rgba(0, 0, 0, 0.2)',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      fontStyle: 'italic'
+                    }}>
+                      {part}
+                    </p>
+                  </div>
+                ))}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Layout 3 cột theo tỉ lệ: Trái 3 phần, Giữa 4 phần, Phải 3 phần (3:4:3) - Liền mạch không spacing */}
       <div style={activeTab === 'process' ? {
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(420px, 1fr)',
-        gap: '24px',
+        gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 4fr) minmax(0, 3fr)',
+        gap: '0px',
         alignItems: 'start'
       } : undefined}>
         <div style={activeTab === 'process' ? { minWidth: 0, display: 'flex', flexDirection: 'column' } : undefined}>
 
-          {/* Toàn bộ lời thuyết minh gộp lại (Hiển thị phía trên quy trình sản xuất) */}
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-            borderRadius: '12px',
-            padding: '16px',
-            marginBottom: '24px'
-          }}>
-            {(() => {
-              const keepTags = showEmotionTags;
-              const speechText = buildFullNarrationText(result.segments, { keepTags });
-              const ttsParts = splitNarrationForTts(speechText);
-              const totalChars = countCharacters(speechText);
-              const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
-              const isMultiPart = ttsParts.length > 1;
-
-              return (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                    <strong style={{ color: 'var(--warning)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                      <span>🎙️</span>
-                      <span>Toàn bộ lời thuyết minh</span>
-                    </strong>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginRight: 'auto' }}>
-                      {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · đọc khoảng {formatDuration(estimateSeconds(spokenOnlyText))}
-                      {isMultiPart && (
-                        <span style={{ color: 'var(--warning)', fontWeight: 700 }}>
-                          {' '}· chia {ttsParts.length} lần render TTS
-                        </span>
-                      )}
-                    </span>
-                    {scriptHasEmotionTags && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        title={showEmotionTags
-                          ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
-                          : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
-                        style={{
-                          padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0,
-                          color: showEmotionTags ? '#0f172a' : undefined,
-                          background: showEmotionTags ? 'var(--warning)' : undefined,
-                          borderColor: showEmotionTags ? 'var(--warning)' : undefined
-                        }}
-                        onClick={() => setShowEmotionTags(v => !v)}
-                      >
-                        {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{
-                        padding: '4px 11px',
-                        fontSize: '0.72rem',
-                        borderRadius: '6px',
-                        fontWeight: 700,
-                        flexShrink: 0,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        background: 'rgba(99, 102, 241, 0.15)',
-                        border: '1px solid rgba(99, 102, 241, 0.35)',
-                        color: '#a5b4fc',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => onOpenScriptDetail && onOpenScriptDetail()}
-                      title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
-                    >
-                      <span>📜</span>
-                      <span>Xem chi tiết kịch bản</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                      onClick={() => setShowFullNarration(v => !v)}
-                    >
-                      {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0 }}
-                      onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
-                    >
-                      {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
-                    </button>
-                  </div>
-                  {showFullNarration && (
-                    <>
-                      <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        Mỗi ý một đoạn, cách nhau dòng trống để công cụ TTS nghỉ hơi đúng chỗ sang ý mới. Bản dự phòng
-                        để dán tay vào công cụ khác (CapCut...) — nếu muốn tự động, dùng nút &quot;🎙️ Tạo Lồng Tiếng&quot; bên dưới.
-                        {scriptHasEmotionTags && (keepTags
-                          ? ' Đang kèm [tag] cảm xúc — dán thẳng sang ElevenLabs v3 để nó đọc theo sắc thái. Công cụ khác không hiểu tag sẽ đọc to cụm trong ngoặc, khi đó bấm 🏷️ để ẩn tag rồi copy lại.'
-                          : ' Đang ẩn [tag] cảm xúc — bấm 🏷️ ở trên để hiện lại nếu cần dán sang ElevenLabs v3.')}
-                      </p>
-                      {ttsParts.map((part, i) => (
-                        <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
-                          {isMultiPart && (
-                            <div style={{
-                              display: 'flex', alignItems: 'center', gap: '8px',
-                              marginBottom: '6px', flexWrap: 'wrap'
-                            }}>
-                              <strong style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
-                                ▶️ PHẦN {i + 1} — render TTS lần {i + 1}
-                              </strong>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                {countCharacters(part).toLocaleString('vi-VN')} / {ttsChunkLimitFor(part).toLocaleString('vi-VN')} ký tự
-                              </span>
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                style={{ padding: '2px 8px', fontSize: '0.68rem', borderRadius: '5px', fontWeight: 700 }}
-                                onClick={() => onCopy(part, `tts_part_${i}`)}
-                              >
-                                {copiedKey === `tts_part_${i}` ? '✓ Đã chép!' : `📋 Copy phần ${i + 1}`}
-                              </button>
-                            </div>
-                          )}
-                          <p style={{
-                            margin: 0,
-                            fontSize: '0.85rem',
-                            lineHeight: 1.7,
-                            color: 'rgba(255, 255, 255, 0.85)',
-                            whiteSpace: 'pre-wrap',
-                            background: 'rgba(0, 0, 0, 0.2)',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            fontStyle: 'italic'
-                          }}>
-                            {part}
-                          </p>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
           {activeTab === 'process' && isSlideshowPipeline && (
             <div style={{
               background: 'rgba(37, 244, 238, 0.03)',
-              border: '1px solid rgba(37, 244, 238, 0.15)',
-              borderRadius: '12px',
-              padding: '20px',
-              marginBottom: '24px'
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRight: 'none',
+              borderRadius: '0px',
+              padding: '14px',
+              marginBottom: '0px',
+              height: 'calc(100vh - 122px)',
+              maxHeight: 'calc(100vh - 122px)',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              transform: 'none',
+              transition: 'none'
             }}>
               <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⚙️</span> Quy trình sản xuất video ({isPexelsTalkVideo ? '3' : '4'} Bước)
+                <span>⚙️</span> Quy trình sản xuất video
               </h4>
 
               {/* Steps Pipeline */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
 
-                {/* Bước 1: Tạo giọng nói */}
+                {/* Tạo giọng nói */}
                 {(() => {
                   const total = result.segments.length;
                   const isStep1Done = assetCounts.audioCount >= total;
@@ -3591,7 +3676,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Bước 1: Tạo giọng lồng tiếng
+                              Tạo giọng lồng tiếng
                               {isExternalVoiceSkill && (
                                 <span style={{ marginLeft: '8px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
                                   tuỳ chọn
@@ -3760,7 +3845,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           {hasBgVideo ? '✓' : '2'}
                         </div>
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Bước 2: Chọn Video Nền Pexels
+                          Chọn Video Nền Pexels
                         </span>
                         {hasBgVideo && (
                           <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
@@ -4119,7 +4204,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
                           <div style={{ minWidth: 0 }}>
                             <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Bước 2: Sinh & tải ảnh tự động
+                              Sinh & tải ảnh tự động
                             </span>
                           </div>
                         </div>
@@ -4129,8 +4214,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             className="btn btn-secondary"
                             title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
                             style={{
-                              padding: '7px 12px',
-                              fontSize: '0.76rem',
+                              padding: '7px 10px',
+                              fontSize: '0.82rem',
                               borderRadius: '8px',
                               fontWeight: 700,
                               whiteSpace: 'nowrap',
@@ -4139,7 +4224,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             onClick={handleOpenImagesFolder}
                             disabled={isOpeningImages}
                           >
-                            {isOpeningImages ? '⏳ Đang mở...' : assetCounts.imageCount > 0 ? `📁 Thư mục ảnh (${assetCounts.imageCount})` : '📁 Thư mục ảnh'}
+                            {isOpeningImages ? '⏳' : '📁'}
                           </button>
                           <button
                             type="button"
@@ -4220,7 +4305,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           </div>
                           <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Bước 3: Nhạc nền hòa âm
+                              Nhạc nền hòa âm
                             </span>
                             <span style={{
                               fontSize: '0.72rem',
@@ -4302,124 +4387,36 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   // Đã có ảnh, chỉ còn thiếu giọng đọc — trường hợp thường gặp của skill lồng tiếng ngoài.
                   const waitingForExternalAudio = isExternalVoiceSkill && isStep2Done && !isStep1Done;
 
-                  return (
-                    <div className={isRenderingVideo ? 'running-glow-card' : ''} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.015)',
-                      border: isRenderingVideo ? '1.5px solid transparent' : isRenderDone ? '1px solid rgba(16, 185, 129, 0.25)' : isReadyToRender ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                      borderRadius: '10px',
-                      opacity: isReadyToRender ? 1 : 0.5,
-                      gap: '10px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: isRenderDone ? '#10b981' : isReadyToRender ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
-                            flexShrink: 0,
-                            animation: isRenderingVideo ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                          }}>
-                            {isRenderDone ? '✓' : stepNum}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Bước {stepNum}: Biên tập & Xuất Video
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                  if (waitingForExternalAudio) {
+                    return (
+                      <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6, marginTop: '8px' }}>
+                        🎙️ Đã đủ hình ảnh / hoạt cảnh, còn thiếu giọng đọc. Bạn có thể bấm nút <strong>🎧 Ghép giọng ElevenLabs</strong> ở Bước 1 để thả file và cắt tự động, hoặc chép file audio vào thư mục <strong>audio/</strong> của dự án:
+                        <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>scene-01.wav</code> (hoặc .mp3)… đủ {total} file.
+                        Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
+                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            title="Cấu hình kiểu render (phụ đề, chuyển cảnh, song ngữ)"
-                            style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                            onClick={() => setShowRenderConfig(!showRenderConfig)}
-                            disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
+                            style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                            onClick={handleOpenVideoFolder}
+                            disabled={isOpeningFolder}
                           >
-                            ⚙️
+                            {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục dự án'}
                           </button>
                           <button
                             type="button"
-                            className="btn"
-                            style={{
-                              padding: '7px 14px',
-                              fontSize: '0.76rem',
-                              borderRadius: '8px',
-                              fontWeight: 700,
-                              background: isRenderDone ? 'rgba(46, 213, 115, 0.15)' : isReadyToRender ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                              color: isRenderDone ? '#2ed573' : isReadyToRender ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                              border: isRenderDone ? '1px solid rgba(46, 213, 115, 0.3)' : isReadyToRender ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                              boxShadow: isRenderDone || !isReadyToRender ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                              cursor: (!isReadyToRender || isRenderingVideo) ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              flexShrink: 0
-                            }}
-                            onClick={handleRenderVideo}
-                            disabled={!isReadyToRender || isRenderingVideo || isGeneratingVoice}
+                            className="btn btn-secondary"
+                            style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
+                            onClick={checkAssets}
                           >
-                            {isRenderingVideo ? '⏳ Đang render...' : isRenderDone ? '🎥 Tạo Lại Video' : '🎥 Tạo Video (Render)'}
+                            🔄 Quét lại ({assetCounts.audioCount}/{total} file audio)
                           </button>
                         </div>
                       </div>
+                    );
+                  }
 
-                      {/* Skill lồng tiếng ngoài: ảnh xong rồi mà chưa có mp3 thì chỉ rõ phải bỏ file
-                      vào đâu và đặt tên thế nào — check-assets đếm đúng scene-NN.mp3, đếm được
-                      đủ là nút render tự sáng lên, không cần thao tác gì thêm. */}
-                      {waitingForExternalAudio && (
-                        <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '10px 12px', lineHeight: 1.6 }}>
-                          🎙️ Đã đủ hình ảnh / hoạt cảnh, còn thiếu giọng đọc. Bạn có thể bấm nút <strong>🎧 Ghép giọng ElevenLabs</strong> ở Bước 1 để thả file và cắt tự động, hoặc chép file audio vào thư mục <strong>audio/</strong> của dự án:
-                          <code style={{ background: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px' }}>scene-01.wav</code> (hoặc .mp3)… đủ {total} file.
-                          Xong bấm <strong>🔄</strong> để quét lại, nút render sẽ tự mở.
-                          <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                              onClick={handleOpenVideoFolder}
-                              disabled={isOpeningFolder}
-                            >
-                              {isOpeningFolder ? '⏳ Đang mở...' : '📂 Mở thư mục dự án'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '5px 12px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                              onClick={checkAssets}
-                            >
-                              🔄 Quét lại ({assetCounts.audioCount}/{total} file audio)
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Nhắc render lại khi nhạc nền vừa được thay đổi */}
-                      {musicChangedSinceRender && isRenderDone && !isRenderingVideo && (
-                        <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🎵 Nhạc nền vừa được thay đổi — nhấn <strong>"Tạo Lại Video"</strong> để video áp dụng nhạc mới.
-                        </div>
-                      )}
-
-                      {/* Dòng tiến độ ước tính (Remotion không có % thật) - đồng bộ hiệu ứng với Bước 1/2 */}
-                      {isRenderingVideo && (
-                        <StepProgressBar
-                          percent={renderProgress}
-                          label={`${renderProgress}%`}
-                          color="#10b981"
-                          showShimmer={true}
-                        />
-                      )}
-                    </div>
-                  );
+                  return null;
                 })()}
 
               </div>
@@ -5252,7 +5249,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
         </div>
 
-        {/* CỘT PHẢI: Kết quả video (Màn hình chờ kết quả hoặc Video Player thành phẩm) */}
+        {/* CỘT GIỮA (4 phần): Mô phỏng Video Trực tiếp & Nút Render */}
         {activeTab === 'process' && (
           <div
             style={{
@@ -5261,7 +5258,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px'
+              height: 'calc(100vh - 122px)',
+              maxHeight: 'calc(100vh - 122px)'
             }}
           >
             <VideoResultPanel
@@ -5269,6 +5267,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 ...result,
                 remotionConfig: {
                   ...(result.remotionConfig || {}),
+                  captionStyle: renderCaptionStyle,
+                  font: renderCaptionFont,
+                  fontSize: renderCaptionFontSize,
+                  highlightColor: renderHighlightColor,
+                  textColor: renderCaptionTextColor,
+                  captionMarginY: renderCaptionMarginY,
+                  transitionStyle: renderTransitionStyle,
+                  channelLogo: renderChannelLogo,
                   orientation: currentOrientation,
                   width: isLandscape ? 1920 : 1080,
                   height: isLandscape ? 1080 : 1920
@@ -5279,6 +5285,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   orientation: currentOrientation
                 }
               }}
+              activeSceneIndex={activeSceneIndex}
+              onSceneIndexChange={setActiveSceneIndex}
               allHaveElements={allHaveElements}
               assetCounts={assetCounts}
               videoVersion={videoVersion}
@@ -5290,6 +5298,54 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               musicChangedSinceRender={musicChangedSinceRender}
               isRenderDone={isRenderDone}
               handleRenderVideo={handleRenderVideo}
+            />
+          </div>
+        )}
+
+        {/* CỘT PHẢI (3 phần): Tab edit video hiển thị ở mô phỏng */}
+        {activeTab === 'process' && (
+          <div
+            style={{
+              position: 'sticky',
+              top: '0px',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              height: 'calc(100vh - 122px)',
+              maxHeight: 'calc(100vh - 122px)'
+            }}
+          >
+            <VideoEditorPanel
+              result={result}
+              activeSceneIndex={activeSceneIndex}
+              onSceneIndexChange={setActiveSceneIndex}
+              assetCounts={assetCounts}
+              renderCaptionStyle={renderCaptionStyle}
+              setRenderCaptionStyle={setRenderCaptionStyle}
+              renderCaptionFont={renderCaptionFont}
+              setRenderCaptionFont={setRenderCaptionFont}
+              renderCaptionFontSize={renderCaptionFontSize}
+              setRenderCaptionFontSize={setRenderCaptionFontSize}
+              renderHighlightColor={renderHighlightColor}
+              setRenderHighlightColor={setRenderHighlightColor}
+              renderCaptionTextColor={renderCaptionTextColor}
+              setRenderCaptionTextColor={setRenderCaptionTextColor}
+              renderCaptionBgTransparent={renderCaptionBgTransparent}
+              setRenderCaptionBgTransparent={setRenderCaptionBgTransparent}
+              renderCaptionMarginY={renderCaptionMarginY}
+              setRenderCaptionMarginY={setRenderCaptionMarginY}
+              renderTransitionStyle={renderTransitionStyle}
+              setRenderTransitionStyle={setRenderTransitionStyle}
+              renderChannelLogo={renderChannelLogo}
+              setRenderChannelLogo={setRenderChannelLogo}
+              handleSaveAndApply={handleSaveAndApply}
+              handlePinDefaultRenderConfig={handlePinDefaultRenderConfig}
+              isPinningRenderConfig={isPinningRenderConfig}
+              pinRenderMsg={pinRenderMsg}
+              onResult={onResult}
+              onHistoryRefresh={onHistoryRefresh}
+              resyncVoiceForSegments={resyncVoiceForSegments}
+              checkAssets={checkAssets}
             />
           </div>
         )}
@@ -6666,63 +6722,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   }}></span>
                 </label>
               </div>
-
-              {/* Hiển thị phụ đề song ngữ (Card Container với Toggle Switch xịn) */}
-              <div
-                onClick={() => setRenderBilingual(!renderBilingual)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '16px',
-                  padding: '14px 16px',
-                  borderRadius: '12px',
-                  border: renderBilingual ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                  boxShadow: renderBilingual ? '0 4px 20px rgba(37, 244, 238, 0.15)' : 'none',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                  <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
-                    background: renderBilingual ? 'rgba(37, 244, 238, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.2rem',
-                    flexShrink: 0
-                  }}>
-                    🌐
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      Hiện phụ đề song ngữ
-                      {settings?.[settingsKey('defaultBilingual')] !== undefined && settings[settingsKey('defaultBilingual')] === renderBilingual && (
-                        <span style={{ fontSize: '0.66rem', color: '#FFCB4D', fontWeight: 600 }}>📌 Mặc định</span>
-                      )}
-                    </span>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                      Hiển thị 2 dòng: Tiếng Anh (trên) &amp; Dịch tiếng Việt (dưới)
-                    </span>
-                  </div>
-                </div>
-
-                <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, margin: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={renderBilingual}
-                    onChange={(e) => setRenderBilingual(e.target.checked)}
-                  />
-                  <span className="switch-slider" style={{
-                    backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
-                  }}></span>
-                </label>
-              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', flexShrink: 0 }}>
@@ -7960,34 +7959,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             <span className="switch-slider" style={{ backgroundColor: renderCaptionBgTransparent ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)' }}></span>
                           </label>
                         </div>
-
-                        <div
-                          onClick={() => setRenderBilingual(!renderBilingual)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 14px',
-                            background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                            border: renderBilingual ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '10px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>
-                            🌐 {['reading_practice', 'moral_talk_slideshow'].includes(result?.category)
-                              ? 'Hiện phụ đề song ngữ (hiện bản dịch tiếng Anh bên dưới)'
-                              : 'Hiện phụ đề song ngữ (hiện bản dịch tiếng Việt bên dưới)'}
-                          </span>
-                          <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)' }}>
-                            <input
-                              type="checkbox"
-                              checked={renderBilingual}
-                              onChange={(e) => setRenderBilingual(e.target.checked)}
-                            />
-                            <span className="switch-slider" style={{ backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)' }}></span>
-                          </label>
-                        </div>
                       </div>
                     </>
                   )}
@@ -8242,58 +8213,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             </button>
                           </div>
                         </div>
-
-                        {/* Cỡ chữ dòng dịch song ngữ (Sub) — ĐỘC LẬP với cỡ chữ chính ở trên,
-                            trước đây luôn bị khoá cứng theo 1 tỉ lệ cố định của cỡ chữ chính,
-                            không tự chỉnh riêng được. Để trống = tự động theo tỉ lệ mặc định của
-                            style đang chọn. */}
-                        {!isReadingPractice && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <label style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>Cỡ chữ dòng dịch / Sub (px)</label>
-                              {renderCaptionSecondaryFontSize && (
-                                <button
-                                  type="button"
-                                  onClick={() => setRenderCaptionSecondaryFontSize('')}
-                                  style={{ fontSize: '0.66rem', color: 'var(--secondary)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700, padding: 0 }}
-                                  title="Bỏ tuỳ chỉnh, quay lại tự động theo tỉ lệ của Kiểu phụ đề"
-                                >
-                                  ↺ Tự động
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const base = Number(renderCaptionSecondaryFontSize) || Math.round((Number(renderCaptionFontSize) || 40) * 0.65);
-                                  setRenderCaptionSecondaryFontSize(String(Math.max(10, base - 2)));
-                                }}
-                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                className="form-control"
-                                value={renderCaptionSecondaryFontSize}
-                                placeholder="Tự động"
-                                onChange={(e) => setRenderCaptionSecondaryFontSize(e.target.value)}
-                                style={{ textAlign: 'center', fontSize: '0.8rem', padding: '6px', height: '36px', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px' }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const base = Number(renderCaptionSecondaryFontSize) || Math.round((Number(renderCaptionFontSize) || 40) * 0.65);
-                                  setRenderCaptionSecondaryFontSize(String(Math.min(100, base + 2)));
-                                }}
-                                style={{ width: '32px', height: '36px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.3)', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       {/* Màu tô sáng/nhấn mạnh — có tác dụng thấy được với Kiểu phụ đề "Karaoke tô

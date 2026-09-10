@@ -108,11 +108,36 @@ function PromptsStudioContent() {
       {!isSkillWorkspace && (
         <aside className="sidebar-nav">
           <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src="/icons/logo.png" alt="Prompt AI Logo" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+            <img
+              src="/icons/logo-mark.png"
+              alt="Nexora Video Logo"
+              style={{
+                width: '68px',
+                height: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 3px 12px rgba(0, 189, 255, 0.45))',
+                marginBottom: '2px'
+              }}
+            />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <h2 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, lineHeight: 1.1 }}>
-                Prompt AI
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1.1 }}>
+                  Nexora
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    letterSpacing: '1px',
+                    background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 30%, #f093fb 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    lineHeight: 1.1
+                  }}
+                >
+                  VIDEO
+                </span>
+              </div>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>v1.0.0 Alpha</span>
             </div>
           </div>
@@ -486,7 +511,17 @@ function PromptsStudioContent() {
                         }
                         if (targetTab === 'script' || targetTab === 'dialog') {
                           if (scriptItem) {
-                            setScriptModalItem(scriptItem);
+                            if (scriptItem.id && (scriptItem.segmentCount || 0) > 1 && (scriptItem.segments?.length || 0) <= 1) {
+                              fetch(`/api/prompts/history?id=${encodeURIComponent(scriptItem.id)}`)
+                                .then(r => r.json())
+                                .then(d => {
+                                  if (d.success && d.item) setScriptModalItem(d.item);
+                                  else setScriptModalItem(scriptItem);
+                                })
+                                .catch(() => setScriptModalItem(scriptItem));
+                            } else {
+                              setScriptModalItem(scriptItem);
+                            }
                           } else {
                             showToast.warning('Không tìm thấy kịch bản gốc trong lịch sử (có thể đã bị xoá).');
                           }

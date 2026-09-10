@@ -23,6 +23,22 @@ export async function resolveMongodbUri(rawUri) {
     const optParams = new URLSearchParams(options);
     if (!optParams.has('ssl')) optParams.set('ssl', 'true');
     if (!optParams.has('authSource')) optParams.set('authSource', 'admin');
+
+    // Lấy TXT record để nhận diện replicaSet của MongoDB Atlas cluster
+    try {
+      const txtRecords = await resolver.resolveTxt(hostname);
+      if (txtRecords && txtRecords.length > 0) {
+        for (const chunk of txtRecords.flat()) {
+          const txtParams = new URLSearchParams(chunk);
+          for (const [k, v] of txtParams) {
+            if (!optParams.has(k)) optParams.set(k, v);
+          }
+        }
+      }
+    } catch (txtErr) {
+      console.warn('[DNS TXT Resolve Warning]:', txtErr?.message || txtErr);
+    }
+
     return `mongodb://${username}:${password}@${hosts}/${database}?${optParams.toString()}`;
   } catch (error) {
     console.error('[DNS SRV Resolve Error] Fallback URI:', error);

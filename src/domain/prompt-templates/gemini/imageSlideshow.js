@@ -5,144 +5,127 @@
  */
 import { buildPunctuationRhythmGuidance } from './narrationPacing.js';
 import { buildHumanVoiceGuidance } from './humanVoice.js';
+import { detectTimeEra } from '../../content/timeEraDetector.js';
 
 const STICK_FIGURE_SLIDE_TIERS = {
-  'under_1m': { slides: '8 đến 12',  seconds: '4 đến 6 giây' },
-  '1_2m':     { slides: '14 đến 20', seconds: '5 đến 7 giây' },
-  '2_3m':     { slides: '20 đến 28', seconds: '5 đến 8 giây' },
-  '3_4m':     { slides: '28 đến 36', seconds: '6 đến 8 giây' },
-  '4_6m':     { slides: '36 đến 48', seconds: '6 đến 9 giây' },
-  '6_8m':     { slides: '48 đến 65', seconds: '6 đến 9 giây' },
-  '8_10m':    { slides: '60 đến 82', seconds: '7 đến 10 giây' },
+  'under_1m': { slides: '20 đến 25',  seconds: '2 đến 3 giây' },
+  '1_2m':     { slides: '35 đến 48',  seconds: '2 đến 3 giây' },
+  '2_3m':     { slides: '50 đến 70',  seconds: '2 đến 3.5 giây' },
+  '3_4m':     { slides: '70 đến 95',  seconds: '2 đến 3.5 giây' },
+  '4_6m':     { slides: '100 đến 140', seconds: '2 đến 3.5 giây' },
+  '6_8m':     { slides: '140 đến 190', seconds: '2 đến 3.5 giây' },
+  '8_10m':    { slides: '190 đến 250', seconds: '2 đến 3.5 giây' },
 };
 
-function buildMackStickFigureStorytellingGuidance({ isVietnamese, topic, G }) {
+function buildMackStickFigureStorytellingGuidance({ isVietnamese, topic, G, detectedEra }) {
+  const isPreHuman = Boolean(detectedEra?.isPreHuman);
+
   if (isVietnamese) {
     return `═══════════════════════════════════════════════════════
-CÔNG THỨC KỂ CHUYỆN & HOOK PHONG CÁCH "MACK / WHITEBOARD EXPLAINER" (BẮT BUỘC)
+TIÊU CHUẨN KỊCH BẢN: ĐẬM ĐẶC TRI THỨC & GIẢI MÃ KHOA HỌC (BẮT BUỘC)
 ═══════════════════════════════════════════════════════
-Video này đi theo đúng phong cách phim tài liệu hoạt hình người que nổi tiếng của kênh Mack (như video "How Did Ancient Humans Survive Freezing Winters?"):
-Người dẫn chuyện ngôi thứ ba hóm hỉnh, cuốn hút, thông minh dẫn dắt khán giả qua một vụ án điều tra khoa học / bí ẩn lịch sử / thử thách sinh tồn kỳ thú hoặc nghịch lý tâm lý đời thường, trong khi nhân vật người que đóng vai diễn xuất trực quan trên nền bảng trắng (whiteboard).
+ĐÂY LÀ VIDEO PHỔ BIẾN KIẾN THỨC, KHOA HỌC & LỊCH SỬ THỰC THỤ (phong cách Kurzgesagt, Mack, TED-Ed, MinutePhysics):
+Mục tiêu tối thượng: Người xem xem xong video 1 phút PHẢI HỌC ĐƯỢC KIẾN THỨC THẬT, số liệu chuẩn xác, hiểu thấu bản chất cơ chế — TUYỆT ĐỐI KHÔNG NÓI THUYÊN THUYÊN, KHÔNG CẢM THÁN CÂU GIỜ, KHÔNG DÙNG VĂN SÁO RỖNG!
 
-1. HOOK 15 GIÂY ĐẦU (SLIDE 1 ĐẾN 3) — CÔNG THỨC "CỖ MÁY THỜI GIAN & TƯƠNG PHẢN THỜI HIỆN ĐẠI":
-   TUYỆT ĐỐI KHÔNG mở bài kiểu văn nghị luận sách giáo khoa ("Kỷ băng hà là thời kỳ...", "Trì hoãn là một vấn đề...").
-   Phải mở bài bằng 3 bước visual thought-experiment:
+1. NGUYÊN TẮC "MẬT ĐỘ KIẾN THỨC CAO" (HIGH INFORMATION DENSITY):
+   • MỖI PHÂN ĐOẠN (SLIDE) PHẢI MANG 1 THÔNG TIN CÓ GIÁ TRỊ:
+     - Chứa ít nhất một trong các yếu tố: Con số thực tế (độ sâu, nhiệt độ, năm, áp suất, tỉ lệ %), Thuật ngữ/Khái niệm khoa học chuẩn, Cơ chế nguyên nhân - kết quả, hoặc Bằng chứng nghiên cứu/khảo cổ/sinh học.
+     - Người xem nghe xong từng câu phải hiểu thêm một điều mới lạ về chủ đề "${topic || 'kiến thức'}".
+   • CẤM TUYỆT ĐỐI NÓI THUYÊN THUYÊN / CÂU GIỜ / CẢM THÁN SUÔNG:
+     - ⛔ CẤM CÁC CÂU RỖNG TUẾCH: "Nơi này vô cùng bí ẩn và đáng sợ...", "Có những điều bạn không thể ngờ tới...", "Hãy cùng tôi khám phá...", "Bạn có tò mò không...", "Và rồi mọi chuyện trở nên kỳ lạ...", "Điều đó làm ta phải suy ngẫm...". Những câu này không hề có kiến thức, xoá đi người xem không mất một thông tin nào -> BỊ CẤM HOÀN TOÀN!
+     - ✅ PHẢI NÓI THẲNG VÀO SỰ THẬT & CƠ CHẾ:
+       * Về Đại dương / Vũ trụ / Thiên nhiên: Nêu con số mét độ sâu, áp suất atmosphere, nhiệt độ độ C, ánh sáng quang phổ, chất sinh học (ví dụ áp suất 1.000 atm nghiền nát kim loại, sinh vật dùng protein đặc biệt chống đông).
+       * Về Tâm lý / Thói quen / Não bộ: Nêu tên vùng não (hạch hạnh nhân amygdala, vỏ não trước trán prefrontal cortex), chất dẫn truyền thần kinh (dopamine, cortisol, adenosine), cơ chế phản xạ sinh tồn.
+       * Về Lịch sử / Sinh tồn / Tiến hóa: Nêu bằng chứng giải phẫu (xương ngón chân, men răng), niên đại năm, công cụ phát minh cụ thể, phân tích ADN.
 
-   • BƯỚC 1: TÌNH HUỐNG TƯỞNG TƯỢNG GIÀU GIÁC QUAN ("Hãy tưởng tượng..." / "Imagine...")
-     Ném thẳng người xem vào một hoàn cảnh thực tế khốc liệt, trớ trêu hoặc kỳ lạ với chi tiết giác quan rõ mồn một. Cắt bỏ mọi tiện nghi hiện đại.
-     - Về sinh tồn / cổ đại / khoa học:
-       "Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông kỷ băng hà. Gió tuyết -30 độ rít gào buốt đến tận xương. Không lò sưởi, không áo phao lông vũ, không app giao đồ ăn — chỉ có bạn và một đốm lửa sắp tắt."
-     - Về thói quen / tâm lý đời sống:
-       "Hãy tưởng tượng lúc 2 giờ sáng. Còn 6 tiếng nữa là thi, nhưng bạn lại đang thức trắng xem người tiền sử mài rìu đá săn voi ma mút. Vì sao não bộ bạn lại làm thế?"
+2. CẤU TRÚC PHÂN PHỐI KIẾN THỨC THEO NHỊP 20 - 25 PHÂN ĐOẠN (1 PHÚT):
+   • BƯỚC 1: HOOK NGHỊCH LÝ & GỌI ĐÍCH DANH TÊN CHỦ THỂ (Slide 1 đến 3, ~6-8 giây):
+     - 🚨 BẮT BUỘC GỌI ĐÍCH DANH TÊN CHỦ THỂ / ĐỊA DANH / HIỆN TƯỢNG NGAY TỪ SLIDE 1 HOẶC 2:
+       Khán giả nghe câu đầu tiên PHẢI BIẾT NGAY ĐANG NÓI VỀ CÁI GÌ!
+       * Đang nói về chủ đề "${topic || 'kiến thức'}": Slide 1 (hoặc slide 2) BẮT BUỘC PHẢI PHÁT ÂM RÕ TỪ KHÓA TÊN CHỦ THỂ NÀY (Ví dụ: nói về "Rãnh Mariana" thì PHẢI NÓI RÕ "Dưới đáy Rãnh Mariana...", nói về "Thiên thạch Chicxulub" thì PHẢI NÓI RÕ "Thiên thạch Chicxulub...", nói về "Tuyết Cầu Trái Đất" thì PHẢI NÓI RÕ "Kỷ Tuyết Cầu Trái Đất...").
+       * TUYỆT ĐỐI CẤM mở đầu mập mờ, vô danh kiểu: "Ở độ sâu 11.000m...", "Tại một nơi bí ẩn...", "Vật thể này..." mà từ đầu đến cuối không ai biết là ở đâu hay cái gì!
+     - Đập ngay vào tai người nghe một con số hoặc sự thật nghịch lý lớn nhất của chủ đề "${topic || 'kiến thức'}".
+     - Nêu ngay câu hỏi mâu thuẫn cốt lõi: Vì sao hiện tượng này tồn tại? Làm thế nào vật chất / sinh vật chịu đựng được điều đó?
+   • BƯỚC 2: BÓC TÁCH CƠ CHẾ & BẰNG CHỨNG KHOA HỌC (Slide 4 đến 18, ~35-40 giây):
+     - Mỗi 2-3 slide giải quyết trọn vẹn 1 mắt xích kiến thức cụ thể:
+       + Mắt xích 1: Bản chất vật lý / hóa học / sinh học thực sự đằng sau hiện tượng là gì?
+       + Mắt xích 2: Bằng chứng khoa học hoặc thí nghiệm đo đạc thực tế chứng minh điều đó.
+       + Mắt xích 3: Sự thật bất ngờ mà người bình thường luôn hiểu sai.
+     - Dùng các phép so sánh hình tượng dễ nhớ (ví dụ: áp suất đáy biển = 50 máy bay đè lên đầu; trì hoãn = não bộ bấm còi báo cháy giả).
+   • BƯỚC 3: ĐÚC KẾT TRI THỨC & GIÁ TRỊ THỰC TIỄN (Slide 19 đến 22-25, ~8-10 giây):
+     - Kết lại bằng 1 chân lý khoa học hoặc quy luật sâu sắc. Người xem cảm thấy được mở mang tầm mắt thực sự sau 1 phút.
 
-   • BƯỚC 2: CÚ BẺ TƯƠNG PHẢN HÀI HƯỚC VỚI CON NGƯỜI HIỆN ĐẠI
-     So sánh ngay hoàn cảnh sinh tử đó với sự "mong manh, buồn cười" của con người thời hiện đại:
-     "Chúng ta ngày nay chỉ cần điện thoại tụt còn 5% pin hay phòng lạnh dưới 22 độ là đã than trời. Nếu thả một người hiện đại vào vùng băng tuyết đó, họ sẽ thành que kem hình người chỉ sau 45 phút."
-
-   • BƯỚC 3: MỞ NÚT THẮNG NGHỊCH LÝ CỐT LÕI (OPEN LOOP)
-     Đặt câu hỏi lớn khiến người xem không thể rời mắt:
-     "Thế nhưng tổ tiên chúng ta — những sinh vật không móng vuốt, chẳng có lông thú dày — lại thống trị cả mùa đông băng giá suốt hàng vạn năm. Làm thế nào họ làm được điều không tưởng đó?"
-
-2. ĐỘNG CƠ KỂ CHUYỆN: "ĐIỀU TRA PHÁ ÁN KHOA HỌC" THAY VÌ GIẢNG BÀI:
-   Mỗi phân đoạn phải được kể như một manh mối điều tra vụ án, hé lộ từng mảnh ghép bất ngờ:
-
-   • KỂ VỀ MANH MỐI BẤT NGỜ THAY VÌ KIẾN THỨC CHUNG CHUNG:
-     Đừng chỉ nói "người xưa mặc quần áo ấm". Hãy kể câu chuyện CÁCH KHOA HỌC TÌM RA:
-     "Quần áo da thú rục nát sau vài thế kỷ, vậy làm sao ta biết tổ tiên bắt đầu mặc đồ từ khi nào? Các nhà khoa học không tìm thấy áo... mà đi phân tích ADN của loài chấy rận! Chấy thân chỉ sống được trong thớ vải, và chúng tách khỏi chấy đầu đúng 100.000 năm trước."
-
-   • CHỨNG CỨ SINH HỌC & GIẢI PHẪU THỰC TẾ:
-     "Họ có đi giày không? Da giày không còn, nhưng xương ngón chân thì còn! Đi chân trần làm xương ngón chân to dày, đi giày cách nhiệt làm xương teo nhỏ. Hóa thạch 30.000 năm trước cho thấy ngón chân đã bắt đầu nhỏ lại — chứng minh họ đã có đôi giày tuyết đầu tiên!"
-
-   • NHÂN CÁCH HÓA CÁC KHÁI NIỆM (GIVING PERSONALITY):
-     Xem các yếu tố tự nhiên như một nhân vật sống động:
-     "Lửa không đơn thuần là công cụ. Lửa là đứa trẻ háu ăn và khó tính nhất bộ tộc, bắt bạn phải canh giữ suốt ngày đêm. Nếu đốm lửa tắt giữa bão tuyết, cả bộ tộc sẽ chết."
-
-   • ẨN DỤ HÀI HƯỚC BẰNG ĐỒ VẬT THỜI HIỆN ĐẠI:
-     - Tủy và mỡ voi ma mút = thanh năng lượng calo siêu cấp.
-     - Ống sừng rỗng chứa nấm mốc giữ than hồng = "cục sạc dự phòng" thời tiền sử.
-     - Lều làm từ xương voi ma mút = "căn hộ duplex cao cấp kỷ băng hà".
-     - Cả bộ tộc ôm nhau ngủ = "nhóm chat truyền nhiệt".
-
-   • NHỊP DẪN DẮT LY KỲ:
-     Dùng các câu chuyển tiếp lôi cuốn: "Và đây là lúc mọi chuyện trở nên điên rồ...", "Thế nhưng một thảm họa khác ập tới...", "Chìa khóa sinh tồn thực sự nằm ở chỗ không ai ngờ tới..."
-
-3. KẾT THÚC Ý NGHĨA & LIÊN HỆ THỜI HIỆN ĐẠI (CLIMAX & TAKEAWAY):
-   Không kết bài sáo rỗng. Kết bằng một liên tưởng sâu sắc nối liền quá khứ và hiện tại:
-   "Lần tới khi bạn rùng mình vì một cơn gió lạnh hay cáu kỉnh vì đợi lò vi sóng 2 phút, hãy nhớ rằng: chảy trong huyết quản bạn là dòng máu của những kẻ đã đánh bại kỷ băng hà chỉ bằng một mẩu đá nhọn và một đốm lửa hồng."
-
-4. BIÊN ĐẠO NHÂN VẬT NGƯỜI QUE TRỰC QUAN (WHITEBOARD ACTING):
-   Gemini PHẢI chọn tư thế và đạo cụ khớp chuẩn từng nhịp cảm xúc:
-   - Lạnh buốt, cùng cực: pose_sad_hugging_knees, pose_stressed, pose_exhausted (ở y=${G.ground}, anchor "bottom").
-   - Lười biếng thời hiện đại: pose_phone_sitting cùng prop_phone, prop_coffee_cup.
-   - Soi xét manh mối điều tra: pose_thinking, pose_reading, prop_notebook, prop_pencil, prop_hourglass.
-   - Ngọn lửa & sinh tồn: sym_fire, pose_meditating, pose_happy_arms_up.
-   - Kinh ngạc, cảnh báo nguy hiểm: pose_shocked, sym_warning, sym_exclamation, sym_lightning.
-   - Chiến thắng, làm chủ thiên nhiên: pose_celebrating, sym_star, sym_trophy.`;
+3. BIÊN ĐẠO HÌNH ẢNH & ĐẠO CỤ THÔNG MINH:${isPreHuman ? `
+   🚨 CẢNH BÁO ĐẶC BIỆT — KỶ NGUYÊN NÀY CHƯA CÓ CON NGƯỜI (PRE-HUMAN ERA):
+   - Kỷ nguyên này (${detectedEra.label}) diễn ra cách đây hàng chục triệu đến hàng tỷ năm trước. LOÀI NGƯỜI CHƯA TỒN TẠI!
+   - TUYỆT ĐỐI CẤM (100% FORBIDDEN) trong visualDescription:
+     * CẤM TẤT CẢ mô tả người que (stick figure), con người, nhân vật (character), người run rẩy vì rét, người gãi đầu, thám hiểm, nhà khoa học!
+     * CẤM trang phục, quần áo, áo choàng, áo tunic, giày dép, mũ snapback!
+     * CẤM đền đài Hy Lạp / La Mã (Greek/Roman temples, Parthenon, colonnades, pillars), đường đá, công trình xây dựng, nhà cửa, xe cộ!
+   - 100% visualDescription PHẢI LÀ CẢNH THIÊN NHIÊN HOANG SƠ / LÁT CẮT ĐỊA CHẤT / VŨ TRỤ / KHỦNG LONG:
+     * Ví dụ: Bề mặt Trái Đất đóng băng tuyết cầu trắng xóa, sông băng nứt toác, khói bụi núi lửa phun trào dung nham đỏ rực, lát cắt địa chất lòng đất sâu 600km, tinh thể khoáng vật, Trái Đất nhìn từ vũ trụ... Luôn ghi rõ: "Pure primeval geological landscape, NO humans, NO stick figures, textless."
+   - Trong mảng "elements" của từng slide: TUYỆT ĐỐI KHÔNG dùng bất kỳ asset "pose_*" nào! Chỉ để mảng rỗng [] hoặc dùng biểu tượng khoa học/tự nhiên (sym_warning, sym_lightning, sym_fire, sym_target).` : `
+   - CÁC CẢNH HIỆN TƯỢNG KHOA HỌC / ĐỊA CHẤT / CẮT LỚP / VŨ TRỤ (ví dụ: tầng manti, đại dương ngầm 600km, tinh thể khoáng vật, lõi Trái Đất, magma, rãnh sâu, vũ trụ):
+     * Trong "visualDescription": MÔ TẢ TRỰC TIẾP MẶT CẮT KHOA HỌC / HIỆN TƯỢNG ĐÓ (ghi rõ "NO characters, pure scientific environment").
+     * Trong "elements": KHÔNG CẦN đặt pose người que, chỉ cần đặt biểu tượng (sym_warning, sym_lightning, sym_target, sym_key) hoặc để mảng elements rỗng [] để tôn trọn bức tranh minh hoạ khoa học!
+   - CHỈ ĐẶT NGƯỜI QUE ở các cảnh thực sự cần hành động/biểu cảm con người:
+     * Khi nói về số liệu / nghiên cứu / suy luận: pose_thinking, prop_notebook, prop_pencil, prop_hourglass.
+     * Khi nói về áp lực / nguy hiểm / hiện tượng khắc nghiệt: pose_shocked, pose_stressed, sym_warning, sym_lightning.
+     * Khi nói về giải mã / chìa khóa cơ chế: pose_pointing_right, sym_key, sym_target, prop_checklist.
+     * Khi đúc kết chân lý / làm chủ kiến thức: pose_celebrating, sym_star, sym_trophy, pose_happy_arms_up.`}`;
   }
 
   return `═══════════════════════════════════════════════════════
-THE "MACK / WHITEBOARD EXPLAINER" STORYTELLING FORMULA (MANDATORY)
+HIGH KNOWLEDGE DENSITY & FACT-BASED EXPLAINER (MANDATORY)
 ═══════════════════════════════════════════════════════
-This video is built in the viral style of Mack / Kurzgesagt / MinutePhysics stick-figure documentaries (e.g. "How Did Ancient Humans Survive Freezing Winters?"):
-A witty, charismatic, highly knowledgeable third-person narrator walks the audience through a gripping mystery, prehistoric survival triumph, scientific phenomenon, or psychology paradox, while a stick-figure acts out the drama on a whiteboard.
+This video is a genuine educational documentary in the style of Kurzgesagt, Mack, and TED-Ed:
+The viewer MUST LEARN REAL KNOWLEDGE, accurate numbers, and scientific mechanisms — STRICTLY ZERO FLUFF, ZERO VAGUE CHATTER, AND ZERO TIME-WASTING FILLER!
 
-1. THE HOOK (FIRST 15 SECONDS — SLIDES 1 TO 3) — THE TIME-MACHINE & MODERN CONTRAST:
-   DO NOT open with a dry textbook statement or generic lecture ("Ancient humans lived in the Ice Age...", "Procrastination is bad...").
-   Follow the 3-Step Thought Experiment Hook:
+1. HIGH INFORMATION DENSITY MANDATE:
+   • EVERY SINGLE SLIDE MUST DELIVER A CONCRETE VALUE:
+     - Include at least one of: Exact numbers (depth, temperature, pressure, percentages, dates), Scientific terminology, Cause-and-effect biological/physical mechanisms, or Verified research/fossil/DNA evidence.
+     - The listener must learn genuine insights about "${topic || 'the topic'}", not empty dramatization.
+   • STRICT BAN ON VAGUE FILLER:
+     - ⛔ BANNED: "This place is full of terrifying mysteries...", "You won't believe what happens next...", "Let us dive deeper together...", "It makes us wonder...". These say nothing and are completely forbidden!
+     - ✅ STATE HARD FACTS AND MECHANISMS:
+       * For Nature / Deep Sea / Space: state actual depths (meters), atmospheres (atm), temperatures (°C), biochemical adaptations.
+       * For Psychology / Habits: state brain areas (amygdala, prefrontal cortex), neurotransmitters (dopamine, cortisol), cognitive feedback loops.
+       * For History / Evolution: state anatomical fossil proof, precise archaeological dates, survival adaptations.
 
-   • STEP 1: SENSORY TIME-MACHINE SCENARIO ("Imagine...")
-     Drop the viewer directly into a brutal, high-stakes, absurd, or tangible situation with sharp sensory details:
-     - Survival / History / Science:
-       "Imagine it's 40,000 years ago in northern Europe. The air hits your face like frozen needles at minus thirty degrees. No central heating, no goose-down jackets, no delivery apps — just you, a dying campfire, and a blizzard howling outside."
-     - Psychology / Habits:
-       "Imagine it's 2 AM. You have an exam in six hours, yet you're wide awake watching a twenty-minute documentary about how ancient humans hunted woolly mammoths. Why does your brain do this?"
+2. FAST-PACED KNOWLEDGE PROGRESSION (20 - 25 SLIDES / 1 MINUTE):
+   • PHASE 1: HOOK PARADOX & EXPLICIT TOPIC NAMING (Slides 1 to 3, ~6-8s):
+     - 🚨 MANDATORY: EXPLICITLY NAME THE TOPIC IN SLIDE 1 OR 2!
+       The listener must know immediately what place or subject is being discussed.
+       * If the topic is "${topic || 'the topic'}", Slide 1 or 2 MUST explicitly state the exact subject name (e.g. "At the bottom of the Mariana Trench...", "When the Chicxulub asteroid struck...").
+       * NEVER speak vaguely without naming the subject (e.g. DO NOT say "At 11,000 meters deep..." or "In a mysterious place..." without ever mentioning the real name!).
+     - Open directly with the most astonishing hard metric or counter-intuitive paradox of "${topic || 'the topic'}".
+   • PHASE 2: SCIENTIFIC MECHANISM BREAKDOWN (Slides 4 to 18, ~35-40s):
+     - Unpack 2 to 3 distinct evidence-backed scientific clues. Explain WHY and HOW it works using vivid analogies.
+   • PHASE 3: PROFOUND TAKEAWAY (Slides 19 to 25, ~8-10s):
+     - Conclude with a deep factual insight bridging the phenomenon to modern human understanding.
 
-   • STEP 2: RELATABLE MODERN CONTRAST & COMEDIC PUNCHLINE
-     Immediately contrast that extreme struggle with modern human fragility:
-     "Most of us today start panicking when our phone hits 5% battery or when the AC drops below 20 degrees. If you dropped an average modern human into that tundra, they'd turn into a human popsicle in about 45 minutes."
-
-   • STEP 3: THE HIGH-STAKES OPEN LOOP / CENTRAL PARADOX
-     Ask the big question that makes clicking away impossible:
-     "Yet our ancestors — hairless, clawless tropical apes with stone knives — didn't just survive this frozen nightmare. They conquered the globe. How on earth did they pull it off?"
-
-2. THE INVESTIGATIVE STORYTELLING ENGINE (BODY CHAPTERS):
-   Treat each concept as a FORENSIC DETECTIVE INVESTIGATION solving progressive mysteries:
-
-   • FORENSIC CLUES OVER TEXTBOOK FACTS:
-     Don't just say "humans wore animal furs." Reveal the detective story of HOW SCIENTISTS DISCOVERED IT:
-     "Animal hides rot in a few hundred years. So how do archaeologists know when clothes were invented? They didn't find frozen coats — they sequenced the DNA of body lice! Head lice and body lice split 100,000 years ago because body lice can only live in clothing."
-
-   • ANATOMICAL & PHYSICAL EVIDENCE:
-     "Did they have shoes? Leather shoes don't survive. But toe bones do! Walking barefoot builds thick toe bones; wearing insulated boots makes them slender. Fossil toes from 30,000 years ago showed modern delicate bones — Arctic boots were already in use!"
-
-   • ANTHROPOMORPHISM (GIVING CONCEPTS PERSONALITY):
-     "Fire wasn't just a heat source. Fire was the hungriest, most demanding baby in the tribe that required 24/7 care. If it died in a blizzard, the whole bloodline died with it."
-
-   • RELATABLE MODERN ANALOGIES:
-     - Mammoth bone marrow = prehistoric high-octane energy bars.
-     - Fungus in a hollow horn = prehistoric thermos / power bank for embers.
-     - Mammoth bone tent = Ice Age luxury duplex.
-     - Sleeping huddled together = ancient human group chat for body heat.
-
-   • SUSPENSE & MOMENTUM:
-     Use punchy narrative bridges: "Here's where it gets crazy...", "And that led to an even deadlier problem...", "To solve this, they needed an evolutionary superpower..."
-
-3. MEMORABLE CLIMAX & TAKEAWAY:
-   End with a powerful, witty reflection bridging the ancient/scientific past to our modern lives:
-   "So the next time you shiver from a draft or complain about a cold room, remember: running through your veins is the DNA of survivors who stared down Ice Age blizzards with nothing but a chipped stone and a glowing ember."
-
-4. STICK FIGURE VISUAL CHOREOGRAPHY:
-   Every narration beat must be physically acted out by the stick figure on the whiteboard:
-   - Cold / misery / shivering: pose_sad_hugging_knees, pose_stressed, pose_exhausted (at y=${G.ground}, anchor "bottom").
-   - Modern laziness / distraction: pose_phone_sitting with prop_phone, prop_coffee_cup, or pose_lying_phone.
-   - Fire keeping / warmth: sym_fire floating near character, pose_meditating or pose_pointing_right.
-   - Scientific clue / detective investigation: pose_thinking, pose_reading, prop_notebook, prop_pencil, prop_hourglass.
-   - Shock / danger: pose_shocked, sym_warning, sym_exclamation, sym_lightning.
-   - Triumph / survival / mastery: pose_celebrating, sym_star, sym_trophy, pose_happy_arms_up.`;
+3. SMART VISUAL CHOREOGRAPHY:${isPreHuman ? `
+   🚨 SPECIAL ERA RESTRICTION — PRE-HUMAN ERA (NO HUMANS EVER EXISTED):
+   - This era (${detectedEra.label}) is set tens of millions to billions of years ago. Humans have NOT evolved yet.
+   - STRICTLY FORBIDDEN in visualDescription:
+     * NO stick figures, NO humans, NO characters, NO shivering people, NO scratching head, NO explorers!
+     * NO clothes, NO tunics, NO cloaks, NO snapback caps!
+     * NO Greek/Roman temples, NO colonnades, NO pillars, NO ruins, NO stone plazas, NO cities!
+   - 100% visualDescription MUST BE PURE PRIMAL NATURE / GEOLOGICAL CUTAWAYS / SPACE / DINOSAURS:
+     * Always end visualDescription with: "Pure primeval geological landscape, NO humans, NO characters, textless."
+   - In "elements": STRICTLY ZERO "pose_*" assets! Leave empty [] or use scientific symbols (sym_warning, sym_lightning, sym_target).` : `
+   - FOR SCIENTIFIC / GEOLOGICAL / CUTAWAY / COSMIC SLIDES (e.g. Earth mantle at 600km, subterranean ocean, magma, crystals, core, space):
+     * In "visualDescription": describe the pure scientific cutaway or environment directly (explicitly state "NO characters").
+     * In "elements": omit stick figure poses, use only relevant scientific symbols (sym_warning, sym_lightning, sym_target, sym_key) or leave empty [] to showcase the pure scientific illustration!
+   - ONLY INCLUDE STICK FIGURE CHARACTERS when human action/emotion is genuinely relevant:
+     * For metrics/investigation: pose_thinking, prop_notebook, prop_pencil, prop_hourglass.
+     * For extreme danger/pressure: pose_shocked, pose_stressed, sym_warning, sym_lightning.
+     * For core mechanism unlock: pose_pointing_right, sym_key, sym_target.
+     * For triumph/takeaway: pose_celebrating, sym_star, sym_trophy.`}`;
 }
 
 export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRange = 'under_1m') {
-  const isBilingual = true;
+  const isBilingual = false;
   const isVietnamese = (input.narrationLanguage || 'vi') !== 'en';
 
   const tierConfig = STICK_FIGURE_SLIDE_TIERS[durationRange] || {
@@ -163,6 +146,13 @@ export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRan
         laneFarL: 12, laneL: 25, laneR: 75, laneFarR: 88, centerLo: 20, centerHi: 80,
         skyLo: 12, skyHi: 32, groundOK: false };
 
+  const detectedEra = detectTimeEra({
+    explicitEra: input.timeEra,
+    title: input.title || '',
+    scenario: input.scenario || '',
+    fullText: ''
+  });
+
   return `
 You are a professional scriptwriter creating a narrated story video using a library of pre-built PNG stick-figure assets.
 Your job: write the narration AND choose which assets to place on screen for each slide.
@@ -174,7 +164,31 @@ NARRATION STYLE:
 ${buildHumanVoiceGuidance({ isVietnamese })}
 ${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
-${buildMackStickFigureStorytellingGuidance({ isVietnamese, topic: input.scenario, G })}
+${buildMackStickFigureStorytellingGuidance({ isVietnamese, topic: input.scenario, G, detectedEra })}
+
+═══════════════════════════════════════════════════════
+GHIM MỐC THỜI GIAN & ĐỒNG BỘ KỶ NGUYÊN (TIME ERA PINNING — BẮT BUỘC):
+═══════════════════════════════════════════════════════
+• KỶ NGUYÊN XÁC ĐỊNH CHO TOÀN BỘ VIDEO: ${detectedEra.label}
+• YÊU CẦU THỐNG NHẤT BỐI CẢNH (MANDATORY ERA CONSISTENCY):
+  - ${detectedEra.directive}
+  - MỌI câu mô tả "visualDescription" cho từng slide PHẢI TUÂN THỦ kỷ nguyên này!
+${detectedEra.isPreHuman ? `  - 🚨 ĐÂY LÀ THỜI KỲ CHƯA CÓ CON NGƯỜI (PRE-HUMAN ERA):
+    * TUYỆT ĐỐI CẤM (100% FORBIDDEN): KHÔNG mô tả bất kỳ người que (stick figure), con người, nhân vật, người run rẩy, người gãi đầu, quần áo, áo choàng, áo tunic, hay đền đài Hy Lạp/La Mã cổ đại nào trong visualDescription!
+    * visualDescription của MỌI SLIDE PHẢI LÀ CẢNH ĐỊA CHẤT / VŨ TRỤ / THIÊN NHIÊN NGUYÊN SINH HOẶC KHỦNG LONG KHÔNG CÓ NGƯỜI!
+    * Trong mảng "elements" của mọi slide: CẤM DÙNG các asset "pose_*", chỉ dùng mảng rỗng [] hoặc biểu tượng khoa học!` : `  - TUYỆT ĐỐI KHÔNG để lẫn lộn thời đại (ví dụ: đang kể về thời Khủng Long Chicxulub hay Kỷ Băng Hà thì CẤM TUYỆT ĐỐI mô tả xe cộ, ô tô, đường nhựa, nhà gạch hiện đại, quần jeans, áo hoodie!).`}
+
+═══════════════════════════════════════════════════════
+QUY TẮC ĐỒNG BỘ KIỂU NHÂN VẬT XUYÊN SUỐT TOÀN BỘ VIDEO (100% UNIFIED CHARACTER STYLE):
+═══════════════════════════════════════════════════════
+• KIỂU NHÂN VẬT ĐÃ CHỌN: ${(input.characterStyle || 'stick_figure') === 'regular_human' ? 'NGƯỜI THƯỜNG HOẠT HỌA 2D (Stylized 2D Cartoon Human)' : 'NGƯỜI QUE BIỂU CẢM (Cartoon Stick Figure)'}
+🚨 BẮT BUỘC ĐỒNG BỘ 100% XUYÊN SUỐT MỌI SLIDE:
+- TUYỆT ĐỐI CẤM (100% FORBIDDEN): KHÔNG ĐƯỢC LÚC NÀY LÚC KIA! Không được cảnh trước vẽ người que, cảnh sau lại mô tả người thường tả thực (caveman, Neanderthal tả thực, người thật)!
+${(input.characterStyle || 'stick_figure') === 'regular_human' ? `
+- MỌI cảnh có nhân vật: Trong "visualDescription" BẮT BUỘC mô tả là "a stylized 2D cartoon human [caveman / hunter / scientist / explorer / child / student]".
+- TUYỆT ĐỐI KHÔNG dùng từ "stick figure" hay "stickman"! Mọi con người đều phải là người hoạt họa 2D hoàn chỉnh thống nhất từ đầu đến cuối.` : `
+- MỌI cảnh có nhân vật: Trong "visualDescription" BẮT BUỘC mô tả rõ ràng là "a cartoon stick figure [dressed in animal furs / lab coat / prehistoric clothes / modern clothes]".
+- DÙ KỂ VỀ KỶ BĂNG HÀ, THỜI ĐỒ ĐÁ, NGƯỜI VƯỢN HAY HIỆN ĐẠI: Bất cứ khi nào có con người xuất hiện, BẮT BUỘC ghi rõ tiền tố "cartoon stick figure" (ví dụ: "two cartoon stick figures in animal furs sitting around campfire", TUYỆT ĐỐI KHÔNG ghi "two cavemen" hay "two Neanderthals" trống không vì sẽ khiến AI vẽ thành người thật tả thực, phá hỏng tính đồng bộ của cả video)!`}
 
 ═══════════════════════════════════════════════════════
 PNG ASSET LIBRARY — use ONLY these exact IDs, no others
@@ -339,30 +353,50 @@ NARRATIVE & VISUAL COHESION
 2. Pose transitions: Ensure character posture shifts follow a logical physical progression (e.g., pose_sleeping -> pose_stretching -> pose_standing_neutral).
 3. Connecting words: Use time transitions like "First", "Then", "After that", "Next", "Finally" to make the voiceover flow like a story.
 
-DURATION & PACING:
+DURATION & PACING (NHỊP DỒN DẬP - NHIỀU ẢNH):
 - Target total video duration: ${durationInfo.label} (~${durationInfo.targetSeconds} seconds total).
-- BẮT BUỘC: chia kịch bản thành ${targetSlides} phân đoạn liên tục.
-- Thời lượng đọc mỗi segment: ${slideSecondsHint}. Tổng thời lượng phải khớp target.
+- BẮT BUỘC: chia kịch bản thành ${targetSlides} phân đoạn (tương ứng ${targetSlides} ảnh/slide) liên tục.
+- Với video 1 phút (under_1m): BẮT BUỘC tạo 20 đến 25 ảnh/phân đoạn, nhịp chuyển cảnh dồn dập, trung bình mỗi ảnh hiển thị ${slideSecondsHint}.
+- Thời lượng đọc mỗi segment: ${slideSecondsHint}.
+- QUY TẮC ĐỘ DÀI LỜI NÓI (CỰC KỲ QUAN TRỌNG): Để đảm bảo mỗi ảnh lướt nhanh từ ${slideSecondsHint}, câu thoại/thuyết minh (dialogueOrNarration) của mỗi phân đoạn PHẢI rất ngắn gọn, cô đọng (chỉ khoảng 6 đến 12 từ mỗi segment), nói dứt khoát chuyển cảnh liên tục. Tuyệt đối không viết câu dài dòng làm chậm nhịp video.
 
 USER'S TOPIC:
 "${input.scenario || 'No specific topic given'}"
 Draft content / narration suggestion (if any):
 "${input.script || 'Freely write a natural narration about this topic'}"
 
-NARRATION GUIDELINES:
-1. Third-person documentary voiceover about a real, relatable everyday problem or situation.
-2. ${isVietnamese
-    ? 'Lời thuyết minh (dialogueOrNarration) PHẢI bằng tiếng Việt. Viết tự nhiên, câu ngắn, gần gũi — như người bạn kể chuyện, KHÔNG phải văn nghị luận.'
-    : 'Content MUST be in simple, basic English (A2/B1). Use short, natural sentences.'}
+NARRATION GUIDELINES (BẮT BUỘC ĐẬM ĐẶC TRI THỨC & GỌI ĐÍCH DANH CHỦ THỂ):
+1. 🚨 BẮT BUỘC GỌI ĐÍCH DANH TÊN CHỦ THỂ NGAY TỪ SLIDE 1-2 (MANDATORY TOPIC NAMING):
+   - NGUYÊN TẮC CỐT LÕI: Khán giả xem video phải biết ngay mình đang nghe về cái gì!
+   - Ngay ở Slide 1 (hoặc muộn nhất Slide 2), câu thuyết minh (dialogueOrNarration) BẮT BUỘC PHẢI CHỨA TỪ KHÓA CHÍNH / TÊN ĐÍCH DANH của chủ đề: "${input.scenario || 'No specific topic given'}".
+     * Đang nói về "Rãnh Mariana" thì Slide 1 PHẢI xướng tên "Rãnh Mariana" (ví dụ: "Dưới đáy vực sâu 11.000m của Rãnh Mariana..."), TUYỆT ĐỐI KHÔNG nói trống không "Ở độ sâu 11.000m..." mà người xem không biết là ở đâu!
+     * Đang nói về "Thiên thạch Chicxulub" thì Slide 1 PHẢI gọi tên "Thiên thạch Chicxulub"!
+     * Đang nói về "Tuyết Cầu Trái Đất" thì Slide 1 PHẢI gọi tên "Kỷ Tuyết Cầu Trái Đất"!
+     * Đang nói về "Hội chứng Brain Rot" thì Slide 1 PHẢI gọi tên "Hội chứng Brain Rot"!
+   - Trong suốt các slide tiếp theo và kết bài, tiếp tục gắn liền các cơ chế giải thích với tên chủ thể để người xem luôn nắm rõ mạch truyện và bối cảnh.
+2. MỖI CÂU NÓI PHẢI CUNG CẤP KIẾN THỨC THỰC THỤ:
+   - Viết chính xác theo chủ đề: "${input.scenario || 'No specific topic given'}".
+   - Khán giả xem để HỌC HỎI ĐIỀU MỚI. Tuyệt đối KHÔNG viết chung chung, cảm thán suông ("nơi này rất đáng sợ", "điều này thật bí ẩn", "bạn có biết không").
+   - Mỗi phân đoạn PHẢI chứa: con số đo đạc, thuật ngữ khoa học/y học/lịch sử, cơ chế sinh học/vật lý/tâm lý cụ thể, hoặc bằng chứng thực nghiệm giải thích vì sao hiện tượng xảy ra.
+   - Bỏ toàn bộ các câu dạo đầu dẫn chuyện lan man; mỗi slide đưa ra MỘT sự thật/chi tiết kiến thức mới mẻ.
 3. ${isVietnamese
-    ? 'Subtitle: "subtitle" phải chứa câu tiếng Việt TRƯỚC, rồi "\\n", rồi bản dịch tiếng Anh (vd: "Hàng triệu người thức trắng đêm lướt điện thoại.\\nMillions of people lie awake every night, scrolling.").'
-    : isBilingual
-      ? 'Subtitle: "subtitle" must contain the English line FIRST, then "\\n", then a natural Vietnamese translation (e.g. "Millions of people lie awake every night, scrolling.\\nHàng triệu người thức trắng đêm lướt điện thoại.").'
-      : 'Subtitle: English only.'}
-4. Do NOT include emotion tags like [sighs], [softly], [pause] — they have no effect and just clutter the text.
-5. ${buildPunctuationRhythmGuidance()}
-6. CRITICAL RULE FOR "visualDescription" (MANDATORY IN EVERY SEGMENT):
-- Each segment MUST have a concise "visualDescription" written in ENGLISH describing what the cartoon illustration shows (character pose, comedic facial expression, setting, environment, props).
+    ? 'Lời thuyết minh (dialogueOrNarration) PHẢI bằng tiếng Việt tự nhiên, súc tích, gãy gọn — như một chuyên gia khoa học thông minh đang giải thích ngắn gọn, cuốn hút.'
+    : 'Content MUST be in simple, basic English (A2/B1). Short, impactful, highly factual sentences.'}
+4. ${isVietnamese
+    ? 'Phụ đề (subtitle): CHỈ viết ĐƠN NGỮ TIẾNG VIỆT (1 dòng duy nhất, khớp với lời thuyết minh). TUYỆT ĐỐI KHÔNG thêm dòng dịch tiếng Anh, KHÔNG có ký tự "\\n" xuống dòng dịch phụ đề.'
+    : 'Subtitle (subtitle): ENGLISH ONLY (single line matching narration). Strictly DO NOT include any Vietnamese translation line, DO NOT include "\\n".'}
+5. Do NOT include emotion tags like [sighs], [softly], [pause] — they have no effect and just clutter the text.
+6. ${buildPunctuationRhythmGuidance()}
+7. CRITICAL RULE FOR "visualDescription" (MINH HOẠ CHUẨN XÁC NỘI DUNG KHOA HỌC & ĐÚNG KỶ NGUYÊN):
+${detectedEra.isPreHuman ? `🚨 ĐẶC BIỆT: VÌ ĐÂY LÀ KỶ NGUYÊN CHƯA CÓ LOÀI NGƯỜI (${detectedEra.label}):
+- 100% CÁC CẢNH PHẢI LÀ THIÊN NHIÊN / ĐỊA CHẤT / VŨ TRỤ HOẶC KHỦNG LONG HOÀN TOÀN KHÔNG CÓ BẤT KỲ CON NGƯỜI NÀO!
+- TUYỆT ĐỐI CẤM (100% FORBIDDEN): KHÔNG mô tả người que, con người, nhân vật, người run rẩy, người gãi đầu, quần áo tunic, và KHÔNG mô tả đền đài Hy Lạp/La Mã cổ đại, cột đá, công trình xây dựng!
+- Mỗi slide visualDescription đều kết thúc bằng: "Pure primeval geological landscape, NO humans, NO stick figures, textless."` : `- TUYỆT ĐỐI KHÔNG BẮT BUỘC CẢNH NÀO CŨNG PHẢI CÓ NGƯỜI QUE!
+  * Khi lời thuyết minh nói về cấu trúc địa chất, hiện tượng tự nhiên, vũ trụ, lớp đất đá, đại dương, phân tử, đồ thị, mặt cắt Trái Đất (ví dụ: tầng manti sâu 600km, đại dương ngầm, tinh thể ringwoodite, dung nham magma, mảng kiến tạo, rãnh Mariana, từ trường Trái Đất, vụ nổ Big Bang, thiên thạch, vành đai bức xạ):
+    -> MÔ TẢ TRỰC DIỆN CẢNH KHOA HỌC / MẶT CẮT / HIỆN TƯỢNG ĐÓ KHÔNG CÓ NGƯỜI (ví dụ: "Scientific cutaway diagram of Earth's crust and mantle down to 600km depth showing glowing blue subterranean water crystals trapped inside porous mantle rock, glowing magma below. Pure geological cross-section, NO characters, NO people, textless.").
+  * CHỈ cho nhân vật người que xuất hiện ở những cảnh thực sự cần con người:
+    -> Nhà khoa học đang quan sát kính hiển vi/máy đo, người tiền sử chế tạo công cụ, nhân vật biểu cảm kinh ngạc/áp lực, hoặc so sánh kích thước con người với hiện tượng khổng lồ.
+  * TỈ LỆ PHÂN BỔ: Khoảng 40% đến 50% số cảnh khoa học nên là cảnh mặt cắt khoa học, vũ trụ, địa chất hoặc hiện tượng thuần túy (NO character), giúp video đậm chất tài liệu khoa học chuyên nghiệp giống Kurzgesagt và Mack!`}
 - STRICT PROHIBITION: The image generator must produce 100% textless illustrations. DO NOT include any dialogue, speech bubbles, thought bubbles, words, letters, or caption bars in "visualDescription". Describe ONLY the physical visual scene.
 
 ═══════════════════════════════════════════════════════
@@ -370,55 +404,52 @@ RETURN FORMAT — raw JSON only, no markdown code fences
 ═══════════════════════════════════════════════════════
 
 {
-  "title": "${isVietnamese ? 'Làm Sao Người Cổ Đại Sống Sót Qua Mùa Đông Kỷ Băng Hà?' : 'How Did Ancient Humans Survive Freezing Winters?'}",
+  "title": "${isVietnamese ? 'Bí Ẩn Sinh Học Ở Rãnh Sâu Đại Dương Mariana' : 'The Deepest Ocean Trench Biological Mysteries'}",
   "segments": [
     {
       "segmentNumber": 1,
       "layout": "default",
-      "visualDescription": "A comedic cartoon stick figure shivering in a howling prehistoric snowstorm near a dying campfire, hugging knees, frosty breath, dark snowy mountain background. Pure visual scene, no text.",
-      "dialogueOrNarration": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu. Gió tuyết âm ba mươi độ rít gào, không lò sưởi, không chăn điện, chỉ có bạn và một đốm lửa sắp tàn.' : 'Imagine it is 40,000 years ago in northern Europe. The icy wind hits your face like glass at minus thirty degrees, with no central heating and no delivery apps.'}",
-      "subtitle": "${isVietnamese ? 'Hãy tưởng tượng bạn bị ném về 40.000 năm trước giữa mùa đông Bắc Âu.\\nImagine it is 40,000 years ago in northern Europe during an Ice Age winter.' : isBilingual ? 'Imagine it is 40,000 years ago in northern Europe.\\nHãy tưởng tượng bạn ở Bắc Âu 40.000 năm trước giữa mùa đông kỷ băng hà.' : 'Imagine it is 40,000 years ago in northern Europe.'}",
-      "durationSeconds": 6,
+      "visualDescription": "Deep underwater abyss of the Mariana Trench plunging down into complete darkness, faint silhouettes of hydrothermal vents with glowing mineral smoke. Pure underwater scenery, NO characters, no text.",
+      "dialogueOrNarration": "${isVietnamese ? 'Ở độ sâu 11.000 mét tại rãnh Mariana, ánh sáng mặt trời biến mất hoàn toàn.' : 'At 11,000 meters deep in the Mariana Trench, sunlight completely vanishes.'}",
+      "subtitle": "${isVietnamese ? 'Ở độ sâu 11.000m tại rãnh Mariana, ánh sáng mặt trời biến mất hoàn toàn.' : 'At 11,000 meters deep in the Mariana Trench, sunlight completely vanishes.'}",
+      "durationSeconds": 2.5,
       "elements": [
-        { "asset": "pose_sad_hugging_knees", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
-        { "asset": "sym_lightning", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.4 }
+        { "asset": "sym_warning", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.4 }
       ]
     },
     {
       "segmentNumber": 2,
       "layout": "caption-left",
-      "visualDescription": "A modern cartoon stick figure sitting lazily on a couch staring at a glowing phone with a hot cup of coffee, looking pampered and relaxed in a cozy living room. Pure visual scene, no text.",
-      "dialogueOrNarration": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm xuống dưới hai mươi độ là đã kêu trời. Nếu bị thả vào đó, đa số sẽ thành que kem hình người chỉ sau bốn mươi phút.' : 'Most modern humans panic when the room drops below twenty degrees. Dropped into that tundra, an average person becomes a human popsicle in forty minutes.'}",
-      "subtitle": "${isVietnamese ? 'Con người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.\\nMost modern humans complain when the room drops below 20 degrees.' : isBilingual ? 'Most modern humans complain when the room drops below 20 degrees.\\nCon người hiện đại chúng ta phòng giảm dưới 20 độ là đã kêu trời.' : 'Most modern humans complain when the room drops below 20 degrees.'}",
-      "durationSeconds": 6,
+      "visualDescription": "A cartoon stick figure comically staggering under the crushing weight of a gigantic slab of dark ocean water above them, sweating with wide shocked eyes. Pure visual scene, no text.",
+      "dialogueOrNarration": "${isVietnamese ? 'Áp suất tại đây lên tới 1.000 atmosphere, tương đương 50 máy bay đè lên đầu.' : 'Water pressure reaches 1,000 atmospheres, equal to 50 jumbo jets on your head.'}",
+      "subtitle": "${isVietnamese ? 'Áp suất lên tới 1.000 atmosphere, tương đương 50 máy bay đè lên đầu.' : 'Water pressure reaches 1,000 atmospheres, equal to 50 jumbo jets on your head.'}",
+      "durationSeconds": 2.5,
       "elements": [
-        { "asset": "pose_phone_sitting", "x": ${G.laneR}, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": true, "delay": 0 },
-        { "asset": "prop_coffee_cup",   "x": ${G.laneL}, "y": ${G.ground}, "scale": 0.5, "anchor": "bottom", "zIndex": 3, "flip": false, "delay": 0.3 }
+        { "asset": "pose_stressed", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
+        { "asset": "sym_lightning", "x": ${G.laneR}, "y": 25, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.3 }
       ]
     },
     {
       "segmentNumber": 3,
-      "layout": "default",
-      "visualDescription": "An archaeologist cartoon stick figure in a safari hat kneeling on the ground with a magnifying glass examining ancient pottery shards and fossils. Pure visual scene, no text.",
-      "dialogueOrNarration": "${isVietnamese ? 'Vậy làm sao các nhà khảo cổ biết người xưa bắt đầu mặc quần áo từ khi nào? Họ không tìm thấy áo da thú... mà đã giải mã ADN của loài chấy rận!' : 'So how do archaeologists know when humans first wore clothes? They did not find ancient jackets... they sequenced the DNA of body lice!'}",
-      "subtitle": "${isVietnamese ? 'Làm sao ta biết khi nào con người bắt đầu mặc quần áo?\\nHow do we know when humans first wore clothes?' : isBilingual ? 'How do we know when humans first wore clothes?\\nLàm sao ta biết khi nào con người bắt đầu mặc quần áo?' : 'How do we know when humans first wore clothes?'}",
-      "durationSeconds": 6,
+      "layout": "caption-left",
+      "visualDescription": "Close-up cutaway diagram of TMAO biological molecules forming a glowing protective shield around fragile cellular protein structures, shimmering underwater. Pure scientific concept, NO characters, no text.",
+      "dialogueOrNarration": "${isVietnamese ? 'Sinh vật nơi đây sống được nhờ hợp chất TMAO bảo vệ cấu trúc tế bào.' : 'Creatures survive here thanks to TMAO molecules protecting cellular structures.'}",
+      "subtitle": "${isVietnamese ? 'Sinh vật nơi đây sống sót nhờ hợp chất TMAO bảo vệ cấu trúc tế bào.' : 'Creatures survive here thanks to TMAO molecules protecting cellular structures.'}",
+      "durationSeconds": 3,
       "elements": [
-        { "asset": "pose_thinking", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
-        { "asset": "sym_thought_bubble", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.3 }
+        { "asset": "sym_key", "x": ${G.laneR}, "y": 25, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.3 }
       ]
     },
     {
       "segmentNumber": 4,
-      "layout": "bullets",
-      "visualDescription": "A close-up symbolic view of an ancient campfire with dancing orange flames and swirling grey smoke surrounded by smooth river stones. Pure visual scene, no text.",
-      "dialogueOrNarration": "${isVietnamese ? 'Để sinh tồn qua mùa đông băng giá, người cổ đại đã làm chủ ba vũ khí tiến hóa tối thượng.' : 'To survive the freezing winter, ancient humans mastered three evolutionary superpowers.'}",
-      "subtitle": "${isVietnamese ? 'Ba vũ khí sinh tồn tối thượng của người cổ đại.\\nThree evolutionary superpowers of ancient humans.' : isBilingual ? 'Three evolutionary superpowers of ancient humans.\\nBa vũ khí sinh tồn tối thượng của người cổ đại.' : 'Three evolutionary superpowers of ancient humans.'}",
-      "durationSeconds": 6,
-      "bullets": [
-        "${isVietnamese ? '**Một**, chế tạo kim may xương và quần áo may kín gió.' : '**First**, bone needles and windproof tailored clothing.'}",
-        "${isVietnamese ? '**Hai**, xem lửa như thành viên sống của bộ tộc.' : '**Second**, treating fire as a living tribal member.'}",
-        "${isVietnamese ? '**Ba**, nạp calo từ tủy và mỡ voi ma mút.' : '**Finally**, consuming dense calories from mammoth fat.'}"
+      "layout": "default",
+      "visualDescription": "An excited scientist cartoon stick figure examining satellite telemetry of Jupiter ocean moon Europa on a glowing futuristic desk console. Pure visual scene, no text.",
+      "dialogueOrNarration": "${isVietnamese ? 'Khám phá này giúp con người mở ra hy vọng tìm thấy sự sống trên mặt trăng Europa.' : 'This discovery gives scientists hope of finding life on Jupiter ocean moon Europa.'}",
+      "subtitle": "${isVietnamese ? 'Khám phá này mở ra hy vọng tìm thấy sự sống trên mặt trăng Europa.' : 'This discovery gives scientists hope of finding life on Jupiter ocean moon Europa.'}",
+      "durationSeconds": 3,
+      "elements": [
+        { "asset": "pose_celebrating", "x": 50, "y": ${G.ground}, "scale": ${G.charScale}, "anchor": "bottom", "zIndex": 2, "flip": false, "delay": 0 },
+        { "asset": "sym_star", "x": ${G.laneR}, "y": 20, "scale": 0.5, "anchor": "center", "zIndex": 4, "flip": false, "delay": 0.3 }
       ]
     }
   ],

@@ -77,6 +77,7 @@ export default defineSkill({
     return {
       ...baseConfig,
       orientation,
+      showBilingual: false,
     };
   },
 });

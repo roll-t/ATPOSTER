@@ -21,6 +21,10 @@ export default {
 
   buildRemotionConfig(record, processedInput) {
     // Nền trắng — khớp với whiteboard aesthetic của ảnh người que (mực đen trên nền trắng).
-    return buildSlideshowRemotionConfig(record, processedInput, '#FFFFFF');
+    const baseConfig = buildSlideshowRemotionConfig(record, processedInput, '#FFFFFF');
+    return {
+      ...baseConfig,
+      showBilingual: false,
+    };
   },
 };

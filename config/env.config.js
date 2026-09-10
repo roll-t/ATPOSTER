@@ -26,7 +26,9 @@ export const ENV_CONFIG = {
   PORT: parseInteger(process.env.PORT, 3001),
 
   // Database
-  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/tiktok_agent',
+  get MONGODB_URI() {
+    return process.env.MONGODB_URI || 'mongodb://localhost:27017/tiktok_agent';
+  },
 
   // AI & External APIs
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',

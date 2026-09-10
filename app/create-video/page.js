@@ -93,7 +93,7 @@ function CreateVideoContent() {
           flexDirection: 'column',
           height: '100%',
           overflow: 'hidden',
-          padding: '20px 32px 32px 32px',
+          padding: '12px 10px 16px 10px',
           width: '100%'
         }}
       >
@@ -254,7 +254,7 @@ function CreateVideoContent() {
           </div>
 
           {/* Vùng nội dung chính của Trình tạo video */}
-          <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '12px', paddingBottom: '36px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '4px', paddingBottom: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
             {loading && !s.result ? (
               <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                 <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getLocalPromptHistory } from '@/src/infrastructure/persistence/localPromptRepository.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
@@ -81,8 +82,18 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Không có nội dung chỉnh sửa nào để lưu.' }, { status: 400 });
     }
 
-    const db = await getMongoClientDb();
-    const record = await db.collection('promptHistory').findOne({ id });
+    let record = null;
+    const localRes = getLocalPromptHistory({ id });
+    if (localRes?.item) {
+      record = localRes.item;
+    } else {
+      try {
+        const db = await getMongoClientDb();
+        record = await db.collection('promptHistory').findOne({ id });
+      } catch (e) {
+        console.warn('[update-segments] Mongo lookup fallback failed:', e.message);
+      }
+    }
     if (!record) {
       return NextResponse.json({ error: 'Không tìm thấy kịch bản này trong lịch sử (có thể đã bị xoá).' }, { status: 404 });
     }
@@ -129,7 +140,12 @@ export async function POST(request) {
       update.remotionConfig = nextConfig;
     }
 
-    await db.collection('promptHistory').updateOne({ id }, { $set: update });
+    // Cập nhật nền vào database nếu có (không chặn phản hồi)
+    getMongoClientDb().then(db => {
+      db.collection('promptHistory').updateOne({ id }, { $set: update }).catch(err => {
+        console.warn('[update-segments] Mongo update background warning:', err.message);
+      });
+    }).catch(() => {});
 
     // manifest.json trên đĩa — khâu Tạo Giọng Đọc và render-project.mjs đọc file này chứ không đọc
     // DB, nên bỏ qua bước này là bản sửa sẽ không vào được video cuối cùng.

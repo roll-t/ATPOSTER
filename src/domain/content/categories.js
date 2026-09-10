@@ -285,8 +285,36 @@ export const PROMPT_CATEGORIES = {
         required: true,
         defaultValue: 'vi',
         options: [
-          { value: 'vi', label: '🇻🇳 Tiếng Việt (phụ đề dịch tiếng Anh bên dưới)' },
-          { value: 'en', label: '🇬🇧 Tiếng Anh (phụ đề dịch tiếng Việt bên dưới)' }
+          { value: 'vi', label: '🇻🇳 Tiếng Việt' },
+          { value: 'en', label: '🇬🇧 Tiếng Anh (English)' }
+        ]
+      },
+      {
+        key: 'characterStyle',
+        label: 'Kiểu nhân vật trong ảnh (Đồng bộ thống nhất 1 kiểu)',
+        type: 'select',
+        required: false,
+        defaultValue: 'stick_figure',
+        options: [
+          { value: 'stick_figure', label: '✏️ Người que biểu cảm (Stick Figure — Thống nhất xuyên suốt)' },
+          { value: 'regular_human', label: '🧑 Người thường hoạt họa (Stylized 2D Human — Thống nhất xuyên suốt)' }
+        ]
+      },
+      {
+        key: 'timeEra',
+        label: 'Mốc thời gian / Kỷ nguyên hình ảnh',
+        type: 'select',
+        required: false,
+        defaultValue: 'auto',
+        options: [
+          { value: 'auto', label: '⚡ Tự động nhận diện (theo kịch bản & đề tài)' },
+          { value: 'prehuman_primordial_earth', label: '🌍 Trái Đất Sơ Khai & Tiền Sinh (Tuyết cầu, 700M-4.5B năm, chưa có người)' },
+          { value: 'prehistoric_dinosaurs', label: '🦖 Thời Khủng Long / Đại Trung Sinh (66-250M năm trước, chưa có người)' },
+          { value: 'ice_age_paleolithic', label: '❄️ Kỷ Băng Hà & Người Tiền Sử / Đồ Đá (Ice Age, người mặc da thú)' },
+          { value: 'ancient_civilization', label: '🏛️ Cổ Đại & Phong Kiến (Hy Lạp, La Mã, Ai Cập, Cổ trang)' },
+          { value: 'wartime_history', label: '⚔️ Thời Chiến Tranh / Cận Đại (Thế chiến, quân sự)' },
+          { value: 'modern_contemporary', label: '🏙️ Thời Hiện Đại & Đời Sống (Công nghệ, văn phòng, phố xá)' },
+          { value: 'futuristic_scifi', label: '🚀 Tương Lai / Viễn Tưởng (Sci-Fi, Sao Hỏa, 250 triệu năm nữa)' }
         ]
       },
       {
@@ -303,6 +331,12 @@ export const PROMPT_CATEGORIES = {
         required: true,
         placeholder: 'Ví dụ: Thói quen trì hoãn ở học sinh, sinh viên (The habit of procrastination among students)',
         suggestions: [
+          { text: 'Lõi trong Trái Đất quay chậm lại và có thể đổi hướng (Earth inner core slowing down)', people: 1 },
+          { text: 'Bí ẩn đại dương ngầm khổng lồ sâu 600km dưới lòng đất (Ocean trapped in mantle)', people: 1 },
+          { text: 'Hiện tượng đảo cực từ trường Trái Đất (Geomagnetic reversal flipping poles)', people: 1 },
+          { text: 'Giả thuyết Tuyết cầu Trái Đất đóng băng toàn bộ hành tinh (Snowball Earth hypothesis)', people: 1 },
+          { text: 'Bí ẩn lỗ hổng trọng lực khổng lồ ở Ấn Độ Dương (Indian Ocean gravity hole)', people: 1 },
+          { text: 'Khoa học thực sự tìm thấy gì dưới đáy hố khoan sâu nhất Kola (Kola superdeep borehole)', people: 1 },
           { text: 'Lướt mạng xã hội hàng giờ thay vì đi ngủ (Wasting hours scrolling social media)', people: 1 },
           { text: 'Trì hoãn công việc quan trọng đến phút chót (Procrastinating important tasks)', people: 1 },
           { text: 'Áp lực so sánh bản thân với người khác trên mạng (Comparing yourself to others)', people: 1 },

@@ -28,7 +28,7 @@ export const DEFAULT_READING_PRACTICE_CONFIG = {
   paddingPercent: '10',
   bodyAlign: 'left',
   imageMode: 'full_bg',
-  bilingual: true,
+  bilingual: false,
   bgMusicEnabled: true,
   bgMusicVolume: '35',
   bgMusicTrackId: 'track1',

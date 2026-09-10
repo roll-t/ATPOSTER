@@ -3,22 +3,37 @@ import fs from 'fs';
 import path from 'path';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import { resolveProjectDir, getAllSkillPublicDirs } from '@/src/infrastructure/rendering/remotion/paths.js';
+import { getLocalPromptHistory, updateLocalPrompt } from '@/src/infrastructure/persistence/localPromptRepository.js';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const id = searchParams.get('id');
-    const db = await getMongoClientDb();
-    let query = {};
+    const full = searchParams.get('full') === 'true';
+
+    // 1. Đọc trực tiếp từ kho kịch bản local disk (< 20ms, hoàn toàn không phụ thuộc API / mạng)
+    const localResult = getLocalPromptHistory({ category, id, full });
+
     if (id) {
-      query.id = id;
-    } else if (category && category !== 'all') {
-      query.category = category;
+      if (localResult.item) {
+        return NextResponse.json(localResult);
+      }
+      // Fallback: nếu local chưa có ID này, thử đọc từ MongoDB
+      try {
+        const db = await getMongoClientDb();
+        const item = await db.collection('promptHistory').findOne({ id });
+        if (item) {
+          const { _id, ...clean } = item;
+          return NextResponse.json({ success: true, item: clean, items: [clean] });
+        }
+      } catch (dbErr) {
+        console.warn('[API Prompt History GET] Fallback Mongo lỗi:', dbErr.message);
+      }
+      return NextResponse.json({ success: true, item: null, items: [] });
     }
-    const items = await db.collection('promptHistory').find(query).sort({ createdAt: -1 }).limit(100).toArray();
-    const clean = items.map(({ _id, ...rest }) => rest);
-    return NextResponse.json({ success: true, items: clean, item: clean[0] || null });
+
+    return NextResponse.json(localResult);
   } catch (error) {
     console.error('[API Prompt History GET Error]:', error);
     return NextResponse.json({ error: error.message || 'Lỗi tải lịch sử.' }, { status: 500 });
@@ -45,27 +60,15 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Không có dữ liệu cần cập nhật.' }, { status: 400 });
     }
 
-    const db = await getMongoClientDb();
-    const result = await db.collection('promptHistory').updateOne({ id }, { $set: updateFields });
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: 'Không tìm thấy kịch bản trong lịch sử.' }, { status: 404 });
-    }
+    // 1. Cập nhật trực tiếp manifest.json trên local disk
+    updateLocalPrompt(id, updateFields);
 
-    if (remotionConfig?.orientation && input?.folderPath) {
-      try {
-        const preferredDir = resolveProjectDir(input.folderPath);
-        if (preferredDir && fs.existsSync(preferredDir)) {
-          const mfPath = path.join(preferredDir, 'manifest.json');
-          if (fs.existsSync(mfPath)) {
-            const mf = JSON.parse(fs.readFileSync(mfPath, 'utf8'));
-            mf.orientation = remotionConfig.orientation;
-            fs.writeFileSync(mfPath, JSON.stringify(mf, null, 2), 'utf8');
-          }
-        }
-      } catch (mfErr) {
-        console.warn('Could not sync orientation to manifest.json:', mfErr);
-      }
-    }
+    // 2. Cập nhật nền vào database nếu có (không chặn response)
+    getMongoClientDb().then(db => {
+      db.collection('promptHistory').updateOne({ id }, { $set: updateFields }).catch(err => {
+        console.warn('[API Prompt History PATCH] Mongo update warning:', err.message);
+      });
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -84,7 +87,6 @@ function isInsideSkillPublicDir(targetDir) {
   return getAllSkillPublicDirs().some(({ publicDir }) => {
     const base = path.resolve(publicDir);
     const rel = path.relative(base, resolved);
-    // rel rỗng = chính thư mục public (không được xoá), rel bắt đầu bằng '..' = nằm ngoài.
     return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
   });
 }
@@ -99,7 +101,6 @@ function deleteProjectFolderOnDisk(folderPath, category) {
   const allSkills = getAllSkillPublicDirs();
   const deletedDirs = new Set();
 
-  // 1. Tìm đường dẫn dự án chính theo category
   const preferredDir = resolveProjectDir(cleanFolder, category);
   if (preferredDir && fs.existsSync(preferredDir) && isInsideSkillPublicDir(preferredDir)) {
     const baseName = path.basename(preferredDir).toLowerCase();
@@ -107,9 +108,8 @@ function deleteProjectFolderOnDisk(folderPath, category) {
       try {
         fs.rmSync(preferredDir, { recursive: true, force: true });
         deletedDirs.add(path.resolve(preferredDir));
-        console.log(`[API Prompt History DELETE] Đã xoá thư mục tài nguyên dự án (âm thanh, ảnh, v.v.): ${preferredDir}`);
+        console.log(`[API Prompt History DELETE] Đã xoá thư mục dự án local: ${preferredDir}`);
 
-        // Dọn dẹp thư mục cha nếu là category lồng và vừa trở nên rỗng
         const parentDir = path.dirname(preferredDir);
         if (isInsideSkillPublicDir(parentDir) && fs.existsSync(parentDir) && fs.readdirSync(parentDir).length === 0) {
           fs.rmdirSync(parentDir);
@@ -120,7 +120,6 @@ function deleteProjectFolderOnDisk(folderPath, category) {
     }
   }
 
-  // 2. Quét qua tất cả thư mục public của các skill để dọn dẹp triệt để nếu có thư mục cùng tên
   for (const { publicDir } of allSkills) {
     const candidates = [
       path.join(publicDir, cleanFolder),
@@ -153,7 +152,6 @@ export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const ids = searchParams.get('ids');
-    const db = await getMongoClientDb();
     
     let targetIds = [];
     if (ids) {
@@ -166,24 +164,26 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Thiếu id hoặc danh sách ids.' }, { status: 400 });
     }
 
-    // Chỉ lấy thông tin các bản ghi kịch bản cần xoá để tìm folderPath tương ứng
-    const itemsToDelete = await db.collection('promptHistory').find({ id: { $in: targetIds } }).toArray();
-
-    // Xoá toàn bộ thư mục âm thanh / hình ảnh / tài nguyên đã tạo trong máy
-    for (const item of itemsToDelete) {
-      const folderPath = item.input?.folderPath || item.folderPath || item.input?.folder;
-      if (folderPath) {
-        deleteProjectFolderOnDisk(folderPath, item.category);
-      }
+    // 1. Tìm và xoá thư mục dự án trên local disk
+    const allPrompts = getLocalPromptHistory({ full: true }).items || [];
+    for (const targetId of targetIds) {
+      const found = allPrompts.find(p => p.id === targetId || p.input?.folderPath === targetId);
+      const folderPath = found?.input?.folderPath || targetId;
+      const category = found?.category;
+      deleteProjectFolderOnDisk(folderPath, category);
     }
 
-    // Xoá bản ghi trong Database
-    await db.collection('promptHistory').deleteMany({ id: { $in: targetIds } });
+    // 2. Xoá bản ghi database trong nền nếu có
+    getMongoClientDb().then(db => {
+      db.collection('promptHistory').deleteMany({ id: { $in: targetIds } }).catch(err => {
+        console.warn('[API Prompt History DELETE] Mongo delete warning:', err.message);
+      });
+    }).catch(() => {});
 
     return NextResponse.json({ 
       success: true, 
-      deletedCount: itemsToDelete.length,
-      message: 'Đã xóa kịch bản và toàn bộ thư mục âm thanh, hình ảnh liên quan trong máy.' 
+      deletedCount: targetIds.length,
+      message: 'Đã xóa kịch bản và toàn bộ thư mục tài nguyên liên quan trên máy.' 
     });
   } catch (error) {
     console.error('[API Prompt History DELETE Error]:', error);
