@@ -251,6 +251,7 @@ execFileSync(
     outputVideoPath,
     `--props=${configOutPath}`,
     `--concurrency=${concurrency}`,
+    "--timeout=120000",
   ],
   { cwd: root, stdio: "inherit" }
 );

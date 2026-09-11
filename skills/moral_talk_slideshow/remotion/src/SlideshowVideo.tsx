@@ -56,6 +56,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     imageScale,
     imageTranslateY,
     captionMarginY,
+    captionWidth,
+    captionTextAlign,
+    captionAnimation,
     kenBurns,
     transitionSeconds,
     transitionStyle,
@@ -120,6 +123,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               imageScale={imageScale}
               imageTranslateY={imageTranslateY}
               captionMarginY={captionMarginY}
+              captionWidth={captionWidth}
+              captionTextAlign={captionTextAlign}
+              captionAnimation={captionAnimation}
               captionPosition={captionPosition}
               captionMode={captionMode}
               captionWordsPerChunk={captionWordsPerChunk}

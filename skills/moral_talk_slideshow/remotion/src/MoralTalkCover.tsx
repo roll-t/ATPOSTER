@@ -80,7 +80,7 @@ export const MoralTalkCover: React.FC<{
         <Img
           src={staticFile("logo/the-mind-logo.png")}
           style={{
-            width: 260,
+            width: 220,
             height: "auto",
             objectFit: "contain",
             mixBlendMode: "screen",

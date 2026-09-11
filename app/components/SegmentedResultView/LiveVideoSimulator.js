@@ -33,6 +33,36 @@ function renderWithHighlights(text, highlightColor = '#FE2C55') {
   });
 }
 
+function renderCaptionContent(text, highlightColor, captionTextAlign = "center") {
+  if (!text) return null;
+  const raw = String(text).trim();
+  if (raw.includes('\n')) {
+    const lines = raw.split('\n').filter(Boolean);
+    return lines.map((line, idx) => (
+      <div key={idx} style={{ textAlign: captionTextAlign, width: '100%', wordBreak: 'keep-all', overflowWrap: 'break-word' }}>
+        {renderWithHighlights(line, highlightColor)}
+      </div>
+    ));
+  }
+  return (
+    <div style={{ textAlign: captionTextAlign, width: "100%", wordBreak: "keep-all", overflowWrap: 'break-word' }}>
+      {renderWithHighlights(raw, highlightColor)}
+    </div>
+  );
+}
+
+function hexToRgba(hex, alpha = 0.15) {
+  if (!hex || typeof hex !== 'string') return `rgba(254, 44, 85, ${alpha})`;
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(254, 44, 85, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function stripTags(text) {
   return String(text || '').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -95,9 +125,13 @@ export default function LiveVideoSimulator({
   const textColor = rc.textColor || rc.captionTextColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
   const bgColor = rc.bgColor || rc.captionBgColor || '#000000';
+  const videoBgColor = rc.videoBgColor || (category === 'stick_figure_slideshow_video' ? '#FFFFFF' : '#000000');
   const bgOpacity = Number(rc.bgOpacity !== undefined ? rc.bgOpacity : 65) / 100;
   const isBgTransparent = Boolean(rc.isBgTransparent || rc.captionBgTransparent);
   const captionStyle = rc.captionStyle || 'classic';
+  const captionEnabled = rc.captionEnabled !== false && rc.showCaption !== false && captionStyle !== 'none';
+  const captionTextAlign = rc.captionTextAlign || rc.textAlign || 'center';
+  const captionAnimation = rc.captionAnimation || (captionStyle === 'news' ? 'none' : 'zoom');
   const captionPosition = rc.captionPosition || (
     ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(category)
       ? 'top'
@@ -272,7 +306,8 @@ export default function LiveVideoSimulator({
   const [overlayOpacity, setOverlayOpacity] = useState(0.85);
 
   // State quản lý thành phần đang được chọn để kéo di chuyển & thu phóng như Photoshop
-  const [selectedElement, setSelectedElement] = useState('none'); // 'none' | 'caption' | 'image'
+  const [selectedElement, setSelectedElement] = useState('none');
+  const [isLogoHovered, setIsLogoHovered] = useState(false); // 'none' | 'caption' | 'image'
 
   // Nhấn Escape để bỏ chọn
   useEffect(() => {
@@ -292,7 +327,7 @@ export default function LiveVideoSimulator({
       if (!target) return;
 
       // Không bỏ chọn nếu bấm vào chính item đang chọn (gizmo, 4 góc neo, badge, các nút trên badge)
-      if (target.closest?.('[data-transform-gizmo="active"]')) {
+      if (target.closest?.('[data-transform-gizmo]')) {
         return;
       }
 
@@ -344,7 +379,7 @@ export default function LiveVideoSimulator({
     if (!onUpdateRenderConfig) return;
     const scaleFactor = effectiveIsPortrait ? 0.28 : 0.22;
     const nextMarginY = Math.round(dragStartValuesRef.current.captionMarginY - (deltaY / scaleFactor));
-    onUpdateRenderConfig({ captionMarginY: Math.max(-500, Math.min(500, nextMarginY)) });
+    onUpdateRenderConfig({ captionMarginY: Math.max(-1600, Math.min(1600, nextMarginY)) });
   }, [effectiveIsPortrait, onUpdateRenderConfig]);
 
   const handleCaptionScaleStart = useCallback(() => {
@@ -482,7 +517,7 @@ export default function LiveVideoSimulator({
   const handleLogoScale = useCallback(({ ratio }) => {
     if (!onUpdateRenderConfig) return;
     const startScale = dragStartValuesRef.current.logoScale || 1;
-    const nextScale = Math.max(0.3, Math.min(3.0, Number((startScale * ratio).toFixed(2))));
+    const nextScale = Math.max(0.3, Math.min(3.5, Number((startScale * ratio).toFixed(2))));
     onUpdateRenderConfig({ logoScale: nextScale });
   }, [onUpdateRenderConfig]);
 
@@ -933,7 +968,6 @@ export default function LiveVideoSimulator({
   };
 
   const sceneProgress = currentSceneDuration > 0 ? Math.min(1, Math.max(0, slideCurrentTime / currentSceneDuration)) : 0;
-
   const kenBurnsDir = currentSegment.kenBurns || (globalKenBurns ? (currentSlideIndex % 2 === 0 ? 'in' : 'out') : 'none');
   let kbScale = 1;
   let kbTranslateX = 0;
@@ -941,6 +975,29 @@ export default function LiveVideoSimulator({
   else if (kenBurnsDir === 'out') kbScale = 1.12 - 0.12 * sceneProgress;
   else if (kenBurnsDir === 'pan-left') { kbScale = 1.1; kbTranslateX = 3 - 6 * sceneProgress; }
   else if (kenBurnsDir === 'pan-right') { kbScale = 1.1; kbTranslateX = -3 + 6 * sceneProgress; }
+
+  // Hiệu ứng animation cho tiêu đề / phụ đề:
+  // none: đứng yên tuyệt đối, không zoom, không rung lắc
+  // zoom: zoom dãn nở êm theo nhịp chuyển động Ken Burns
+  // fade: mờ dần hiện ra ở đầu cảnh
+  // slide-up: trượt nhẹ từ dưới lên và mờ dần hiện ra ở đầu cảnh
+  let captionAnimScale = 1;
+  let captionAnimOpacity = 1;
+  let captionAnimTranslateY = 0;
+
+  if (selectedElement !== 'caption') {
+    const effectiveAnim = captionAnimation || (captionStyle === 'news' ? 'none' : 'zoom');
+    if (effectiveAnim === 'zoom') {
+      captionAnimScale = kenBurnsDir === 'out' ? 1.055 - 0.055 * sceneProgress : 1 + 0.055 * sceneProgress;
+    } else if (effectiveAnim === 'fade') {
+      captionAnimOpacity = Math.min(1, sceneProgress / 0.12);
+    } else if (effectiveAnim === 'slide-up') {
+      const enterP = Math.min(1, sceneProgress / 0.14);
+      const eased = 1 - Math.pow(1 - enterP, 3);
+      captionAnimOpacity = enterP;
+      captionAnimTranslateY = Math.round((1 - eased) * 16);
+    }
+  }
 
   const rawSub = String(currentSegment?.subtitle || currentSegment?.dialogueOrNarration || '').split('\n')[0];
   const cleanPrimary = stripTags(rawSub);
@@ -1007,7 +1064,7 @@ export default function LiveVideoSimulator({
             flexShrink: 0,
             borderRadius: 0,
             overflow: 'hidden',
-            background: '#07060e',
+            background: videoBgColor,
             border: '1px solid rgba(255, 255, 255, 0.12)',
             boxShadow: 'none',
             display: 'flex',
@@ -1029,7 +1086,7 @@ export default function LiveVideoSimulator({
 
           {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
           <div
-            style={{ position: 'absolute', inset: 0, overflow: selectedElement === 'image' ? 'visible' : 'hidden' }}
+            style={{ position: 'absolute', inset: 0, overflow: selectedElement === 'image' ? 'visible' : 'hidden', background: videoBgColor }}
             onClick={() => {
               if (selectedElement !== 'none') {
                 setSelectedElement('none');
@@ -1041,7 +1098,7 @@ export default function LiveVideoSimulator({
                 style={{
                   width: '100%',
                   height: '100%',
-                  background: rc.slideBgColor || '#0a0914',
+                  background: rc.slideBgColor || videoBgColor,
                   padding: '24px 10%',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1052,7 +1109,7 @@ export default function LiveVideoSimulator({
                 {bullets.map((bullet, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                     <span style={{ fontFamily, fontSize: `${scaledFontSize * 1.1}px`, fontWeight: 800, color: highlightColor, flexShrink: 0 }}>•</span>
-                    <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35 }}>
+                    <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35, letterSpacing: dynamicLetterSpacing }}>
                       {renderWithHighlights(bullet, highlightColor)}
                     </div>
                   </div>
@@ -1080,7 +1137,8 @@ export default function LiveVideoSimulator({
                   width: '100%',
                   height: '100%',
                   transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
-                  transformOrigin: 'center center',
+                  alignItems: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'),
+                  transformOrigin: captionTextAlign === 'left' ? 'left center' : (captionTextAlign === 'right' ? 'right center' : 'center center'),
                   willChange: 'transform',
                   transition: selectedElement === 'image' || isPlaying ? 'none' : 'transform 0.4s ease',
                   pointerEvents: isPlaying ? 'none' : 'auto'
@@ -1139,7 +1197,7 @@ export default function LiveVideoSimulator({
 
 
           {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
-          {!hasBullets && cleanPrimary && (
+          {!hasBullets && cleanPrimary && captionEnabled && (
             <div
               key={`sub-${currentSlideIndex}`}
               style={{
@@ -1156,9 +1214,9 @@ export default function LiveVideoSimulator({
                 }),
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
+                alignItems: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'),
                 justifyContent: 'center',
-                textAlign: 'center',
+                textAlign: captionTextAlign,
                 zIndex: 25,
                 pointerEvents: 'none',
                 transition: selectedElement === 'caption' ? 'none' : 'all 0.15s ease-out'
@@ -1184,9 +1242,14 @@ export default function LiveVideoSimulator({
                 })}
                 style={{
                   pointerEvents: isPlaying ? 'none' : 'auto',
-                  width: `${captionWidth}%`,
-                  maxWidth: '98%',
-                  boxSizing: 'border-box'
+                  width: 'fit-content',
+                  maxWidth: `${captionWidth}%`,
+                  boxSizing: 'border-box',
+                  opacity: captionAnimOpacity,
+                  transform: `translateY(${captionAnimTranslateY}px) scale(${captionAnimScale})`,
+                  transformOrigin: 'center center',
+                  transition: isPlaying ? 'none' : 'transform 0.15s ease',
+                  willChange: isPlaying ? 'transform' : 'auto'
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1196,56 +1259,77 @@ export default function LiveVideoSimulator({
               >
                 {captionStyle === 'hook' ? (
                   currentSlideIndex === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
-                      <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66` }}>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'), gap: '8px', width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box' }}>
+                      <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66`, whiteSpace: 'nowrap' }}>
                         ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
                       </div>
-                      <div style={{ width: '100%', boxSizing: 'border-box', fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, textShadow: 'none', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px' }}>
-                        {renderWithHighlights(cleanPrimary, highlightColor)}
+                      <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, letterSpacing: '0.02em', textShadow: 'none', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px', textAlign: captionTextAlign }}>
+                        {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px 10px' : '8px 18px', borderRadius: '12px', background: isBgTransparent ? 'transparent' : (bgColor && bgColor !== 'transparent' ? bgColor : 'rgba(8, 8, 11, 0.88)'), border: 'none', boxShadow: isBgTransparent ? 'none' : '0 4px 20px rgba(0,0,0,0.5)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
-                      {renderWithHighlights(cleanPrimary, highlightColor)}
+                    <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px 10px' : '8px 18px', borderRadius: '12px', background: isBgTransparent ? 'transparent' : (bgColor && bgColor !== 'transparent' ? bgColor : 'rgba(8, 8, 11, 0.88)'), border: 'none', boxShadow: isBgTransparent ? 'none' : '0 4px 20px rgba(0,0,0,0.5)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, letterSpacing: '0.02em', textShadow: 'none', textAlign: captionTextAlign, alignSelf: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center') }}>
+                      {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                     </div>
                   )
                 ) : captionStyle === 'tiktok' ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '6px 12px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'), gap: '6px', width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: '6px 12px', letterSpacing: '0.02em', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
                     {words.map((word, i) => {
                       const isActive = i === activeWordIdx && isPlaying;
                       return (
-                        <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', textShadow: 'none' }}>
+                        <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', letterSpacing: '0.02em', textShadow: 'none', whiteSpace: 'nowrap' }}>
                           {word}
                         </span>
                       );
                     })}
                   </div>
                 ) : captionStyle === 'karaoke' ? (
-                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800 }}>
+                  <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', letterSpacing: '0.02em', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, display: 'flex', flexWrap: 'wrap', justifyContent: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'), textAlign: captionTextAlign }}>
                     {words.map((word, i) => {
                       const hasSpoken = i <= activeWordIdx;
                       return (
-                        <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88` : 'none', marginRight: '6px', transition: 'color 0.15s ease' }}>
+                        <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88` : 'none', marginRight: '6px', letterSpacing: '0.02em', transition: 'color 0.15s ease', whiteSpace: 'nowrap' }}>
                           {word}
                         </span>
                       );
                     })}
                   </div>
                 ) : captionStyle === 'pill' ? (
-                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 24px', borderRadius: '9999px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, border: isBgTransparent ? 'none' : '1px solid rgba(255,255,255,0.14)', backdropFilter: isBgTransparent ? 'none' : 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
-                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 24px', borderRadius: '9999px', letterSpacing: '0.02em', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, border: isBgTransparent ? 'none' : '1px solid rgba(255,255,255,0.14)', backdropFilter: isBgTransparent ? 'none' : 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none', textAlign: captionTextAlign, alignSelf: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center') }}>
+                    {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                   </div>
                 ) : captionStyle === 'news' ? (
-                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 14px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.88)`, borderLeft: 'none', textAlign: 'left', fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 700, color: textColor, boxShadow: isBgTransparent ? 'none' : '0 4px 20px rgba(0,0,0,0.5)', textShadow: 'none' }}>
-                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  <div style={{
+                    width: 'fit-content',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    padding: '10px 22px',
+                    letterSpacing: '0.02em',
+                    background: `linear-gradient(135deg, ${hexToRgba(highlightColor, 0.25)} 0%, rgba(10, 12, 22, 0.72) 100%)`,
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    border: 'none',
+                    borderLeft: `4.5px solid ${highlightColor || '#FE2C55'}`,
+                    borderRadius: captionTextAlign === 'left' ? '2px 8px 8px 2px' : (captionTextAlign === 'right' ? '8px 2px 2px 8px' : '6px'),
+                    alignSelf: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'),
+                    textAlign: captionTextAlign,
+                    fontFamily,
+                    fontSize: `${scaledFontSize}px`,
+                    lineHeight: 1.35,
+                    fontWeight: 700,
+                    color: textColor,
+                    boxShadow: `0 8px 28px rgba(0, 0, 0, 0.6), 0 0 16px ${hexToRgba(highlightColor, 0.15)}`,
+                    textShadow: 'none'
+                  }}>
+                    {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                   </div>
                 ) : captionStyle === 'box' ? (
-                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 16px', borderRadius: '8px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.85)`, border: 'none', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
-                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: '8px 16px', borderRadius: '8px', letterSpacing: '0.02em', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.85)`, border: 'none', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none', textAlign: captionTextAlign, alignSelf: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center') }}>
+                    {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                   </div>
                 ) : (
-                  <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: 'none' }}>
-                    {renderWithHighlights(cleanPrimary, highlightColor)}
+                  <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, letterSpacing: '0.02em', textShadow: 'none', textAlign: captionTextAlign, alignSelf: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center') }}>
+                    {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
                   </div>
                 )}
               </TransformGizmoOverlay>
@@ -1264,8 +1348,8 @@ export default function LiveVideoSimulator({
                 justifyContent: 'center',
                 alignItems: 'center',
                 pointerEvents: 'none',
-                opacity: selectedElement === 'logo' ? 1 : 0.75,
-                zIndex: selectedElement === 'logo' ? 30 : 20,
+                opacity: selectedElement === 'logo' ? 1 : 0.82,
+                zIndex: selectedElement === 'logo' ? 45 : 35,
                 transition: selectedElement === 'logo' ? 'none' : 'all 0.2s ease'
               }}
             >
@@ -1273,7 +1357,7 @@ export default function LiveVideoSimulator({
                 active={selectedElement === 'logo' && !isPlaying}
                 label="Logo thương hiệu"
                 detail={`${Math.round(logoScale * 100)}% • X: ${Math.round(logoTranslateX)}px • Y: ${Math.round(logoTranslateY)}px`}
-                boxInset="-4px"
+                boxInset="-1px"
                 counterScale={logoScale}
                 badgePosition={logoTranslateY < -1300 ? 'inside-top' : 'outside-top'}
                 onDragStart={handleLogoDragStart}
@@ -1282,12 +1366,19 @@ export default function LiveVideoSimulator({
                 onScale={handleLogoScale}
                 onDeselect={() => setSelectedElement('none')}
                 onReset={() => onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0, logoScale: 1 })}
+                onMouseEnter={() => setIsLogoHovered(true)}
+                onMouseLeave={() => setIsLogoHovered(false)}
                 style={{
                   transform: `translate(${visualLogoX}px, ${visualLogoY}px) scale(${logoScale})`,
                   transformOrigin: 'center center',
                   pointerEvents: isPlaying ? 'none' : 'auto',
                   cursor: isPlaying ? 'default' : (selectedElement === 'logo' ? 'move' : 'pointer'),
-                  transition: selectedElement === 'logo' || isPlaying ? 'none' : 'transform 0.2s ease'
+                  transition: selectedElement === 'logo' || isPlaying ? 'none' : 'transform 0.2s ease',
+                  padding: 0,
+                  margin: 0,
+                  outline: (!isPlaying && selectedElement !== 'logo' && isLogoHovered) ? '1.5px dashed rgba(37, 244, 238, 0.75)' : 'none',
+                  outlineOffset: '2px',
+                  borderRadius: '2px'
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1296,16 +1387,17 @@ export default function LiveVideoSimulator({
                 }}
               >
                 <img
-                  src="/images/watermark/the-mind-logo.png"
+                  src="/images/watermark/the-mind-logo.png?v=trimmed"
                   alt="Logo thương hiệu"
                   style={{
-                    width: effectiveIsPortrait ? (isFullscreen ? '115px' : '90px') : '75px',
-                    maxWidth: '28%',
+                    width: effectiveIsPortrait ? (isFullscreen ? '96px' : '76px') : '62px',
                     height: 'auto',
                     objectFit: 'contain',
                     mixBlendMode: 'screen',
                     filter: 'brightness(1.15) drop-shadow(0 2px 8px rgba(0,0,0,0.7))',
                     display: 'block',
+                    margin: 0,
+                    padding: 0,
                     userSelect: 'none',
                     pointerEvents: 'none'
                   }}
@@ -1379,7 +1471,7 @@ export default function LiveVideoSimulator({
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          zIndex: 10,
+          zIndex: 60,
           boxSizing: 'border-box'
         }}
       >

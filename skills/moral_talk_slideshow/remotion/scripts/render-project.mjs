@@ -62,7 +62,7 @@ for (const arg of process.argv.slice(3)) {
   const match = arg.match(/^--([a-zA-Z]+)=(.*)$/);
   if (match) flags[match[1]] = match[2];
 }
-const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook", "none"];
+const CAPTION_STYLES = ["box", "tiktok", "karaoke", "page", "hook", "minimal", "classic", "pill", "news", "none"];
 // Hướng Ken Burns áp cho MỌI cảnh. Bỏ trống = giữ hành vi cũ: Scene.tsx tự luân phiên in/out
 // theo chỉ số cảnh. Đặt "in" thì cả video là một nhịp phóng to chậm đều, không đảo chiều.
 const KEN_BURNS_MODES = ["in", "out", "pan-left", "pan-right", "none"];
@@ -107,6 +107,9 @@ const captionBgColor = flags.captionBgColor && CSS_COLOR_RE.test(flags.captionBg
 const highlightColor = flags.highlightColor && CSS_COLOR_RE.test(flags.highlightColor)
   ? flags.highlightColor
   : undefined;
+const bgColor = flags.bgColor && CSS_COLOR_RE.test(flags.bgColor)
+  ? flags.bgColor
+  : undefined;
 
 const imageScale = flags.imageScale !== undefined ? Number(flags.imageScale) : 1.0;
 const imageTranslateY = flags.imageTranslateY !== undefined ? Number(flags.imageTranslateY) : 0;
@@ -114,7 +117,8 @@ const captionMarginY = flags.captionMarginY !== undefined ? Number(flags.caption
 const captionWidth = flags.captionWidth !== undefined ? Number(flags.captionWidth) : 92;
 const logoTranslateX = flags.logoTranslateX !== undefined ? Number(flags.logoTranslateX) : 0;
 const logoTranslateY = flags.logoTranslateY !== undefined ? Number(flags.logoTranslateY) : 0;
-const logoScale = flags.logoScale !== undefined ? Number(flags.logoScale) : 1.0;
+const rawLogoScale = flags.logoScale !== undefined ? Number(flags.logoScale) : 1.0;
+const logoScale = (Number.isFinite(rawLogoScale) && rawLogoScale >= 0.2 && rawLogoScale <= 2.0) ? rawLogoScale : 1.0;
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
@@ -259,7 +263,7 @@ const remotionConfig = {
   // video khớp CHÍNH XÁC #000000 với nền ảnh — #0E0F13 (xám xanh rất tối) mặc định cho các style
   // khác lộ ra thành viền/mảng màu lệch tông thấy được ở mép ảnh lúc Ken Burns pan/zoom hoặc lúc
   // chuyển cảnh, vì ảnh và nền không cùng 1 màu đen tuyệt đối.
-  bgColor: isHookStyle ? "#000000" : "#0E0F13",
+  bgColor: bgColor || (isHookStyle ? "#000000" : "#0E0F13"),
 
   // Nền + màu chữ cho 3 bố cục mới theo TỪNG SLIDE ("bullets"/"split"/"caption-left", xem
   // SceneLayouts.tsx). PHẢI ghi tường minh ở đây chứ không dựa vào giá trị mặc định của zod:
@@ -270,10 +274,12 @@ const remotionConfig = {
   // Hai tông đối lập nhau theo phong cách của skill:
   //   - "hook" = Nói Chuyện Đạo Lý: pictogram trắng trên nền ĐEN -> nền đen, chữ trắng.
   //   - còn lại = Người Que whiteboard: mực đen trên nền TRẮNG -> nền giấy sáng, chữ đen.
-  slideBgColor: flags.slideBgColor || (isHookStyle ? "#000000" : "#F4F4F4"),
+  slideBgColor: flags.slideBgColor || bgColor || (isHookStyle ? "#000000" : "#F4F4F4"),
   slideTextColor: flags.slideTextColor || (isHookStyle ? "#FFFFFF" : "#1A1A1A"),
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-  captionMode: isPageStyle || isHookStyle ? "full" : "chunked",
+  captionMode: flags.captionMode
+    ? flags.captionMode
+    : ((captionStyle === "karaoke" || captionStyle === "tiktok") ? "chunked" : "full"),
   captionWordsPerChunk: 4,
   captionStyle,
   captionFont,
@@ -335,6 +341,7 @@ execFileSync(
     outputVideoPath,
     `--props=${configOutPath}`,
     `--concurrency=${concurrency}`,
+    "--timeout=120000",
   ],
   { cwd: root, stdio: "inherit" }
 );
@@ -372,6 +379,7 @@ if (scenes.length > 0 && scenes[0].image) {
           channelLogo,
         })}`,
         "--frame=20",
+        "--timeout=120000",
       ],
       { cwd: root, stdio: "inherit" }
     );

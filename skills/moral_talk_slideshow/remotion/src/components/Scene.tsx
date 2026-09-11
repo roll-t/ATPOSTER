@@ -74,6 +74,9 @@ export const Scene: React.FC<{
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
+  captionWidth?: number;
+  captionTextAlign?: "left" | "center" | "right";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
   captionPosition: "top" | "bottom" | "center";
   captionMode: "chunked" | "full";
   captionWordsPerChunk: number;
@@ -108,6 +111,9 @@ export const Scene: React.FC<{
   imageScale,
   imageTranslateY,
   captionMarginY,
+  captionWidth = 92,
+  captionTextAlign = "center",
+  captionAnimation,
   captionPosition,
   captionMode,
   captionWordsPerChunk,
@@ -262,6 +268,9 @@ export const Scene: React.FC<{
           videoTitle={videoTitle}
           position={captionPosition}
           captionMarginY={captionMarginY}
+          captionWidth={captionWidth}
+          captionTextAlign={captionTextAlign}
+          captionAnimation={captionAnimation}
           fontFamily={fontFamily}
           mode={captionMode}
           wordsPerChunk={captionWordsPerChunk}
@@ -298,7 +307,7 @@ export const Scene: React.FC<{
         <Img
           src={staticFile("logo/the-mind-logo.png")}
           style={{
-            width: 260,
+            width: 220,
             height: "auto",
             objectFit: "contain",
             mixBlendMode: "screen",

@@ -9,7 +9,7 @@ import { getSkill } from '@/src/application/video-studio/skills/index.js';
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
 // việc chèn ký tự đặc biệt của shell khi giá trị này được dùng làm tham số dòng lệnh.
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
-const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook', 'none'];
+const CAPTION_STYLES = ['box', 'tiktok', 'karaoke', 'page', 'hook', 'minimal', 'classic', 'pill', 'news', 'none'];
 const KEN_BURNS_MODES = ['in', 'out', 'pan-left', 'pan-right', 'none'];
 const TRANSITION_STYLES = ['crossfade', 'slide-left', 'slide-right', 'slide-up', 'zoom'];
 const CAPTION_FONTS = ['paytone-one', 'itim', 'be-vietnam-pro', 'roboto', 'montserrat', 'nunito', 'inter', 'oswald', 'poppins'];
@@ -22,8 +22,9 @@ const CSS_COLOR_RE = /^[a-zA-Z0-9#(),.\s%-]+$/;
 export async function POST(req) {
   try {
     const {
-      folderPath, category, captionStyle, transitionStyle, bilingual, orientation,
+      folderPath, category, captionStyle, captionMode, transitionStyle, bilingual, orientation,
       captionFont, captionFontSize, captionSecondaryFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
+      bgColor, videoBgColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
       contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume,
       imageScale, imageTranslateY, captionMarginY, captionWidth, captionPosition, kenBurnsMode, cornerPatch, channelLogo,
@@ -211,6 +212,8 @@ export async function POST(req) {
     if (typeof captionTextColor === 'string' && captionTextColor.trim() && CSS_COLOR_RE.test(captionTextColor)) extraArgs.push(`--captionTextColor=${captionTextColor.trim()}`);
     if (typeof captionBgColor === 'string' && captionBgColor.trim() && CSS_COLOR_RE.test(captionBgColor)) extraArgs.push(`--captionBgColor=${captionBgColor.trim()}`);
     if (typeof highlightColor === 'string' && highlightColor.trim() && CSS_COLOR_RE.test(highlightColor)) extraArgs.push(`--highlightColor=${highlightColor.trim()}`);
+    const effectiveBgColor = (typeof bgColor === 'string' && bgColor.trim()) ? bgColor.trim() : ((typeof videoBgColor === 'string' && videoBgColor.trim()) ? videoBgColor.trim() : null);
+    if (effectiveBgColor && CSS_COLOR_RE.test(effectiveBgColor)) extraArgs.push(`--bgColor=${effectiveBgColor}`);
 
     // Tuỳ chỉnh layout (chỉ có ý nghĩa với skill reading-page-video, nhưng vô hại nếu
     // gửi kèm cho skill khác vì render-project.mjs của skill đó bỏ qua cờ lạ).
@@ -232,13 +235,16 @@ export async function POST(req) {
     pushRangedNumber(bgMusicVolume, 'bgMusicVolume', 0, 1);
     pushRangedNumber(imageScale, 'imageScale', 0.2, 2.0);
     pushRangedNumber(imageTranslateY, 'imageTranslateY', -100, 100);
-    pushRangedNumber(captionMarginY, 'captionMarginY', -500, 500);
+    pushRangedNumber(captionMarginY, 'captionMarginY', -1800, 1800);
     pushRangedNumber(captionWidth, 'captionWidth', 30, 100);
-    pushRangedNumber(logoTranslateX, 'logoTranslateX', -1000, 1000);
-    pushRangedNumber(logoTranslateY, 'logoTranslateY', -1600, 1000);
+    pushRangedNumber(logoTranslateX, 'logoTranslateX', -1500, 1500);
+    pushRangedNumber(logoTranslateY, 'logoTranslateY', -1800, 1800);
     pushRangedNumber(logoScale, 'logoScale', 0.1, 4.0);
     if (captionPosition === 'top' || captionPosition === 'bottom' || captionPosition === 'center') {
       extraArgs.push(`--captionPosition=${captionPosition}`);
+    }
+    if (captionMode === 'full' || captionMode === 'chunked') {
+      extraArgs.push(`--captionMode=${captionMode}`);
     }
 
     console.log(`[API RenderVideo] Bắt đầu render cho dự án: ${relativeFolder} (${extraArgs.join(' ') || 'mặc định'})`);

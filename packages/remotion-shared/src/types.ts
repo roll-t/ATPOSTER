@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // --- Primitive types used in component props across skills ---
 
-export type CaptionStyle = "box" | "tiktok" | "karaoke" | "page" | "hook";
+export type CaptionStyle = "box" | "tiktok" | "karaoke" | "page" | "hook" | "minimal" | "classic" | "pill" | "news" | "none";
 
 // All fonts across all skills (narrated: 6 fonts; stick-figure: adds poppins)
 export type CaptionFont =

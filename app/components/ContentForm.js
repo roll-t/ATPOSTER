@@ -103,7 +103,8 @@ export default function ContentForm({
   onFieldChange, onToggleCharacter,
   errorMsg, isGenerating, onGenerate,
   characters = [], onDeleteCustomChar, onUploadChar, onUpdateChar,
-  history = []
+  history = [],
+  flatPanel = false
 }) {
   const [suggestionSubsets, setSuggestionSubsets] = useState({});
   const [dynamicSuggestions, setDynamicSuggestions] = useState({});
@@ -346,7 +347,7 @@ export default function ContentForm({
     : '';
 
   return (
-    <div className="glass-card" style={{ padding: '24px' }}>
+    <div className={flatPanel ? "" : "glass-card"} style={{ padding: flatPanel ? '0' : '24px', background: flatPanel ? 'transparent' : undefined, border: flatPanel ? 'none' : undefined, boxShadow: flatPanel ? 'none' : undefined, borderRadius: flatPanel ? '0' : undefined }}>
       {/* 1. Chọn Dạng Video (Tỉ lệ 9:16 / 16:9) dạng 2 Option Card ở trên cùng */}
       {category.fields.some(f => f.key === 'aspectRatio') && (
         <div style={{ marginBottom: '24px' }}>
@@ -364,11 +365,11 @@ export default function ContentForm({
                     position: 'relative',
                     padding: '14px 12px',
                     borderRadius: '12px',
-                    border: is916 ? '1.5px solid var(--primary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: is916 ? '1.5px solid rgba(168, 85, 247, 0.8)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: is916
-                      ? 'linear-gradient(135deg, rgba(254, 44, 85, 0.18) 0%, rgba(20, 15, 26, 0.9) 100%)'
+                      ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.25) 50%, rgba(20, 16, 38, 0.95) 100%)'
                       : 'rgba(255, 255, 255, 0.03)',
-                    boxShadow: is916 ? '0 4px 18px rgba(254, 44, 85, 0.28)' : 'none',
+                    boxShadow: is916 ? '0 4px 20px rgba(168, 85, 247, 0.35)' : 'none',
                     color: '#fff',
                     cursor: 'pointer',
                     textAlign: 'center',
@@ -393,7 +394,7 @@ export default function ContentForm({
                       position: 'absolute',
                       top: '8px',
                       right: '8px',
-                      background: 'var(--primary)',
+                      background: 'linear-gradient(135deg, #6366f1, #a855f7)',
                       color: '#fff',
                       width: '18px',
                       height: '18px',
@@ -411,17 +412,17 @@ export default function ContentForm({
                   <div style={{
                     width: '18px',
                     height: '30px',
-                    border: `2px solid ${is916 ? 'var(--primary)' : 'rgba(255,255,255,0.4)'}`,
+                    border: `2px solid ${is916 ? '#c084fc' : 'rgba(255,255,255,0.4)'}`,
                     borderRadius: '4px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '2px',
-                    boxShadow: is916 ? '0 0 8px rgba(254, 44, 85, 0.4)' : 'none'
+                    boxShadow: is916 ? '0 0 10px rgba(168, 85, 247, 0.5)' : 'none'
                   }}>
-                    <div style={{ width: '6px', height: '1.5px', background: is916 ? 'var(--primary)' : 'rgba(255,255,255,0.4)', borderRadius: '1px' }}></div>
-                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: is916 ? 'var(--primary)' : 'rgba(255,255,255,0.4)' }}></div>
+                    <div style={{ width: '6px', height: '1.5px', background: is916 ? '#c084fc' : 'rgba(255,255,255,0.4)', borderRadius: '1px' }}></div>
+                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: is916 ? '#c084fc' : 'rgba(255,255,255,0.4)' }}></div>
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', letterSpacing: '-0.2px' }}>Dạng TikTok thẳng</div>
@@ -441,11 +442,11 @@ export default function ContentForm({
                     position: 'relative',
                     padding: '14px 12px',
                     borderRadius: '12px',
-                    border: is169 ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: is169 ? '1.5px solid rgba(168, 85, 247, 0.8)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: is169
-                      ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.18) 0%, rgba(15, 20, 30, 0.9) 100%)'
+                      ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.25) 50%, rgba(20, 16, 38, 0.95) 100%)'
                       : 'rgba(255, 255, 255, 0.03)',
-                    boxShadow: is169 ? '0 4px 18px rgba(37, 244, 238, 0.28)' : 'none',
+                    boxShadow: is169 ? '0 4px 20px rgba(168, 85, 247, 0.35)' : 'none',
                     color: '#fff',
                     cursor: 'pointer',
                     textAlign: 'center',
@@ -470,8 +471,8 @@ export default function ContentForm({
                       position: 'absolute',
                       top: '8px',
                       right: '8px',
-                      background: 'var(--secondary)',
-                      color: '#000',
+                      background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                      color: '#fff',
                       width: '18px',
                       height: '18px',
                       borderRadius: '50%',
@@ -488,15 +489,15 @@ export default function ContentForm({
                   <div style={{
                     width: '32px',
                     height: '20px',
-                    border: `2px solid ${is169 ? 'var(--secondary)' : 'rgba(255,255,255,0.4)'}`,
+                    border: `2px solid ${is169 ? '#c084fc' : 'rgba(255,255,255,0.4)'}`,
                     borderRadius: '4px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    boxShadow: is169 ? '0 0 8px rgba(37, 244, 238, 0.4)' : 'none'
+                    boxShadow: is169 ? '0 0 10px rgba(168, 85, 247, 0.5)' : 'none'
                   }}>
-                    <div style={{ width: '10px', height: '1.5px', background: is169 ? 'var(--secondary)' : 'rgba(255,255,255,0.4)', borderRadius: '1px' }}></div>
+                    <div style={{ width: '10px', height: '1.5px', background: is169 ? '#c084fc' : 'rgba(255,255,255,0.4)', borderRadius: '1px' }}></div>
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', letterSpacing: '-0.2px' }}>Dạng ngang video</div>
@@ -601,11 +602,11 @@ export default function ContentForm({
                       onClick={() => handlePickRandomTopic(field.key)}
                       title="Bốc ngẫu nhiên một chủ đề gợi ý hấp dẫn từ kho ý tưởng"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(254, 44, 85, 0.12), rgba(168, 85, 247, 0.15))',
-                        border: '1px solid rgba(254, 44, 85, 0.28)',
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.25))',
+                        border: '1px solid rgba(168, 85, 247, 0.4)',
                         borderRadius: '6px',
                         padding: '3px 8px',
-                        color: '#ff758c',
+                        color: '#d8b4fe',
                         fontSize: '0.72rem',
                         cursor: 'pointer',
                         fontWeight: 700,
@@ -615,12 +616,12 @@ export default function ContentForm({
                         transition: 'all 0.15s'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(254, 44, 85, 0.22), rgba(168, 85, 247, 0.25))';
-                        e.currentTarget.style.borderColor = 'rgba(254, 44, 85, 0.5)';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.4))';
+                        e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.7)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(254, 44, 85, 0.12), rgba(168, 85, 247, 0.15))';
-                        e.currentTarget.style.borderColor = 'rgba(254, 44, 85, 0.28)';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.25))';
+                        e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.4)';
                       }}
                     >
                       <span>🎲</span>
@@ -836,7 +837,7 @@ export default function ContentForm({
         position: 'sticky',
         bottom: '0px',
         padding: '12px 0 0 0',
-        background: 'linear-gradient(to top, rgba(19, 17, 32, 0.98) 75%, rgba(19, 17, 32, 0) 100%)',
+        background: 'linear-gradient(to top, rgba(14, 11, 26, 0.98) 75%, rgba(14, 11, 26, 0) 100%)',
         zIndex: 5
       }}>
         <button
@@ -854,8 +855,8 @@ export default function ContentForm({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            background: 'linear-gradient(135deg, #fe2c55 0%, #a855f7 100%)',
-            boxShadow: '0 4px 18px rgba(254, 44, 85, 0.35)',
+            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #9333ea 100%)',
+            boxShadow: '0 4px 22px rgba(168, 85, 247, 0.45)',
             border: 'none',
             cursor: isGenerating ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s ease',

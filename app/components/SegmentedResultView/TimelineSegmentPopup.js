@@ -43,7 +43,8 @@ export default function TimelineSegmentPopup({
         transform: 'translateX(-50%)',
         width: '320px',
         maxWidth: 'calc(100vw - 32px)',
-        background: 'rgba(15, 17, 26, 0.98)',
+        background: '#12141f',
+        opacity: 1,
         border: isDirty ? '1px solid rgba(251, 191, 36, 0.45)' : '1px solid rgba(37, 244, 238, 0.3)',
         borderRadius: '12px',
         padding: '12px 14px',
@@ -51,7 +52,7 @@ export default function TimelineSegmentPopup({
           ? '0 12px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(251, 191, 36, 0.15)'
           : '0 12px 36px rgba(0, 0, 0, 0.8), 0 0 20px rgba(37, 244, 238, 0.15)',
         backdropFilter: 'blur(16px)',
-        zIndex: 50,
+        zIndex: 100,
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -140,7 +141,7 @@ export default function TimelineSegmentPopup({
           placeholder="Nhập lời đọc kịch bản cho cảnh này..."
           style={{
             width: '100%',
-            background: 'rgba(0, 0, 0, 0.55)',
+            background: '#090a10',
             border: isDirty ? '1px solid #fbbf24' : '1px solid rgba(37, 244, 238, 0.4)',
             borderRadius: '6px',
             color: '#fff',
@@ -246,7 +247,7 @@ export default function TimelineSegmentPopup({
           height: 0,
           borderLeft: '6px solid transparent',
           borderRight: '6px solid transparent',
-          borderTop: '6px solid rgba(15, 17, 26, 0.98)'
+          borderTop: '6px solid #12141f'
         }}
       />
     </div>

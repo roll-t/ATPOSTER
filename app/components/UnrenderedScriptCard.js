@@ -283,7 +283,7 @@ export default function UnrenderedScriptCard({
               borderRadius: '6px',
               background: 'rgba(0,0,0,0.75)',
               backdropFilter: 'blur(4px)',
-              color: isLandscape ? 'var(--secondary)' : 'var(--primary)',
+              color: isLandscape ? '#38bdf8' : '#c084fc',
               fontSize: '0.7rem',
               fontWeight: 800,
               zIndex: 9

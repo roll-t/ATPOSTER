@@ -4,8 +4,8 @@
   --background: #090810;
   --foreground: #f4f4f7;
   --card-bg: rgba(22, 20, 38, 0.7);
-  --card-border: rgba(254, 44, 85, 0.15);
-  --card-hover-border: rgba(37, 244, 238, 0.3);
+  --card-border: rgba(168, 85, 247, 0.15);
+  --card-hover-border: rgba(168, 85, 247, 0.4);
 
   --primary: #FE2C55;
   /* TikTok Rose-Red */
@@ -104,23 +104,24 @@ body::after {
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Siêu mỏng & tinh tế */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #25223e;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3e3962;
+  background: rgba(168, 85, 247, 0.45);
 }
 
 a {
@@ -192,9 +193,9 @@ h6 {
 }
 
 .form-control:focus {
-  border-color: var(--secondary);
-  box-shadow: 0 0 0 3px rgba(37, 244, 238, 0.15);
-  background: rgba(10, 9, 18, 0.8);
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.22);
+  background: rgba(16, 13, 30, 0.85);
 }
 
 select.form-control {
@@ -229,14 +230,14 @@ select option {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
   color: #fff;
-  box-shadow: 0 4px 15px rgba(254, 44, 85, 0.3);
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(254, 44, 85, 0.5);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.55);
   filter: brightness(1.1);
 }
 
@@ -456,26 +457,29 @@ select option {
 .scrollable-col {
   height: 100%;
   overflow-y: auto;
-  padding: 6px 8px 16px 0;
+  padding: 6px 6px 16px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
-/* Ẩn thanh cuộn mặc định, chỉ hiện thanh cuộn mờ cực mảnh khi hover chuột vào vùng cuộn */
+/* Thanh cuộn siêu nhỏ và mỏng (3.5px) cho các cột và tab */
 .scrollable-col::-webkit-scrollbar {
-  width: 6px;
+  width: 3.5px;
+  height: 3.5px;
 }
 .scrollable-col::-webkit-scrollbar-track {
   background: transparent;
 }
 .scrollable-col::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
   transition: background-color 0.2s ease;
 }
 .scrollable-col:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.22);
 }
 .scrollable-col::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(168, 85, 247, 0.5) !important;
 }
 
 .sidebar-header {
@@ -526,18 +530,23 @@ button.nav-item {
 }
 
 /* Custom Scrollbars in lists */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 3.5px;
+  height: 3.5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(168, 85, 247, 0.45);
 }
 
 /* Custom Segmented Control */

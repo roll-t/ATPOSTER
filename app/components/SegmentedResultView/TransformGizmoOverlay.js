@@ -163,8 +163,18 @@ export default function TransformGizmoOverlay({
     window.addEventListener('pointercancel', handlePointerUp);
   }, []);
 
-  const cornerSize = 10;
-  const hitSize = 24;
+  const handleRootPointerDown = useCallback((e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target?.closest?.('button')) return;
+    e.stopPropagation();
+    if (!active) {
+      onClick?.(e);
+    }
+    handleMovePointerDown(e);
+  }, [active, onClick, handleMovePointerDown]);
+
+  const cornerSize = 8;
+  const hitSize = 16;
   const hitOffset = -hitSize / 2;
 
   const hitStyle = {
@@ -223,7 +233,7 @@ export default function TransformGizmoOverlay({
         ...style
       }}
       onClick={onClick}
-      onPointerDown={active ? handleMovePointerDown : undefined}
+      onPointerDown={handleRootPointerDown}
     >
       {/* Nội dung thành phần gốc được bọc bên trong */}
       {children}

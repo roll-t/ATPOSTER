@@ -14,10 +14,25 @@ const PRESET_COLORS = [
   '#FFD32A', '#FED330', '#F59E0B', '#D9A620', '#FFA502', '#FF7F50', '#FF6348', '#ECCC68'
 ];
 
+function formatDisplayColor(c) {
+  if (!c) return '#000000';
+  const str = String(c).trim();
+  if (str.startsWith('#')) return str.toUpperCase();
+  const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (m) {
+    const r = Number(m[1]).toString(16).padStart(2, '0');
+    const g = Number(m[2]).toString(16).padStart(2, '0');
+    const b = Number(m[3]).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`.toUpperCase();
+  }
+  return str.toUpperCase();
+}
+
 export default function ColorPickerPopover({
   color = '#d9a620',
   onChange,
-  label = 'Chọn màu'
+  label = 'Chọn màu',
+  align = 'right'
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hexInput, setHexInput] = useState(color || '#d9a620');
@@ -83,7 +98,8 @@ export default function ColorPickerPopover({
           borderRadius: '8px',
           cursor: 'pointer',
           boxShadow: isOpen ? '0 0 10px rgba(37, 244, 238, 0.25)' : 'none',
-          transition: 'all 0.15s ease'
+          transition: 'all 0.15s ease',
+          whiteSpace: 'nowrap'
         }}
         title={`${label}: ${color}`}
       >
@@ -95,11 +111,12 @@ export default function ColorPickerPopover({
             backgroundColor: color,
             border: '1px solid rgba(255, 255, 255, 0.3)',
             boxShadow: `0 0 6px ${color}66`,
-            display: 'inline-block'
+            display: 'inline-block',
+            flexShrink: 0
           }}
         />
-        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace' }}>
-          {(color || '#D9A620').toUpperCase()}
+        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+          {formatDisplayColor(color)}
         </span>
         <span
           style={{
@@ -119,7 +136,7 @@ export default function ColorPickerPopover({
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
-            right: 0,
+            ...(align === 'left' ? { left: 0 } : { right: 0 }),
             width: '268px',
             backgroundColor: '#1b1c22',
             border: '1px solid rgba(255, 255, 255, 0.14)',

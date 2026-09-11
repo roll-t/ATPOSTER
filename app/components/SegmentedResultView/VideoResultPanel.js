@@ -61,9 +61,11 @@ export default function VideoResultPanel({
         maxHeight: '100%',
         boxSizing: 'border-box',
         overflowY: 'auto',
-        background: 'rgba(255, 255, 255, 0.025)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'linear-gradient(180deg, rgba(16, 13, 30, 0.5) 0%, rgba(11, 9, 20, 0.85) 100%)',
+        border: '1px solid rgba(168, 85, 247, 0.12)',
         borderRight: 'none',
+        borderTop: 'none',
+        borderBottom: 'none',
         borderRadius: '0px',
         boxShadow: 'none',
         transform: 'none',
@@ -87,7 +89,7 @@ export default function VideoResultPanel({
                 background: 'rgba(0, 0, 0, 0.45)',
                 padding: '2px',
                 borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(168, 85, 247, 0.2)',
                 gap: '2px'
               }}
             >
@@ -101,7 +103,7 @@ export default function VideoResultPanel({
                   borderRadius: '6px',
                   border: 'none',
                   cursor: 'pointer',
-                  background: viewMode !== 'simulator' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+                  background: viewMode !== 'simulator' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
                   color: viewMode !== 'simulator' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
                   transition: 'all 0.15s ease'
                 }}
@@ -119,8 +121,8 @@ export default function VideoResultPanel({
                   borderRadius: '6px',
                   border: 'none',
                   cursor: 'pointer',
-                  background: viewMode === 'simulator' ? 'linear-gradient(135deg, #25f4ee, #00bdff)' : 'transparent',
-                  color: viewMode === 'simulator' ? '#0b1120' : 'rgba(255, 255, 255, 0.65)',
+                  background: viewMode === 'simulator' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                  color: viewMode === 'simulator' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
                   transition: 'all 0.15s ease'
                 }}
                 title="Xem mô phỏng video tức thì"
@@ -164,10 +166,10 @@ export default function VideoResultPanel({
                 alignItems: 'center',
                 gap: '6px',
                 background: (isAudioReady && isImageReady)
-                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
                   : 'rgba(255, 255, 255, 0.08)',
                 boxShadow: (isAudioReady && isImageReady)
-                  ? '0 2px 12px rgba(16, 185, 129, 0.4)'
+                  ? '0 2px 14px rgba(168, 85, 247, 0.45)'
                   : 'none',
                 cursor: (isAudioReady && isImageReady) ? 'pointer' : 'not-allowed',
                 border: (isAudioReady && isImageReady) ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
@@ -285,29 +287,6 @@ export default function VideoResultPanel({
               <span>⬇️</span>
               <span>Tải về</span>
             </a>
-
-            {handleRenderVideo && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.76rem',
-                  borderRadius: '7px',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  whiteSpace: 'nowrap'
-                }}
-                onClick={() => handleRenderVideo(result?.segments)}
-                disabled={isRenderingVideo}
-                title="Xuất lại video với các thay đổi mới"
-              >
-                <span>🔄</span>
-                <span>Tạo lại</span>
-              </button>
-            )}
           </div>
 
           {openFolderError && (
@@ -316,41 +295,6 @@ export default function VideoResultPanel({
             </div>
           )}
 
-          {/* Cảnh báo nhạc nền thay đổi */}
-          {musicChangedSinceRender && isRenderDone && !isRenderingVideo && (
-            <div style={{ fontSize: '0.76rem', color: '#fbbf24', background: 'rgba(251, 191, 36, 0.08)', border: '1px solid rgba(251, 191, 36, 0.25)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              🎵 Nhạc nền vừa thay đổi — nhấn <strong>"Tạo lại"</strong> để cập nhật vào video.
-            </div>
-          )}
-
-          {/* Thông số video tóm tắt */}
-          <div
-            style={{
-              padding: '12px 14px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              borderRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              fontSize: '0.78rem'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255, 255, 255, 0.6)' }}>
-              <span>Định dạng khung hình:</span>
-              <strong style={{ color: '#fff' }}>{isPortrait ? 'Dọc 9:16 (Shorts/TikTok/Reels)' : 'Ngang 16:9 (YouTube)'}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255, 255, 255, 0.6)' }}>
-              <span>Tổng số phân cảnh:</span>
-              <strong style={{ color: '#fff' }}>{total} cảnh</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255, 255, 255, 0.6)' }}>
-              <span>Thư mục tài nguyên:</span>
-              <span style={{ color: 'var(--secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folderPath}>
-                {folderPath}
-              </span>
-            </div>
-          </div>
         </div>
       ) : (
         /* Trường hợp 2: MÀN HÌNH CHỜ KẾT QUẢ HOẶC MÔ PHỎNG LIVE */
@@ -383,7 +327,7 @@ export default function VideoResultPanel({
                     height: '54px',
                     borderRadius: '50%',
                     border: '3px solid rgba(255, 255, 255, 0.1)',
-                    borderTopColor: '#10b981',
+                    borderTopColor: '#a855f7',
                     borderRightColor: '#6366f1',
                     animation: 'spin 1s linear infinite'
                   }}
@@ -400,7 +344,7 @@ export default function VideoResultPanel({
                   <StepProgressBar
                     percent={renderProgress}
                     label={`${renderProgress}%`}
-                    color="#10b981"
+                    color="#a855f7"
                     showShimmer={true}
                   />
                 </div>

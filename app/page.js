@@ -41,6 +41,7 @@ function PromptsStudioContent() {
   const isMusicTab = tabParam === 'music';
   const isGridMode =
     !isPexelsTab && !isVideosTab && !isVideoPromptTab && !isImagePromptTab && !isMusicTab && (!categoryParam || !PROMPT_CATEGORIES[categoryParam]);
+  const isPromptWorkspace = Boolean(categoryParam && PROMPT_CATEGORIES[categoryParam]);
   const isSkillWorkspace = Boolean(
     (categoryParam && PROMPT_CATEGORIES[categoryParam]) ||
     (isVideoPromptTab && genreParam) ||
@@ -242,7 +243,7 @@ function PromptsStudioContent() {
           flexDirection: 'column',
           height: '100%',
           overflow: 'hidden',
-          padding: isSkillWorkspace ? '20px 32px 32px 32px' : '40px'
+          padding: isPromptWorkspace ? '0' : (isSkillWorkspace ? '20px 32px 32px 32px' : '40px')
         }}
       >
         <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -364,7 +365,18 @@ function PromptsStudioContent() {
             /* Màn hình không gian làm việc chi tiết cho chủ đề đã chọn */
             <>
               {/* Header điều hướng workspace */}
-              <div style={{ marginBottom: '16px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{
+                marginBottom: '0px',
+                padding: '10px 20px',
+                borderBottom: '1px solid rgba(168, 85, 247, 0.15)',
+                background: 'linear-gradient(90deg, rgba(22, 17, 40, 0.95) 0%, rgba(15, 12, 28, 0.95) 100%)',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <nav style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }} aria-label="Breadcrumb">
                     <button
@@ -412,8 +424,8 @@ function PromptsStudioContent() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(168, 85, 247, 0.28))',
+                      border: '1px solid rgba(168, 85, 247, 0.38)',
                       padding: '0 12px',
                       borderRadius: '8px',
                       whiteSpace: 'nowrap'
@@ -471,9 +483,30 @@ function PromptsStudioContent() {
               </div>
 
               {/* Grid 2 cột workspace: Form nhập bên trái + Lịch sử & Video bên phải */}
-              <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '30px', alignItems: 'start', minWidth: 0, flex: 1, minHeight: 0 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(420px, 4.2fr) minmax(0, 5.8fr)',
+                gap: '0px',
+                alignItems: 'stretch',
+                minWidth: 0,
+                flex: 1,
+                minHeight: 0,
+                background: 'radial-gradient(ellipse at 15% 15%, rgba(168, 85, 247, 0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(99, 102, 241, 0.05) 0%, transparent 55%), #0c0a17'
+              }}>
                 {/* Cột trái: form nhập nội dung */}
-                <div className="scrollable-col" style={{ minWidth: 0 }}>
+                <div
+                  className="scrollable-col"
+                  style={{
+                    minWidth: 0,
+                    height: '100%',
+                    overflowY: 'auto',
+                    borderRight: '1px solid rgba(168, 85, 247, 0.12)',
+                    borderRadius: '0px',
+                    padding: '20px',
+                    background: 'linear-gradient(180deg, rgba(20, 16, 38, 0.65) 0%, rgba(13, 10, 24, 0.85) 100%)',
+                    boxSizing: 'border-box'
+                  }}
+                >
                   <ContentForm
                     category={s.currentCategory}
                     activeCategory={s.activeCategory}
@@ -492,53 +525,65 @@ function PromptsStudioContent() {
                     onUploadChar={s.handleUploadCharacter}
                     onUpdateChar={s.handleUpdateCharacter}
                     history={s.history}
+                    flatPanel={true}
                   />
                 </div>
 
                 {/* Cột phải: Danh sách Lịch sử & Video đã tạo (Không dùng tab bar) */}
-                <div className="scrollable-col" style={{ minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-                    <CreatedVideosGrid
-                      category={s.activeCategory}
-                      categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
-                      isDriveLinked={s.settings.googleDrive?.isLinked}
-                      history={s.history}
-                      onDeleteHistory={s.handleDeleteHistory}
-                      onSelectScript={(itemOrVideo, targetTab = 'process') => {
-                        let scriptItem = itemOrVideo;
-                        if (itemOrVideo && !itemOrVideo.scenes && !itemOrVideo.input && itemOrVideo.folderPath) {
-                          scriptItem = s.history.find((h) => h.input?.folderPath === itemOrVideo.folderPath);
-                        }
-                        if (targetTab === 'script' || targetTab === 'dialog') {
-                          if (scriptItem) {
-                            if (scriptItem.id && (scriptItem.segmentCount || 0) > 1 && (scriptItem.segments?.length || 0) <= 1) {
-                              fetch(`/api/prompts/history?id=${encodeURIComponent(scriptItem.id)}`)
-                                .then(r => r.json())
-                                .then(d => {
-                                  if (d.success && d.item) setScriptModalItem(d.item);
-                                  else setScriptModalItem(scriptItem);
-                                })
-                                .catch(() => setScriptModalItem(scriptItem));
-                            } else {
-                              setScriptModalItem(scriptItem);
-                            }
-                          } else {
-                            showToast.warning('Không tìm thấy kịch bản gốc trong lịch sử (có thể đã bị xoá).');
-                          }
-                          return;
-                        }
+                <div
+                  className="scrollable-col"
+                  style={{
+                    minWidth: 0,
+                    height: '100%',
+                    overflowY: 'auto',
+                    borderRadius: '0px',
+                    padding: '20px',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'linear-gradient(180deg, rgba(16, 13, 30, 0.45) 0%, rgba(11, 9, 20, 0.85) 100%)'
+                  }}
+                >
+                  <CreatedVideosGrid
+                    category={s.activeCategory}
+                    categoryLabel={PROMPT_CATEGORIES[s.activeCategory]?.label}
+                    isDriveLinked={s.settings.googleDrive?.isLinked}
+                    history={s.history}
+                    onDeleteHistory={s.handleDeleteHistory}
+                    onSelectScript={(itemOrVideo, targetTab = 'process') => {
+                      let scriptItem = itemOrVideo;
+                      if (itemOrVideo && !itemOrVideo.scenes && !itemOrVideo.input && itemOrVideo.folderPath) {
+                        scriptItem = s.history.find((h) => h.input?.folderPath === itemOrVideo.folderPath);
+                      }
+                      if (targetTab === 'script' || targetTab === 'dialog') {
                         if (scriptItem) {
-                          s.setResult(scriptItem);
-                          try {
-                            sessionStorage.setItem('active_script_' + scriptItem.id, JSON.stringify(scriptItem));
-                          } catch (e) {}
-                          router.push(`/create-video?id=${scriptItem.id}&category=${s.activeCategory}`);
+                          if (scriptItem.id && (scriptItem.segmentCount || 0) > 1 && (scriptItem.segments?.length || 0) <= 1) {
+                            fetch(`/api/prompts/history?id=${encodeURIComponent(scriptItem.id)}`)
+                              .then(r => r.json())
+                              .then(d => {
+                                if (d.success && d.item) setScriptModalItem(d.item);
+                                else setScriptModalItem(scriptItem);
+                              })
+                              .catch(() => setScriptModalItem(scriptItem));
+                          } else {
+                            setScriptModalItem(scriptItem);
+                          }
                         } else {
-                          showToast.warning('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
+                          showToast.warning('Không tìm thấy kịch bản gốc trong lịch sử (có thể đã bị xoá).');
                         }
-                      }}
-                    />
-                  </div>
+                        return;
+                      }
+                      if (scriptItem) {
+                        s.setResult(scriptItem);
+                        try {
+                          sessionStorage.setItem('active_script_' + scriptItem.id, JSON.stringify(scriptItem));
+                        } catch (e) {}
+                        router.push(`/create-video?id=${scriptItem.id}&category=${s.activeCategory}`);
+                      } else {
+                        showToast.warning('Không tìm thấy kịch bản gốc của video này trong lịch sử (có thể đã bị xoá khỏi Lịch sử prompt).');
+                      }
+                    }}
+                  />
                 </div>
               </div>
             </>

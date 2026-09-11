@@ -79,8 +79,8 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
               flex: 1,
               padding: '10px 14px',
               borderRadius: '9px',
-              border: currentTab === 'moral' ? '1px solid var(--secondary)' : '1px solid transparent',
-              background: currentTab === 'moral' ? 'rgba(37, 244, 238, 0.15)' : 'transparent',
+              border: currentTab === 'moral' ? '1px solid rgba(168, 85, 247, 0.6)' : '1px solid transparent',
+              background: currentTab === 'moral' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.35))' : 'transparent',
               color: currentTab === 'moral' ? '#fff' : 'var(--text-muted)',
               fontWeight: currentTab === 'moral' ? 800 : 600,
               cursor: 'pointer',
@@ -89,7 +89,7 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
               justifyContent: 'center',
               gap: '8px',
               fontSize: '0.85rem',
-              boxShadow: currentTab === 'moral' ? '0 2px 10px rgba(37, 244, 238, 0.2)' : 'none',
+              boxShadow: currentTab === 'moral' ? '0 2px 12px rgba(168, 85, 247, 0.3)' : 'none',
               transition: 'all 0.18s ease-in-out',
               fontFamily: 'inherit'
             }}
@@ -100,8 +100,8 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
                 fontSize: '0.72rem', 
                 padding: '2px 7px', 
                 borderRadius: '20px', 
-                background: currentTab === 'moral' ? 'rgba(37, 244, 238, 0.25)' : 'rgba(255, 255, 255, 0.08)', 
-                color: currentTab === 'moral' ? 'var(--secondary)' : 'var(--text-muted)' 
+                background: currentTab === 'moral' ? 'rgba(168, 85, 247, 0.35)' : 'rgba(255, 255, 255, 0.08)', 
+                color: currentTab === 'moral' ? '#d8b4fe' : 'var(--text-muted)' 
               }}
             >
               {moralThemes.length}
@@ -171,10 +171,10 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
         {displayedOptions.map(opt => {
           const isSelected = Boolean(currentVal && currentVal === opt.value);
           const isBook = currentTab === 'book';
-          const highlightBorder = isBook ? '2px solid #fbbf24' : '2px solid var(--secondary)';
-          const highlightBg = isBook ? 'rgba(245, 158, 11, 0.18)' : 'rgba(37, 244, 238, 0.15)';
-          const highlightShadow = isBook ? '0 4px 14px rgba(245, 158, 11, 0.25)' : '0 4px 14px rgba(37, 244, 238, 0.2)';
-          const highlightColor = isBook ? '#fbbf24' : 'var(--secondary)';
+          const highlightBorder = isBook ? '2px solid #fbbf24' : '2px solid #a855f7';
+          const highlightBg = isBook ? 'rgba(245, 158, 11, 0.18)' : 'linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.28))';
+          const highlightShadow = isBook ? '0 4px 14px rgba(245, 158, 11, 0.25)' : '0 4px 16px rgba(168, 85, 247, 0.35)';
+          const highlightColor = isBook ? '#fbbf24' : '#d8b4fe';
 
           return (
             <button
@@ -255,7 +255,7 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: '8px',
                 padding: '6px 14px',
-                color: currentTab === 'book' ? '#fbbf24' : 'var(--secondary, #25F4EE)',
+                color: currentTab === 'book' ? '#fbbf24' : '#c084fc',
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -266,8 +266,8 @@ export default function MoralThemePicker({ value, onChange, onSelect, themeKeys 
                 fontFamily: 'inherit'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = currentTab === 'book' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(37, 244, 238, 0.12)';
-                e.currentTarget.style.borderColor = currentTab === 'book' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(37, 244, 238, 0.35)';
+                e.currentTarget.style.background = currentTab === 'book' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(168, 85, 247, 0.18)';
+                e.currentTarget.style.borderColor = currentTab === 'book' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(168, 85, 247, 0.45)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';

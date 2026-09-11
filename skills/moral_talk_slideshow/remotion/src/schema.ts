@@ -125,7 +125,8 @@ export const slideshowVideoSchema = z.object({
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   imageScale: z.number().min(0.2).max(2).default(1),
   imageTranslateY: z.number().min(-100).max(100).default(0),
-  captionMarginY: z.number().min(-800).max(800).default(0),
+  captionMarginY: z.number().min(-1600).max(1600).default(0),
+  captionWidth: z.number().min(30).max(100).default(92),
   kenBurns: z.boolean().default(true),
 
   // Ô che góc phải dưới của ảnh (xem CORNER_PATCH trong SceneImage.tsx). Nó ra đời cho dòng ảnh
@@ -197,7 +198,7 @@ export const slideshowVideoSchema = z.object({
   // "none" = KHÔNG vẽ phụ đề, chỉ còn hình + tiếng. Dùng cho dòng video tranh màu nước Phật
   // giáo: chữ đè lên tranh phá mất khoảng trống của bức tranh, mà lời kể đã có giọng đọc.
   // Vẫn giữ scene.caption trong config: đây chỉ là không VẼ, không phải xoá dữ liệu.
-  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook", "none"]).default("box"),
+  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook", "minimal", "classic", "pill", "news", "none"]).default("box"),
 
   // CapCut-style manual overrides on top of whatever captionStyle already looks
   // like — every field here is optional and only overrides that one visual

@@ -177,7 +177,8 @@ export const slideshowVideoSchema = z.object({
   imageFit: z.enum(["cover", "contain"]).default("cover"),
   imageScale: z.number().min(0.2).max(2).default(1),
   imageTranslateY: z.number().min(-100).max(100).default(0),
-  captionMarginY: z.number().min(-800).max(800).default(0),
+  captionMarginY: z.number().min(-1600).max(1600).default(0),
+  captionWidth: z.number().min(30).max(100).default(92),
   kenBurns: z.boolean().default(true),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
@@ -230,7 +231,7 @@ export const slideshowVideoSchema = z.object({
   // the scene's own image down a little (see SceneImage.tsx) to leave
   // headroom for the card instead of the card sitting on top of it. See
   // Caption.tsx.
-  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook"]).default("box"),
+  captionStyle: z.enum(["box", "tiktok", "karaoke", "page", "hook", "minimal", "classic", "pill", "news", "none"]).default("box"),
 
   // CapCut-style manual overrides on top of whatever captionStyle already looks
   // like — every field here is optional and only overrides that one visual

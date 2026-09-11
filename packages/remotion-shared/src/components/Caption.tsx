@@ -3,6 +3,18 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import type { CaptionStyle, CaptionFont, WordTiming } from "../types";
 import { resolveCaptionFontFamily } from "../captionFonts";
 
+function hexToRgba(hex: string | undefined, alpha = 0.15): string {
+  if (!hex || typeof hex !== "string") return `rgba(254, 44, 85, ${alpha})`;
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map(x => x + x).join("");
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(254, 44, 85, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function strokeShadow(color: string, width = 2.5): string {
   const steps = 14;
   const shadows: string[] = [];
@@ -47,6 +59,7 @@ function stripListNumber(text: string): string {
     .replace(/^\s*(\d+|Một|Hai|Ba|Bốn|Năm|Sáu|Bảy|Tám|Chín|Mười|Thứ nhất|Thứ hai|Thứ ba|Thứ tư|Thứ năm|Thứ sáu|Thứ bảy|Thứ tám|Thứ chín|Thứ mười|First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth)[.):,\s-]+\s*/i, "")
     .trim();
 }
+
 
 /**
  * Video's own "title" (used verbatim as the scene-0 headline text, see HookCaption below) is plain
@@ -133,21 +146,25 @@ const CaptionLine: React.FC<{
   fontWeight: number;
   color: string;
   lineHeight?: number;
+  letterSpacing?: string;
   strokeColor?: string;
   highlightIndex?: number;
   highlightColor?: string;
   highlightTextColor?: string;
-}> = ({ words, fontFamily, fontSize, fontWeight, color, lineHeight = 1.35, strokeColor, highlightIndex, highlightColor, highlightTextColor = "#FFFFFF" }) => (
+  captionTextAlign?: "left" | "center" | "right";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
+}> = ({ words, fontFamily, fontSize, fontWeight, color, lineHeight = 1.35, letterSpacing, strokeColor, highlightIndex, highlightColor, highlightTextColor = "#FFFFFF", captionTextAlign = "center" }) => (
   <div
     style={{
       display: "flex",
       flexWrap: "wrap",
-      justifyContent: "center",
+      justifyContent: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
       alignItems: "baseline",
       rowGap: 2,
       columnGap: 10,
       fontFamily,
       lineHeight,
+      letterSpacing,
       textWrap: "balance" as any,
     }}
   >
@@ -180,6 +197,8 @@ export const Caption: React.FC<{
   position: "top" | "bottom" | "center";
   captionMarginY?: number;
   captionWidth?: number;
+  captionTextAlign?: "left" | "center" | "right";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
   fontFamily: string;
   mode: "chunked" | "full";
   wordsPerChunk: number;
@@ -201,6 +220,8 @@ export const Caption: React.FC<{
   position,
   captionMarginY = 0,
   captionWidth,
+  captionTextAlign = "center",
+  captionAnimation,
   fontFamily,
   mode,
   wordsPerChunk,
@@ -235,6 +256,7 @@ export const Caption: React.FC<{
         captionTextColor={captionTextColor}
         captionBgColor={captionBgColor}
         highlightColor={highlightColorOverride}
+        captionAnimation={captionAnimation}
         showBilingual={showBilingual}
         durationInFrames={durationInFrames}
         opacity={opacity}
@@ -244,7 +266,10 @@ export const Caption: React.FC<{
 
   if (!text) return null;
 
-  const [primaryTextRaw, secondaryTextRaw] = text.split("\n").map((s) => stripHighlightMarkers(stripEmotionTags(s)));
+  const rawLines = text.split("\n").map((s) => stripEmotionTags(s));
+  const primaryTextWithMarkers = rawLines[0] || "";
+  const primaryTextRaw = stripHighlightMarkers(primaryTextWithMarkers);
+  const secondaryTextRaw = rawLines[1] ? stripHighlightMarkers(rawLines[1]) : "";
   const hasSecondary = showBilingual && Boolean(secondaryTextRaw);
 
   const allWords = splitWords(primaryTextRaw);
@@ -253,6 +278,7 @@ export const Caption: React.FC<{
   const isPage = style === "page";
   const isTiktok = style === "tiktok";
   const highlightsWords = isKaraoke || isPage;
+  const isFullHighlightMode = (!isKaraoke && !isTiktok && !isPage) && (mode === "full" || text.includes("**"));
 
   const activeIdx =
     mode === "full" && !highlightsWords
@@ -274,16 +300,74 @@ export const Caption: React.FC<{
     }
   }
 
-  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily, text);
+    // Đồng bộ tỷ lệ hiển thị với LiveVideoSimulator (fontScale ~0.52 trên khung ~348px tương đương 1.6x trên 1080p)
+  const remotionFontScale = 1.6;
   const basePrimaryFontSize = isPage ? 32 : 40;
-  const primaryFontSize = captionFontSize ?? basePrimaryFontSize;
-  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
+  const primaryFontSize = captionFontSize
+    ? Math.round(captionFontSize * remotionFontScale)
+    : Math.round(basePrimaryFontSize * remotionFontScale);
+  const secondaryFontSize = captionSecondaryFontSize
+    ? Math.round(captionSecondaryFontSize * remotionFontScale)
+    : Math.round(primaryFontSize * (isPage ? 0.69 : 0.65));
   const primaryColor = captionTextColor || (isPage ? "#2A2118" : "#FFFFFF");
   const isTransparentBg = captionBgColor === "transparent";
   const boxBgColor = captionBgColor || (isPage ? "#FBF3E3" : "rgba(10, 10, 14, 0.72)");
-  const resolvedHighlightColor = highlightColorOverride || (isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : undefined);
+  const resolvedHighlightColor = highlightColorOverride || (isKaraoke ? "#FE2C55" : isPage ? "#FFCB4D" : "#d9a620");
 
-  const primaryLine = (
+  // Hiệu ứng animation đồng bộ
+  const trackingProgress = durationInFrames > 1 ? Math.min(1, Math.max(0, frame / (durationInFrames - 1))) : 0;
+  const effectiveAnim = captionAnimation || (style === "news" ? "none" : "zoom");
+  let captionScale = 1;
+  let animOpacity = 1;
+  let animTranslateY = 0;
+
+  if (effectiveAnim === "zoom") {
+    captionScale = 1 + trackingProgress * 0.055;
+  } else if (effectiveAnim === "fade") {
+    const fadeFrames = Math.min(15, Math.round(durationInFrames * 0.15));
+    animOpacity = fadeFrames > 0 ? Math.min(1, frame / fadeFrames) : 1;
+  } else if (effectiveAnim === "slide-up") {
+    const slideFrames = Math.min(18, Math.round(durationInFrames * 0.18));
+    const p = slideFrames > 0 ? Math.min(1, frame / slideFrames) : 1;
+    const eased = 1 - Math.pow(1 - p, 3);
+    animOpacity = p;
+    animTranslateY = Math.round((1 - eased) * 24);
+  }
+  const dynamicLetterSpacing = "0.02em";
+
+  const primaryLines = primaryTextWithMarkers.split("\n").filter(Boolean);
+
+  const primaryLine = isFullHighlightMode ? (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+        gap: 6,
+        fontFamily: resolvedFontFamily,
+        lineHeight: 1.35,
+        letterSpacing: dynamicLetterSpacing,
+      }}
+    >
+      {primaryLines.map((line, idx) => (
+        <div
+          key={idx}
+          style={{
+            fontSize: primaryFontSize,
+            fontWeight: 800,
+            color: primaryColor,
+            textAlign: captionTextAlign,
+            wordBreak: "keep-all",
+            overflowWrap: "break-word",
+            textShadow: (isTransparentBg || style === "minimal") ? "0 2px 14px rgba(0,0,0,0.85)" : undefined,
+          }}
+        >
+          {renderWithHighlights(line, resolvedHighlightColor)}
+        </div>
+      ))}
+    </div>
+  ) : (
     <CaptionLine
       words={primaryWords}
       fontFamily={resolvedFontFamily}
@@ -291,6 +375,7 @@ export const Caption: React.FC<{
       fontWeight={isPage ? 600 : 700}
       color={primaryColor}
       lineHeight={isPage ? 1.55 : 1.35}
+      letterSpacing={dynamicLetterSpacing}
       strokeColor={isTiktok ? "#000000" : undefined}
       highlightIndex={highlightsWords ? localActiveIndex : undefined}
       highlightColor={resolvedHighlightColor}
@@ -305,6 +390,7 @@ export const Caption: React.FC<{
       fontSize={secondaryFontSize}
       fontWeight={500}
       color={isTiktok ? "#FFE14D" : isPage ? "rgba(42, 33, 24, 0.65)" : "rgba(255, 255, 255, 0.82)"}
+      letterSpacing={dynamicLetterSpacing}
       strokeColor={isTiktok ? "#000000" : undefined}
     />
   ) : null;
@@ -313,9 +399,9 @@ export const Caption: React.FC<{
     <AbsoluteFill
       style={{
         justifyContent: position === "bottom" ? "flex-end" : position === "top" ? "flex-start" : "center",
-        alignItems: "center",
+        alignItems: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
         padding: "0 90px",
-        opacity,
+        opacity: opacity * animOpacity,
       }}
     >
       {isTiktok ? (
@@ -323,11 +409,13 @@ export const Caption: React.FC<{
           style={{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
-            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY + animTranslateY}px) scale(${captionScale})` : `translateY(${animTranslateY}px) scale(${captionScale})`,
+            transformOrigin: "center center",
+            width: "fit-content",
             maxWidth: captionWidth ? `${captionWidth}%` : "88%",
-            textAlign: "center",
-          }}
-        >
+            textAlign: captionTextAlign,
+            alignSelf: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+          }}>
           {primaryLine}
           {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
         </div>
@@ -336,16 +424,18 @@ export const Caption: React.FC<{
           style={{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
-            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY + animTranslateY}px) scale(${captionScale})` : `translateY(${animTranslateY}px) scale(${captionScale})`,
+            transformOrigin: "center center",
+            width: "fit-content",
             maxWidth: captionWidth ? `${captionWidth}%` : "84%",
             background: boxBgColor,
             border: isTransparentBg ? "none" : "1px solid rgba(42, 33, 24, 0.08)",
             borderRadius: 28,
             padding: "56px 64px",
             boxShadow: isTransparentBg ? "none" : "0 20px 60px rgba(0,0,0,0.35)",
-            textAlign: "center",
-          }}
-        >
+            textAlign: captionTextAlign,
+            alignSelf: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+          }}>
           {primaryLine}
           {secondaryLine && <div style={{ marginTop: 18 }}>{secondaryLine}</div>}
         </div>
@@ -354,15 +444,21 @@ export const Caption: React.FC<{
           style={{
             marginTop: position === "top" ? 64 - captionMarginY : 0,
             marginBottom: position === "bottom" ? 64 + captionMarginY : 0,
-            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : "none",
+            transform: position === "center" && captionMarginY !== 0 ? `translateY(${-captionMarginY + animTranslateY}px) scale(${captionScale})` : `translateY(${animTranslateY}px) scale(${captionScale})`,
+            transformOrigin: "center center",
+            width: "fit-content",
             maxWidth: captionWidth ? `${captionWidth}%` : "82%",
-            background: boxBgColor,
-            borderRadius: 18,
-            padding: "22px 40px",
-            boxShadow: isTransparentBg ? "none" : "0 8px 30px rgba(0,0,0,0.35)",
-            textAlign: "center",
-          }}
-        >
+            background: style === "news" ? `linear-gradient(135deg, rgba(14, 16, 28, 0.72) 0%, ${hexToRgba(resolvedHighlightColor, 0.2)} 50%, rgba(10, 12, 22, 0.78) 100%)` : (isTransparentBg || style === "minimal") ? "transparent" : boxBgColor,
+            backdropFilter: style === "news" ? "blur(16px)" : undefined,
+            WebkitBackdropFilter: style === "news" ? "blur(16px)" : undefined,
+            borderRadius: style === "pill" ? 9999 : style === "news" ? "4px 16px 16px 4px" : style === "minimal" ? 0 : 18,
+            padding: style === "minimal" ? "8px 16px" : style === "pill" ? "14px 44px" : style === "news" ? "20px 42px" : "22px 40px",
+            border: style === "news" ? `1px solid ${hexToRgba(resolvedHighlightColor, 0.3)}` : (style === "pill" && !isTransparentBg) ? "1px solid rgba(255,255,255,0.14)" : "none",
+            borderLeft: style === "news" ? `12px solid ${resolvedHighlightColor || "#38bdf8"}` : undefined,
+            boxShadow: style === "news" ? `0 12px 40px rgba(0,0,0,0.55), 0 0 24px ${hexToRgba(resolvedHighlightColor, 0.22)}` : (isTransparentBg || style === "minimal") ? "none" : "0 8px 30px rgba(0,0,0,0.35)",
+            textAlign: captionTextAlign,
+            alignSelf: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+          }}>
           {primaryLine}
           {secondaryLine && <div style={{ marginTop: 9 }}>{secondaryLine}</div>}
         </div>
@@ -435,34 +531,60 @@ const HookCaption: React.FC<{
   if (!stripHighlightMarkers(primaryText)) return null;
 
   // Hỗ trợ cấu trúc nhiều dòng hoặc số thứ tự trên đỉnh
-  const primaryLines = primaryText.split("\n");
+  const primaryLines = primaryText.split("\n").filter(Boolean);
 
   const resolvedHighlightColor = highlightColor || "#d9a620";
-  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily);
+  const resolvedFontFamily = resolveCaptionFontFamily(captionFont, fontFamily, text);
+    const remotionFontScale = 1.6;
   const basePrimaryFontSize = isFirstScene ? 52 : 46;
   const primaryFontSize = captionFontSize
-    ? Math.round(isFirstScene ? captionFontSize * 1.3 : captionFontSize)
-    : basePrimaryFontSize;
-  const secondaryFontSize = captionSecondaryFontSize ?? Math.round(primaryFontSize * 0.6);
+    ? Math.round(captionFontSize * remotionFontScale * (isFirstScene ? 1.22 : 1.0))
+    : Math.round(basePrimaryFontSize * (isFirstScene ? 1.22 : 1.0));
+  const secondaryFontSize = captionSecondaryFontSize
+    ? Math.round(captionSecondaryFontSize * remotionFontScale)
+    : Math.round(primaryFontSize * 0.6);
   const primaryColor = captionTextColor || "#FFFFFF";
   const isTransparentBg = captionBgColor === "transparent";
   const boxBgColor = captionBgColor && !isTransparentBg ? captionBgColor : "rgba(8, 8, 11, 0.88)";
 
-  const inProgress = Math.min(1, frame / HOOK_ANIM_FRAMES);
-  const outStart = durationInFrames - HOOK_ANIM_FRAMES;
-  const outProgress = frame >= outStart ? Math.min(1, Math.max(0, (frame - outStart) / HOOK_ANIM_FRAMES)) : 0;
-  const animProgress = outProgress > 0 ? 1 - outProgress : inProgress;
-  const animOpacity = animProgress;
-  const animTranslateY = interpolate(animProgress, [0, 1], [-28, 0]);
-
   const isBottom = position === "bottom";
   const isCenter = position === "center";
+  const trackingProgress = durationInFrames > 1 ? Math.min(1, Math.max(0, frame / (durationInFrames - 1))) : 0;
+  const effectiveAnim = captionAnimation || "zoom";
+
+  let captionScale = 1;
+  let animOpacity = 1;
+  let animTranslateY = 0;
+
+  if (effectiveAnim === "none") {
+    captionScale = 1;
+    animOpacity = 1;
+    animTranslateY = 0;
+  } else if (effectiveAnim === "zoom") {
+    captionScale = 1 + trackingProgress * 0.055;
+    const inProgress = Math.min(1, frame / HOOK_ANIM_FRAMES);
+    const outStart = durationInFrames - HOOK_ANIM_FRAMES;
+    const outProgress = frame >= outStart ? Math.min(1, Math.max(0, (frame - outStart) / HOOK_ANIM_FRAMES)) : 0;
+    const animProgress = outProgress > 0 ? 1 - outProgress : inProgress;
+    animOpacity = animProgress;
+    animTranslateY = interpolate(animProgress, [0, 1], [-28, 0]);
+  } else if (effectiveAnim === "fade") {
+    const fadeFrames = Math.min(15, Math.round(durationInFrames * 0.15));
+    animOpacity = fadeFrames > 0 ? Math.min(1, frame / fadeFrames) : 1;
+    animTranslateY = 0;
+  } else if (effectiveAnim === "slide-up") {
+    const slideFrames = Math.min(18, Math.round(durationInFrames * 0.18));
+    const p = slideFrames > 0 ? Math.min(1, frame / slideFrames) : 1;
+    const eased = 1 - Math.pow(1 - p, 3);
+    animOpacity = p;
+    animTranslateY = Math.round((1 - eased) * 24);
+  }
 
   return (
     <AbsoluteFill
       style={{
         justifyContent: isCenter ? "center" : isBottom ? "flex-end" : "flex-start",
-        alignItems: "center",
+        alignItems: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
         padding: "0 56px",
         opacity: opacity * animOpacity,
       }}
@@ -471,13 +593,16 @@ const HookCaption: React.FC<{
         style={{
           marginTop: isBottom ? 0 : (isCenter ? 0 : (isFirstScene ? 48 : 96) - captionMarginY),
           marginBottom: isBottom ? (isFirstScene ? 48 : 96) + captionMarginY : 0,
+          width: "fit-content",
           maxWidth: captionWidth ? `${captionWidth}%` : "92%",
           background: isTransparentBg ? "transparent" : boxBgColor,
           borderRadius: 24,
           padding: isFirstScene ? "32px 40px" : "20px 32px",
           boxShadow: isTransparentBg ? "none" : "0 12px 40px rgba(0,0,0,0.45)",
-          textAlign: "center",
-          transform: isCenter && captionMarginY !== 0 ? `translateY(${-captionMarginY}px)` : `translateY(${animTranslateY}px)`,
+          textAlign: captionTextAlign,
+          alignSelf: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+          transform: isCenter && captionMarginY !== 0 ? `translateY(${-captionMarginY + animTranslateY}px) scale(${captionScale})` : `translateY(${animTranslateY}px) scale(${captionScale})`,
+          transformOrigin: "center center",
         }}
       >
         <div
@@ -487,7 +612,7 @@ const HookCaption: React.FC<{
             fontWeight: 800,
             lineHeight: 1.3,
             color: primaryColor,
-            letterSpacing: isFirstScene ? "0.5px" : "normal",
+            letterSpacing: "0.02em",
           }}
         >
           {primaryLines.map((line, i) => {
@@ -503,6 +628,8 @@ const HookCaption: React.FC<{
                     fontWeight: 900,
                     color: resolvedHighlightColor,
                     marginBottom: 4,
+                    wordBreak: "keep-all",
+                    overflowWrap: "break-word",
                   }}
                 >
                   {line}
@@ -511,7 +638,7 @@ const HookCaption: React.FC<{
             }
 
             const displayLine = isFirstScene && isLast ? autoHighlightTail(line) : line;
-            return <div key={i}>{renderWithHighlights(displayLine, resolvedHighlightColor)}</div>;
+            return <div key={i} style={{ textAlign: captionTextAlign, wordBreak: "keep-all", overflowWrap: "break-word" }}>{renderWithHighlights(displayLine, resolvedHighlightColor)}</div>;
           })}
         </div>
         {hasSecondary && (

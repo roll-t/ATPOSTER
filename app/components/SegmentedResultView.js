@@ -446,6 +446,36 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     })();
 
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
+  const [renderCaptionEnabled, setRenderCaptionEnabled] = useState(() => {
+    if (result.remotionConfig?.captionEnabled !== undefined) {
+      return Boolean(result.remotionConfig.captionEnabled);
+    }
+    if (result.remotionConfig?.captionStyle === 'none') {
+      return false;
+    }
+    if (typeof window !== 'undefined' && result?.category) {
+      const saved = localStorage.getItem(`default_caption_enabled_${result.category}`);
+      if (saved !== null) return saved !== 'false';
+    }
+    return true;
+  });
+  const [renderCaptionTextAlign, setRenderCaptionTextAlign] = useState(() => {
+    if (result.remotionConfig?.captionTextAlign) return result.remotionConfig.captionTextAlign;
+    if (result.remotionConfig?.textAlign) return result.remotionConfig.textAlign;
+    if (typeof window !== 'undefined' && result?.category) {
+      const saved = localStorage.getItem(`default_caption_text_align_${result.category}`);
+      if (saved) return saved;
+    }
+    return 'center';
+  });
+  const [renderCaptionAnimation, setRenderCaptionAnimation] = useState(() => {
+    if (result.remotionConfig?.captionAnimation) return result.remotionConfig.captionAnimation;
+    if (typeof window !== 'undefined' && result?.category) {
+      const saved = localStorage.getItem(`default_caption_animation_${result.category}`);
+      if (saved) return saved;
+    }
+    return initialStyle === 'news' ? 'none' : 'zoom';
+  });
   const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => (
     result.remotionConfig?.transitionStyle ||
     result.remotionConfig?.transitionEffect ||
@@ -3046,7 +3076,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       }
 
       const configObj = {
-        captionStyle: renderCaptionStyle,
+        captionEnabled: renderCaptionEnabled,
+        captionTextAlign: renderCaptionTextAlign,
+        captionAnimation: renderCaptionAnimation,
+        captionStyle: renderCaptionEnabled ? renderCaptionStyle : 'none',
         font: renderCaptionFont,
         fontSize: renderCaptionFontSize,
         secondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
@@ -3151,6 +3184,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         if (typeof window !== 'undefined') {
           if (result.category) {
             localStorage.setItem(`default_style_${result.category}`, JSON.stringify(configObj));
+            localStorage.setItem(`default_caption_enabled_${result.category}`, String(renderCaptionEnabled));
+            localStorage.setItem(`default_caption_text_align_${result.category}`, renderCaptionTextAlign);
+            localStorage.setItem(`default_caption_animation_${result.category}`, renderCaptionAnimation);
             localStorage.setItem(`default_caption_style_${result.category}`, renderCaptionStyle);
             localStorage.setItem(`default_caption_font_${result.category}`, renderCaptionFont);
             localStorage.setItem(`default_caption_font_size_${result.category}`, renderCaptionFontSize);
@@ -3627,9 +3663,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const isRenderDone = Boolean(assetCounts?.videoCreated);
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '12px', flexWrap: 'wrap' }}>
-        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', flex: isEditingScript ? 1 : 'unset', minWidth: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', background: 'radial-gradient(ellipse at 15% 15%, rgba(168, 85, 247, 0.07) 0%, transparent 55%), radial-gradient(ellipse at 85% 85%, rgba(99, 102, 241, 0.05) 0%, transparent 55%), #0c0a17' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'linear-gradient(90deg, rgba(20, 16, 38, 0.95) 0%, rgba(14, 11, 26, 0.95) 100%)', borderBottom: '1px solid rgba(168, 85, 247, 0.15)', gap: '12px', flexWrap: 'wrap', marginBottom: '0px' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px', flex: isEditingScript ? 1 : 'unset', minWidth: 0 }}>
           <span>🎬</span>
           {isEditingScript ? (
             <>
@@ -3662,8 +3698,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           )}
         </h3>
 
-        {/* Khối Lời thuyết minh & các nút hành động được dời lên đây */}
-        {(() => {
+        {/* Khối Lời thuyết minh & các nút hành động (chỉ hiện ở top khi KHÔNG phải slideshow pipeline) */}
+        {!isSlideshowPipeline && (() => {
           const keepTags = showEmotionTags;
           const speechText = buildFullNarrationText(result.segments, { keepTags });
           const ttsParts = splitNarrationForTts(speechText);
@@ -3795,7 +3831,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       </div>
 
       {/* Khung toàn văn lời thuyết minh (mở ra khi bấm Xem toàn văn) */}
-      {showFullNarration && (
+      {!isSlideshowPipeline && showFullNarration && (
         <div style={{
           background: 'rgba(255, 255, 255, 0.02)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -3863,24 +3899,33 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 4fr) minmax(0, 3fr)',
         gap: '0px',
-        alignItems: 'start'
+        alignItems: 'stretch',
+        flex: 1,
+        minHeight: 0,
+        height: 'calc(100vh - 98px)',
+        width: '100%'
       } : undefined}>
         <div style={activeTab === 'process' ? { minWidth: 0, display: 'flex', flexDirection: 'column' } : undefined}>
 
           {activeTab === 'process' && isSlideshowPipeline && (
-            <div style={{
-              background: 'rgba(37, 244, 238, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRight: 'none',
-              borderRadius: '0px',
-              padding: '14px',
-              marginBottom: '0px',
-              height: 'calc(100vh - 122px)',
-              maxHeight: 'calc(100vh - 122px)',
-              overflowY: 'auto',
-              boxSizing: 'border-box',
-              transform: 'none',
-              transition: 'none'
+            <div
+              className="scrollable-col"
+              style={{
+                background: 'linear-gradient(180deg, rgba(20, 16, 38, 0.65) 0%, rgba(13, 10, 24, 0.85) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.12)',
+                borderRight: 'none',
+                borderLeft: 'none',
+                borderTop: 'none',
+                borderBottom: 'none',
+                borderRadius: '0px',
+                padding: '14px',
+                marginBottom: '0px',
+                height: 'calc(100vh - 98px)',
+                maxHeight: 'calc(100vh - 98px)',
+                overflowY: 'auto',
+                boxSizing: 'border-box',
+                transform: 'none',
+                transition: 'none'
             }}>
               <h4 style={{ color: '#fff', fontSize: '1rem', fontWeight: 800, marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>⚙️</span> Quy trình sản xuất video
@@ -3910,7 +3955,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             width: '28px',
                             height: '28px',
                             borderRadius: '50%',
-                            background: isStep1Done ? '#10b981' : 'linear-gradient(135deg, #FE2C55, #ff5a79)',
+                            background: isStep1Done ? '#10b981' : 'linear-gradient(135deg, #6366f1, #a855f7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -3971,10 +4016,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               fontSize: '0.76rem',
                               borderRadius: '8px',
                               fontWeight: 700,
-                              background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, var(--primary), var(--accent))',
+                              background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
                               color: isStep1Done ? '#2ed573' : '#fff',
                               border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
-                              boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
+                              boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(168, 85, 247, 0.35)',
                               cursor: isGeneratingVoice ? 'not-allowed' : 'pointer',
                               whiteSpace: 'nowrap'
                             }}
@@ -4507,7 +4552,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       flexDirection: 'column',
                       padding: '12px 16px',
                       background: 'rgba(255, 255, 255, 0.015)',
-                      border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
+                      border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(168, 85, 247, 0.28)' : '1px solid rgba(255, 255, 255, 0.03)',
                       borderRadius: '10px',
                       opacity: (isStep1Done && renderBgMusicEnabled) ? 1 : 0.5,
                       gap: '10px',
@@ -4519,7 +4564,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             width: '28px',
                             height: '28px',
                             borderRadius: '50%',
-                            background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
+                            background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'rgba(255,255,255,0.1)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -4539,9 +4584,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               padding: '2px 8px',
                               borderRadius: '6px',
                               fontWeight: 700,
-                              background: renderBgMusicEnabled ? 'rgba(37, 244, 238, 0.12)' : 'rgba(255, 255, 255, 0.08)',
-                              color: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.5)',
-                              border: renderBgMusicEnabled ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+                              background: renderBgMusicEnabled ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                              color: renderBgMusicEnabled ? '#d8b4fe' : 'rgba(255, 255, 255, 0.5)',
+                              border: renderBgMusicEnabled ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid rgba(255, 255, 255, 0.1)'
                             }}>
                               {renderBgMusicEnabled ? `🎵 ${currentTrackName} (${renderBgMusicVolume}%)` : '🔇 Tắt nhạc'}
                             </span>
@@ -4585,7 +4630,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                               }}
                             />
                             <span className="switch-slider" style={{
-                              backgroundColor: renderBgMusicEnabled ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)'
+                              backgroundColor: renderBgMusicEnabled ? '#a855f7' : 'rgba(255, 255, 255, 0.1)'
                             }}></span>
                           </label>
                         </div>
@@ -4769,6 +4814,189 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   {renderMsg}
                 </div>
               )}
+
+              {/* KHỐI KỊCH BẢN & LỜI THUYẾT MINH (Dời từ trên xuống khoảng trống dưới quy trình sản xuất) */}
+              {(() => {
+                const keepTags = showEmotionTags;
+                const speechText = buildFullNarrationText(result.segments, { keepTags });
+                const ttsParts = splitNarrationForTts(speechText);
+                const totalChars = countCharacters(speechText);
+                const spokenOnlyText = keepTags ? buildFullNarrationText(result.segments) : speechText;
+                const isMultiPart = ttsParts.length > 1;
+
+                return (
+                  <div style={{
+                    marginTop: '20px',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.07)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    {/* Header thông số lời thuyết minh */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.76rem',
+                        color: 'var(--text-muted)'
+                      }}>
+                        <span style={{ color: 'var(--warning)', fontWeight: 700 }}>🎙️ Lời thuyết minh:</span>
+                        <span>
+                          {countNarrationUnits(spokenOnlyText).toLocaleString('vi-VN')} {narrationUnitLabel(spokenOnlyText)} · {totalChars.toLocaleString('vi-VN')} ký tự · ~{formatDuration(estimateSeconds(spokenOnlyText))}
+                          {isMultiPart && (
+                            <strong style={{ color: 'var(--warning)', marginLeft: '4px' }}>
+                              (chia {ttsParts.length} phần)
+                            </strong>
+                          )}
+                        </span>
+                      </div>
+
+                      {scriptHasEmotionTags && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          title={showEmotionTags
+                            ? 'Đang HIỆN [tag] cảm xúc — bản copy dán thẳng được sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dán sang CapCut hoặc công cụ TTS không hiểu tag.'
+                            : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại tag ([whispers], [sighs], [long pause]...) cho ElevenLabs v3.'}
+                          style={{
+                            padding: '4px 8px', fontSize: '0.7rem', borderRadius: '6px', fontWeight: 700, flexShrink: 0,
+                            color: showEmotionTags ? '#0f172a' : undefined,
+                            background: showEmotionTags ? 'var(--warning)' : undefined,
+                            borderColor: showEmotionTags ? 'var(--warning)' : undefined
+                          }}
+                          onClick={() => setShowEmotionTags(v => !v)}
+                        >
+                          {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Các nút hành động */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                      {onOpenScriptDetail && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{
+                            padding: '7px 10px',
+                            fontSize: '0.74rem',
+                            borderRadius: '7px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '5px',
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
+                            color: '#a5b4fc',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => onOpenScriptDetail()}
+                          title="Mở toàn bộ chi tiết kịch bản (prompt, lời thoại, từng cảnh)"
+                        >
+                          <span>📜</span>
+                          <span>Xem chi tiết kịch bản</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '7px 10px',
+                          fontSize: '0.74rem',
+                          borderRadius: '7px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px'
+                        }}
+                        onClick={() => setShowFullNarration(v => !v)}
+                      >
+                        {showFullNarration ? '▲ Thu gọn' : '▼ Xem toàn văn'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '7px 10px',
+                          fontSize: '0.74rem',
+                          borderRadius: '7px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px'
+                        }}
+                        onClick={() => onCopy(buildTtsScriptText(result.segments, { keepTags }), 'full_speech_only')}
+                      >
+                        {copiedKey === 'full_speech_only' ? '✓ Đã chép!' : '📋 Copy giọng đọc'}
+                      </button>
+                    </div>
+
+                    {/* Khung toàn văn mở rộng bên trong nếu bấm Xem toàn văn */}
+                    {showFullNarration && (
+                      <div style={{
+                        marginTop: '4px',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                      }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          Mỗi ý một đoạn để dán vào công cụ TTS (ElevenLabs, CapCut...).
+                        </p>
+                        {ttsParts.map((part, i) => (
+                          <div key={i} style={{ marginBottom: i < ttsParts.length - 1 ? '10px' : 0 }}>
+                            {isMultiPart && (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                                <strong style={{ fontSize: '0.72rem', color: 'var(--warning)' }}>
+                                  ▶️ PHẦN {i + 1}
+                                </strong>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '2px 6px', fontSize: '0.66rem', borderRadius: '4px' }}
+                                  onClick={() => onCopy(part, `tts_part_${i}`)}
+                                >
+                                  {copiedKey === `tts_part_${i}` ? '✓ Đã chép' : `📋 Copy phần ${i + 1}`}
+                                </button>
+                              </div>
+                            )}
+                            <p style={{
+                              margin: 0,
+                              fontSize: '0.78rem',
+                              lineHeight: 1.55,
+                              color: 'rgba(255, 255, 255, 0.85)',
+                              whiteSpace: 'pre-wrap',
+                              fontStyle: 'italic'
+                            }}>
+                              {part}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
             </div>
           )}
 
@@ -5485,8 +5713,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
-              height: 'calc(100vh - 122px)',
-              maxHeight: 'calc(100vh - 122px)'
+              height: 'calc(100vh - 98px)',
+              maxHeight: 'calc(100vh - 98px)'
             }}
           >
             <VideoResultPanel
@@ -5494,7 +5722,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 ...result,
                 remotionConfig: {
                   ...(result.remotionConfig || {}),
-                  captionStyle: renderCaptionStyle,
+                  captionEnabled: renderCaptionEnabled,
+                  captionTextAlign: renderCaptionTextAlign,
+                  captionAnimation: renderCaptionAnimation,
+                  captionStyle: renderCaptionEnabled ? renderCaptionStyle : 'none',
                   font: renderCaptionFont,
                   captionFont: renderCaptionFont,
                   fontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
@@ -5571,8 +5802,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
-              height: 'calc(100vh - 122px)',
-              maxHeight: 'calc(100vh - 122px)'
+              height: 'calc(100vh - 98px)',
+              maxHeight: 'calc(100vh - 98px)'
             }}
           >
             <VideoEditorPanel
@@ -5580,6 +5811,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={setActiveSceneIndex}
               assetCounts={assetCounts}
+              renderCaptionEnabled={renderCaptionEnabled}
+              setRenderCaptionEnabled={(val) => {
+                setRenderCaptionEnabled(val);
+                if (result) {
+                  if (!result.remotionConfig) result.remotionConfig = {};
+                  result.remotionConfig.captionEnabled = val;
+                  result.remotionConfig.showCaption = val;
+                }
+              }}
+              renderCaptionAnimation={renderCaptionAnimation}
+              setRenderCaptionAnimation={(val) => {
+                setRenderCaptionAnimation(val);
+                if (result) {
+                  if (!result.remotionConfig) result.remotionConfig = {};
+                  result.remotionConfig.captionAnimation = val;
+                }
+              }}
+              renderCaptionTextAlign={renderCaptionTextAlign}
+              setRenderCaptionTextAlign={(val) => {
+                setRenderCaptionTextAlign(val);
+                if (result) {
+                  if (!result.remotionConfig) result.remotionConfig = {};
+                  result.remotionConfig.captionTextAlign = val;
+                  result.remotionConfig.textAlign = val;
+                }
+              }}
               renderCaptionStyle={renderCaptionStyle}
               setRenderCaptionStyle={setRenderCaptionStyle}
               renderCaptionFont={renderCaptionFont}

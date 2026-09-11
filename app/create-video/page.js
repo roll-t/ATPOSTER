@@ -93,14 +93,25 @@ function CreateVideoContent() {
           flexDirection: 'column',
           height: '100%',
           overflow: 'hidden',
-          padding: '12px 10px 16px 10px',
+          padding: '0',
           width: '100%'
         }}
       >
         <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
           
           {/* Header điều hướng workspace */}
-          <div style={{ marginBottom: '16px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{
+            marginBottom: '0px',
+            padding: '10px 20px',
+            borderBottom: '1px solid rgba(168, 85, 247, 0.15)',
+            background: 'linear-gradient(90deg, rgba(22, 17, 40, 0.95) 0%, rgba(15, 12, 28, 0.95) 100%)',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <nav style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }} aria-label="Breadcrumb">
                 {/* 1. Nút Back */}
@@ -111,11 +122,11 @@ function CreateVideoContent() {
                   style={{
                     height: '34px',
                     boxSizing: 'border-box',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(168, 85, 247, 0.1)',
+                    border: '1px solid rgba(168, 85, 247, 0.25)',
                     borderRadius: '8px',
                     padding: '0 12px',
-                    color: 'rgba(255, 255, 255, 0.85)',
+                    color: 'rgba(255, 255, 255, 0.9)',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -128,14 +139,14 @@ function CreateVideoContent() {
                     transition: 'all 0.15s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    e.currentTarget.style.background = 'rgba(168, 85, 247, 0.2)';
+                    e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.45)';
                     e.currentTarget.style.color = '#fff';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
+                    e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.25)';
+                    e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
                   }}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -254,7 +265,7 @@ function CreateVideoContent() {
           </div>
 
           {/* Vùng nội dung chính của Trình tạo video */}
-          <div className="scrollable-col" style={{ minWidth: 0, paddingRight: '4px', paddingBottom: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ minWidth: 0, padding: '0', margin: '0', height: 'calc(100vh - 54px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {loading && !s.result ? (
               <div className="glass-card" style={{ flex: 1, minHeight: 0, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                 <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -274,7 +285,7 @@ function CreateVideoContent() {
                 </button>
               </div>
             ) : s.result ? (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginBottom: '20px' }}>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '0', height: '100%' }}>
                 <SegmentedResultView
                   key={s.result.id ? `process_${s.result.id}` : 'process'}
                   result={s.result}

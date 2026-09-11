@@ -3,15 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import ColorPickerPopover from './ColorPickerPopover';
 
+function hexToRgba(hex, alpha = 0.2) {
+  if (!hex || typeof hex !== 'string') return `rgba(254, 44, 85, ${alpha})`;
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return `rgba(254, 44, 85, ${alpha})`;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+
 const CAPTION_STYLES = [
-  { id: 'hook', label: 'Tiêu đề mở đầu (Hook)', desc: 'Tiêu đề nổi bật, badge sao' },
-  { id: 'tiktok', label: 'Viền chữ TikTok', desc: 'Viền nét, đổi màu từng từ' },
-  { id: 'karaoke', label: 'Karaoke phát sáng', desc: 'Sáng dần theo giọng đọc' },
-  { id: 'pill', label: 'Hộp bo tròn (Pill)', desc: 'Thẻ kính trong suốt bo tròn' },
-  { id: 'news', label: 'Báo chí hiện đại', desc: 'Hiện đại, căn lề trái' },
-  { id: 'classic', label: 'Cổ điển chuẩn mực', desc: 'Chữ đổ bóng mềm' },
-  { id: 'minimal', label: 'Tối giản không nền', desc: 'Nổi bật hình ảnh minh hoạ' },
-  { id: 'box', label: 'Khung viền nổi bật', desc: 'Khung màu nổi tương phản' }
+  { id: 'news', label: 'Báo chí hiện đại', shortLabel: 'Báo chí', desc: 'Hiện đại, căn lề trái' },
+  { id: 'minimal', label: 'Tối giản không nền', shortLabel: 'Tối giản', desc: 'Nổi bật hình ảnh minh hoạ' },
+  { id: 'karaoke', label: 'Karaoke phát sáng', shortLabel: 'Karaoke', desc: 'Sáng dần theo giọng đọc' }
+];
+
+const CAPTION_ANIMATIONS = [
+  { id: 'none', label: 'Tĩnh', desc: 'Cố định, không rung lắc' },
+  { id: 'zoom', label: 'Zoom nhẹ', desc: 'Dãn nở êm theo nhịp ảnh' },
+  { id: 'fade', label: 'Mờ dần', desc: 'Xuất hiện êm dịu ở đầu cảnh' },
+  { id: 'slide-up', label: 'Trượt lên', desc: 'Trượt nhẹ từ dưới lên' }
 ];
 
 const TRANSITION_STYLES = [
@@ -32,11 +47,46 @@ const FONTS = [
   { id: 'oswald', label: 'Oswald' }
 ];
 
+
+function renderStyleVisualPreview(styleId, highlightColor = '#d9a620', textColor = '#ffffff') {
+  switch (styleId) {
+    case 'news':
+      return (
+        <div style={{ background: 'linear-gradient(135deg, rgba(14, 16, 28, 0.75) 0%, rgba(254, 44, 85, 0.18) 100%)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255, 255, 255, 0.12)', borderLeft: `3px solid ${highlightColor || '#d9a620'}`, padding: '3px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
+          <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '10px' }}>Báo chí</span>
+          <span style={{ color: highlightColor || '#d9a620', fontWeight: 800, fontSize: '10px' }}>hiện đại</span>
+        </div>
+      );
+    case 'minimal':
+      return (
+        <div style={{ fontSize: '10.5px', fontWeight: 900, letterSpacing: '0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <span style={{ color: '#ffffff' }}>Tối giản</span>
+          <span style={{ color: highlightColor || '#d9a620' }}>không nền</span>
+        </div>
+      );
+    case 'karaoke':
+      return (
+        <div style={{ fontSize: '10.5px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <span style={{ color: '#FE2C55', textShadow: '0 0 8px #FE2C55, 0 0 14px rgba(254,44,85,0.85)' }}>Karaoke</span>
+          <span style={{ color: 'rgba(255,255,255,0.45)', textShadow: 'none' }}>sáng</span>
+        </div>
+      );
+    default:
+      return <span style={{ color: '#fff', fontSize: '10px', fontWeight: 700 }}>{styleId}</span>;
+  }
+}
+
 export default function VideoEditorPanel({
   result = {},
   activeSceneIndex = 0,
   onSceneIndexChange,
   assetCounts = {},
+  renderCaptionEnabled = true,
+  setRenderCaptionEnabled,
+  renderCaptionAnimation = 'none',
+  setRenderCaptionAnimation,
+  renderCaptionTextAlign = 'center',
+  setRenderCaptionTextAlign,
   renderCaptionStyle = 'hook',
   setRenderCaptionStyle,
   renderCaptionFont = 'be-vietnam-pro',
@@ -55,6 +105,8 @@ export default function VideoEditorPanel({
   setRenderCaptionWidth,
   renderTransitionStyle = 'crossfade',
   setRenderTransitionStyle,
+  renderVideoBgColor = '#000000',
+  setRenderVideoBgColor,
   renderChannelLogo = true,
   setRenderChannelLogo,
   handleSaveAndApply,
@@ -189,13 +241,13 @@ export default function VideoEditorPanel({
           <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span>🎛️</span> Chỉnh sửa Video
           </h4>
-          <span style={{ fontSize: '0.7rem', color: '#25f4ee', fontWeight: 700, background: 'rgba(37, 244, 238, 0.12)', padding: '2px 8px', borderRadius: '4px' }}>
+          <span style={{ fontSize: '0.7rem', color: '#c084fc', fontWeight: 700, background: 'rgba(168, 85, 247, 0.15)', padding: '2px 8px', borderRadius: '4px' }}>
             Live Inspector
           </span>
         </div>
 
         {/* Tab Switcher - Không bo góc, không spacing */}
-        <div style={{ display: 'flex', gap: '0px', background: 'rgba(0, 0, 0, 0.35)', padding: '2px', borderRadius: '0px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', gap: '0px', background: 'rgba(20, 15, 38, 0.6)', padding: '2px', borderRadius: '0px', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
           <button
             type="button"
             onClick={() => setEditorTab('style')}
@@ -207,7 +259,7 @@ export default function VideoEditorPanel({
               borderRadius: '0px',
               border: 'none',
               cursor: 'pointer',
-              background: editorTab === 'style' ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.25), rgba(99, 102, 241, 0.35))' : 'transparent',
+              background: editorTab === 'style' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
               color: editorTab === 'style' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
               boxShadow: editorTab === 'style' ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
               transition: 'all 0.15s ease',
@@ -227,7 +279,7 @@ export default function VideoEditorPanel({
               borderRadius: '0px',
               border: 'none',
               cursor: 'pointer',
-              background: editorTab === 'scene' ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.25), rgba(99, 102, 241, 0.35))' : 'transparent',
+              background: editorTab === 'scene' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
               color: editorTab === 'scene' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
               boxShadow: editorTab === 'scene' ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
               transition: 'all 0.15s ease',
@@ -247,7 +299,7 @@ export default function VideoEditorPanel({
               borderRadius: '0px',
               border: 'none',
               cursor: 'pointer',
-              background: editorTab === 'all' ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.25), rgba(99, 102, 241, 0.35))' : 'transparent',
+              background: editorTab === 'all' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
               color: editorTab === 'all' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
               boxShadow: editorTab === 'all' ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
               transition: 'all 0.15s ease',
@@ -262,37 +314,263 @@ export default function VideoEditorPanel({
       {/* TAB 1: STYLE VIDEO */}
       {editorTab === 'style' && (
         <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Kiểu phụ đề */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
-              Kiểu hiển thị phụ đề:
-            </span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {/* Kiểu phụ đề & Bật/Tắt phụ đề */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>💬</span>
+                <span>Phụ đề video</span>
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.7rem', color: renderCaptionEnabled ? '#c084fc' : 'rgba(255,255,255,0.4)', fontWeight: 700 }}>
+                  {renderCaptionEnabled ? 'Đang bật' : 'Đã tắt'}
+                </span>
+                <label className="custom-switch" style={{ margin: 0, transform: 'scale(0.8)' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(renderCaptionEnabled)}
+                    onChange={(e) => setRenderCaptionEnabled && setRenderCaptionEnabled(e.target.checked)}
+                  />
+                  <span className="switch-slider" style={{ backgroundColor: renderCaptionEnabled ? '#a855f7' : 'rgba(255,255,255,0.15)' }}></span>
+                </label>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', opacity: renderCaptionEnabled ? 1 : 0.45, pointerEvents: renderCaptionEnabled ? 'auto' : 'none', transition: 'all 0.15s ease' }}>
               {CAPTION_STYLES.map((st) => {
                 const isActive = renderCaptionStyle === st.id;
                 return (
                   <button
                     key={st.id}
                     type="button"
-                    onClick={() => setRenderCaptionStyle && setRenderCaptionStyle(st.id)}
+                    title={`${st.label} - ${st.desc}`}
+                    onClick={() => {
+                      setRenderCaptionStyle && setRenderCaptionStyle(st.id);
+                      if (st.id === 'news') {
+                        if (setRenderCaptionAnimation) setRenderCaptionAnimation('none');
+                        if (setRenderCaptionBgTransparent) setRenderCaptionBgTransparent(false);
+                      } else if (false && setRenderCaptionBgTransparent) {
+                        setRenderCaptionBgTransparent(false);
+                      } else if (st.id === 'minimal' && setRenderCaptionBgTransparent) {
+                        setRenderCaptionBgTransparent(true);
+                      }
+                    }}
                     style={{
-                      padding: '8px 10px',
+                      position: 'relative',
+                      padding: '5px 2px 4px 2px',
                       borderRadius: '8px',
-                      textAlign: 'left',
                       cursor: 'pointer',
-                      border: isActive ? '1.5px solid #25f4ee' : '1px solid rgba(255, 255, 255, 0.08)',
-                      background: isActive ? 'rgba(37, 244, 238, 0.12)' : 'rgba(0, 0, 0, 0.3)',
-                      color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.75)',
-                      boxShadow: isActive ? '0 0 12px rgba(37, 244, 238, 0.2)' : 'none',
-                      transition: 'all 0.15s ease'
+                      border: isActive ? '1.5px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: isActive
+                        ? 'radial-gradient(ellipse at center, rgba(168, 85, 247, 0.22) 0%, rgba(18, 14, 32, 0.95) 100%)'
+                        : 'radial-gradient(ellipse at center, rgba(30, 25, 48, 0.6) 0%, rgba(14, 11, 24, 0.85) 100%)',
+                      boxShadow: isActive ? '0 0 12px rgba(168, 85, 247, 0.4)' : 'none',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: '64px',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                      overflow: 'hidden'
                     }}
                   >
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: isActive ? '#25f4ee' : '#fff' }}>
-                      {st.label}
+                    {/* Visual Style Preview in center */}
+                    <div
+                      style={{
+                        flex: 1,
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        userSelect: 'none',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      {renderStyleVisualPreview(st.id, renderHighlightColor, renderCaptionTextColor)}
                     </div>
-                    <div style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
-                      {st.desc}
+
+                    {/* Tên kiểu phụ đề nhỏ gọn nằm trực tiếp bên trong item */}
+                    <div
+                      style={{
+                        fontSize: '0.63rem',
+                        fontWeight: 700,
+                        color: isActive ? '#d8b4fe' : 'rgba(255, 255, 255, 0.72)',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        width: '100%',
+                        lineHeight: 1.1,
+                        paddingTop: '2px'
+                      }}
+                    >
+                      {st.shortLabel || st.label}
                     </div>
+
+                    {isActive && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '3px',
+                          right: '3px',
+                          width: '13px',
+                          height: '13px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '8px',
+                          fontWeight: 900,
+                          boxShadow: '0 1px 6px rgba(168, 85, 247, 0.6)',
+                          zIndex: 5
+                        }}
+                      >
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Canh chỉnh text trong phụ đề */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            gap: '10px',
+            padding: '0',
+            opacity: renderCaptionEnabled ? 1 : 0.45,
+            pointerEvents: renderCaptionEnabled ? 'auto' : 'none',
+            transition: 'all 0.15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem' }}>📐</span>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
+                Canh lề chữ phụ đề:
+              </span>
+            </div>
+            <div style={{ display: 'inline-flex', background: 'rgba(20, 15, 38, 0.7)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(168, 85, 247, 0.25)', gap: '2px' }}>
+              <button
+                type="button"
+                onClick={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('left')}
+                title="Canh lề trái"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: '5px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: renderCaptionTextAlign === 'left' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                  color: renderCaptionTextAlign === 'left' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  boxShadow: renderCaptionTextAlign === 'left' ? '0 1px 8px rgba(168, 85, 247, 0.4)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
+                <span>Trái</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('center')}
+                title="Canh giữa"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: '5px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: renderCaptionTextAlign === 'center' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                  color: renderCaptionTextAlign === 'center' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  boxShadow: renderCaptionTextAlign === 'center' ? '0 1px 8px rgba(168, 85, 247, 0.4)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="10" x2="6" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="18" y1="18" x2="6" y2="18"></line></svg>
+                <span>Giữa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('right')}
+                title="Canh lề phải"
+                style={{
+                  padding: '5px 9px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  borderRadius: '5px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: renderCaptionTextAlign === 'right' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                  color: renderCaptionTextAlign === 'right' ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                  boxShadow: renderCaptionTextAlign === 'right' ? '0 1px 8px rgba(168, 85, 247, 0.4)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></svg>
+                <span>Phải</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Hiệu ứng animation tiêu đề / phụ đề */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            gap: '10px',
+            padding: '0',
+            opacity: renderCaptionEnabled ? 1 : 0.45,
+            pointerEvents: renderCaptionEnabled ? 'auto' : 'none',
+            transition: 'all 0.15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.82rem' }}>✨</span>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap' }}>
+                Animation tiêu đề:
+              </span>
+            </div>
+            <div style={{ display: 'inline-flex', background: 'rgba(20, 15, 38, 0.7)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(168, 85, 247, 0.25)', gap: '2px' }}>
+              {CAPTION_ANIMATIONS.map((anim) => {
+                const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
+                const isActive = currentAnim === anim.id;
+                return (
+                  <button
+                    key={anim.id}
+                    type="button"
+                    title={anim.desc}
+                    onClick={() => setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id)}
+                    style={{
+                      padding: '5px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      borderRadius: '5px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: isActive ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                      color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.65)',
+                      boxShadow: isActive ? '0 1px 8px rgba(168, 85, 247, 0.4)' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span>{anim.label}</span>
                   </button>
                 );
               })}
@@ -300,7 +578,7 @@ export default function VideoEditorPanel({
           </div>
 
           {/* Font chữ & Cỡ chữ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', opacity: renderCaptionEnabled ? 1 : 0.45, pointerEvents: renderCaptionEnabled ? 'auto' : 'none', transition: 'all 0.15s ease' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
                 Font chữ:
@@ -358,16 +636,31 @@ export default function VideoEditorPanel({
             </div>
           </div>
 
-          {/* Màu chữ & Màu nhấn Highlight */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-              Màu tô sáng từ nhấn mạnh (**từ khóa**):
-            </span>
-            <ColorPickerPopover
-              color={renderHighlightColor}
-              onChange={setRenderHighlightColor}
-              label="Màu tô sáng từ nhấn mạnh"
-            />
+          {/* Màu Primary & Màu nền video nằm ngang nhau, bảng màu nằm cạnh tiêu đề */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+                Màu Primary:
+              </span>
+              <ColorPickerPopover
+                color={renderHighlightColor}
+                onChange={setRenderHighlightColor}
+                label="Màu Primary"
+                align="left"
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+                Màu nền video:
+              </span>
+              <ColorPickerPopover
+                color={renderVideoBgColor || '#000000'}
+                onChange={setRenderVideoBgColor}
+                label="Màu nền video"
+                align="right"
+              />
+            </div>
           </div>
 
           {/* Kiểu chuyển cảnh */}
@@ -389,8 +682,8 @@ export default function VideoEditorPanel({
                       fontSize: '0.72rem',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      border: isActive ? '1px solid #25f4ee' : '1px solid rgba(255, 255, 255, 0.1)',
-                      background: isActive ? 'rgba(37, 244, 238, 0.18)' : 'rgba(0, 0, 0, 0.3)',
+                      border: isActive ? '1px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: isActive ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.35))' : 'rgba(0, 0, 0, 0.3)',
                       color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.7)'
                     }}
                   >
@@ -409,9 +702,9 @@ export default function VideoEditorPanel({
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '8px 12px',
-              background: renderChannelLogo ? 'rgba(37, 244, 238, 0.08)' : 'rgba(0,0,0,0.25)',
+              background: renderChannelLogo ? 'rgba(168, 85, 247, 0.15)' : 'rgba(0,0,0,0.25)',
               borderRadius: '8px',
-              border: renderChannelLogo ? '1px solid rgba(37, 244, 238, 0.35)' : '1px solid rgba(255,255,255,0.06)',
+              border: renderChannelLogo ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255,255,255,0.06)',
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
@@ -420,7 +713,7 @@ export default function VideoEditorPanel({
               <img
                 src="/images/watermark/the-mind-logo.png"
                 alt=""
-                style={{ width: '22px', height: '22px', objectFit: 'contain', mixBlendMode: 'screen', filter: 'brightness(1.15)' }}
+                style={{ width: '28px', height: '14px', objectFit: 'contain', mixBlendMode: 'screen', filter: 'brightness(1.15)' }}
               />
               <span style={{ fontSize: '0.74rem', fontWeight: 700, color: renderChannelLogo ? '#fff' : 'rgba(255,255,255,0.7)' }}>
                 Logo kênh thương hiệu
@@ -432,7 +725,7 @@ export default function VideoEditorPanel({
                 checked={Boolean(renderChannelLogo)}
                 onChange={(e) => setRenderChannelLogo && setRenderChannelLogo(e.target.checked)}
               />
-              <span className="switch-slider" style={{ backgroundColor: renderChannelLogo ? '#25f4ee' : 'rgba(255,255,255,0.15)' }}></span>
+              <span className="switch-slider" style={{ backgroundColor: renderChannelLogo ? '#a855f7' : 'rgba(255,255,255,0.15)' }}></span>
             </label>
           </div>
 
@@ -449,10 +742,10 @@ export default function VideoEditorPanel({
                 fontSize: '0.82rem',
                 fontWeight: 800,
                 cursor: isSavingStyle ? 'wait' : 'pointer',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
                 border: 'none',
                 color: '#fff',
-                boxShadow: '0 3px 12px rgba(16, 185, 129, 0.35)',
+                boxShadow: '0 3px 14px rgba(168, 85, 247, 0.4)',
                 transition: 'all 0.15s ease',
                 whiteSpace: 'nowrap',
                 display: 'flex',
@@ -482,7 +775,7 @@ export default function VideoEditorPanel({
               type="button"
               onClick={() => onSceneIndexChange && onSceneIndexChange(Math.max(0, activeSceneIndex - 1))}
               disabled={activeSceneIndex === 0}
-              style={{ background: 'none', border: 'none', color: activeSceneIndex === 0 ? 'rgba(255,255,255,0.2)' : '#25f4ee', cursor: activeSceneIndex === 0 ? 'not-allowed' : 'pointer', fontWeight: 800, fontSize: '0.85rem' }}
+              style={{ background: 'none', border: 'none', color: activeSceneIndex === 0 ? 'rgba(255,255,255,0.2)' : '#c084fc', cursor: activeSceneIndex === 0 ? 'not-allowed' : 'pointer', fontWeight: 800, fontSize: '0.85rem' }}
             >
               ◀ Cảnh trước
             </button>
@@ -493,7 +786,7 @@ export default function VideoEditorPanel({
               type="button"
               onClick={() => onSceneIndexChange && onSceneIndexChange(Math.min(totalScenes - 1, activeSceneIndex + 1))}
               disabled={activeSceneIndex >= totalScenes - 1}
-              style={{ background: 'none', border: 'none', color: activeSceneIndex >= totalScenes - 1 ? 'rgba(255,255,255,0.2)' : '#25f4ee', cursor: activeSceneIndex >= totalScenes - 1 ? 'not-allowed' : 'pointer', fontWeight: 800, fontSize: '0.85rem' }}
+              style={{ background: 'none', border: 'none', color: activeSceneIndex >= totalScenes - 1 ? 'rgba(255,255,255,0.2)' : '#c084fc', cursor: activeSceneIndex >= totalScenes - 1 ? 'not-allowed' : 'pointer', fontWeight: 800, fontSize: '0.85rem' }}
             >
               Cảnh tiếp ▶
             </button>
@@ -648,9 +941,9 @@ export default function VideoEditorPanel({
                   padding: '8px 10px',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  border: isCurrent ? '1.5px solid #25f4ee' : '1px solid rgba(255, 255, 255, 0.06)',
-                  background: isCurrent ? 'rgba(37, 244, 238, 0.12)' : 'rgba(0, 0, 0, 0.25)',
-                  boxShadow: isCurrent ? '0 0 12px rgba(37, 244, 238, 0.15)' : 'none',
+                  border: isCurrent ? '1.5px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.06)',
+                  background: isCurrent ? 'rgba(168, 85, 247, 0.15)' : 'rgba(0, 0, 0, 0.25)',
+                  boxShadow: isCurrent ? '0 0 14px rgba(168, 85, 247, 0.25)' : 'none',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -666,11 +959,11 @@ export default function VideoEditorPanel({
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isCurrent ? '#25f4ee' : '#fff' }}>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isCurrent ? '#d8b4fe' : '#fff' }}>
                       Cảnh {idx + 1}
                     </span>
                     {isCurrent && (
-                      <span style={{ fontSize: '0.66rem', color: '#25f4ee', fontWeight: 700 }}>
+                      <span style={{ fontSize: '0.66rem', color: '#c084fc', fontWeight: 700 }}>
                         Đang chọn
                       </span>
                     )}

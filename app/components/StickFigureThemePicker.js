@@ -37,12 +37,12 @@ export default function StickFigureThemePicker({ value, onChange, onSelect }) {
                 position: 'relative',
                 padding: '12px 14px',
                 borderRadius: '12px',
-                border: isSelected ? '1.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                border: isSelected ? '1.5px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.08)',
                 background: isSelected
-                  ? 'linear-gradient(135deg, rgba(37, 244, 238, 0.16) 0%, rgba(19, 17, 32, 0.9) 100%)'
+                  ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.25) 50%, rgba(19, 17, 32, 0.9) 100%)'
                   : 'rgba(255, 255, 255, 0.03)',
                 boxShadow: isSelected
-                  ? '0 6px 20px rgba(37, 244, 238, 0.22), inset 0 0 12px rgba(37, 244, 238, 0.08)'
+                  ? '0 6px 20px rgba(168, 85, 247, 0.3), inset 0 0 12px rgba(168, 85, 247, 0.1)'
                   : '0 2px 6px rgba(0, 0, 0, 0.15)',
                 color: '#fff',
                 cursor: 'pointer',
@@ -77,7 +77,7 @@ export default function StickFigureThemePicker({ value, onChange, onSelect }) {
                 <span style={{
                   fontWeight: 800,
                   fontSize: '0.84rem',
-                  color: isSelected ? 'var(--secondary)' : '#fff',
+                  color: isSelected ? '#d8b4fe' : '#fff',
                   lineHeight: 1.3,
                   wordBreak: 'break-word',
                   letterSpacing: '-0.2px'
@@ -102,7 +102,7 @@ export default function StickFigureThemePicker({ value, onChange, onSelect }) {
                 top: '10px',
                 right: '10px',
                 fontSize: '0.72rem',
-                color: isSelected ? 'var(--secondary)' : 'rgba(255,255,255,0.3)',
+                color: isSelected ? '#c084fc' : 'rgba(255,255,255,0.3)',
                 fontWeight: 700
               }}>
                 {isSelected ? '✓' : '↗'}
@@ -125,7 +125,7 @@ export default function StickFigureThemePicker({ value, onChange, onSelect }) {
                 borderRadius: '20px',
                 padding: '4px 14px',
                 fontSize: '0.72rem',
-                color: 'var(--secondary)',
+                color: '#c084fc',
                 fontWeight: 600,
                 cursor: 'pointer',
                 display: 'inline-flex',

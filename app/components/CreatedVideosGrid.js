@@ -61,12 +61,12 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
       style={{
         padding: '12px',
         borderRadius: '14px',
-        border: isPlaying ? '1px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
-        background: isPlaying ? 'rgba(37, 244, 238, 0.04)' : 'rgba(22, 20, 38, 0.7)',
+        border: isPlaying ? '1px solid #a855f7' : '1px solid rgba(255, 255, 255, 0.08)',
+        background: isPlaying ? 'rgba(168, 85, 247, 0.1)' : 'rgba(22, 20, 38, 0.7)',
         display: 'flex',
         flexDirection: 'column',
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-        boxShadow: isPlaying ? '0 6px 20px rgba(37, 244, 238, 0.15)' : 'none'
+        boxShadow: isPlaying ? '0 6px 20px rgba(168, 85, 247, 0.25)' : 'none'
       }}
     >
       {/* Media Preview Box */}
@@ -143,14 +143,14 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
                 width: '44px',
                 height: '44px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--primary), var(--accent))',
+                background: 'linear-gradient(135deg, #6366f1, #a855f7)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
                 fontSize: '1.2rem',
                 paddingLeft: '3px',
-                boxShadow: '0 4px 15px rgba(254, 44, 85, 0.4)'
+                boxShadow: '0 4px 16px rgba(168, 85, 247, 0.5)'
               }}>
                 ▶
               </div>
@@ -165,7 +165,7 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
               borderRadius: '6px',
               background: 'rgba(0,0,0,0.75)',
               backdropFilter: 'blur(4px)',
-              color: isLandscape ? 'var(--secondary)' : 'var(--primary)',
+              color: isLandscape ? '#38bdf8' : '#c084fc',
               fontSize: '0.7rem',
               fontWeight: 800
             }}>
@@ -374,8 +374,15 @@ function VideoCard({ video, isPlaying, onTogglePlay, openingFolderId, onOpenFold
         <a
           href={video.videoUrl}
           download={`${video.folderPath}-video.mp4`}
-          className="btn btn-primary vc-act"
-          style={{ ...ACTION_BTN_STYLE, textDecoration: 'none' }}
+          className="btn vc-act"
+          style={{
+            ...ACTION_BTN_STYLE,
+            textDecoration: 'none',
+            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+            border: 'none',
+            color: '#fff',
+            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)'
+          }}
           data-tip="Tải tệp MP4 về máy"
           aria-label="Tải tệp MP4 về máy"
         >
@@ -654,9 +661,9 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
             display: 'flex',
             gap: '3px',
             padding: '3px',
-            background: 'rgba(0, 0, 0, 0.3)',
+            background: 'rgba(0, 0, 0, 0.4)',
             borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: '1px solid rgba(168, 85, 247, 0.2)'
           }}>
             {[
               { id: 'all', label: 'Tất cả', count: totalCount },
@@ -695,7 +702,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
             padding: '2px',
             background: 'rgba(255, 255, 255, 0.03)',
             borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.06)'
+            border: '1px solid rgba(168, 85, 247, 0.18)'
           }}>
             {[
               { id: 'all', label: 'Mọi tỉ lệ' },
@@ -715,7 +722,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
                     borderRadius: '6px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: active ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                    background: active ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.45))' : 'transparent',
                     color: active ? '#fff' : 'rgba(255, 255, 255, 0.5)'
                   }}
                 >
