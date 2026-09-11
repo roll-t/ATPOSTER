@@ -100,6 +100,7 @@ const highlightColor = flags.highlightColor && CSS_COLOR_RE.test(flags.highlight
 const imageScale = flags.imageScale !== undefined ? Number(flags.imageScale) : 1.0;
 const imageTranslateY = flags.imageTranslateY !== undefined ? Number(flags.imageTranslateY) : 0;
 const captionMarginY = flags.captionMarginY !== undefined ? Number(flags.captionMarginY) : 0;
+const captionWidth = flags.captionWidth !== undefined ? Number(flags.captionWidth) : 92;
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
@@ -317,6 +318,7 @@ const remotionConfig = {
   imageScale,
   imageTranslateY,
   captionMarginY,
+  captionWidth,
   audioPaddingSeconds: flags.audioPaddingSeconds !== undefined ? Number(flags.audioPaddingSeconds) : 0,
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh

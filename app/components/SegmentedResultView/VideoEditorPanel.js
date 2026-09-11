@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ColorPickerPopover from './ColorPickerPopover';
 
 const CAPTION_STYLES = [
   { id: 'hook', label: 'Tiêu đề mở đầu (Hook)', desc: 'Tiêu đề nổi bật, badge sao' },
   { id: 'tiktok', label: 'Viền chữ TikTok', desc: 'Viền nét, đổi màu từng từ' },
   { id: 'karaoke', label: 'Karaoke phát sáng', desc: 'Sáng dần theo giọng đọc' },
   { id: 'pill', label: 'Hộp bo tròn (Pill)', desc: 'Thẻ kính trong suốt bo tròn' },
-  { id: 'news', label: 'Báo chí hiện đại', desc: 'Đường viền nhấn lề trái' },
+  { id: 'news', label: 'Báo chí hiện đại', desc: 'Hiện đại, căn lề trái' },
   { id: 'classic', label: 'Cổ điển chuẩn mực', desc: 'Chữ đổ bóng mềm' },
   { id: 'minimal', label: 'Tối giản không nền', desc: 'Nổi bật hình ảnh minh hoạ' },
   { id: 'box', label: 'Khung viền nổi bật', desc: 'Khung màu nổi tương phản' }
@@ -31,8 +32,6 @@ const FONTS = [
   { id: 'oswald', label: 'Oswald' }
 ];
 
-const HIGHLIGHT_COLORS = ['#d9a620', '#FE2C55', '#10B981', '#25F4EE', '#8B5CF6', '#F59E0B', '#EF4444'];
-
 export default function VideoEditorPanel({
   result = {},
   activeSceneIndex = 0,
@@ -52,6 +51,8 @@ export default function VideoEditorPanel({
   setRenderCaptionBgTransparent,
   renderCaptionMarginY = '-215',
   setRenderCaptionMarginY,
+  renderCaptionWidth = '92',
+  setRenderCaptionWidth,
   renderTransitionStyle = 'crossfade',
   setRenderTransitionStyle,
   renderChannelLogo = true,
@@ -59,9 +60,6 @@ export default function VideoEditorPanel({
   handleSaveAndApply,
   isSavingStyle = false,
   saveStyleMsg = '',
-  handlePinDefaultRenderConfig,
-  isPinningRenderConfig = false,
-  pinRenderMsg = '',
   onResult,
   onHistoryRefresh,
   resyncVoiceForSegments,
@@ -90,8 +88,19 @@ export default function VideoEditorPanel({
   const folderPath = result?.input?.folderPath || 'example';
   const category = result?.category || '';
   const currentPaddedNum = String(currentSegment.segmentNumber || activeSceneIndex + 1).padStart(2, '0');
+  const currentSceneNumber = Number(currentSegment.segmentNumber || activeSceneIndex + 1);
+
+  const hasSceneImage = (sceneNum) => {
+    if (assetCounts?.imageCount !== undefined && assetCounts.imageCount === 0) return false;
+    if (Array.isArray(assetCounts?.existingImageNumbers)) return assetCounts.existingImageNumbers.includes(sceneNum);
+    if (typeof assetCounts?.imageCount === 'number') return assetCounts.imageCount > 0;
+    return true;
+  };
+
   const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}`;
-  const currentImgSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${activeSceneIndex}`;
+  const currentImgSrc = hasSceneImage(currentSceneNumber)
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${activeSceneIndex}`
+    : null;
 
   const handlePlaySceneAudio = () => {
     const audio = new Audio(currentAudioSrc);
@@ -350,57 +359,14 @@ export default function VideoEditorPanel({
           </div>
 
           {/* Màu chữ & Màu nhấn Highlight */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
               Màu tô sáng từ nhấn mạnh (**từ khóa**):
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              {HIGHLIGHT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setRenderHighlightColor && setRenderHighlightColor(c)}
-                  style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '50%',
-                    background: c,
-                    border: renderHighlightColor === c ? '2.5px solid #ffffff' : '1px solid rgba(0,0,0,0.4)',
-                    boxShadow: renderHighlightColor === c ? `0 0 10px ${c}` : 'none',
-                    cursor: 'pointer',
-                    transform: renderHighlightColor === c ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'all 0.15s ease'
-                  }}
-                />
-              ))}
-              <input
-                type="color"
-                value={renderHighlightColor}
-                onChange={(e) => setRenderHighlightColor && setRenderHighlightColor(e.target.value)}
-                style={{ width: '30px', height: '26px', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
-                title="Chọn màu khác"
-              />
-            </div>
-          </div>
-
-          {/* Vị trí phụ đề (Margin Y) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
-                Độ cao phụ đề (Dịch dọc):
-              </span>
-              <span style={{ fontSize: '0.72rem', color: '#25f4ee', fontWeight: 700 }}>
-                {renderCaptionMarginY}px
-              </span>
-            </div>
-            <input
-              type="range"
-              min={-500}
-              max={150}
-              step={5}
-              value={Number(renderCaptionMarginY) || 0}
-              onChange={(e) => setRenderCaptionMarginY && setRenderCaptionMarginY(e.target.value)}
-              style={{ width: '100%', cursor: 'pointer' }}
+            <ColorPickerPopover
+              color={renderHighlightColor}
+              onChange={setRenderHighlightColor}
+              label="Màu tô sáng từ nhấn mạnh"
             />
           </div>
 
@@ -435,123 +401,72 @@ export default function VideoEditorPanel({
             </div>
           </div>
 
-          {/* Tùy chọn bổ sung: Logo kênh & Nền chữ trong suốt */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div
-              onClick={() => setRenderChannelLogo && setRenderChannelLogo(!renderChannelLogo)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 10px',
-                background: renderChannelLogo ? 'rgba(37, 244, 238, 0.08)' : 'rgba(0,0,0,0.25)',
-                borderRadius: '8px',
-                border: renderChannelLogo ? '1px solid rgba(37, 244, 238, 0.35)' : '1px solid rgba(255,255,255,0.06)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.9rem' }}>🏷️</span>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: renderChannelLogo ? '#fff' : 'rgba(255,255,255,0.7)' }}>
-                  Logo kênh
-                </span>
-              </div>
-              <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(renderChannelLogo)}
-                  onChange={(e) => setRenderChannelLogo && setRenderChannelLogo(e.target.checked)}
-                />
-                <span className="switch-slider" style={{ backgroundColor: renderChannelLogo ? '#25f4ee' : 'rgba(255,255,255,0.15)' }}></span>
-              </label>
+          {/* Tùy chọn bổ sung: Logo kênh */}
+          <div
+            onClick={() => setRenderChannelLogo && setRenderChannelLogo(!renderChannelLogo)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: renderChannelLogo ? 'rgba(37, 244, 238, 0.08)' : 'rgba(0,0,0,0.25)',
+              borderRadius: '8px',
+              border: renderChannelLogo ? '1px solid rgba(37, 244, 238, 0.35)' : '1px solid rgba(255,255,255,0.06)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img
+                src="/images/watermark/the-mind-logo.png"
+                alt=""
+                style={{ width: '22px', height: '22px', objectFit: 'contain', mixBlendMode: 'screen', filter: 'brightness(1.15)' }}
+              />
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: renderChannelLogo ? '#fff' : 'rgba(255,255,255,0.7)' }}>
+                Logo kênh thương hiệu
+              </span>
             </div>
-
-            <div
-              onClick={() => setRenderCaptionBgTransparent && setRenderCaptionBgTransparent(!renderCaptionBgTransparent)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 10px',
-                background: renderCaptionBgTransparent ? 'rgba(37, 244, 238, 0.08)' : 'rgba(0,0,0,0.25)',
-                borderRadius: '8px',
-                border: renderCaptionBgTransparent ? '1px solid rgba(37, 244, 238, 0.35)' : '1px solid rgba(255,255,255,0.06)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.9rem' }}>✨</span>
-                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: renderCaptionBgTransparent ? '#fff' : 'rgba(255,255,255,0.7)' }}>
-                  Nền trong suốt
-                </span>
-              </div>
-              <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(renderCaptionBgTransparent)}
-                  onChange={(e) => setRenderCaptionBgTransparent && setRenderCaptionBgTransparent(e.target.checked)}
-                />
-                <span className="switch-slider" style={{ backgroundColor: renderCaptionBgTransparent ? '#25f4ee' : 'rgba(255,255,255,0.15)' }}></span>
-              </label>
-            </div>
+            <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(renderChannelLogo)}
+                onChange={(e) => setRenderChannelLogo && setRenderChannelLogo(e.target.checked)}
+              />
+              <span className="switch-slider" style={{ backgroundColor: renderChannelLogo ? '#25f4ee' : 'rgba(255,255,255,0.15)' }}></span>
+            </label>
           </div>
 
           {/* Nút Lưu cấu hình & Ghim mặc định */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={handleSaveAndApply}
-                disabled={isSavingStyle}
-                style={{
-                  padding: '9px 10px',
-                  borderRadius: '8px',
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  border: 'none',
-                  color: '#fff',
-                  boxShadow: '0 3px 12px rgba(16, 185, 129, 0.35)',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Style'}
-              </button>
-              {handlePinDefaultRenderConfig && (
-                <button
-                  type="button"
-                  onClick={handlePinDefaultRenderConfig}
-                  disabled={isPinningRenderConfig}
-                  style={{
-                    padding: '9px 10px',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: isPinningRenderConfig ? 'wait' : 'pointer',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 203, 77, 0.3)',
-                    color: '#FFCB4D',
-                    transition: 'all 0.15s ease',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title="Lưu cấu hình style này làm Mặc định cho các kịch bản mới"
-                >
-                  {isPinningRenderConfig ? '⏳ Đang ghim...' : '📌 Ghim mặc định'}
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveAndApply}
+              disabled={isSavingStyle}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                cursor: isSavingStyle ? 'wait' : 'pointer',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                border: 'none',
+                color: '#fff',
+                boxShadow: '0 3px 12px rgba(16, 185, 129, 0.35)',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+              title="Lưu style cho video này và đặt làm định dạng mặc định cho skill này"
+            >
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Style'}
+            </button>
             {saveStyleMsg && (
               <span style={{ fontSize: '0.74rem', color: '#10b981', textAlign: 'center', fontWeight: 600 }}>
                 {saveStyleMsg}
-              </span>
-            )}
-            {pinRenderMsg && (
-              <span style={{ fontSize: '0.74rem', color: '#4ade80', textAlign: 'center', fontWeight: 600 }}>
-                ✓ {pinRenderMsg}
               </span>
             )}
           </div>
@@ -660,11 +575,15 @@ export default function VideoEditorPanel({
 
           {/* Ảnh hoạt cảnh thu nhỏ */}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(0,0,0,0.25)', padding: '8px', borderRadius: '8px' }}>
-            <img
-              src={currentImgSrc}
-              alt=""
-              style={{ width: '48px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
+            {currentImgSrc ? (
+              <img
+                src={currentImgSrc}
+                alt=""
+                style={{ width: '48px', height: '64px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+            ) : (
+              <div style={{ width: '48px', height: '64px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} title="Chưa sinh ảnh">🎬</div>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.5)', display: 'block' }}>Mô tả hình ảnh:</span>
               <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'rgba(255,255,255,0.85)', lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -708,7 +627,11 @@ export default function VideoEditorPanel({
           {segments.map((seg, idx) => {
             const isCurrent = idx === activeSceneIndex;
             const padNum = String(seg.segmentNumber || idx + 1).padStart(2, '0');
-            const thumb = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${padNum}.jpg&category=${encodeURIComponent(category)}&v=${idx}`;
+            const segNum = Number(seg.segmentNumber || idx + 1);
+            const hasThumb = hasSceneImage(segNum);
+            const thumb = hasThumb
+              ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${padNum}.jpg&category=${encodeURIComponent(category)}&v=${idx}`
+              : null;
             const sub = (seg.subtitle || seg.dialogueOrNarration || '').split('\n')[0];
 
             return (
@@ -731,12 +654,16 @@ export default function VideoEditorPanel({
                   transition: 'all 0.15s ease'
                 }}
               >
-                <img
-                  src={thumb}
-                  alt=""
-                  style={{ width: '36px', height: '48px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-                />
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt=""
+                    style={{ width: '36px', height: '48px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
+                ) : (
+                  <div style={{ width: '36px', height: '48px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} title="Chưa sinh ảnh">🎬</div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
                     <span style={{ fontSize: '0.74rem', fontWeight: 800, color: isCurrent ? '#25f4ee' : '#fff' }}>

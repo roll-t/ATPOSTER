@@ -377,10 +377,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // PHẲNG trong bảng settings và dùng chung toàn app, nên ghim "Tiêu đề mở đầu" ở video đạo lý thì
   // mọi kịch bản người que tạo sau đó cũng bị đặt sang đúng kiểu đó.
   //
-  // stick_figure_slideshow ghi vào khoá có hậu tố riêng; các skill còn lại giữ nguyên khoá phẳng cũ
-  // để thiết lập đang có không bị mất.
-  const settingsKey = (base) =>
-    result.category === 'stick_figure_slideshow' ? `${base}__stick_figure_slideshow` : base;
+  // Mỗi skill có khoá lưu style riêng biệt (hậu tố __<category>); fallback về khoá phẳng cũ nếu chưa lưu riêng.
+  const settingsKey = (base) => (result?.category ? `${base}__${result.category}` : base);
+  const [isSavingStyle, setIsSavingStyle] = useState(false);
+  const [saveStyleMsg, setSaveStyleMsg] = useState('');
   // Tốc độ đọc gửi cho nhà cung cấp TTS khi tạo lồng tiếng — đây là NƠI DUY NHẤT chọn tốc độ
   // đọc (cố tình không lặp lại ở form tạo kịch bản ban đầu nữa, vì 2 chỗ độc lập dễ lệch trạng
   // thái nhau và gây rối cho người dùng), đổi thoải mái trước khi lồng tiếng lại mà không cần
@@ -388,7 +388,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [renderReadingSpeed, setRenderReadingSpeed] = useState('medium');
   // reading_practice không có khái niệm "Kiểu phụ đề" để chọn — luôn là kiểu trang giấy
   // karaoke duy nhất (khớp preview 'page' đã có sẵn), chỉ có phần tuỳ chỉnh font/màu/cỡ chữ.
-  const initialStyle = isReadingPractice ? 'page' : (result.remotionConfig?.captionStyle || 'box');
+  const savedLocalStyle = typeof window !== 'undefined' && result?.category
+    ? localStorage.getItem(`default_caption_style_${result.category}`)
+    : null;
+  const initialStyle = isReadingPractice ? 'page' : (result.remotionConfig?.captionStyle || savedLocalStyle || 'box');
   // QUAN TRỌNG: phải ưu tiên giá trị đã lưu trong result.remotionConfig trước khi rơi về mặc
   // định "cứng" của kiểu phụ đề (CAPTION_STYLE_DEFAULTS) — trước đây nhánh không phải
   // reading_practice bỏ qua hẳn result.remotionConfig, nên MỌI lần mở lại kịch bản (rời trang
@@ -409,27 +412,57 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const styleDefault = CAPTION_STYLE_DEFAULTS[initialStyle] || CAPTION_STYLE_DEFAULTS.box;
       const categoryOverride = CATEGORY_STYLE_OVERRIDES[result.category]?.[initialStyle];
       const rc = result.remotionConfig || {};
+      let savedLocalConfig = null;
+      if (typeof window !== 'undefined' && result?.category) {
+        try {
+          const raw = localStorage.getItem(`default_style_${result.category}`);
+          if (raw) savedLocalConfig = JSON.parse(raw);
+        } catch (e) {}
+      }
+      const savedLocalFont = typeof window !== 'undefined' && result?.category
+        ? localStorage.getItem(`default_caption_font_${result.category}`)
+        : null;
       const savedLocalFontSize = typeof window !== 'undefined'
         ? (localStorage.getItem(`default_caption_font_size_${result.category}`) || localStorage.getItem('default_caption_font_size'))
         : null;
+      const savedLocalHighlight = typeof window !== 'undefined' && result?.category
+        ? localStorage.getItem(`default_highlight_color_${result.category}`)
+        : null;
+      const savedLocalTextColor = typeof window !== 'undefined' && result?.category
+        ? localStorage.getItem(`default_caption_text_color_${result.category}`)
+        : null;
+      const savedLocalBgColor = typeof window !== 'undefined' && result?.category
+        ? localStorage.getItem(`default_caption_bg_color_${result.category}`)
+        : null;
+
       return {
-        font: rc.font || rc.captionFont || styleDefault.font,
-        fontSize: rc.fontSize || rc.captionFontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
-        textColor: rc.textColor || rc.captionTextColor || styleDefault.textColor,
-        bgColor: rc.bgColor || rc.captionBgColor || styleDefault.bgColor,
-        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : (rc.bgTransparent !== undefined ? rc.bgTransparent : styleDefault.bgTransparent),
-        highlightColor: rc.highlightColor || categoryOverride?.highlightColor || styleDefault.highlightColor
+        font: rc.font || rc.captionFont || savedLocalConfig?.font || savedLocalFont || styleDefault.font,
+        fontSize: rc.fontSize || rc.captionFontSize || savedLocalConfig?.fontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
+        textColor: rc.textColor || rc.captionTextColor || savedLocalConfig?.textColor || savedLocalTextColor || styleDefault.textColor,
+        bgColor: rc.bgColor || rc.captionBgColor || savedLocalConfig?.bgColor || savedLocalBgColor || styleDefault.bgColor,
+        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : (rc.bgTransparent !== undefined ? rc.bgTransparent : (savedLocalConfig?.isBgTransparent !== undefined ? savedLocalConfig.isBgTransparent : styleDefault.bgTransparent)),
+        highlightColor: rc.highlightColor || savedLocalConfig?.highlightColor || savedLocalHighlight || categoryOverride?.highlightColor || styleDefault.highlightColor
       };
     })();
 
   const [renderCaptionStyle, setRenderCaptionStyle] = useState(initialStyle);
-  const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => result.remotionConfig?.transitionStyle || result.remotionConfig?.transitionEffect || 'crossfade');
+  const [renderTransitionStyle, setRenderTransitionStyle] = useState(() => (
+    result.remotionConfig?.transitionStyle ||
+    result.remotionConfig?.transitionEffect ||
+    (typeof window !== 'undefined' && result?.category ? localStorage.getItem(`default_transition_style_${result.category}`) : null) ||
+    'crossfade'
+  ));
   const [renderBilingual, setRenderBilingual] = useState(false);
   // Logo kênh mờ ở đáy mọi slide. Mặc định BẬT — trước đây nó gắn cứng trong Scene.tsx nên mọi
   // video đã render đều có, để mặc định tắt sẽ âm thầm đổi diện mạo các dự án cũ khi render lại.
-  const [renderChannelLogo, setRenderChannelLogo] = useState(() => (
-    result.remotionConfig?.channelLogo !== undefined ? result.remotionConfig.channelLogo : true
-  ));
+  const [renderChannelLogo, setRenderChannelLogo] = useState(() => {
+    if (result.remotionConfig?.channelLogo !== undefined) return result.remotionConfig.channelLogo;
+    if (typeof window !== 'undefined' && result?.category) {
+      const saved = localStorage.getItem(`default_channel_logo_${result.category}`);
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  });
   const [showRenderConfig, setShowRenderConfig] = useState(false);
 
   // Dòng video Phật giáo: tranh màu nước chừa nhiều khoảng trắng, chữ đè lên là phá mất chính
@@ -500,6 +533,42 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       return String(result.remotionConfig.captionMarginY);
     }
     return savedLocal !== null ? savedLocal : (result.category === 'moral_talk_slideshow' ? '-215' : '0');
+  });
+  const [renderCaptionWidth, setRenderCaptionWidth] = useState(() => {
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_caption_width_${result.category}`) || localStorage.getItem('default_caption_width'))
+      : null;
+    if (result.remotionConfig?.captionWidth !== undefined && result.remotionConfig?.captionWidth !== null) {
+      return String(result.remotionConfig.captionWidth);
+    }
+    return savedLocal !== null ? savedLocal : '92';
+  });
+  const [renderLogoTranslateX, setRenderLogoTranslateX] = useState(() => {
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_translate_x_${result.category}`) || localStorage.getItem('default_logo_translate_x'))
+      : null;
+    if (result.remotionConfig?.logoTranslateX !== undefined && result.remotionConfig?.logoTranslateX !== null) {
+      return String(result.remotionConfig.logoTranslateX);
+    }
+    return savedLocal !== null ? savedLocal : '0';
+  });
+  const [renderLogoTranslateY, setRenderLogoTranslateY] = useState(() => {
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_translate_y_${result.category}`) || localStorage.getItem('default_logo_translate_y'))
+      : null;
+    if (result.remotionConfig?.logoTranslateY !== undefined && result.remotionConfig?.logoTranslateY !== null) {
+      return String(result.remotionConfig.logoTranslateY);
+    }
+    return savedLocal !== null ? savedLocal : '0';
+  });
+  const [renderLogoScale, setRenderLogoScale] = useState(() => {
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_scale_${result.category}`) || localStorage.getItem('default_logo_scale'))
+      : null;
+    if (result.remotionConfig?.logoScale !== undefined && result.remotionConfig?.logoScale !== null) {
+      return String(result.remotionConfig.logoScale);
+    }
+    return savedLocal !== null ? savedLocal : '1';
   });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
@@ -1078,6 +1147,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // logic app.
   const [assetCounts, setAssetCounts] = useState({
     imageCount: 0,
+    existingImageNumbers: [],
     audioCount: 0,
     videoCreated: false,
     hasBgMusic: false,
@@ -1193,10 +1263,23 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const applyConfigToState = (rc = {}, s = settings) => {
-    const defaultCfg = (isReadingPractice ? s?.readingPracticeConfig : null) || s?.[settingsKey('defaultStyleConfig')] || {};
+    const catKey = result?.category;
+    const defaultCfg = (isReadingPractice ? s?.readingPracticeConfig : null)
+      || (catKey ? s?.[`defaultStyleConfig__${catKey}`] : null)
+      || s?.defaultSkillStyles?.[catKey]
+      || s?.[settingsKey('defaultStyleConfig')]
+      || s?.defaultStyleConfig
+      || {};
 
     // Caption Style
-    let activeStyle = isReadingPractice ? 'page' : (rc.captionStyle || s?.[settingsKey('defaultCaptionStyle')] || initialStyle);
+    let activeStyle = isReadingPractice ? 'page' : (
+      rc.captionStyle
+      || (catKey && s?.[`defaultCaptionStyle__${catKey}`])
+      || s?.[settingsKey('defaultCaptionStyle')]
+      || defaultCfg.captionStyle
+      || s?.defaultCaptionStyle
+      || initialStyle
+    );
     if (!isReadingPractice) {
       setRenderCaptionStyle(activeStyle);
     }
@@ -1212,18 +1295,44 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const savedLocalMarginY = typeof window !== 'undefined'
       ? (localStorage.getItem(`default_caption_margin_y_${result?.category}`) || localStorage.getItem('default_caption_margin_y'))
       : null;
+    const savedLocalWidth = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_caption_width_${result?.category}`) || localStorage.getItem('default_caption_width'))
+      : null;
     const savedLocalImageScale = typeof window !== 'undefined'
       ? (localStorage.getItem(`default_image_scale_${result?.category}`) || localStorage.getItem('default_image_scale'))
       : null;
     const savedLocalImageTranslateY = typeof window !== 'undefined'
       ? (localStorage.getItem(`default_image_translate_y_${result?.category}`) || localStorage.getItem('default_image_translate_y'))
       : null;
+    const savedLocalLogoTranslateX = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_translate_x_${result?.category}`) || localStorage.getItem('default_logo_translate_x'))
+      : null;
+    const savedLocalLogoTranslateY = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_translate_y_${result?.category}`) || localStorage.getItem('default_logo_translate_y'))
+      : null;
+    const savedLocalLogoScale = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_logo_scale_${result?.category}`) || localStorage.getItem('default_logo_scale'))
+      : null;
 
     // Font & Typography
-    const activeFont = rc.font || rc.captionFont || defaultCfg.font || s?.[settingsKey('defaultCaptionFont')] || styleDefaults.font;
+    const activeFont = rc.font
+      || rc.captionFont
+      || defaultCfg.font
+      || (catKey && s?.[`defaultCaptionFont__${catKey}`])
+      || s?.[settingsKey('defaultCaptionFont')]
+      || s?.defaultCaptionFont
+      || styleDefaults.font;
     if (activeFont) setRenderCaptionFont(activeFont);
 
-    const activeFontSize = rc.fontSize || rc.captionFontSize || defaultCfg.fontSize || s?.[settingsKey('defaultCaptionFontSize')] || savedLocalFontSize || categoryOverride?.fontSize || styleDefaults.fontSize;
+    const activeFontSize = rc.fontSize
+      || rc.captionFontSize
+      || defaultCfg.fontSize
+      || (catKey && s?.[`defaultCaptionFontSize__${catKey}`])
+      || s?.[settingsKey('defaultCaptionFontSize')]
+      || s?.defaultCaptionFontSize
+      || savedLocalFontSize
+      || categoryOverride?.fontSize
+      || styleDefaults.fontSize;
     if (activeFontSize) setRenderCaptionFontSize(String(activeFontSize));
 
     const activeSecondaryFontSize = rc.secondaryFontSize !== undefined && rc.secondaryFontSize !== null
@@ -1232,10 +1341,22 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderCaptionSecondaryFontSize(activeSecondaryFontSize);
 
     // Colors
-    const activeTextColor = rc.textColor || rc.captionTextColor || defaultCfg.textColor || s?.[settingsKey('defaultCaptionTextColor')] || styleDefaults.textColor;
+    const activeTextColor = rc.textColor
+      || rc.captionTextColor
+      || defaultCfg.textColor
+      || (catKey && s?.[`defaultCaptionTextColor__${catKey}`])
+      || s?.[settingsKey('defaultCaptionTextColor')]
+      || s?.defaultCaptionTextColor
+      || styleDefaults.textColor;
     if (activeTextColor) setRenderCaptionTextColor(activeTextColor);
 
-    const activeBgColor = rc.bgColor || rc.captionBgColor || defaultCfg.bgColor || s?.[settingsKey('defaultCaptionBgColor')] || styleDefaults.bgColor;
+    const activeBgColor = rc.bgColor
+      || rc.captionBgColor
+      || defaultCfg.bgColor
+      || (catKey && s?.[`defaultCaptionBgColor__${catKey}`])
+      || s?.[settingsKey('defaultCaptionBgColor')]
+      || s?.defaultCaptionBgColor
+      || styleDefaults.bgColor;
     if (activeBgColor) setRenderCaptionBgColor(activeBgColor);
 
     const activeBgOpacity = rc.bgOpacity !== undefined
@@ -1248,17 +1369,41 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       : (rc.bgTransparent !== undefined ? rc.bgTransparent : (defaultCfg.isBgTransparent !== undefined ? defaultCfg.isBgTransparent : styleDefaults.bgTransparent));
     setRenderCaptionBgTransparent(activeBgTransparent);
 
-    const activeHighlightColor = rc.highlightColor || defaultCfg.highlightColor || s?.[settingsKey('defaultHighlightColor')] || categoryOverride?.highlightColor || styleDefaults.highlightColor || '#FE2C55';
+    const activeHighlightColor = rc.highlightColor
+      || defaultCfg.highlightColor
+      || (catKey && s?.[`defaultHighlightColor__${catKey}`])
+      || s?.[settingsKey('defaultHighlightColor')]
+      || s?.defaultHighlightColor
+      || categoryOverride?.highlightColor
+      || styleDefaults.highlightColor
+      || '#FE2C55';
     if (activeHighlightColor) setRenderHighlightColor(activeHighlightColor);
 
     // Transition & Bilingual
-    const activeTransition = rc.transitionStyle || rc.transitionEffect || defaultCfg.transitionStyle || s?.[settingsKey('defaultTransitionStyle')] || 'crossfade';
+    const activeTransition = rc.transitionStyle
+      || rc.transitionEffect
+      || defaultCfg.transitionStyle
+      || (catKey && s?.[`defaultTransitionStyle__${catKey}`])
+      || s?.[settingsKey('defaultTransitionStyle')]
+      || s?.defaultTransitionStyle
+      || 'crossfade';
     if (activeTransition) setRenderTransitionStyle(activeTransition);
 
     const activeBilingual = rc.bilingual !== undefined
       ? rc.bilingual
-      : (rc.showBilingual !== undefined ? rc.showBilingual : (defaultCfg.bilingual !== undefined ? defaultCfg.bilingual : (s?.[settingsKey('defaultBilingual')] !== undefined ? s[settingsKey('defaultBilingual')] : true)));
+      : (rc.showBilingual !== undefined ? rc.showBilingual : (defaultCfg.bilingual !== undefined ? defaultCfg.bilingual : ((catKey && s?.[`defaultBilingual__${catKey}`] !== undefined) ? s[`defaultBilingual__${catKey}`] : (s?.[settingsKey('defaultBilingual')] !== undefined ? s[settingsKey('defaultBilingual')] : (s?.defaultBilingual !== undefined ? s.defaultBilingual : true)))));
     setRenderBilingual(activeBilingual);
+
+    const activeChannelLogo = rc.channelLogo !== undefined
+      ? rc.channelLogo
+      : (defaultCfg.channelLogo !== undefined
+        ? defaultCfg.channelLogo
+        : ((catKey && s?.[`defaultChannelLogo__${catKey}`] !== undefined)
+          ? s[`defaultChannelLogo__${catKey}`]
+          : (s?.[settingsKey('defaultChannelLogo')] !== undefined
+            ? s[settingsKey('defaultChannelLogo')]
+            : (s?.defaultChannelLogo !== undefined ? s.defaultChannelLogo : true))));
+    setRenderChannelLogo(activeChannelLogo);
 
     // Layout & Scale
     let activeImageScale = '100';
@@ -1266,8 +1411,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       activeImageScale = String(Math.round(rc.imageScale * 100));
     } else if (defaultCfg.imageScale !== undefined) {
       activeImageScale = String(Math.round(defaultCfg.imageScale * 100));
+    } else if (catKey && s?.[`defaultImageScale__${catKey}`] !== undefined) {
+      activeImageScale = String(s[`defaultImageScale__${catKey}`]);
     } else if (s?.[settingsKey('defaultImageScale')] !== undefined) {
       activeImageScale = String(s[settingsKey('defaultImageScale')]);
+    } else if (s?.defaultImageScale !== undefined) {
+      activeImageScale = String(s.defaultImageScale);
     } else if (savedLocalImageScale !== null) {
       activeImageScale = String(savedLocalImageScale);
     }
@@ -1278,8 +1427,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       activeImageTranslateY = String(rc.imageTranslateY);
     } else if (defaultCfg.imageTranslateY !== undefined) {
       activeImageTranslateY = String(defaultCfg.imageTranslateY);
+    } else if (catKey && s?.[`defaultImageTranslateY__${catKey}`] !== undefined) {
+      activeImageTranslateY = String(s[`defaultImageTranslateY__${catKey}`]);
     } else if (s?.[settingsKey('defaultImageTranslateY')] !== undefined) {
       activeImageTranslateY = String(s[settingsKey('defaultImageTranslateY')]);
+    } else if (s?.defaultImageTranslateY !== undefined) {
+      activeImageTranslateY = String(s.defaultImageTranslateY);
     } else if (savedLocalImageTranslateY !== null) {
       activeImageTranslateY = String(savedLocalImageTranslateY);
     }
@@ -1290,12 +1443,68 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       activeCaptionMarginY = String(rc.captionMarginY);
     } else if (defaultCfg.captionMarginY !== undefined && defaultCfg.captionMarginY !== null) {
       activeCaptionMarginY = String(defaultCfg.captionMarginY);
+    } else if (catKey && s?.[`defaultCaptionMarginY__${catKey}`] !== undefined && s[`defaultCaptionMarginY__${catKey}`] !== null) {
+      activeCaptionMarginY = String(s[`defaultCaptionMarginY__${catKey}`]);
     } else if (s?.[settingsKey('defaultCaptionMarginY')] !== undefined && s[settingsKey('defaultCaptionMarginY')] !== null) {
       activeCaptionMarginY = String(s[settingsKey('defaultCaptionMarginY')]);
+    } else if (s?.defaultCaptionMarginY !== undefined && s.defaultCaptionMarginY !== null) {
+      activeCaptionMarginY = String(s.defaultCaptionMarginY);
     } else if (savedLocalMarginY !== null) {
       activeCaptionMarginY = String(savedLocalMarginY);
     }
     setRenderCaptionMarginY(activeCaptionMarginY);
+
+    let activeCaptionWidth = '92';
+    if (rc.captionWidth !== undefined && rc.captionWidth !== null) {
+      activeCaptionWidth = String(rc.captionWidth);
+    } else if (defaultCfg.captionWidth !== undefined && defaultCfg.captionWidth !== null) {
+      activeCaptionWidth = String(defaultCfg.captionWidth);
+    } else if (catKey && s?.[`defaultCaptionWidth__${catKey}`] !== undefined && s[`defaultCaptionWidth__${catKey}`] !== null) {
+      activeCaptionWidth = String(s[`defaultCaptionWidth__${catKey}`]);
+    } else if (s?.[settingsKey('defaultCaptionWidth')] !== undefined && s[settingsKey('defaultCaptionWidth')] !== null) {
+      activeCaptionWidth = String(s[settingsKey('defaultCaptionWidth')]);
+    } else if (s?.defaultCaptionWidth !== undefined && s.defaultCaptionWidth !== null) {
+      activeCaptionWidth = String(s.defaultCaptionWidth);
+    } else if (savedLocalWidth !== null) {
+      activeCaptionWidth = String(savedLocalWidth);
+    }
+    setRenderCaptionWidth(activeCaptionWidth);
+
+    let activeLogoTranslateX = '0';
+    if (rc.logoTranslateX !== undefined && rc.logoTranslateX !== null) {
+      activeLogoTranslateX = String(rc.logoTranslateX);
+    } else if (defaultCfg.logoTranslateX !== undefined && defaultCfg.logoTranslateX !== null) {
+      activeLogoTranslateX = String(defaultCfg.logoTranslateX);
+    } else if (catKey && s?.[`defaultLogoTranslateX__${catKey}`] !== undefined && s[`defaultLogoTranslateX__${catKey}`] !== null) {
+      activeLogoTranslateX = String(s[`defaultLogoTranslateX__${catKey}`]);
+    } else if (savedLocalLogoTranslateX !== null) {
+      activeLogoTranslateX = String(savedLocalLogoTranslateX);
+    }
+    setRenderLogoTranslateX(activeLogoTranslateX);
+
+    let activeLogoTranslateY = '0';
+    if (rc.logoTranslateY !== undefined && rc.logoTranslateY !== null) {
+      activeLogoTranslateY = String(rc.logoTranslateY);
+    } else if (defaultCfg.logoTranslateY !== undefined && defaultCfg.logoTranslateY !== null) {
+      activeLogoTranslateY = String(defaultCfg.logoTranslateY);
+    } else if (catKey && s?.[`defaultLogoTranslateY__${catKey}`] !== undefined && s[`defaultLogoTranslateY__${catKey}`] !== null) {
+      activeLogoTranslateY = String(s[`defaultLogoTranslateY__${catKey}`]);
+    } else if (savedLocalLogoTranslateY !== null) {
+      activeLogoTranslateY = String(savedLocalLogoTranslateY);
+    }
+    setRenderLogoTranslateY(activeLogoTranslateY);
+
+    let activeLogoScale = '1';
+    if (rc.logoScale !== undefined && rc.logoScale !== null) {
+      activeLogoScale = String(rc.logoScale);
+    } else if (defaultCfg.logoScale !== undefined && defaultCfg.logoScale !== null) {
+      activeLogoScale = String(defaultCfg.logoScale);
+    } else if (catKey && s?.[`defaultLogoScale__${catKey}`] !== undefined && s[`defaultLogoScale__${catKey}`] !== null) {
+      activeLogoScale = String(s[`defaultLogoScale__${catKey}`]);
+    } else if (savedLocalLogoScale !== null) {
+      activeLogoScale = String(savedLocalLogoScale);
+    }
+    setRenderLogoScale(activeLogoScale);
 
     // Reading practice layout
     setRenderHeroHeightPercent(rc.heroPercent !== undefined ? String(rc.heroPercent) : (defaultCfg.heroPercent !== undefined ? String(defaultCfg.heroPercent) : '25'));
@@ -1461,7 +1670,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       // cảnh/bố cục), không nên bị gộp chung và ghi đè lẫn nhau khi đổi qua lại giữa 2 preset.
       imageScale: Number(renderImageScale) / 100,
       imageTranslateY: Number(renderImageTranslateY),
-      captionMarginY: Number(renderCaptionMarginY)
+      captionMarginY: Number(renderCaptionMarginY),
+      captionWidth: Number(renderCaptionWidth)
     };
 
     try {
@@ -1588,6 +1798,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.imageScale !== undefined) setRenderImageScale(String(Math.round(c.imageScale * 100)));
     if (c.imageTranslateY !== undefined) setRenderImageTranslateY(String(c.imageTranslateY));
     if (c.captionMarginY !== undefined) setRenderCaptionMarginY(String(c.captionMarginY));
+    if (c.captionWidth !== undefined) setRenderCaptionWidth(String(c.captionWidth));
+    if (c.logoTranslateX !== undefined) setRenderLogoTranslateX(String(c.logoTranslateX));
+    if (c.logoTranslateY !== undefined) setRenderLogoTranslateY(String(c.logoTranslateY));
+    if (c.logoScale !== undefined) setRenderLogoScale(String(c.logoScale));
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
     // CỐ Ý không áp bgMusicEnabled/bgMusicVolume/bgMusicTrackId ở đây, dù bản preset cũ (lưu từ
     // trước bản sửa này) hay Mẫu hệ thống của reading_practice vẫn có thể còn mang các trường này.
@@ -1622,6 +1836,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       [c.imageScale !== undefined ? String(Math.round(c.imageScale * 100)) : undefined, renderImageScale],
       [c.imageTranslateY !== undefined ? String(c.imageTranslateY) : undefined, renderImageTranslateY],
       [c.captionMarginY !== undefined ? String(c.captionMarginY) : undefined, renderCaptionMarginY],
+      [c.captionWidth !== undefined ? String(c.captionWidth) : undefined, renderCaptionWidth],
       [c.bilingual, renderBilingual]
       // Nhạc nền KHÔNG còn được so khớp ở đây — preset không còn kiểm soát nó (xem applyPreset()).
       // So cả bgMusicEnabled/bgMusicVolume sẽ khiến 1 preset đúng lẽ ra đang khớp (mọi thứ về kiểu
@@ -1814,6 +2029,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       if (res.ok && data.success) {
         setAssetCounts({
           imageCount: data.imageCount,
+          existingImageNumbers: data.existingImageNumbers || [],
           audioCount: data.audioCount,
           videoCreated: data.videoCreated,
           hasBgMusic: data.hasBgMusic || false,
@@ -1848,7 +2064,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const data = await res.json();
       if (data.success && data.settings) {
         setSettings(data.settings);
-        applyConfigToState(result?.remotionConfig || {}, data.settings);
       }
     } catch (err) {
       console.error('Error loading settings:', err);
@@ -2486,6 +2701,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           kenBurnsMode: forcedKenBurnsMode,
           cornerPatch: forcedCornerPatch,
           channelLogo: renderChannelLogo,
+          logoTranslateX: Number(renderLogoTranslateX),
+          logoTranslateY: Number(renderLogoTranslateY),
+          logoScale: Number(renderLogoScale),
           bilingual: renderBilingual,
           orientation: orientation,
           aspectRatio: currentAspectRatio,
@@ -2513,7 +2731,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined,
           imageScale: Number(renderImageScale) / 100,
           imageTranslateY: Number(renderImageTranslateY),
-          captionMarginY: Number(renderCaptionMarginY)
+          captionMarginY: Number(renderCaptionMarginY),
+          captionWidth: Number(renderCaptionWidth),
+          captionPosition: result.remotionConfig?.captionPosition || (['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(result.category) ? 'top' : (renderCaptionStyle === 'page' ? 'center' : 'bottom'))
         })
       });
       const data = await res.json();
@@ -2814,131 +3034,159 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   }, [showBgMusicModal]);
 
   const handleSaveAndApply = async () => {
-    if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
-      try {
-        // Trước đây gắn cứng 'track1' ở đây, nên bấm "Lưu & Áp dụng" trong lúc project chưa có
-        // file nhạc sẽ âm thầm đổi nhạc nền về Soft Ambient, kể cả khi người dùng đã chọn bản khác.
-        await handleSelectDefaultMusic(resolveAutoBgTrackId());
-      } catch (e) {
-        console.warn('Auto select default bg music error:', e);
+    setIsSavingStyle(true);
+    setSaveStyleMsg('');
+    try {
+      if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
+        try {
+          await handleSelectDefaultMusic(resolveAutoBgTrackId());
+        } catch (e) {
+          console.warn('Auto select default bg music error:', e);
+        }
       }
-    }
 
-    const configObj = {
-      // captionStyle trước đây KHÔNG nằm trong configObj này — nghĩa là đổi Kiểu phụ đề (vd
-      // sang "hook") rồi bấm "Lưu & Áp dụng" chỉ có tác dụng cho phiên đang mở, mở lại kịch bản
-      // (rời trang/từ "Lịch sử đã tạo") sẽ tự rơi về "box" đã lưu lúc tạo kịch bản ban đầu. Thêm
-      // vào đây để Kiểu phụ đề cũng được lưu bền như mọi tuỳ chỉnh khác trong modal này.
-      captionStyle: renderCaptionStyle,
-      font: renderCaptionFont,
-      fontSize: renderCaptionFontSize,
-      secondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
-      textColor: renderCaptionTextColor,
-      bgColor: renderCaptionBgColor,
-      bgOpacity: renderCaptionBgOpacity,
-      isBgTransparent: renderCaptionBgTransparent,
-      highlightColor: renderHighlightColor,
-      heroPercent: renderHeroHeightPercent,
-      titlePercent: renderTitleHeightPercent,
-      bodyPercent: renderBodyHeightPercent,
-      titleFontSize: renderTitleFontSize,
-      titleBodyGap: renderTitleBodyGap,
-      paddingPercent: renderContentPaddingPercent,
-      bodyAlign: renderBodyAlign,
-      imageMode: renderImageMode,
-      bilingual: renderBilingual,
-      channelLogo: renderChannelLogo,
-      bgMusicEnabled: renderBgMusicEnabled,
-      bgMusicVolume: renderBgMusicVolume,
-      bgMusicTrackId: selectedBgMusicTrackId,
-      imageScale: Number(renderImageScale) / 100,
-      imageTranslateY: Number(renderImageTranslateY),
-      captionMarginY: Number(renderCaptionMarginY)
-    };
+      const configObj = {
+        captionStyle: renderCaptionStyle,
+        font: renderCaptionFont,
+        fontSize: renderCaptionFontSize,
+        secondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
+        textColor: renderCaptionTextColor,
+        bgColor: renderCaptionBgColor,
+        bgOpacity: renderCaptionBgOpacity,
+        isBgTransparent: renderCaptionBgTransparent,
+        highlightColor: renderHighlightColor,
+        heroPercent: renderHeroHeightPercent,
+        titlePercent: renderTitleHeightPercent,
+        bodyPercent: renderBodyHeightPercent,
+        titleFontSize: renderTitleFontSize,
+        titleBodyGap: renderTitleBodyGap,
+        paddingPercent: renderContentPaddingPercent,
+        bodyAlign: renderBodyAlign,
+        imageMode: renderImageMode,
+        bilingual: renderBilingual,
+        channelLogo: renderChannelLogo,
+        logoTranslateX: Number(renderLogoTranslateX),
+        logoTranslateY: Number(renderLogoTranslateY),
+        logoScale: Number(renderLogoScale),
+        bgMusicEnabled: renderBgMusicEnabled,
+        bgMusicVolume: renderBgMusicVolume,
+        bgMusicTrackId: selectedBgMusicTrackId,
+        imageScale: Number(renderImageScale) / 100,
+        imageTranslateY: Number(renderImageTranslateY),
+        captionMarginY: Number(renderCaptionMarginY),
+        captionWidth: Number(renderCaptionWidth),
+        transitionStyle: renderTransitionStyle
+      };
 
-    const mergedRemotionConfig = {
-      ...(result.remotionConfig || {}),
-      ...configObj
-    };
+      const mergedRemotionConfig = {
+        ...(result.remotionConfig || {}),
+        ...configObj
+      };
 
-    if (onResult && result) {
-      onResult({
+      const updatedResult = {
         ...result,
         remotionConfig: mergedRemotionConfig
-      });
-    }
+      };
 
-    try {
-      // Lưu remotionConfig đã tuỳ chỉnh (nhạc nền, font, bố cục %, ...) xuống ĐÚNG bản ghi
-      // lịch sử của kịch bản này — nếu không, onResult() ở trên chỉ cập nhật state React cho
-      // phiên hiện tại, mất ngay khi rời trang rồi mở lại từ "Lịch sử đã tạo" (trang luôn tải
-      // lại remotionConfig gốc lúc mới tạo kịch bản từ DB). Bỏ qua nếu chưa có result.id (kịch
-      // bản chưa từng lưu vào lịch sử, ví dụ đang xem preview trước khi tạo).
-      if (result.id) {
-        await fetch('/api/prompts/history', {
-          method: 'PATCH',
+      if (result) {
+        result.remotionConfig = mergedRemotionConfig;
+      }
+
+      if (onResult && result) {
+        onResult(updatedResult);
+      }
+
+      if (typeof window !== 'undefined' && result?.id) {
+        try {
+          sessionStorage.setItem('active_script_' + result.id, JSON.stringify(updatedResult));
+        } catch (e) {}
+      }
+
+      try {
+        if (result.id) {
+          await fetch('/api/prompts/history', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: result.id, remotionConfig: mergedRemotionConfig })
+          });
+        }
+      } catch (err) {
+        console.warn('Lỗi lưu remotionConfig vào lịch sử:', err);
+      }
+
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: result.id, remotionConfig: mergedRemotionConfig })
+          body: JSON.stringify({
+            ...settings,
+            [settingsKey('defaultBilingual')]: renderBilingual,
+            [settingsKey('defaultCaptionStyle')]: renderCaptionStyle,
+            [settingsKey('defaultCaptionFontSize')]: renderCaptionFontSize,
+            [settingsKey('defaultCaptionFont')]: renderCaptionFont,
+            [settingsKey('defaultCaptionTextColor')]: renderCaptionTextColor,
+            [settingsKey('defaultCaptionBgColor')]: renderCaptionBgColor,
+            [settingsKey('defaultHighlightColor')]: renderHighlightColor,
+            [settingsKey('defaultCaptionMarginY')]: renderCaptionMarginY,
+            [settingsKey('defaultCaptionWidth')]: renderCaptionWidth,
+            [settingsKey('defaultImageScale')]: renderImageScale,
+            [settingsKey('defaultImageTranslateY')]: renderImageTranslateY,
+            [settingsKey('defaultTransitionStyle')]: renderTransitionStyle,
+            [settingsKey('defaultChannelLogo')]: renderChannelLogo,
+            [settingsKey('defaultLogoTranslateX')]: renderLogoTranslateX,
+            [settingsKey('defaultLogoTranslateY')]: renderLogoTranslateY,
+            [settingsKey('defaultLogoScale')]: renderLogoScale,
+            [settingsKey('defaultStyleConfig')]: configObj,
+            defaultSkillStyles: {
+              ...(settings.defaultSkillStyles || {}),
+              ...(result?.category ? { [result.category]: configObj } : {})
+            },
+            defaultBgMusicEnabled: renderBgMusicEnabled,
+            defaultBgMusicVolume: renderBgMusicVolume,
+            readingPracticeConfig: isReadingPractice ? configObj : (settings.readingPracticeConfig || null)
+          })
         });
+
+        setDefaultBgMusicVolume(renderBgMusicVolume);
+        if (typeof window !== 'undefined') {
+          if (result.category) {
+            localStorage.setItem(`default_style_${result.category}`, JSON.stringify(configObj));
+            localStorage.setItem(`default_caption_style_${result.category}`, renderCaptionStyle);
+            localStorage.setItem(`default_caption_font_${result.category}`, renderCaptionFont);
+            localStorage.setItem(`default_caption_font_size_${result.category}`, renderCaptionFontSize);
+            localStorage.setItem(`default_caption_margin_y_${result.category}`, renderCaptionMarginY);
+            localStorage.setItem(`default_caption_width_${result.category}`, renderCaptionWidth);
+            localStorage.setItem(`default_image_scale_${result.category}`, renderImageScale);
+            localStorage.setItem(`default_image_translate_y_${result.category}`, renderImageTranslateY);
+            localStorage.setItem(`default_transition_style_${result.category}`, renderTransitionStyle);
+            localStorage.setItem(`default_highlight_color_${result.category}`, renderHighlightColor);
+            localStorage.setItem(`default_caption_text_color_${result.category}`, renderCaptionTextColor);
+            localStorage.setItem(`default_caption_bg_color_${result.category}`, renderCaptionBgColor);
+            localStorage.setItem(`default_channel_logo_${result.category}`, String(renderChannelLogo));
+            localStorage.setItem(`default_logo_translate_x_${result.category}`, renderLogoTranslateX);
+            localStorage.setItem(`default_logo_translate_y_${result.category}`, renderLogoTranslateY);
+            localStorage.setItem(`default_logo_scale_${result.category}`, renderLogoScale);
+          }
+          localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
+          localStorage.setItem('default_caption_margin_y', renderCaptionMarginY);
+          localStorage.setItem('default_caption_width', renderCaptionWidth);
+          localStorage.setItem('default_image_scale', renderImageScale);
+          localStorage.setItem('default_image_translate_y', renderImageTranslateY);
+          localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
+        }
+        await fetchSettings();
+        setSaveStyleMsg('✓ Đã lưu style và đặt làm mặc định cho skill này!');
+        showToast.success('✓ Đã lưu style và đặt làm mặc định cho skill này!');
+        setTimeout(() => setSaveStyleMsg(''), 4000);
+      } catch (err) {
+        console.warn('Lỗi lưu style cấu hình vào settings:', err);
+        showToast.error('Không thể lưu cài đặt mặc định lên server');
       }
-    } catch (err) {
-      console.warn('Lỗi lưu remotionConfig vào lịch sử:', err);
+
+      setShowCustomCapCut(false);
+    } finally {
+      setIsSavingStyle(false);
     }
-
-    try {
-      // CHỈ lưu làm "mặc định cho kịch bản mới sau này" (bảng settings) — KHÔNG tạo preset
-      // trong danh sách "Custom Presets". Trước đây có gọi thêm POST /api/prompts/presets ở
-      // đây, nhưng route đó luôn insertOne 1 dòng MỚI (không update-in-place), nên mỗi lần bấm
-      // "Lưu & Áp dụng" lại đẻ thêm 1 preset thừa tên "Mặc định hiện tại". Preset chỉ nên được
-      // tạo khi người dùng chủ động bấm "Lưu thành Preset mới..." (xem handleSavePreset).
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...settings,
-          [settingsKey('defaultBilingual')]: renderBilingual,
-          [settingsKey('defaultCaptionStyle')]: renderCaptionStyle,
-          [settingsKey('defaultCaptionFontSize')]: renderCaptionFontSize,
-          [settingsKey('defaultCaptionFont')]: renderCaptionFont,
-          [settingsKey('defaultCaptionTextColor')]: renderCaptionTextColor,
-          [settingsKey('defaultCaptionBgColor')]: renderCaptionBgColor,
-          [settingsKey('defaultHighlightColor')]: renderHighlightColor,
-          [settingsKey('defaultCaptionMarginY')]: renderCaptionMarginY,
-          [settingsKey('defaultImageScale')]: renderImageScale,
-          [settingsKey('defaultImageTranslateY')]: renderImageTranslateY,
-          [settingsKey('defaultStyleConfig')]: configObj,
-          defaultBgMusicEnabled: renderBgMusicEnabled,
-          defaultBgMusicVolume: renderBgMusicVolume,
-          readingPracticeConfig: isReadingPractice ? configObj : (settings.readingPracticeConfig || null)
-        })
-      });
-      // Lưu vào localStorage để đồng bộ ngay lập tức cho các lần mở kịch bản sau
-      setDefaultBgMusicVolume(renderBgMusicVolume);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`default_caption_font_size_${result.category}`, renderCaptionFontSize);
-        localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
-        localStorage.setItem(`default_caption_margin_y_${result.category}`, renderCaptionMarginY);
-        localStorage.setItem('default_caption_margin_y', renderCaptionMarginY);
-        localStorage.setItem(`default_image_scale_${result.category}`, renderImageScale);
-        localStorage.setItem('default_image_scale', renderImageScale);
-        localStorage.setItem(`default_image_translate_y_${result.category}`, renderImageTranslateY);
-        localStorage.setItem('default_image_translate_y', renderImageTranslateY);
-        localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
-      }
-      await fetchSettings();
-    } catch (err) {
-      console.warn('Lỗi tự động lưu ghim mặc định:', err);
-    }
-
-    // QUAN TRỌNG: remotionConfig đã lưu xuống DB ở trên (PATCH /api/prompts/history), nhưng
-    // mảng "s.history" ở component cha (dùng cho CẢ tab "🗂️ Lịch sử đã tạo" LẪN nút "✏️ Sửa" ở
-    // tab "🎥 Video đã tạo") chỉ được fetch 1 lần và giữ nguyên trong bộ nhớ — nếu không làm mới
-    // ở đây, mở lại kịch bản này từ 1 trong 2 lối đó sẽ nạp lại đúng bản ghi CŨ (còn cache từ
-    // trước khi lưu), làm mất y hệt các tuỳ chỉnh vừa "Lưu & Áp dụng" (font/cỡ chữ/kiểu phụ đề...)
-    // dù bản ghi thật trong DB đã đúng.
-    if (result.id) onHistoryRefresh?.();
-
-    setShowCustomCapCut(false);
   };
 
   const alreadyBilingual = result.segments.length > 0 && result.segments.every(seg => (seg.subtitle || '').includes('\n'));
@@ -3715,27 +3963,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           >
                             ⚙️
                           </button>
-                          {isStep1Done && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              title={previewAudioPlaying ? "Bấm để dừng nghe thử" : "Nghe thử toàn bộ kết quả lồng tiếng từ đầu đến cuối"}
-                              style={{
-                                padding: '7px 10px',
-                                fontSize: '0.76rem',
-                                borderRadius: '8px',
-                                fontWeight: 700,
-                                whiteSpace: 'nowrap',
-                                background: previewAudioPlaying ? 'rgba(37,244,238,0.15)' : undefined,
-                                border: previewAudioPlaying ? '1px solid rgba(37,244,238,0.4)' : undefined,
-                                color: previewAudioPlaying ? 'var(--secondary)' : undefined
-                              }}
-                              onClick={toggleVoicePreview}
-                              disabled={isGeneratingVoice || isRenderingVideo}
-                            >
-                              {previewAudioPlaying ? `⏹ Dừng nghe (Slide ${previewAudioIndex + 1}/${total})` : '🔊 Nghe thử'}
-                            </button>
-                          )}
                           <button
                             type="button"
                             className="btn"
@@ -5269,15 +5496,34 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   ...(result.remotionConfig || {}),
                   captionStyle: renderCaptionStyle,
                   font: renderCaptionFont,
-                  fontSize: renderCaptionFontSize,
+                  captionFont: renderCaptionFont,
+                  fontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
+                  captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
                   highlightColor: renderHighlightColor,
                   textColor: renderCaptionTextColor,
-                  captionMarginY: renderCaptionMarginY,
+                  captionTextColor: renderCaptionTextColor,
+                  captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
+                  isBgTransparent: renderCaptionBgTransparent,
+                  captionBgTransparent: renderCaptionBgTransparent,
+                  captionMarginY: renderCaptionMarginY !== undefined && renderCaptionMarginY !== null ? Number(renderCaptionMarginY) : 0,
+                  captionWidth: renderCaptionWidth !== undefined && renderCaptionWidth !== null ? Number(renderCaptionWidth) : 92,
+                  captionPosition: result.remotionConfig?.captionPosition || (
+                    ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(result?.category)
+                      ? 'top'
+                      : (renderCaptionStyle === 'page' ? 'center' : 'bottom')
+                  ),
                   transitionStyle: renderTransitionStyle,
                   channelLogo: renderChannelLogo,
+                  logoTranslateX: renderLogoTranslateX !== undefined && renderLogoTranslateX !== null ? Number(renderLogoTranslateX) : 0,
+                  logoTranslateY: renderLogoTranslateY !== undefined && renderLogoTranslateY !== null ? Number(renderLogoTranslateY) : 0,
+                  logoScale: renderLogoScale ? Number(renderLogoScale) : 1,
                   orientation: currentOrientation,
                   width: isLandscape ? 1920 : 1080,
-                  height: isLandscape ? 1080 : 1920
+                  height: isLandscape ? 1080 : 1920,
+                  bgMusicEnabled: renderBgMusicEnabled,
+                  bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) : 35,
+                  imageScale: renderImageScale ? Number(renderImageScale) / 100 : 1,
+                  imageTranslateY: renderImageTranslateY !== undefined && renderImageTranslateY !== null ? Number(renderImageTranslateY) : 0
                 },
                 input: {
                   ...(result.input || {}),
@@ -5290,6 +5536,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               allHaveElements={allHaveElements}
               assetCounts={assetCounts}
               videoVersion={videoVersion}
+              bgMusicVersion={bgMusicVersion}
               isRenderingVideo={isRenderingVideo}
               renderProgress={renderProgress}
               handleOpenVideoFolder={handleOpenVideoFolder}
@@ -5298,6 +5545,19 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               musicChangedSinceRender={musicChangedSinceRender}
               isRenderDone={isRenderDone}
               handleRenderVideo={handleRenderVideo}
+              onResult={onResult}
+              resyncVoiceForSegments={resyncVoiceForSegments}
+              checkAssets={checkAssets}
+              onUpdateRenderConfig={(updates) => {
+                if (updates?.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
+                if (updates?.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
+                if (updates?.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
+                if (updates?.imageScale !== undefined) setRenderImageScale(String(Math.round(updates.imageScale * 100)));
+                if (updates?.imageTranslateY !== undefined) setRenderImageTranslateY(String(Math.round(updates.imageTranslateY)));
+                if (updates?.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
+                if (updates?.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
+                if (updates?.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
+              }}
             />
           </div>
         )}
@@ -5334,14 +5594,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               setRenderCaptionBgTransparent={setRenderCaptionBgTransparent}
               renderCaptionMarginY={renderCaptionMarginY}
               setRenderCaptionMarginY={setRenderCaptionMarginY}
+              renderCaptionWidth={renderCaptionWidth}
+              setRenderCaptionWidth={setRenderCaptionWidth}
               renderTransitionStyle={renderTransitionStyle}
               setRenderTransitionStyle={setRenderTransitionStyle}
               renderChannelLogo={renderChannelLogo}
               setRenderChannelLogo={setRenderChannelLogo}
               handleSaveAndApply={handleSaveAndApply}
-              handlePinDefaultRenderConfig={handlePinDefaultRenderConfig}
-              isPinningRenderConfig={isPinningRenderConfig}
-              pinRenderMsg={pinRenderMsg}
+              isSavingStyle={isSavingStyle}
+              saveStyleMsg={saveStyleMsg}
               onResult={onResult}
               onHistoryRefresh={onHistoryRefresh}
               resyncVoiceForSegments={resyncVoiceForSegments}

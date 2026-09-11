@@ -17,8 +17,15 @@ export async function POST(req) {
     const audioDir = path.join(targetDir, 'audio');
 
     let imageCount = 0;
+    const existingImageNumbers = [];
     if (fs.existsSync(imagesDir)) {
-      imageCount = fs.readdirSync(imagesDir).filter(f => f.startsWith('scene-') && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp'))).length;
+      const imgFiles = fs.readdirSync(imagesDir).filter(f => f.startsWith('scene-') && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp')));
+      imageCount = imgFiles.length;
+      for (const f of imgFiles) {
+        const m = f.match(/^scene-(\d+)/);
+        if (m) existingImageNumbers.push(Number(m[1]));
+      }
+      existingImageNumbers.sort((a, b) => a - b);
     }
 
     // Giọng đọc từng slide KHÔNG phải lúc nào cũng là .mp3. Giọng do app tự tạo (Edge/CapCut) ra
@@ -113,6 +120,7 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       imageCount,
+      existingImageNumbers,
       audioCount,
       audioExt,
       videoCreated,
