@@ -233,7 +233,7 @@ export default function LiveVideoSimulator({
     voiceAudio.addEventListener('ended', onEnd);
     voiceAudio.addEventListener('error', onErr);
 
-    if (isPlaying) voiceAudio.play().catch(() => {});
+    if (isPlaying) voiceAudio.play().catch(() => { });
 
     return () => {
       voiceAudio.removeEventListener('loadedmetadata', onMeta);
@@ -272,10 +272,10 @@ export default function LiveVideoSimulator({
     const bgAudio = bgMusicAudioRef.current;
 
     if (isPlaying) {
-      if (voiceAudio) voiceAudio.play().catch(() => {});
+      if (voiceAudio) voiceAudio.play().catch(() => { });
       if (bgAudio && bgMusicEnabled) {
         bgAudio.volume = isMuted ? 0 : bgMusicVolume;
-        bgAudio.play().catch(() => {});
+        bgAudio.play().catch(() => { });
       }
     } else {
       if (voiceAudio) voiceAudio.pause();
@@ -301,11 +301,11 @@ export default function LiveVideoSimulator({
     setIsPlaying(true);
     if (voiceAudioRef.current) {
       voiceAudioRef.current.currentTime = 0;
-      voiceAudioRef.current.play().catch(() => {});
+      voiceAudioRef.current.play().catch(() => { });
     }
     if (bgMusicAudioRef.current && bgMusicEnabled) {
       bgMusicAudioRef.current.currentTime = 0;
-      bgMusicAudioRef.current.play().catch(() => {});
+      bgMusicAudioRef.current.play().catch(() => { });
     }
   };
 
@@ -349,10 +349,10 @@ export default function LiveVideoSimulator({
     const target = stageRef.current || containerRef.current;
     if (!target) return;
     if (!document.fullscreenElement) {
-      target.requestFullscreen().catch(() => {});
+      target.requestFullscreen().catch(() => { });
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   };
@@ -438,141 +438,141 @@ export default function LiveVideoSimulator({
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
       >
-      <audio ref={voiceAudioRef} preload="auto" />
-      <audio ref={bgMusicAudioRef} src={bgMusicSrc} loop preload="auto" />
+        <audio ref={voiceAudioRef} preload="auto" />
+        <audio ref={bgMusicAudioRef} src={bgMusicSrc} loop preload="auto" />
 
-      {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-        {hasBullets ? (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              background: rc.slideBgColor || '#0a0914',
-              padding: '24px 10%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: `${scaledFontSize * 0.8}px`
-            }}
-          >
-            {bullets.map((bullet, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <span style={{ fontFamily, fontSize: `${scaledFontSize * 1.1}px`, fontWeight: 800, color: highlightColor, flexShrink: 0 }}>•</span>
-                <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35 }}>
-                  {renderWithHighlights(bullet, highlightColor)}
+        {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+          {hasBullets ? (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                background: rc.slideBgColor || '#0a0914',
+                padding: '24px 10%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                gap: `${scaledFontSize * 0.8}px`
+              }}
+            >
+              {bullets.map((bullet, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <span style={{ fontFamily, fontSize: `${scaledFontSize * 1.1}px`, fontWeight: 800, color: highlightColor, flexShrink: 0 }}>•</span>
+                  <div style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 600, color: textColor, lineHeight: 1.35 }}>
+                    {renderWithHighlights(bullet, highlightColor)}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : isPexelsTalk ? (
-          <video key={`bg-vid-${currentSlideIndex}`} src={currentVideoSrc} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: globalImageFit }} />
-        ) : !imageError ? (
+              ))}
+            </div>
+          ) : isPexelsTalk ? (
+            <video key={`bg-vid-${currentSlideIndex}`} src={currentVideoSrc} autoPlay muted loop playsInline style={{ width: '100%', height: '100%', objectFit: globalImageFit }} />
+          ) : !imageError ? (
+            <div
+              key={`img-${currentSlideIndex}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${currentImageSrc})`,
+                backgroundSize: globalImageFit,
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
+                transformOrigin: 'center center',
+                transition: isPlaying ? 'none' : 'transform 0.4s ease'
+              }}
+            >
+              <img src={currentImageSrc} alt="" style={{ display: 'none' }} onError={() => setImageError(true)} />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                background: 'radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.25) 0%, rgba(10, 8, 24, 0.95) 75%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                textAlign: 'center'
+              }}
+            >
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))', border: '1px solid rgba(168, 85, 247, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', marginBottom: '10px' }}>🎬</div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cảnh {currentSlideIndex + 1}: Bản Thảo</span>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>{currentSegment?.visualDescription || 'Chưa sinh ảnh cho cảnh này'}</span>
+            </div>
+          )}
+
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 25%, transparent 68%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
+        </div>
+
+
+
+        {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
+        {!hasBullets && cleanPrimary && (
           <div
-            key={`img-${currentSlideIndex}`}
+            key={`sub-${currentSlideIndex}`}
             style={{
-              width: '100%',
-              height: '100%',
-              backgroundImage: `url(${currentImageSrc})`,
-              backgroundSize: globalImageFit,
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
-              transformOrigin: 'center center',
-              transition: isPlaying ? 'none' : 'transform 0.4s ease'
-            }}
-          >
-            <img src={currentImageSrc} alt="" style={{ display: 'none' }} onError={() => setImageError(true)} />
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              background: 'radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.25) 0%, rgba(10, 8, 24, 0.95) 75%)',
+              position: 'absolute',
+              left: '12px',
+              right: '12px',
+              bottom: captionPosition === 'bottom' ? `${Math.max(60, 75 + captionMarginY * 0.48)}px` : captionPosition === 'center' ? '45%' : `${Math.max(50, 60 - captionMarginY * 0.48)}px`,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '20px',
-              textAlign: 'center'
+              textAlign: 'center',
+              zIndex: 6,
+              pointerEvents: 'none'
             }}
           >
-            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4))', border: '1px solid rgba(168, 85, 247, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', marginBottom: '10px' }}>🎬</div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cảnh {currentSlideIndex + 1}: Bản Thảo</span>
-            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>{currentSegment?.visualDescription || 'Chưa sinh ảnh cho cảnh này'}</span>
-          </div>
-        )}
-
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 25%, transparent 68%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
-      </div>
-
-
-
-      {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
-      {!hasBullets && cleanPrimary && (
-        <div
-          key={`sub-${currentSlideIndex}`}
-          style={{
-            position: 'absolute',
-            left: '12px',
-            right: '12px',
-            bottom: captionPosition === 'bottom' ? `${Math.max(60, 75 + captionMarginY * 0.48)}px` : captionPosition === 'center' ? '45%' : `${Math.max(50, 60 - captionMarginY * 0.48)}px`,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            zIndex: 6,
-            pointerEvents: 'none'
-          }}
-        >
-          {captionStyle === 'hook' && currentSlideIndex === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '92%' }}>
-              <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66` }}>
-                ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
+            {captionStyle === 'hook' && currentSlideIndex === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '92%' }}>
+                <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66` }}>
+                  ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
+                </div>
+                <div style={{ fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, textShadow: strokeShadow('#000000', 2.5), background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px' }}>
+                  {renderWithHighlights(cleanPrimary, highlightColor)}
+                </div>
               </div>
-              <div style={{ fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, textShadow: strokeShadow('#000000', 2.5), background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px' }}>
+            ) : captionStyle === 'tiktok' ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', maxWidth: '94%', padding: '6px 12px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
+                {words.map((word, i) => {
+                  const isActive = i === activeWordIdx && isPlaying;
+                  return (
+                    <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', textShadow: isActive ? `0 2px 10px ${highlightColor}` : strokeShadow('#000000', 2) }}>
+                      {word}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : captionStyle === 'karaoke' ? (
+              <div style={{ maxWidth: '92%', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800 }}>
+                {words.map((word, i) => {
+                  const hasSpoken = i <= activeWordIdx;
+                  return (
+                    <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88, ${strokeShadow('#000000', 2)}` : strokeShadow('#000000', 1.5), marginRight: '6px', transition: 'color 0.15s ease' }}>
+                      {word}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : captionStyle === 'pill' ? (
+              <div style={{ maxWidth: '92%', padding: '8px 22px', borderRadius: '9999px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2) }}>
                 {renderWithHighlights(cleanPrimary, highlightColor)}
               </div>
-            </div>
-          ) : captionStyle === 'tiktok' ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', maxWidth: '94%', padding: '6px 12px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity * 0.8})`, borderRadius: '10px' }}>
-              {words.map((word, i) => {
-                const isActive = i === activeWordIdx && isPlaying;
-                return (
-                  <span key={i} style={{ fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 800, color: isActive ? '#ffffff' : textColor, background: isActive ? highlightColor : 'transparent', borderRadius: isActive ? '6px' : '0', padding: isActive ? '1px 6px' : '1px 2px', transform: isActive ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.12s ease', textShadow: isActive ? `0 2px 10px ${highlightColor}` : strokeShadow('#000000', 2) }}>
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
-          ) : captionStyle === 'karaoke' ? (
-            <div style={{ maxWidth: '92%', padding: isBgTransparent ? '4px' : '8px 16px', borderRadius: '10px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800 }}>
-              {words.map((word, i) => {
-                const hasSpoken = i <= activeWordIdx;
-                return (
-                  <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88, ${strokeShadow('#000000', 2)}` : strokeShadow('#000000', 1.5), marginRight: '6px', transition: 'color 0.15s ease' }}>
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
-          ) : captionStyle === 'pill' ? (
-            <div style={{ maxWidth: '92%', padding: '8px 22px', borderRadius: '9999px', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2) }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
-            </div>
-          ) : captionStyle === 'news' ? (
-            <div style={{ width: '100%', padding: '8px 14px', background: `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, 0.88)`, borderLeft: `5px solid ${highlightColor}`, textAlign: 'left', fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 700, color: textColor, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
-            </div>
-          ) : (
-            <div style={{ maxWidth: '92%', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1,3)||'0',16)}, ${parseInt(bgColor.slice(3,5)||'0',16)}, ${parseInt(bgColor.slice(5,7)||'0',16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2.2) }}>
-              {renderWithHighlights(cleanPrimary, highlightColor)}
-            </div>
-          )}
-        </div>
-      )}
+            ) : captionStyle === 'news' ? (
+              <div style={{ width: '100%', padding: '8px 14px', background: `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, 0.88)`, borderLeft: `5px solid ${highlightColor}`, textAlign: 'left', fontFamily, fontSize: `${scaledFontSize}px`, fontWeight: 700, color: textColor, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+                {renderWithHighlights(cleanPrimary, highlightColor)}
+              </div>
+            ) : (
+              <div style={{ maxWidth: '92%', padding: isBgTransparent || captionStyle === 'minimal' ? '4px 8px' : '8px 14px', borderRadius: isBgTransparent || captionStyle === 'minimal' ? '0' : '10px', background: isBgTransparent || captionStyle === 'minimal' ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, backdropFilter: isBgTransparent || captionStyle === 'minimal' ? 'none' : 'blur(4px)', boxShadow: isBgTransparent || captionStyle === 'minimal' ? 'none' : '0 4px 16px rgba(0,0,0,0.4)', fontFamily, fontSize: `${scaledFontSize}px`, lineHeight: 1.35, fontWeight: 800, color: textColor, textShadow: strokeShadow('#000000', 2.2) }}>
+                {renderWithHighlights(cleanPrimary, highlightColor)}
+              </div>
+            )}
+          </div>
+        )}
 
 
 
