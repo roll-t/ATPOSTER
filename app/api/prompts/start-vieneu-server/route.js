@@ -33,14 +33,24 @@ export async function POST(req) {
       batPath = path.join(cwd, 'start-vieneu-server.bat');
     }
 
-    let scriptPath = path.join(cwd, 'SERVER', 'VieNeu', 'vieneu_server.py');
-    if (!fs.existsSync(scriptPath)) {
-      scriptPath = path.join(cwd, '..', 'SERVER', 'VieNeu', 'vieneu_server.py');
-    }
-    if (!fs.existsSync(scriptPath)) {
-      scriptPath = path.join(cwd, 'scripts', 'vieneu_server.py');
-    }
+    const candidatePaths = [
+      path.join(cwd, 'packages', 'VieNue', 'lib', 'vieneu_server.py'),
+      path.join(cwd, 'packages', 'VieNeu', 'lib', 'vieneu_server.py'),
+      path.join(cwd, 'packages', 'VieNue', 'vieneu_server.py'),
+      path.join(cwd, 'packages', 'VieNeu', 'vieneu_server.py'),
+      path.join(cwd, '..', 'packages', 'VieNue', 'lib', 'vieneu_server.py'),
+      path.join(cwd, '..', 'packages', 'VieNeu', 'lib', 'vieneu_server.py'),
+      path.join(cwd, 'SERVER', 'VieNeu', 'vieneu_server.py'),
+      path.join(cwd, '..', 'SERVER', 'VieNeu', 'vieneu_server.py'),
+      path.join(cwd, 'scripts', 'vieneu_server.py'),
+    ];
+    const scriptPath = candidatePaths.find(p => fs.existsSync(p)) || candidatePaths[0];
     const scriptDir = path.dirname(scriptPath);
+
+    const venvPython = process.platform === 'win32'
+      ? path.join(scriptDir, '.venv', 'Scripts', 'python.exe')
+      : path.join(scriptDir, '.venv', 'bin', 'python');
+    const hasVenv = fs.existsSync(venvPython);
 
     if (process.platform === 'win32') {
       if (fs.existsSync(batPath)) {
@@ -49,39 +59,31 @@ export async function POST(req) {
           if (err) console.error('[Start VieNeu] Win exec error:', err);
         });
       } else {
-        exec(`start "" python "${scriptPath}"`, { cwd: scriptDir }, (err) => {
+        const winPython = hasVenv ? `"${venvPython}"` : 'python';
+        exec(`start "" ${winPython} "${scriptPath}"`, { cwd: scriptDir }, (err) => {
           if (err) console.error('[Start VieNeu] Win python exec error:', err);
         });
       }
     } else if (process.platform === 'darwin') {
-      // macOS: ưu tiên chạy bằng 'uv' (nếu có) — tự tải Python riêng biệt và cài gói vào môi
-      // trường tạm, né lỗi python3 hệ thống quá cũ hoặc lỗi lệch libexpat của Homebrew.
-      //
-      // Dùng Python 3.11 + numba>=0.57 vì:
-      //   • vieneu → librosa → numba → llvmlite; llvmlite==0.36.0 (numba 0.53) chỉ hỗ trợ <3.10
-      //   • numba>=0.57 dùng llvmlite>=0.40 — hỗ trợ Python 3.11 đầy đủ
-      //
-      // Lệnh bash chứa dấu " nên phải escape TOÀN BỘ thành \" trước khi nhét vào AppleScript.
-      const bashCommand = `cd "${scriptDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.11 --with vieneu --with "numba>=0.57.0" --with fastapi --with uvicorn --with soundfile --with imageio-ffmpeg --with torch python vieneu_server.py; else (python3 -c "import uvicorn, vieneu, imageio_ffmpeg, torch" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile imageio-ffmpeg torch) && python3 vieneu_server.py; fi`;
+      const pythonCmd = hasVenv ? `"${venvPython}"` : `python3`;
+      const bashCommand = hasVenv
+        ? `cd "${scriptDir}" && ${pythonCmd} vieneu_server.py`
+        : `cd "${scriptDir}" && if command -v uv >/dev/null 2>&1; then uv run --python 3.11 --with vieneu --with "numba>=0.57.0" --with fastapi --with uvicorn --with soundfile --with imageio-ffmpeg --with torch python vieneu_server.py; else (python3 -c "import uvicorn, vieneu, imageio_ffmpeg, torch" 2>/dev/null || python3 -m pip install vieneu fastapi uvicorn soundfile imageio-ffmpeg torch) && python3 vieneu_server.py; fi`;
       const appleScriptEscaped = bashCommand.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const macScript = `tell application "Terminal" to do script "${appleScriptEscaped}"`;
       const macCmd = `osascript -e '${macScript}'`;
       exec(macCmd, (err) => {
         if (err) {
           console.warn('[Start VieNeu] Terminal osascript error, fallback detached spawn:', err);
-          // Ưu tiên 'uv' ở fallback này luôn (không có cửa sổ Terminal để thấy log cài đặt, nhưng
-          // ít nhất tránh spawn thẳng python3 hệ thống nếu nó là bản quá cũ không có vieneu).
-          const child = spawn('uv', ['run', '--python', '3.11', '--with', 'vieneu', '--with', 'numba>=0.57.0', '--with', 'fastapi', '--with', 'uvicorn', '--with', 'soundfile', '--with', 'imageio-ffmpeg', '--with', 'torch', 'python', scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
-          child.on('error', () => {
-            const fallbackChild = spawn('python3', [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
-            fallbackChild.unref();
-          });
+          const fallbackCmd = hasVenv ? venvPython : 'python3';
+          const child = spawn(fallbackCmd, [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
           child.unref();
         }
       });
     } else {
       // Linux
-      const child = spawn('python3', [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
+      const linuxPython = hasVenv ? venvPython : 'python3';
+      const child = spawn(linuxPython, [scriptPath], { cwd: scriptDir, detached: true, stdio: 'ignore' });
       child.unref();
     }
 

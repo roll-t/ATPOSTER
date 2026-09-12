@@ -256,6 +256,7 @@ export const Caption: React.FC<{
         captionTextColor={captionTextColor}
         captionBgColor={captionBgColor}
         highlightColor={highlightColorOverride}
+        captionTextAlign={captionTextAlign}
         captionAnimation={captionAnimation}
         showBilingual={showBilingual}
         durationInFrames={durationInFrames}
@@ -476,6 +477,8 @@ const HookCaption: React.FC<{
   position?: "top" | "bottom" | "center";
   captionMarginY?: number;
   captionWidth?: number;
+  captionTextAlign?: "left" | "center" | "right";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
   fontFamily: string;
   captionFont?: CaptionFont;
   captionFontSize?: number;
@@ -493,6 +496,8 @@ const HookCaption: React.FC<{
   position = "top",
   captionMarginY = 0,
   captionWidth,
+  captionTextAlign = "center",
+  captionAnimation,
   fontFamily,
   captionFont,
   captionFontSize,

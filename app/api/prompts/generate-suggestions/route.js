@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { parseApiKeys } from '@/src/domain/ai/apiKeys.js';
 
 export async function POST(req) {
   try {
     const { categoryKey, fieldKey, existingSuggestions = [], usedScenarios = [] } = await req.json();
 
-    const db = await readDb();
+    const settings = await settingsRepository.read();
     // Ô cấu hình cho phép lưu NHIỀU key (mỗi key 1 dòng) nên giá trị đọc ra là 1 chuỗi gộp —
     // phải tách thành mảng như mọi route khác. Trước đây chỗ này truyền thẳng cả cục vào Gemini
     // làm "1 key", nên hễ người dùng cấu hình từ 2 key trở lên là Google luôn trả về
     // "API key not valid" và tính năng gợi ý chủ đề hỏng hoàn toàn.
-    const apiKey = parseApiKeys(db.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
+    const apiKey = parseApiKeys(settings.geminiApiKey || process.env.GEMINI_API_KEY || '');
 
     // Nếu chưa cấu hình Gemini API Key, trả về gợi ý ngẫu nhiên hoặc danh sách lọc
     if (apiKey.length === 0) {

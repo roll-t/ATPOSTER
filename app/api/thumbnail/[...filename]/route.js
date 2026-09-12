@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUploadsDir } from '@/src/infrastructure/persistence/index.js';
+import { getConfiguredUploadsDir } from '@/src/infrastructure/composition/settings.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Tên file không hợp lệ.' }, { status: 400 });
     }
 
-    let filePath = path.join(getUploadsDir(), relativePath);
+    let filePath = path.join(await getConfiguredUploadsDir(), relativePath);
     
     // Tương thích ngược: nếu không tìm thấy đường dẫn đầy đủ, tìm chỉ theo tên file gốc ở data/uploads
     if (!fs.existsSync(filePath)) {

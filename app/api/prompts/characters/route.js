@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getMongoClientDb, readDb } from '@/src/infrastructure/persistence/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 import { STICK_FIGURE_CHARACTERS } from '@/src/domain/content/characters.js';
 import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
-import { parseApiKeys } from '@/config/ai.config.js';
+import { parseApiKeys } from '@/src/domain/ai/apiKeys.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -66,8 +67,8 @@ export async function GET() {
 // POST: Tải ảnh, kiểm tra qua Gemini AI và thêm nhân vật mới
 export async function POST(request) {
   try {
-    const dbSettings = await readDb();
-    const apiKeys = parseApiKeys(dbSettings.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
+    const settings = await settingsRepository.read();
+    const apiKeys = parseApiKeys(settings.geminiApiKey || process.env.GEMINI_API_KEY || '');
     if (apiKeys.length === 0) {
       return NextResponse.json({ error: 'Cấu hình thiếu Gemini API Key trong phần Cài đặt. Vui lòng thêm API Key trước.' }, { status: 400 });
     }
@@ -194,8 +195,8 @@ export async function DELETE(request) {
 // PUT: Cập nhật thông tin nhân vật (kể cả ghi đè mặc định)
 export async function PUT(request) {
   try {
-    const dbSettings = await readDb();
-    const apiKeys = parseApiKeys(dbSettings.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
+    const settings = await settingsRepository.read();
+    const apiKeys = parseApiKeys(settings.geminiApiKey || process.env.GEMINI_API_KEY || '');
 
     const formData = await request.formData();
     const id = formData.get('id');

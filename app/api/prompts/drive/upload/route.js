@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { readDb, getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
 import { uploadFileToDrive } from '@/src/infrastructure/integrations/google-drive.js';
 
@@ -9,8 +10,7 @@ const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
 
 export async function POST(req) {
   try {
-    const db = await readDb();
-    const googleDrive = db.settings?.googleDrive;
+    const googleDrive = (await settingsRepository.read()).googleDrive;
 
     if (!googleDrive || !googleDrive.isLinked) {
       return NextResponse.json({ error: 'Chưa liên kết tài khoản Google Drive. Vui lòng vào Cài đặt & DB Settings để liên kết.' }, { status: 400 });

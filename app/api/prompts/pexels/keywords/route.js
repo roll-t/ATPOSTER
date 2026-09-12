@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { parseApiKeys } from '@/src/domain/ai/apiKeys.js';
 
 /**
  * Sinh danh sách từ khoá tìm video nền Pexels BÁM THEO NỘI DUNG KỊCH BẢN.
@@ -84,8 +84,8 @@ export async function POST(req) {
   try {
     const { title = '', narration = '', theme = '', segments = null } = await req.json();
 
-    const db = await readDb();
-    const apiKey = parseApiKeys(db.settings?.geminiApiKey || process.env.GEMINI_API_KEY || '');
+    const settings = await settingsRepository.read();
+    const apiKey = parseApiKeys(settings.geminiApiKey || process.env.GEMINI_API_KEY || '');
 
     // Chưa cấu hình key thì trả rỗng — client tự lùi về từ khoá tĩnh theo chủ đề, không báo lỗi
     // vì đây chỉ là bước làm-tốt-thêm cho việc chọn nền.

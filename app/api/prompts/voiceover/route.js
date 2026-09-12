@@ -3,10 +3,9 @@ import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import path from 'path';
 import fs from 'fs';
 import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { synthesizeEdgeTts } from '@/src/infrastructure/tts/edgeTts.js';
 import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
-import { synthesizeGeminiTts } from '@/src/infrastructure/tts/geminiTts.js';
 import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/infrastructure/tts/geminiVoices.js';
 import { synthesizeCapcutTts, isCapcutVoice } from '@/src/infrastructure/tts/capcutTts.js';
 import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } from '@/src/infrastructure/tts/englishPhoneticVi.js';
@@ -127,7 +126,7 @@ export async function POST(request) {
     // CapCut & VieNeu-TTS là giọng đọc CHỈ tiếng Việt — dùng để phiên âm lại các từ tiếng Anh lẫn
     // trong lời kể sang cách viết gần đúng âm tiếng Việt trước khi đọc (xem englishPhoneticVi.js),
     // tránh bị đọc lắp bắp sai khi gặp nguyên văn tiếng Anh. Bỏ qua nếu chưa cấu hình Gemini API Key.
-    const geminiApiKeys = parseApiKeys(settingsRecord?.geminiApiKey || '');
+    const geminiApiKeys = resolveApiKeys(settingsRecord?.geminiApiKey, process.env.GEMINI_API_KEY);
 
     // Xác định thư mục đích
     let targetDir;

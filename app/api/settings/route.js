@@ -1,16 +1,21 @@
+import { getConfiguredUploadsDir, settingsRepository } from '@/src/infrastructure/composition/settings.js';
+import { parseApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { NextResponse } from 'next/server';
-import { readDb, writeDb, getUploadsDir } from '@/src/infrastructure/persistence/index.js';
 import { resetGeminiRotationState } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
-import { exec } from 'child_process';
+import {
+  ensureUploadsDirectory,
+  openDirectory,
+  saveMongoUri,
+  selectDirectory,
+} from '@/src/infrastructure/settings/platformSettings.js';
 import path from 'path';
-import fs from 'fs';
 
 export async function GET() {
-  const db = await readDb();
+  const settings = await settingsRepository.read();
   return NextResponse.json({ 
     success: true, 
     settings: {
-      ...db.settings,
+      ...settings,
       mongodbUri: process.env.MONGODB_URI || ''
     } 
   });
@@ -22,77 +27,11 @@ export async function POST(request) {
     const action = searchParams.get('action');
 
     if (action === 'open') {
-      const uploadsDir = getUploadsDir();
-      const absolutePath = path.resolve(uploadsDir);
-      
-      // Đảm bảo thư mục tồn tại
-      if (!fs.existsSync(absolutePath)) {
-        fs.mkdirSync(absolutePath, { recursive: true });
-      }
-
-      console.log(`[API Settings] Đang mở thư mục: ${absolutePath}`);
-      
-      // Chọn lệnh phù hợp theo hệ điều hành
-      const openCommand = process.platform === 'win32'
-        ? `explorer.exe "${absolutePath}"`
-        : process.platform === 'darwin'
-          ? `open "${absolutePath}"`
-          : `xdg-open "${absolutePath}"`;
-
-      exec(openCommand, (err) => {
-        if (err) {
-          console.error('[API Settings] Lỗi mở thư mục:', err);
-        }
-      });
+      const absolutePath = await openDirectory(await getConfiguredUploadsDir());
       return NextResponse.json({ success: true, path: absolutePath });
     }
     if (action === 'select-folder') {
-      let selectedPath = null;
-
-      if (process.platform === 'win32') {
-        const psScriptPath = path.join(process.cwd(), 'data', 'select_folder.ps1');
-        
-        if (!fs.existsSync(psScriptPath)) {
-          const scriptContent = `Add-Type -AssemblyName System.Windows.Forms
-$f = New-Object System.Windows.Forms.FolderBrowserDialog
-$f.Description = "Chọn thư mục lưu trữ video"
-$f.ShowNewFolderButton = $true
-$result = $f.ShowDialog()
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $f.SelectedPath
-}`;
-          fs.mkdirSync(path.dirname(psScriptPath), { recursive: true });
-          fs.writeFileSync(psScriptPath, scriptContent);
-        }
-
-        console.log(`[API Settings] Đang kích hoạt hộp thoại chọn thư mục (Windows)...`);
-        selectedPath = await new Promise((resolve) => {
-          exec(`powershell -ExecutionPolicy Bypass -File "${psScriptPath}"`, (err, stdout) => {
-            if (err) {
-              console.error('[API Settings] Lỗi chọn thư mục bằng PowerShell:', err);
-              resolve(null);
-            } else {
-              resolve(stdout.trim());
-            }
-          });
-        });
-      } else if (process.platform === 'darwin') {
-        console.log(`[API Settings] Đang kích hoạt hộp thoại chọn thư mục (macOS)...`);
-        selectedPath = await new Promise((resolve) => {
-          // Sử dụng AppleScript để hiển thị hộp thoại chọn thư mục gốc trên macOS
-          exec(`osascript -e 'POSIX path of (choose folder with prompt "Chọn thư mục lưu trữ video")'`, (err, stdout) => {
-            if (err) {
-              console.error('[API Settings] Lỗi chọn thư mục bằng AppleScript:', err);
-              resolve(null);
-            } else {
-              resolve(stdout.trim());
-            }
-          });
-        });
-      } else {
-        return NextResponse.json({ success: false, error: 'Hệ điều hành hiện tại chưa hỗ trợ chọn thư mục trực tiếp.' });
-      }
-
+      const selectedPath = await selectDirectory();
       if (!selectedPath) {
         return NextResponse.json({ success: false, error: 'Hủy chọn thư mục hoặc có lỗi xảy ra.' });
       }
@@ -108,18 +47,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
       const newUri = (body.mongodbUri || '').trim();
       if (newUri) {
         try {
-          const envPath = path.resolve(process.cwd(), '.env.local');
-          let content = '';
-          if (fs.existsSync(envPath)) {
-            content = fs.readFileSync(envPath, 'utf8');
-          }
-          if (content.includes('MONGODB_URI=')) {
-            content = content.replace(/MONGODB_URI=.*/, `MONGODB_URI=${newUri}`);
-          } else {
-            content = `MONGODB_URI=${newUri}\n${content}`;
-          }
-          fs.writeFileSync(envPath, content, 'utf8');
-          process.env.MONGODB_URI = newUri;
+          await saveMongoUri(newUri);
         } catch (err) {
           console.error('[API Settings] Lỗi ghi .env.local:', err);
           return NextResponse.json({ error: `Không thể ghi cấu hình vào .env.local: ${err.message}` }, { status: 500 });
@@ -127,20 +55,11 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
       }
     }
 
-    const db = await readDb();
-    const existingSettings = db.settings || {};
+    const existingSettings = await settingsRepository.read();
 
     const updatedSettings = {
-      ...existingSettings,
       ...body
     };
-
-    if (body.googleDrive) {
-      updatedSettings.googleDrive = {
-        ...(existingSettings.googleDrive || {}),
-        ...body.googleDrive
-      };
-    }
 
     // Xóa mongodbUri khỏi settings lưu ở DB để tránh trùng lặp
     delete updatedSettings.mongodbUri;
@@ -152,9 +71,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
           return NextResponse.json({ error: 'Đường dẫn phải là đường dẫn tuyệt đối (ví dụ: /Users/username/Videos hoặc D:\\Videos)' }, { status: 400 });
         }
         try {
-          if (!fs.existsSync(cleanPath)) {
-            fs.mkdirSync(cleanPath, { recursive: true });
-          }
+          await ensureUploadsDirectory(cleanPath);
         } catch (err) {
           return NextResponse.json({ error: `Không thể ghi hoặc tạo thư mục: ${err.message}` }, { status: 400 });
         }
@@ -162,18 +79,18 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
       updatedSettings.customUploadsDir = cleanPath;
     }
 
-    db.settings = updatedSettings;
-    await writeDb(db);
+    if ('geminiApiKey' in body) updatedSettings.geminiApiKey = parseApiKeys(body.geminiApiKey).join('\n');
+    const savedSettings = await settingsRepository.update(updatedSettings);
 
     // Nếu cấu hình có cập nhật geminiApiKey, làm mới ngay bộ nhớ xoay Key/Model
-    if ('geminiApiKey' in body) {
+    if ('geminiApiKey' in body && updatedSettings.geminiApiKey !== existingSettings.geminiApiKey) {
       resetGeminiRotationState();
     }
 
     return NextResponse.json({ 
       success: true, 
       settings: {
-        ...db.settings,
+        ...savedSettings,
         mongodbUri: process.env.MONGODB_URI || ''
       } 
     });

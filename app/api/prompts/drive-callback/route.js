@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb, writeDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
@@ -21,8 +21,7 @@ export async function GET(req) {
 
   try {
     // Đọc Client ID & Client Secret từ database settings
-    const db = await readDb();
-    const existingSettings = db.settings || {};
+    const existingSettings = await settingsRepository.read();
     const googleDrive = existingSettings.googleDrive || {};
 
     const { clientId, clientSecret } = googleDrive;
@@ -75,17 +74,14 @@ export async function GET(req) {
     }
 
     // Lưu thông tin liên kết thành công vào database settings
-    db.settings = {
-      ...existingSettings,
+    await settingsRepository.update({
       googleDrive: {
         ...googleDrive,
         refreshToken,
         email,
         isLinked: true
       }
-    };
-
-    await writeDb(db);
+    });
 
     return NextResponse.redirect(`${appHomeUrl}?drive_status=success`);
   } catch (err) {

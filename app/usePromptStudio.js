@@ -177,7 +177,8 @@ export function usePromptStudio(initialCategory) {
       const data = await res.json();
       if (res.ok && data.success) {
         setSettingsMsg('✓ Cấu hình đã được cập nhật thành công!');
-        setGeminiApiKey(settings.geminiApiKey); // sync
+        setGeminiApiKey(data.settings.geminiApiKey || '');
+        setSettings(prev => ({ ...prev, geminiApiKey: data.settings.geminiApiKey || '' }));
         setTimeout(() => {
           setSettingsMsg('');
           setShowSettings(false);

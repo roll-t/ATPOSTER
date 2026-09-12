@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { callGeminiWithKeyRotation } from '@/src/infrastructure/ai/gemini/callGeminiApi.js';
 import {
   buildCraftAsmrGeminiPrompt,
@@ -43,7 +43,7 @@ export async function POST(request) {
 
     const db = await getMongoClientDb();
     const settingsRecord = await db.collection('settings').findOne({});
-    const apiKeys = parseApiKeys(body.geminiApiKey || settingsRecord?.geminiApiKey || '');
+    const apiKeys = resolveApiKeys(body.geminiApiKey, settingsRecord?.geminiApiKey, process.env.GEMINI_API_KEY);
     if (apiKeys.length === 0) {
       return NextResponse.json(
         { error: 'Chưa cấu hình Gemini API Key. Vui lòng thiết lập khóa API ở mục "Cài đặt AI & DB Settings".' },

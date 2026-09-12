@@ -1,3 +1,4 @@
+import path from 'path';
 import fs from 'fs';
 import { PATHS_CONFIG } from '../../../config/paths.config.js';
 
@@ -42,11 +43,10 @@ export class LocalCollection {
   }
 
   _writeAll(allData) {
-    try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(allData, null, 2), 'utf8');
-    } catch (e) {
-      console.error('[LocalFileDb] Lỗi ghi file db.json:', e);
-    }
+    fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+    const temporary = `${DB_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(allData, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(temporary, DB_FILE);
   }
 
   _getCollectionData() {

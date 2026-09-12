@@ -1,4 +1,4 @@
-import { DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
+import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
 import { wordsPerSecond, isJapaneseText } from '@/src/domain/narration/speech-rate.js';
 
 // [tag cảm xúc] (vd "[pause]", "[softly]") không có tác dụng gì với giọng đọc thật — API tổng
@@ -471,4 +471,71 @@ export function getFlowQueueStatus(extQueueState, resultTitle) {
     phase = 'not_started';
   }
   return { label, color, phase, completed, total };
+}
+
+const VOICE_NAME_MAP = {
+  BV560_streaming: { name: 'Quang Huy', lib: 'CapCut' },
+  BV075_streaming: { name: 'Đức Anh', lib: 'CapCut' },
+  multi_female_xinwenjieshuo_uranus_bigtts: { name: 'Thu Hằng', lib: 'CapCut' },
+  vi_female_huong: { name: 'Thanh Trúc', lib: 'CapCut' },
+  multi_female_yangguangnv_uranus_bigtts: { name: 'Ban Mai', lib: 'CapCut' },
+  multi_male_felipe_uranus_bigtts: { name: 'Quang Huy', lib: 'CapCut' },
+};
+
+export function resolveVoiceBadgeInfo({ result, settings, isExternalVoiceSkill, voiceMode }) {
+  if (isExternalVoiceSkill && voiceMode === 'elevenlabs') {
+    return {
+      voiceName: 'Ghép file ElevenLabs',
+      provider: 'ElevenLabs',
+      badgeLabel: '🎧 Ghép file ElevenLabs',
+    };
+  }
+
+  const effectiveProvider = (result?.category === 'reading_practice' || (result?.input?.narrationLanguage === 'en' && settings?.ttsProvider === 'vieneu'))
+    ? 'edge'
+    : (settings?.ttsProvider || 'edge');
+
+  const activeCharacters = detectActiveCharacters(result);
+  const isVieneu = effectiveProvider === 'vieneu';
+
+  if (isVieneu) {
+    const voiceNames = activeCharacters.map(c => {
+      const voice = settings?.vieneuVoiceMappings?.[c.key] || (c.gender?.includes('Nam') ? 'Phạm Tuyên' : 'Trúc Ly');
+      return activeCharacters.length > 1 ? `${c.name}: ${voice}` : voice;
+    });
+    const voiceLabel = voiceNames.join(', ') || 'Phạm Tuyên';
+    return {
+      voiceName: voiceLabel,
+      provider: 'VieNeu',
+      badgeLabel: `🎙️ ${voiceLabel} (VieNeu)`,
+    };
+  }
+
+  // Edge / CapCut
+  const voiceNames = activeCharacters.map(c => {
+    const rawVoiceId = settings?.edgeVoiceMappings?.[c.key] || c.defaultVoice || 'BV560_streaming';
+    const mapped = VOICE_NAME_MAP[rawVoiceId];
+    if (mapped) {
+      return {
+        name: activeCharacters.length > 1 ? `${c.name}: ${mapped.name}` : mapped.name,
+        lib: mapped.lib,
+      };
+    }
+    const found = EDGE_TTS_VOICES.find(v => v.id === rawVoiceId);
+    const vName = found?.name || rawVoiceId.replace(/Neural$/, '').replace(/^en-US-|^vi-VN-/, '');
+    const vLib = found?.desc?.includes('CapCut') ? 'CapCut' : 'Edge';
+    return {
+      name: activeCharacters.length > 1 ? `${c.name}: ${vName}` : vName,
+      lib: vLib,
+    };
+  });
+
+  const uniqueLibs = [...new Set(voiceNames.map(v => v.lib))].join('/') || 'CapCut';
+  const namesText = voiceNames.map(v => v.name).join(', ') || 'Quang Huy';
+
+  return {
+    voiceName: namesText,
+    provider: uniqueLibs,
+    badgeLabel: `🎙️ ${namesText} (${uniqueLibs})`,
+  };
 }

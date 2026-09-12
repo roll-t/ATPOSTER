@@ -1,5 +1,7 @@
+import { classifyError, parseDailyQuotaLimit } from '../../../domain/ai/geminiErrors.js';
+import { parseApiKeys } from '../../../domain/ai/apiKeys.js';
 import { parseGeminiJson, salvageTruncatedJson, salvageUnclosedJson } from './parseGeminiJson.js';
-import { recordAttempt, recordDailyLimitObserved, isExhaustedToday } from './usageTracker.js';
+import { getUsageSnapshot, recordAttempt, recordDailyLimitObserved, isExhaustedToday } from './usageTracker.js';
 import { AI_CONFIG } from '../../../../config/ai.config.js';
 
 const MODEL_TIERS = AI_CONFIG.MODEL_TIERS;
@@ -62,7 +64,6 @@ const MODEL_TIMEOUT_COOLDOWN_MS = 5 * 60_000;
 // cũng dồn vào key #1 rồi mới rớt dần sang #2, #3 — cách cũ khiến key #1 luôn cạn quota trước
 // trong khi key #2/#3 gần như không được dùng.
 //
-// LƯU Ý: vòng xoay này giờ CHỈ áp dụng cho các key từ #2 trở đi — xem resolveKeyIndex().
 let roundRobinCursor = 0;
 
 /**
@@ -114,56 +115,17 @@ function withJitter(ms) {
   return Math.round(ms * (0.75 + Math.random() * 0.5));
 }
 
-/**
- * Rút hạn mức THEO NGÀY thật từ body lỗi 429 của Google, nếu có — dùng để tự học (xem
- * usageTracker.js), không phải để hiển thị.
- *
- * Trả về null bất cứ khi nào không CHẮC CHẮN đây là quota theo ngày (chứ không phải theo phút):
- * false negative (bỏ lỡ 1 lần học) chỉ tốn thêm vài request dò như trước giờ vẫn vậy; false
- * positive (nhận nhầm quota-phút thành quota-ngày) sẽ khoá oan 1 key/model cả ngày dù nó vẫn
- * dùng được sau vài chục giây — thiệt hại nặng hơn hẳn.
- *
- * Ưu tiên đọc cấu trúc có sẵn trong error.details (QuotaFailure.violations[], mỗi violation có
- * quotaId + quotaValue) — đây là dữ liệu CÓ CẤU TRÚC do Google trả về, đáng tin hơn hẳn regex trên
- * câu message tự do. Dự phòng bằng regex trên message CHỈ khi message có tín hiệu rõ ràng là theo
- * ngày (chứa "PerDay") — không suy luận từ mỗi cụm "limit: N" trơ trọi, vì cụm đó xuất hiện y hệt
- * cho cả quota theo phút.
- *
- * LƯU Ý: chưa có 1 lỗi 429 thật nào để đối chiếu tại thời điểm viết — cấu trúc QuotaFailure dựa
- * theo định dạng chuẩn của Google Cloud APIs (google.rpc.QuotaFailure), có thể cần chỉnh lại khi
- * gặp lỗi 429 thật đầu tiên. Vì luôn ưu tiên trả null khi không chắc, sai ở đây chỉ khiến hệ thống
- * BỎ LỠ cơ hội học — không bao giờ tự khoá oan một key còn dùng được.
- */
-function parseDailyQuotaLimit(errorData) {
-  const quotaFailure = errorData?.error?.details?.find((d) => d['@type']?.includes('QuotaFailure'));
-  const dayViolation = quotaFailure?.violations?.find((v) => {
-    const id = String(v?.quotaId || '');
-    return /day/i.test(id) && !/minute|second/i.test(id);
-  });
-  if (dayViolation?.quotaValue !== undefined) {
-    const n = Number(dayViolation.quotaValue);
-    if (Number.isFinite(n) && n >= 0) return n;
-  }
-
-  const message = String(errorData?.error?.message || '');
-  if (/PerDay/i.test(message)) {
-    const m = message.match(/limit:\s*(\d+)/i);
-    if (m) return Number(m[1]);
-  }
-
-  return null;
-}
-
 async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOutputTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let response;
+  let data;
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       signal: controller.signal,
       body: JSON.stringify({
         contents: [{ parts: [{ text: `${promptText}${JSON_SAFETY_SUFFIX}` }] }],
@@ -176,6 +138,10 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
         },
       }),
     });
+    data = await response.json().catch(error => {
+      if (controller.signal.aborted || response.ok) throw error;
+      return {};
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -184,10 +150,10 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
   // NGAY tại đây bất kể nhánh xử lý bên dưới đi đâu. Cố ý KHÔNG ghi nhận nếu fetch() tự ném lỗi
   // (timeout của chính ta, đứt mạng) — những trường hợp đó có thể chưa từng chạm tới Google, ghi
   // nhận nhầm sẽ đếm dư và khoá oan một key vẫn còn quota thật.
-  recordAttempt(apiKey, modelName);
+  await recordAttempt(apiKey, modelName);
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = data;
     const error = new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
     error.status = response.status;
     // Gemini thường gợi ý sẵn thời gian nên chờ trong lỗi 429 (vd "2.504467599s") — dùng luôn
@@ -205,7 +171,6 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
     throw error;
   }
 
-  const data = await response.json();
   const candidate = data.candidates?.[0];
   const finishReason = candidate?.finishReason;
   // Các model "biết suy nghĩ" (Gemini 2.5 trở lên) trả về NHIỀU part: phần suy nghĩ (thought)
@@ -254,54 +219,6 @@ async function requestGeminiOnce(promptText, apiKey, modelName, timeoutMs, maxOu
 }
 
 /**
- * Phân loại lỗi để quyết định hành động — bản cũ gộp tất cả 400/401/403/404/429/503 vào một rổ
- * "thử lại được", nên một prompt sai cú pháp (400) cũng bị đem đi thử lại trên đủ 7 model × 3 key
- * kèm các quãng ngủ, mất cả chục giây trước khi chịu báo lỗi — dù mọi lượt thử đều chắc chắn hỏng.
- *
- *  - 'dead-key'   : key sai/bị thu hồi/không có quyền -> bỏ hẳn key này, đổi key khác.
- *  - 'dead-model' : model không còn tồn tại -> bỏ hẳn model này, đổi model khác.
- *  - 'quota'      : hết hạn mức -> cho cặp (model, key) này nghỉ, ưu tiên cặp khác còn tươi.
- *  - 'overloaded' : Google quá tải/lỗi tạm -> chờ ngắn rồi thử tiếp.
- *  - 'bad-json'   : model trả JSON hỏng -> thử lại có giới hạn.
- *  - 'truncated'  : model bị cắt ngang vì chạm trần token -> nới trần rồi thử lại.
- *  - 'timeout'    : request treo quá lâu -> thử cặp khác ngay.
- *  - 'fatal'      : prompt/tham số sai -> dừng ngay, đổi key hay model đều vô ích.
- */
-function classifyError(error) {
-  if (error?.kind === 'truncated') return 'truncated';
-  if (error?.name === 'AbortError') return 'timeout';
-  if (error instanceof SyntaxError) return 'bad-json';
-
-  const status = error?.status;
-  const message = String(error?.message || '').toLowerCase();
-
-  if (status === 404) return 'dead-model';
-  if (status === 429) return 'quota';
-  if (status === 500 || status === 502 || status === 503 || status === 504) return 'overloaded';
-
-  // Lỗi tầng mạng (mất mạng chớp nhoáng, đứt kết nối, DNS lỗi) không mang mã HTTP nào cả — Node
-  // ném TypeError "fetch failed". Đây là lỗi tạm thời điển hình, phải cho thử lại chứ không được
-  // coi là hỏng hẳn rồi bỏ cuộc ngay.
-  if (status === undefined) {
-    const isNetworkError = error instanceof TypeError
-      || Boolean(error?.cause)
-      || ['fetch failed', 'network', 'econnreset', 'econnrefused', 'enotfound', 'etimedout', 'socket hang up']
-        .some((needle) => message.includes(needle));
-    if (isNetworkError) return 'overloaded';
-  }
-
-  if (status === 400 || status === 401 || status === 403) {
-    // 400/403 mang hai ý nghĩa hoàn toàn khác nhau và phải xử lý ngược nhau: "key hỏng" thì đổi
-    // key là xong, còn "prompt sai" thì đổi bao nhiêu key cũng vẫn hỏng y như vậy.
-    const isKeyProblem = ['api key', 'api_key', 'permission', 'unregistered', 'unauthenticated', 'consumer', 'billing', 'suspended', 'expired']
-      .some((needle) => message.includes(needle));
-    return isKeyProblem ? 'dead-key' : 'fatal';
-  }
-
-  return 'fatal';
-}
-
-/**
  * Dựng sẵn thứ tự các cặp (model, key) sẽ thử, tách làm 2 nhóm:
  *  - `ready`  : dùng được NGAY, không phải chờ giây nào.
  *  - `cooling`: đang trong thời gian nghỉ, sắp xếp theo cặp nào hồi phục sớm nhất.
@@ -309,8 +226,9 @@ function classifyError(error) {
  * Nhờ tách như vậy, engine luôn vắt kiệt mọi cặp còn tươi TRƯỚC khi chịu ngủ chờ — thay vì bản cũ
  * cứ gặp lỗi ở cuối danh sách key là ngủ 1.5s dù model kế tiếp vẫn còn nguyên quota.
  */
-function buildAttemptPlan(models, keys) {
+async function buildAttemptPlan(models, keys) {
   const now = Date.now();
+  const usage = await getUsageSnapshot();
   const ready = [];
   const cooling = [];
   // Cặp (model,key) đã học được là CẠN QUOTA HÔM NAY (xem usageTracker.js) — xếp riêng, chỉ dùng
@@ -326,7 +244,7 @@ function buildAttemptPlan(models, keys) {
       const key = keys[keyIndex];
       if (deadKeys.has(key)) continue;
 
-      if (isExhaustedToday(key, model)) {
+      if (isExhaustedToday(key, model, usage)) {
         exhaustedToday.push({ model, key, keyIndex, readyAt: 0 });
         continue;
       }
@@ -361,9 +279,7 @@ function buildAttemptPlan(models, keys) {
  * @param {{ tier?: 'quality'|'fast', timeoutMs?: number, deadlineMs?: number, label?: string, maxOutputTokens?: number }} [options]
  */
 export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, options = {}) {
-  const keys = (Array.isArray(apiKeyOrKeys) ? apiKeyOrKeys : [apiKeyOrKeys])
-    .map((key) => (key || '').trim())
-    .filter(Boolean);
+  const keys = parseApiKeys(apiKeyOrKeys);
 
   if (keys.length === 0) {
     throw new Error('Chưa cấu hình Gemini API Key.');
@@ -382,7 +298,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
   const startedAt = Date.now();
   const giveUpAt = startedAt + deadlineMs;
 
-  const attempts = buildAttemptPlan(models, keys);
+  const attempts = await buildAttemptPlan(models, keys);
   if (attempts.length === 0) {
     // Chỉ xảy ra khi mọi key đều đã bị đánh dấu hỏng — nói thẳng thay vì để người dùng đoán.
     throw new Error('Tất cả Gemini API Key đã cấu hình đều không dùng được (sai key hoặc bị từ chối quyền). Vui lòng kiểm tra lại trong Cài đặt.');
@@ -417,7 +333,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
       const waitMs = freshReadyAt - Date.now();
       if (waitMs > MAX_SLEEP_MS || Date.now() + waitMs > giveUpAt) continue;
       console.warn(`${tag} Mọi key/model đều đang nghỉ, chờ ${waitMs}ms rồi thử lại ${model} (key #${keyIndex + 1})...`);
-      await sleep(withJitter(waitMs));
+      await sleep(waitMs);
     }
 
     if (Date.now() > giveUpAt) break;
@@ -480,7 +396,7 @@ export async function callGeminiWithKeyRotation(promptText, apiKeyOrKeys, option
         // (kể cả sau khi restart server), buildAttemptPlan tự bỏ qua cặp này cho tới hết ngày
         // Pacific thay vì phải đốt một request chết mới phát hiện lại điều đã biết.
         if (error.dailyQuotaLimit !== undefined) {
-          recordDailyLimitObserved(key, model, error.dailyQuotaLimit);
+          await recordDailyLimitObserved(key, model, error.dailyQuotaLimit);
           console.warn(`${tag} ${model}${keyLabel} đã học được hạn mức ${error.dailyQuotaLimit} lượt/ngày — sẽ tự bỏ qua cặp này cho tới hết ngày.`);
         }
 
@@ -648,4 +564,3 @@ export function resetGeminiRotationState() {
   console.log('[Gemini Rotation] Đã làm mới toàn bộ bộ nhớ xoay vòng và danh sách Key/Model.');
   return { success: true, timestamp: Date.now() };
 }
-

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 import { listDriveFolders, createDriveFolder } from '@/src/infrastructure/integrations/google-drive.js';
 
 export async function GET() {
   try {
-    const db = await readDb();
-    const googleDrive = db.settings?.googleDrive;
+    const googleDrive = (await settingsRepository.read()).googleDrive;
 
     if (!googleDrive || !googleDrive.isLinked) {
       return NextResponse.json({ error: 'Chưa liên kết tài khoản Google Drive.' }, { status: 400 });
@@ -21,8 +20,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const db = await readDb();
-    const googleDrive = db.settings?.googleDrive;
+    const googleDrive = (await settingsRepository.read()).googleDrive;
 
     if (!googleDrive || !googleDrive.isLinked) {
       return NextResponse.json({ error: 'Chưa liên kết tài khoản Google Drive.' }, { status: 400 });

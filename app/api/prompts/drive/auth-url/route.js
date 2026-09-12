@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb, writeDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 
 export async function POST(req) {
   try {
@@ -11,21 +11,17 @@ export async function POST(req) {
     }
 
     // Lưu Client ID và Client Secret vào database settings
-    const db = await readDb();
-    const existingSettings = db.settings || {};
+    const existingSettings = await settingsRepository.read();
     const googleDrive = existingSettings.googleDrive || {};
 
-    db.settings = {
-      ...existingSettings,
+    await settingsRepository.update({
       googleDrive: {
         ...googleDrive,
         clientId: clientId.trim(),
         clientSecret: clientSecret.trim(),
         isLinked: false // Reset trạng thái liên kết cho tới khi callback hoàn thành
       }
-    };
-
-    await writeDb(db);
+    });
 
     // Xác định redirect_uri động theo host hiện tại của request (hỗ trợ localhost chạy các cổng khác nhau)
     const host = req.headers.get('host') || 'localhost:3000';

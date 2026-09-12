@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 
 export async function GET(request) {
   try {
@@ -13,8 +13,7 @@ export async function GET(request) {
     const orientationRaw = searchParams.get('orientation');
     const orientation = ['landscape', 'portrait', 'square'].includes(orientationRaw) ? orientationRaw : '';
 
-    const db = await readDb();
-    const apiKey = db.settings?.pexelsApiKey;
+    const apiKey = (await settingsRepository.read()).pexelsApiKey;
 
     if (!apiKey) {
       return NextResponse.json({ success: false, error: 'Chưa cấu hình Pexels API Key trong cài đặt.' }, { status: 400 });

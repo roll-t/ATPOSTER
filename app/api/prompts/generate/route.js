@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import { PROMPT_CATEGORIES, buildPrompt, buildSegmentedPrompts, buildBuddhistCoverPrompts } from '@/src/domain/content/index.js';
 import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta } from '@/src/infrastructure/composition/video-studio.js';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { getSkill } from '@/src/application/video-studio/skills/index.js';
 import { saveLocalPrompt } from '@/src/infrastructure/persistence/localPromptRepository.js';
 
@@ -43,7 +43,7 @@ export async function POST(request) {
     const style = savedStyle ? savedStyle.style : catDef.defaultStyle;
 
     const settingsRecord = await db.collection('settings').findOne({});
-    const apiKeys = parseApiKeys(geminiApiKey || settingsRecord?.geminiApiKey || '');
+    const apiKeys = resolveApiKeys(geminiApiKey, settingsRecord?.geminiApiKey, process.env.GEMINI_API_KEY);
 
     let processedInput = { ...cleanInput };
     if (apiKeys.length > 0) {

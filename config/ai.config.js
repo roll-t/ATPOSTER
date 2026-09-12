@@ -51,23 +51,6 @@ export const AI_CONFIG = {
   },
 };
 
-/**
- * Parse multi-line or delimited API keys string into a clean array of keys.
- * Supports: newlines, commas, semicolons.
- * @param {string|string[]} input
- * @returns {string[]}
- */
-export function parseApiKeys(input) {
-  if (!input) return [];
-  if (Array.isArray(input)) {
-    return input.map(k => String(k).trim()).filter(Boolean);
-  }
-  if (typeof input !== 'string') return [];
-
-  return input
-    .split(/[\n,;]+/)
-    .map(key => key.trim())
-    .filter(key => key.length > 0);
-}
+export { parseApiKeys } from '../src/domain/ai/apiKeys.js';
 
 export default AI_CONFIG;

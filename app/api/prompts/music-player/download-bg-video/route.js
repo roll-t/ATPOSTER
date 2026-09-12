@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getRemotionPublicDir } from '@/src/infrastructure/rendering/remotion/paths.js';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { settingsRepository } from '@/src/infrastructure/composition/settings.js';
 
 const SAFE_FOLDER_RE = /^[A-Za-z0-9_-]+$/;
 
@@ -78,12 +78,10 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Thiếu videoUrl/videoFiles.' }, { status: 400 });
     }
 
-    const db = await readDb();
-    if (!db.settings?.pexelsApiKey) {
+    const apiKey = (await settingsRepository.read()).pexelsApiKey;
+    if (!apiKey) {
       return NextResponse.json({ success: false, error: 'Chưa cấu hình Pexels API Key.' }, { status: 400 });
     }
-    const apiKey = db.settings.pexelsApiKey;
-
     const maxMb = Number.isFinite(Number(maxSizeMB)) && Number(maxSizeMB) > 0
       ? Number(maxSizeMB)
       : DEFAULT_MAX_SIZE_MB;

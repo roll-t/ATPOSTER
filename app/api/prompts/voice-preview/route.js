@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getMongoClientDb, getUploadsDir } from '@/src/infrastructure/persistence/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { getConfiguredUploadsDir } from '@/src/infrastructure/composition/settings.js';
 import { synthesizeEdgeTts } from '@/src/infrastructure/tts/edgeTts.js';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { synthesizeCapcutTts, isCapcutVoice } from '@/src/infrastructure/tts/capcutTts.js';
 import { transliterateEnglishForVietnameseTts } from '@/src/infrastructure/tts/englishPhoneticVi.js';
 
@@ -33,7 +34,7 @@ export async function POST(request) {
     // Set up file-system cache variables
     const sanitize = (str) => String(str).replace(/[^A-Za-z0-9_-]/g, '_');
     const cacheFileName = `${sanitize(provider)}_${sanitize(voiceId)}.bin`;
-    const cacheDir = path.join(getUploadsDir(), 'voice_previews');
+    const cacheDir = path.join(await getConfiguredUploadsDir(), 'voice_previews');
     const cacheFilePath = path.join(cacheDir, cacheFileName);
 
     // Serve from cache if exists
@@ -109,7 +110,7 @@ export async function POST(request) {
         // đọc thử, để "Nghe thử" phản ánh đúng âm thanh sẽ nghe được lúc tạo video thật.
         const db = await getMongoClientDb();
         const settingsRecord = await db.collection('settings').findOne({});
-        const geminiApiKeys = parseApiKeys(settingsRecord?.geminiApiKey || '');
+        const geminiApiKeys = resolveApiKeys(settingsRecord?.geminiApiKey, process.env.GEMINI_API_KEY);
         const capcutSampleText = await transliterateEnglishForVietnameseTts(sampleText, geminiApiKeys);
         try {
           const result = await synthesizeCapcutTts({ text: capcutSampleText, voice: voiceId, readingSpeed: 'medium' });

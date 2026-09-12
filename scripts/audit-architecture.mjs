@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const scanDirs = ['app', 'src', 'skills', 'config', 'packages'];
 const sourceExtension = /\.(?:[cm]?js|tsx?|jsx)$/;
-const ignoredDirs = new Set(['node_modules', '.next', '.git', 'out', 'build', 'c']);
+const ignoredDirs = new Set(['node_modules', '.next', '.git', 'out', 'build', 'c', '.venv', 'venv']);
 
 function sourceFiles(directory) {
   if (!existsSync(directory)) return [];
@@ -15,10 +14,6 @@ function sourceFiles(directory) {
     if (entry.isDirectory()) return ignoredDirs.has(entry.name) ? [] : sourceFiles(entryPath);
     return entry.isFile() && sourceExtension.test(entry.name) ? [entryPath] : [];
   });
-}
-
-function digest(filePath) {
-  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 function relative(filePath) {

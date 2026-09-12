@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getUploadsDir, getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
+import { getConfiguredUploadsDir } from '@/src/infrastructure/composition/settings.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -15,7 +16,7 @@ export async function GET(request, { params }) {
     // Tìm thông tin lưu trữ trong DB
     const downloadRecord = await db.collection('downloads').findOne({ videoFilename: relativePath });
     
-    let folder = getUploadsDir();
+    let folder = await getConfiguredUploadsDir();
     if (downloadRecord && downloadRecord.savePath) {
       folder = downloadRecord.savePath;
     }

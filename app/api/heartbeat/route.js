@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/src/infrastructure/persistence/index.js';
+import { postRepository } from '@/src/infrastructure/composition/posts.js';
 
 global.lastHeartbeat = Date.now();
 
@@ -15,8 +15,7 @@ if (!global.heartbeatMonitorStarted) {
     if (idleTime > 1800000) {
       try {
         // Đọc database kiểm tra xem có tác vụ đăng bài nào đang chạy ngầm không
-        const db = await readDb();
-        const hasActiveUploads = db.posts && db.posts.some(p => p.status === 'processing');
+        const hasActiveUploads = await postRepository.hasProcessingPost();
         if (hasActiveUploads) {
           console.log('[Auto-Shutdown] Phát hiện tác vụ đăng video đang chạy ngầm. Hoãn tắt server.');
           // Đặt lại heartbeat để tránh kiểm tra dồn dập

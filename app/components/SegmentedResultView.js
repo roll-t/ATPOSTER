@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import VoiceSplitPanel from './VoiceSplitPanel.js';
 import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/infrastructure/tts/geminiVoices.js';
 
@@ -15,6 +14,12 @@ import TransitionStylePreview from './SegmentedResultView/TransitionStylePreview
 import ReadingPageLivePreview from './SegmentedResultView/ReadingPageLivePreview.js';
 import VideoResultPanel from './SegmentedResultView/VideoResultPanel.js';
 import VideoEditorPanel from './SegmentedResultView/VideoEditorPanel.js';
+import PexelsBackgroundStep from './SegmentedResultView/PexelsBackgroundStep.js';
+import { usePexelsBackgrounds } from './SegmentedResultView/usePexelsBackgrounds.js';
+import VoiceGenerationStep from './SegmentedResultView/VoiceGenerationStep.js';
+import ProductionAssetsSteps from './SegmentedResultView/ProductionAssetsSteps.js';
+import RemotionConfigDetails from './SegmentedResultView/RemotionConfigDetails.js';
+import FullScriptViewer, { renderNarrationWithHighlights } from './SegmentedResultView/FullScriptViewer.js';
 import {
   BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
@@ -30,142 +35,10 @@ import {
 } from './SegmentedResultView/utils.js';
 import { showToast } from './Toast.js';
 import { detectTimeEra } from '@/src/domain/content/timeEraDetector.js';
+import { orderBgVideosByOrientation } from '@/src/domain/video/pexelsBackgrounds.js';
+import { getSegmentActMeta, isSelfContainedStickFigureSlide } from '@/src/domain/video/segmentPresentation.js';
 
-// Map moralTheme key → DANH SÁCH từ khoá tìm video nền (tiếng Anh, vì Pexels tìm chuẩn hơn).
-//
-// Mỗi chủ đề cố ý có nhiều từ khoá NHÌN KHÁC HẲN NHAU (rừng / nước / trời / đường / cửa sổ, sáng
-// và tối, trong và mưa): tìm bằng một từ khoá duy nhất thì cả lưới kết quả toàn cảnh na ná nhau,
-// ghép lại thành video nhìn rất đơn điệu.
-//
-// Đây là bộ DỰ PHÒNG. Đường chính là để Gemini đọc lời kể rồi tự đề xuất từ khoá bám nội dung —
-// xem /api/prompts/pexels/keywords; bộ này dùng khi chưa cấu hình Gemini key hoặc gọi lỗi.
-const THEME_PEXELS_KEYWORDS = {
-  healing_pressure: ['misty forest morning', 'calm lake water', 'rain on window', 'soft sunlight through trees', 'quiet mountain fog'],
-  self_help: ['sunrise over hills', 'empty road morning', 'ocean waves dawn', 'runner silhouette sunrise', 'city skyline first light'],
-  inner_world: ['forest path alone', 'foggy field dusk', 'still water reflection', 'window rainy day', 'starry night sky'],
-  self_acceptance: ['sunlight through leaves', 'wildflowers in wind', 'gentle stream stones', 'warm golden field', 'calm sea horizon'],
-  overthinking: ['rain on glass', 'slow moving clouds', 'candle flame dark', 'empty room window light', 'waves at night'],
-  love_boundaries: ['couple walking park', 'autumn leaves falling', 'two chairs empty', 'sunset over water', 'quiet street evening'],
-  // other themes (fallbacks for future categories)
-  social_connection: ['friends walking outdoors', 'city crowd slow motion', 'campfire at night', 'shared table sunlight', 'park in summer'],
-  gratitude: ['golden hour sky', 'sun through window', 'harvest field evening', 'calm river sunset', 'morning dew grass'],
-  growth: ['plant sprouting soil', 'sunrise over forest', 'time lapse clouds', 'tree in wind', 'mountain trail climb'],
-};
-
-const DEFAULT_PEXELS_KEYWORDS = [
-  'peaceful nature landscape', 'calm water reflection', 'misty forest',
-  'golden hour sky', 'slow clouds timelapse',
-];
-
-const ACT_METADATA = {
-  1: { label: 'HỒI 1: KHỞI NGUỒN & BỐI CẢNH', jp: '第一幕：発端', icon: '🏛️', color: '#f59e0b' },
-  2: { label: 'HỒI 2: DIỄN BIẾN & ĐỐI ĐẦU', jp: '第二幕：動乱', icon: '⚔️', color: '#3b82f6' },
-  3: { label: 'HỒI 3: CAO TRÀO & BƯỚC NGOẶT', jp: '第三幕：激突', icon: '🔥', color: '#ef4444' },
-  4: { label: 'HỒI 4: KẾT QUẢ & CỤC DIỆN MỚI', jp: '第四幕：結末', icon: '⚖️', color: '#10b981' },
-  5: { label: 'HỒI 5: DƯ ÂM & BÀI HỌC LỊCH SỬ', jp: '第五幕：残響', icon: '🍃', color: '#a855f7' }
-};
-
-function getSegmentActMeta(seg) {
-  let actNum = seg.act ? Number(seg.act) : null;
-  if (!actNum && seg.subtitle) {
-    if (seg.subtitle.includes('第一幕') || seg.subtitle.includes('Hồi 1') || seg.subtitle.includes('Hồi I')) actNum = 1;
-    else if (seg.subtitle.includes('第二幕') || seg.subtitle.includes('Hồi 2') || seg.subtitle.includes('Hồi II')) actNum = 2;
-    else if (seg.subtitle.includes('第三幕') || seg.subtitle.includes('Hồi 3') || seg.subtitle.includes('Hồi III')) actNum = 3;
-    else if (seg.subtitle.includes('第四幕') || seg.subtitle.includes('Hồi 4') || seg.subtitle.includes('Hồi IV')) actNum = 4;
-    else if (seg.subtitle.includes('第五幕') || seg.subtitle.includes('Hồi 5') || seg.subtitle.includes('Hồi V')) actNum = 5;
-  }
-  return actNum ? (ACT_METADATA[actNum] || null) : null;
-}
-
-function deriveThemeKeywords(result) {
-  const theme = result.input?.moralTheme;
-  return THEME_PEXELS_KEYWORDS[theme] || DEFAULT_PEXELS_KEYWORDS;
-}
-
-function derivePexelsQueryFromResult(result) {
-  return deriveThemeKeywords(result)[0];
-}
-
-// Trần dung lượng mỗi clip nền. Video nền chỉ hiện mờ phía sau lớp phủ đen 55% nên bản 4K nặng
-// mấy chục MB không đẹp hơn bản 1080p chút nào, chỉ tốn ổ đĩa và làm render chậm.
-const BG_VIDEO_MAX_SIZE_MB = 15;
-
-function pexelsVideoOrientation(video) {
-  return (video?.height || 0) > (video?.width || 0) ? 'portrait' : 'landscape';
-}
-
-/**
- * Xếp các bản dựng MP4 của 1 video Pexels theo thứ tự ƯU TIÊN TẢI, sau khi đã LOẠI những bản vượt
- * trần dung lượng. Server duyệt từ đầu danh sách và lấy bản đầu tiên tải được.
- *
- * Pexels trả về cùng 1 video ở nhiều độ phân giải kèm luôn dung lượng (`size`), nên lọc được ngay
- * mà không cần hỏi CDN. Trong số bản còn lại: ưu tiên bản vừa khung render (nét nhất trong nhóm),
- * rồi mới tới bản dư nét (nhẹ nhất trước) phòng khi video không có bản nào nhỏ hơn khung render.
- *
- * Trả về mảng RỖNG khi mọi bản dựng đều quá nặng — video đó bị bỏ qua hẳn.
- */
-function rankBgVideoFiles(video, isPortrait, maxSizeMB = BG_VIDEO_MAX_SIZE_MB) {
-  const maxBytes = maxSizeMB * 1024 * 1024;
-  const files = (video?.video_files || []).filter(f =>
-    f?.file_type === 'video/mp4'
-    && f?.link
-    // Bản không khai báo size vẫn giữ lại: server còn đo dung lượng thật một lần nữa lúc tải.
-    && (typeof f.size !== 'number' || f.size <= maxBytes)
-  );
-  const maxW = isPortrait ? 1080 : 1920;
-  const maxH = isPortrait ? 1920 : 1080;
-  const area = (f) => (f.width || 0) * (f.height || 0);
-  const withinRenderSize = (f) => (f.width || 0) <= maxW && (f.height || 0) <= maxH;
-
-  const fits = files.filter(withinRenderSize).sort((a, b) => area(b) - area(a));
-  const oversized = files.filter(f => !withinRenderSize(f)).sort((a, b) => area(a) - area(b));
-  return [...fits, ...oversized];
-}
-
-/**
- * Sắp xếp danh sách video nền: các video ĐÚNG hướng với video kết quả lên trước (trong nhóm thì
- * video nào tỉ lệ sát nhất đứng đầu), video sai hướng vẫn giữ lại ở cuối để dùng tạm khi Pexels
- * không có đủ clip đúng hướng cho từ khoá đang tìm.
- */
-/**
- * Chọn clip nền hợp nhất cho MỘT đoạn lời kể.
- *
- * Ưu tiên clip đủ dài để phủ trọn đoạn: clip ngắn hơn đoạn sẽ hết giữa chừng và lộ lại nền chung
- * phía dưới — không sai, nhưng chuyển cảnh giữa câu nhìn hơi gợn. Loại sẵn clip không có bản dựng
- * nào dưới trần dung lượng để khỏi tải về rồi mới biết phải bỏ.
- *
- * `skipIds` để nút "Đổi clip khác" lấy được ứng viên kế tiếp thay vì chọn lại đúng clip cũ.
- */
-function pickBgClipForSegment(videos, isPortrait, neededSeconds, skipIds = []) {
-  const skip = new Set(skipIds);
-  const usable = orderBgVideosByOrientation(videos, isPortrait)
-    .filter(v => !skip.has(v.id))
-    .filter(v => rankBgVideoFiles(v, isPortrait).length > 0);
-  if (usable.length === 0) return null;
-  const longEnough = usable.filter(v => (Number(v.duration) || 0) >= neededSeconds);
-  return longEnough[0] || usable[0];
-}
-
-function orderBgVideosByOrientation(videos, isPortrait) {
-  const wanted = isPortrait ? 'portrait' : 'landscape';
-  const targetRatio = isPortrait ? (9 / 16) : (16 / 9);
-  const closest = (a, b) =>
-    Math.abs((a.width / a.height) - targetRatio) - Math.abs((b.width / b.height) - targetRatio);
-
-  const matching = videos.filter(v => pexelsVideoOrientation(v) === wanted).sort(closest);
-  const others = videos.filter(v => pexelsVideoOrientation(v) !== wanted).sort(closest);
-  return [...matching, ...others];
-}
-
-export function isSelfContainedStickFigureSlide(s) {
-  if (!s) return false;
-  return (
-    (Array.isArray(s.elements) && s.elements.length > 0) ||
-    s.layout === 'bullets' ||
-    (Array.isArray(s.bullets) && s.bullets.length > 0) ||
-    (Array.isArray(s.elements) && !s.visualDescription)
-  );
-}
+export { isSelfContainedStickFigureSlide } from '@/src/domain/video/segmentPresentation.js';
 
 export default function SegmentedResultView({ result, copiedKey, onCopy, activeTab = 'process', onResult, onHistoryRefresh, onOpenScriptDetail }) {
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
@@ -242,6 +115,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // dùng cần đem dán), tắt ở nơi khác để giữ nguyên hành vi cũ.
   const [showEmotionTags, setShowEmotionTags] = useState(isJapaneseNarrative);
   const scriptHasEmotionTags = hasEmotionTags(result.segments);
+  const [showFullScriptViewer, setShowFullScriptViewer] = useState(false);
 
   // Quản lý định dạng khung hình (Dọc 9:16 / Ngang 16:9) linh hoạt trong Studio
   const [currentOrientation, setCurrentOrientation] = useState(() => (result.remotionConfig?.orientation === 'landscape' || result.input?.aspectRatio === '16:9') ? 'landscape' : 'portrait');
@@ -671,87 +545,24 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [bgMusicLibrary, setBgMusicLibrary] = useState([]);
   const [deletingLibraryTrackId, setDeletingLibraryTrackId] = useState(null);
 
-  // Pexels video picker state (chỉ dùng cho pexels_talk_video)
-  const [pexelsQuery, setPexelsQuery] = useState(
-    () => result.input?.pexelsQuery || derivePexelsQueryFromResult(result)
-  );
-  const [pexelsVideos, setPexelsVideos] = useState([]);
-  const [isPexelsSearching, setIsPexelsSearching] = useState(false);
-  const [pexelsSearchMsg, setPexelsSearchMsg] = useState('');
-  const [isDlBgVideo, setIsDlBgVideo] = useState(false);
-  const [dlBgVideoMsg, setDlBgVideoMsg] = useState('');
-  const [dlBgVideoProgress, setDlBgVideoProgress] = useState({ current: 0, total: 0 });
-  // Đảm bảo auto-search và auto-select chỉ chạy 1 lần dù effect re-fire nhiều lần
-  const pexelsAutoSearchedRef = useRef(false);
-  const pexelsAutoSelectedRef = useRef(false);
-  // Các video nền người dùng TỰ chọn, giữ theo đúng thứ tự bấm — thứ tự này chính là thứ tự clip
-  // xuất hiện trong video. Rỗng = chưa chọn gì, hệ thống tự lấy mặc định.
-  const [selectedPexelsIds, setSelectedPexelsIds] = useState([]);
-
-  // Clip đang xem thử ngay trên lưới kết quả (null = không xem clip nào).
-  const [previewPexelsId, setPreviewPexelsId] = useState(null);
-  // Bộ từ khoá ĐANG dùng cho lưới hiện tại (do Gemini đề xuất, hoặc 1 phần tử khi gõ tay).
-  const [pexelsKeywords, setPexelsKeywords] = useState([]);
-  const [pexelsPage, setPexelsPage] = useState(1);
-  const [pexelsHasMore, setPexelsHasMore] = useState(false);
-  const [isSuggestingKeywords, setIsSuggestingKeywords] = useState(false);
-  // Bộ clip ĐÃ THỰC SỰ tải về đĩa. Khác với selectedPexelsIds (mới chỉ là ý định trên giao diện):
-  // chọn xong mà chưa tải thì thư mục bg/ vẫn là clip của lần trước, và video dựng ra dùng clip cũ.
-  const [appliedPexelsIds, setAppliedPexelsIds] = useState([]);
-
-  // Nền RIÊNG của từng đoạn — clip chọn theo đúng câu đang đọc, phủ đè lên playlist nền chung.
-  // { [segmentNumber]: { keyword, pexelsId, thumb, duration, sizeMB } }
-  const [segmentBg, setSegmentBg] = useState({});
-  const [isAssigningSegmentBg, setIsAssigningSegmentBg] = useState(false);
-  const [segmentBgProgress, setSegmentBgProgress] = useState({ current: 0, total: 0 });
-  const [segmentBgMsg, setSegmentBgMsg] = useState('');
-  const [reassigningSegment, setReassigningSegment] = useState(null);
-  const [isCleaningBg, setIsCleaningBg] = useState(false);
-
-  // Mỗi clip nền chỉ được giữ khung tối đa 30 giây (xem MAX_CLIP_SECONDS trong VideoBackground.tsx),
-  // nên phần thời lượng video mà 1 clip phủ được = min(độ dài clip, 30). Pexels trả sẵn `duration`
-  // (giây) cho từng video nên tính được ngay, không cần tải về mới biết.
-  const BG_CLIP_MAX_SECONDS = 30;
-  const clipCoverSeconds = (video) => Math.min(Number(video?.duration) || 0, BG_CLIP_MAX_SECONDS);
-
-  const estimatedVideoSeconds = estimateSpeechSeconds(
-    (result.segments || [])
-      .filter(s => !s.isThumbnail)
-      .map(s => s.dialogueOrNarration || '')
-      .join(' ')
-  );
-
-  const selectedPexelsVideos = selectedPexelsIds
-    .map(id => pexelsVideos.find(v => v.id === id))
-    .filter(Boolean);
-  const selectedCoverSeconds = selectedPexelsVideos.reduce((sum, v) => sum + clipCoverSeconds(v), 0);
-  // Đã phủ hết thời lượng video thì thôi, không nhận thêm clip nữa — clip thừa chỉ tải về cho tốn
-  // ổ đĩa chứ không bao giờ lên hình.
-  const bgSelectionFull = selectedCoverSeconds >= estimatedVideoSeconds && estimatedVideoSeconds > 0;
-
-  // Số clip gợi ý: đếm tham lam trên chính danh sách kết quả đang có (mỗi clip phủ được bao nhiêu
-  // giây thật), thay vì chia đều thời lượng cho 30 — clip Pexels thường ngắn hơn 30 giây nhiều.
-  const recommendedBgClipCount = (() => {
-    if (pexelsVideos.length === 0) return Math.max(3, Math.ceil(estimatedVideoSeconds / BG_CLIP_MAX_SECONDS));
-    let covered = 0;
-    let count = 0;
-    for (const v of pexelsVideos) {
-      if (covered >= estimatedVideoSeconds) break;
-      covered += clipCoverSeconds(v);
-      count++;
-    }
-    return Math.max(1, count);
-  })();
-
-  const togglePexelsSelection = (video) => {
-    const alreadySelected = selectedPexelsIds.includes(video.id);
-    // Chặn CHỌN THÊM khi đã phủ đủ; bỏ chọn thì luôn cho phép.
-    if (!alreadySelected && bgSelectionFull) return;
-    setSelectedPexelsIds(prev =>
-      alreadySelected ? prev.filter(id => id !== video.id) : [...prev, video.id]
-    );
-  };
-
+  const {
+    pexelsQuery, setPexelsQuery, pexelsVideos, isPexelsSearching, pexelsSearchMsg,
+    isDlBgVideo, dlBgVideoMsg, dlBgVideoProgress, pexelsAutoSearchedRef,
+    pexelsAutoSelectedRef, selectedPexelsIds, setSelectedPexelsIds,
+    previewPexelsId, setPreviewPexelsId, pexelsKeywords, setPexelsKeywords,
+    pexelsPage, pexelsHasMore, setPexelsHasMore, isSuggestingKeywords,
+    segmentBg, isAssigningSegmentBg, segmentBgProgress, segmentBgMsg,
+    reassigningSegment, isCleaningBg, estimatedVideoSeconds, selectedPexelsVideos,
+    selectedCoverSeconds, bgSelectionFull, recommendedBgClipCount,
+    togglePexelsSelection, runPexelsSearch, handleAutoAssignSegmentBg,
+    handleReassignSegmentBg, allSegmentsHaveOwnBg, handleCleanupSharedBg,
+    handlePexelsSearch, handleSuggestPexelsKeywords, handleDownloadAllBgVideos,
+    hasUnappliedBgSelection, applyPendingBgSelection,
+  } = usePexelsBackgrounds({
+    result,
+    isPexelsTalkVideo,
+    onAssetsChanged: () => checkAssets(),
+  });
   const fetchBgMusicLibrary = async () => {
     try {
       const res = await fetch('/api/prompts/bg-music-library');
@@ -763,406 +574,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  useEffect(() => {
     if (showBgMusicModal) fetchBgMusicLibrary();
   }, [showBgMusicModal]);
-
-  // Số clip lấy từ MỖI từ khoá cho mỗi lần tải. 5 từ khoá × 3 = ~15 clip mỗi lượt "Xem thêm" —
-  // đủ để có cái chọn mà không đổ ụp hàng chục thẻ xuống màn hình một lúc.
-  const PEXELS_PER_KEYWORD = 3;
-
-  // Trộn xen kẽ kết quả của từng từ khoá (1 của khoá A, 1 của khoá B, ...) thay vì nối đuôi nhau.
-  // Nối đuôi thì cả màn hình đầu toàn cảnh của đúng từ khoá đầu tiên, mất hẳn ý nghĩa đa dạng.
-  const interleave = (lists) => {
-    const out = [];
-    const longest = Math.max(0, ...lists.map(l => l.length));
-    for (let i = 0; i < longest; i++) {
-      for (const list of lists) if (list[i]) out.push(list[i]);
-    }
-    return out;
-  };
-
-  /**
-   * Tìm video nền theo NHIỀU từ khoá cùng lúc rồi gộp kết quả.
-   * @param {string[]} keywords
-   * @param {number} page trang Pexels (1-based) — "Xem thêm" tăng số này lên
-   * @param {{append?: boolean}} opts append = nối thêm vào lưới đang có thay vì thay mới
-   */
-  const runPexelsSearch = async (keywords, page = 1, { append = false } = {}) => {
-    const cleanKeywords = [...new Set(keywords.map(k => String(k || '').trim()).filter(Boolean))];
-    if (cleanKeywords.length === 0) return;
-
-    setIsPexelsSearching(true);
-    setPexelsSearchMsg('');
-    if (!append) {
-      setPexelsVideos([]);
-      // Kết quả cũ không còn trên màn hình nữa thì lựa chọn theo id của chúng cũng vô nghĩa.
-      setSelectedPexelsIds([]);
-      setPreviewPexelsId(null);
-    }
-
-    try {
-      const isPortrait = result.input?.orientation !== 'landscape';
-      const wantedOrientation = isPortrait ? 'portrait' : 'landscape';
-
-      const searchOne = async (q, orientation) => {
-        const orientationParam = orientation ? `&orientation=${orientation}` : '';
-        const res = await fetch(
-          `/api/prompts/pexels?query=${encodeURIComponent(q)}&type=videos&page=${page}${orientationParam}`
-        );
-        const data = await res.json();
-        return (res.ok && data.success) ? (data.data?.videos || []) : [];
-      };
-
-      // Hỏi Pexels đúng hướng khung hình trước. Chỉ khi KHÔNG từ khoá nào có clip đúng hướng mới
-      // tìm lại không giới hạn hướng — thà lấy tạm clip sai hướng còn hơn không có nền nào.
-      let lists = await Promise.all(cleanKeywords.map(q => searchOne(q, wantedOrientation)));
-      let usedFallback = false;
-      if (lists.every(l => l.length === 0)) {
-        lists = await Promise.all(cleanKeywords.map(q => searchOne(q, '')));
-        usedFallback = true;
-      }
-
-      const fetchedCount = lists.reduce((sum, l) => sum + l.length, 0);
-      const merged = interleave(lists.map(l => l.slice(0, PEXELS_PER_KEYWORD)));
-
-      const base = append ? pexelsVideos : [];
-      const seen = new Set(base.map(v => v.id));
-      const fresh = merged.filter(v => !seen.has(v.id));
-      // Chỉ sắp xếp theo hướng khung hình trong PHẦN MỚI: sắp lại cả lưới sẽ làm các thẻ đang
-      // hiển thị nhảy chỗ ngay dưới tay người dùng, và số thứ tự đã chọn cũng loạn theo.
-      const ordered = orderBgVideosByOrientation(fresh, isPortrait);
-
-      setPexelsVideos([...base, ...ordered]);
-      setPexelsPage(page);
-      // Không còn clip mới nào -> hết kết quả để xem thêm.
-      setPexelsHasMore(ordered.length > 0 && fetchedCount > 0);
-      if (append && ordered.length === 0) {
-        setPexelsSearchMsg('Đã hết clip mới cho các từ khoá này.');
-      }
-
-      if (fetchedCount === 0) {
-        setPexelsSearchMsg('Không tìm thấy video phù hợp.');
-      } else if (usedFallback) {
-        setPexelsSearchMsg(
-          `Không có clip ${wantedOrientation === 'portrait' ? 'dọc' : 'ngang'} cho các từ khoá này — đang dùng tạm clip hướng khác.`
-        );
-      }
-    } catch (err) {
-      setPexelsSearchMsg('Lỗi kết nối Pexels.');
-    } finally {
-      setIsPexelsSearching(false);
-    }
-  };
-
-  // Tìm Pexels cho MỘT từ khoá, trả về danh sách video thô (dùng cho luồng gán nền theo đoạn).
-  const searchPexelsOnce = async (keyword, isPortrait, page = 1) => {
-    const wanted = isPortrait ? 'portrait' : 'landscape';
-    const call = async (orientation) => {
-      const op = orientation ? `&orientation=${orientation}` : '';
-      const res = await fetch(`/api/prompts/pexels?query=${encodeURIComponent(keyword)}&type=videos&page=${page}${op}`);
-      const data = await res.json();
-      return (res.ok && data.success) ? (data.data?.videos || []) : [];
-    };
-    const matching = await call(wanted);
-    // Không có clip đúng hướng thì lấy tạm hướng khác còn hơn để đoạn đó không có nền riêng.
-    return matching.length > 0 ? matching : await call('');
-  };
-
-  // Tải 1 clip làm nền riêng cho 1 đoạn. Trả về true nếu ghi được file xuống đĩa.
-  const downloadSegmentBg = async (segmentNumber, video, isPortrait) => {
-    const folder = result.input?.folderPath;
-    const videoFiles = rankBgVideoFiles(video, isPortrait);
-    if (!folder || videoFiles.length === 0) return false;
-    try {
-      const res = await fetch('/api/prompts/music-player/download-bg-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          folderPath: folder,
-          videoFiles,
-          pexelsId: video.id,
-          segmentNumber,
-          clearExisting: true, // chỉ xoá đúng file nền cũ của riêng đoạn này
-          maxSizeMB: BG_VIDEO_MAX_SIZE_MB,
-        }),
-      });
-      const data = await res.json();
-      return !!(res.ok && data.success);
-    } catch (_) {
-      return false;
-    }
-  };
-
-  /**
-   * Gán nền cho TỪNG ĐOẠN theo đúng nội dung câu đang đọc: Gemini đọc từng câu đề xuất một cảnh,
-   * rồi tìm và tải clip khớp cảnh đó. Nền chung ở Bước 2 vẫn giữ nguyên làm lớp dự phòng cho các
-   * đoạn không gán được và cho phần đầu/cuối video.
-   */
-  const handleAutoAssignSegmentBg = async () => {
-    const folder = result.input?.folderPath;
-    if (!folder) { setSegmentBgMsg('Kịch bản chưa có thư mục dự án.'); return; }
-    const segs = (result.segments || []).filter(s => !s.isThumbnail && (s.dialogueOrNarration || '').trim());
-    if (segs.length === 0) return;
-
-    setIsAssigningSegmentBg(true);
-    setSegmentBgMsg('Đang đọc từng câu để chọn cảnh quay...');
-    setSegmentBgProgress({ current: 0, total: segs.length });
-
-    try {
-      const kwRes = await fetch('/api/prompts/pexels/keywords', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: result.title || '',
-          theme: result.input?.moralTheme || '',
-          segments: segs.map(s => ({
-            segmentNumber: s.segmentNumber,
-            text: stripEmotionTagsForDisplay(s.dialogueOrNarration || ''),
-          })),
-        }),
-      });
-      const kwData = await kwRes.json();
-      const keywordByNumber = new Map((kwData.segmentKeywords || []).map(k => [k.segmentNumber, k.keyword]));
-
-      if (keywordByNumber.size === 0) {
-        setSegmentBgMsg('Chưa tạo được từ khoá theo câu (kiểm tra Gemini API Key). Video vẫn dùng nền chung ở Bước 2.');
-        return;
-      }
-
-      const isPortrait = result.input?.orientation !== 'landscape';
-      let ok = 0;
-      let miss = 0;
-
-      for (let i = 0; i < segs.length; i++) {
-        const seg = segs[i];
-        setSegmentBgProgress({ current: i + 1, total: segs.length });
-        const keyword = keywordByNumber.get(seg.segmentNumber);
-        if (!keyword) { miss++; continue; }
-
-        const videos = await searchPexelsOnce(keyword, isPortrait);
-        const pick = pickBgClipForSegment(
-          videos, isPortrait, estimateSpeechSeconds(seg.dialogueOrNarration || '')
-        );
-        if (!pick) { miss++; continue; }
-
-        const saved = await downloadSegmentBg(seg.segmentNumber, pick, isPortrait);
-        if (!saved) { miss++; continue; }
-
-        ok++;
-        setSegmentBg(prev => ({
-          ...prev,
-          [seg.segmentNumber]: {
-            keyword,
-            pexelsId: pick.id,
-            thumb: pick.image || pick.video_pictures?.[0]?.picture || '',
-            duration: pick.duration,
-          },
-        }));
-      }
-
-      setSegmentBgMsg(
-        `✓ Đã gán nền riêng cho ${ok}/${segs.length} đoạn`
-        + (miss > 0 ? ` (${miss} đoạn không tìm được clip hợp lệ — vẫn dùng nền chung).` : '.')
-        + ' Nhấn "Tạo Lại Video" để dựng lại.'
-      );
-      checkAssets();
-    } catch (err) {
-      setSegmentBgMsg('Lỗi khi gán nền theo đoạn: ' + (err?.message || err));
-    } finally {
-      setIsAssigningSegmentBg(false);
-      setSegmentBgProgress({ current: 0, total: 0 });
-    }
-  };
-
-  // Đổi sang clip khác cho ĐÚNG một đoạn, giữ nguyên từ khoá đã có (hoặc dùng lời kể làm từ khoá
-  // nếu đoạn đó chưa từng được gán).
-  const handleReassignSegmentBg = async (seg) => {
-    const current = segmentBg[seg.segmentNumber];
-    const keyword = current?.keyword;
-    // `restored` = khôi phục từ file trên đĩa sau khi tải lại trang, không kèm từ khoá thật —
-    // đem chuỗi placeholder đi tìm Pexels sẽ ra kết quả rác.
-    if (!keyword || current?.restored) {
-      setSegmentBgMsg('Đoạn này chưa có từ khoá trong phiên hiện tại — hãy chạy "Gán nền theo từng câu" trước.');
-      return;
-    }
-    setReassigningSegment(seg.segmentNumber);
-    try {
-      const isPortrait = result.input?.orientation !== 'landscape';
-      const videos = await searchPexelsOnce(keyword, isPortrait);
-      const pick = pickBgClipForSegment(
-        videos, isPortrait, estimateSpeechSeconds(seg.dialogueOrNarration || ''),
-        current?.pexelsId ? [current.pexelsId] : []
-      );
-      if (!pick) { setSegmentBgMsg(`Không còn clip khác cho "${keyword}".`); return; }
-      const saved = await downloadSegmentBg(seg.segmentNumber, pick, isPortrait);
-      if (!saved) { setSegmentBgMsg('Không tải được clip thay thế.'); return; }
-      setSegmentBg(prev => ({
-        ...prev,
-        [seg.segmentNumber]: {
-          keyword,
-          pexelsId: pick.id,
-          thumb: pick.image || pick.video_pictures?.[0]?.picture || '',
-          duration: pick.duration,
-        },
-      }));
-      setSegmentBgMsg(`✓ Đã đổi nền slide ${seg.segmentNumber}. Nhấn "Tạo Lại Video" để dựng lại.`);
-    } finally {
-      setReassigningSegment(null);
-    }
-  };
-
-  // Mọi đoạn đều đã có nền riêng -> playlist nền chung chỉ còn hiện ở 1 giây đầu và 3 giây cuối.
-  const narratedSegmentCount = (result.segments || [])
-    .filter(s => !s.isThumbnail && (s.dialogueOrNarration || '').trim()).length;
-  const allSegmentsHaveOwnBg =
-    isPexelsTalkVideo
-    && narratedSegmentCount > 0
-    && Object.keys(segmentBg).length >= narratedSegmentCount;
-
-  const handleCleanupSharedBg = async () => {
-    const folder = result.input?.folderPath;
-    if (!folder) return;
-    setIsCleaningBg(true);
-    try {
-      const res = await fetch('/api/prompts/cleanup-bg', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderPath: folder, category: result.category, keep: 1 }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSegmentBgMsg(
-          data.removed.length > 0
-            ? `✓ Đã xoá ${data.removed.length} clip nền chung không còn dùng, giải phóng ${data.freedMB} MB (giữ 1 clip cho đầu/cuối video).`
-            : 'Không có clip nền chung nào thừa để dọn.'
-        );
-        checkAssets();
-      } else {
-        setSegmentBgMsg(`Lỗi dọn clip: ${data.error || 'không rõ'}`);
-      }
-    } catch (err) {
-      setSegmentBgMsg('Lỗi kết nối khi dọn clip nền chung.');
-    } finally {
-      setIsCleaningBg(false);
-    }
-  };
-
-  // Tìm bằng ô nhập tay — người dùng gõ gì thì tìm đúng cái đó, không pha thêm từ khoá nào khác.
-  const handlePexelsSearch = () => {
-    if (!pexelsQuery.trim()) return;
-    const keywords = [pexelsQuery.trim()];
-    setPexelsKeywords(keywords);
-    setPexelsHasMore(true);
-    return runPexelsSearch(keywords, 1);
-  };
-
-  /**
-   * Nhờ Gemini đọc lời kể rồi đề xuất bộ từ khoá bám nội dung, sau đó tìm bằng cả bộ đó.
-   * Gemini hỏng/chưa có key thì lùi về bộ từ khoá tĩnh theo chủ đề — luôn có nền để dùng.
-   */
-  const handleSuggestPexelsKeywords = async (opts = {}) => {
-    const { silent = false } = opts;
-    setIsSuggestingKeywords(true);
-    if (!silent) setPexelsSearchMsg('');
-    let keywords = deriveThemeKeywords(result);
-    try {
-      const narration = (result.segments || [])
-        .filter(s => !s.isThumbnail)
-        .map(s => stripEmotionTagsForDisplay(s.dialogueOrNarration || ''))
-        .join(' ');
-      const res = await fetch('/api/prompts/pexels/keywords', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: result.title || '',
-          narration,
-          theme: result.input?.moralTheme || '',
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.keywords) && data.keywords.length > 0) {
-        keywords = data.keywords;
-      }
-    } catch (_) {
-      // giữ nguyên bộ từ khoá tĩnh
-    } finally {
-      setIsSuggestingKeywords(false);
-    }
-    setPexelsKeywords(keywords);
-    setPexelsHasMore(true);
-    await runPexelsSearch(keywords, 1);
-  };
-
-  // Tải danh sách video Pexels theo ĐÚNG thứ tự truyền vào (thứ tự này là thứ tự clip xuất hiện
-  // trong video) — mỗi video lưu thành bg-01.mp4, bg-02.mp4... để render-project.mjs nối thành
-  // playlist. Video không có bản dựng nào dưới trần dung lượng sẽ bị bỏ qua; khoảng trống số thứ
-  // tự do đó tạo ra không sao, render-project.mjs đọc theo danh sách file thật chứ không theo số
-  // liên tục.
-  //
-  // keepList: giữ lưới kết quả sau khi tải xong. Dùng cho luồng người dùng TỰ chọn, để họ còn sửa
-  // lại lựa chọn; luồng tự động thì ẩn lưới đi cho gọn vì không có gì để chỉnh nữa.
-  const handleDownloadAllBgVideos = async (sortedVideos, { keepList = false } = {}) => {
-    const folder = result.input?.folderPath;
-    if (!folder || sortedVideos.length === 0) return;
-    const isPortrait = result.input?.orientation !== 'landscape';
-    setIsDlBgVideo(true);
-    setDlBgVideoProgress({ current: 0, total: sortedVideos.length });
-    setDlBgVideoMsg('');
-    let successCount = 0;
-    let skippedCount = 0;
-    let isFirstRequest = true;
-    for (let i = 0; i < sortedVideos.length; i++) {
-      const video = sortedVideos[i];
-      const videoFiles = rankBgVideoFiles(video, isPortrait);
-      if (videoFiles.length === 0) continue;
-      setDlBgVideoProgress({ current: i + 1, total: sortedVideos.length });
-      try {
-        const res = await fetch('/api/prompts/music-player/download-bg-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            folderPath: folder,
-            videoFiles,
-            pexelsId: video.id,
-            index: i,
-            clearExisting: isFirstRequest, // chỉ xoá file cũ ở lượt gọi ĐẦU TIÊN của batch
-            maxSizeMB: BG_VIDEO_MAX_SIZE_MB,
-          })
-        });
-        isFirstRequest = false;
-        const data = await res.json();
-        if (res.ok && data.success) successCount++;
-        else if (data.skipped) skippedCount++;
-      } catch (_) { }
-    }
-    setDlBgVideoMsg(
-      `✓ Đã tải ${successCount}/${sortedVideos.length} video nền`
-      + (skippedCount > 0 ? ` (bỏ ${skippedCount} clip nặng hơn ${BG_VIDEO_MAX_SIZE_MB}MB)` : '')
-    );
-    setDlBgVideoProgress({ current: 0, total: 0 });
-    if (!keepList) setPexelsVideos([]);
-    // Ghi nhận bộ clip đã NẰM TRÊN ĐĨA, để biết lựa chọn hiện tại đã được áp dụng hay chưa.
-    setAppliedPexelsIds(sortedVideos.map(v => v.id));
-    setIsDlBgVideo(false);
-    checkAssets();
-    return successCount;
-  };
-
-  // Lựa chọn trên giao diện chưa khớp với bộ clip đã tải về đĩa -> video dựng ra sẽ vẫn dùng clip cũ.
-  const hasUnappliedBgSelection =
-    isPexelsTalkVideo
-    && selectedPexelsIds.length > 0
-    && selectedPexelsIds.join(',') !== appliedPexelsIds.join(',');
-
-  // Tải bộ clip đang chọn nếu người dùng chưa bấm áp dụng. Gọi ngay trước khi render để thao tác
-  // "chọn clip rồi bấm Tạo Lại Video" chạy đúng như mong đợi, không cần nhớ bấm thêm nút nào.
-  const applyPendingBgSelection = async () => {
-    if (!hasUnappliedBgSelection) return;
-    const byId = new Map(pexelsVideos.map(v => [v.id, v]));
-    const chosen = selectedPexelsIds.map(id => byId.get(id)).filter(Boolean);
-    if (chosen.length === 0) return;
-    await handleDownloadAllBgVideos(chosen, { keepList: true });
-  };
 
   // Tên file ảnh hero khớp với bố cục đang chọn: "Hero Top" (dải ngang) dùng bản landscape,
   // "Full Nền Sau" (nền dọc toàn khung) dùng bản portrait - xem buildSegmentedPrompts.js/
@@ -3934,711 +3351,38 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               {/* Steps Pipeline */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
 
-                {/* Tạo giọng nói */}
-                {(() => {
-                  const total = result.segments.length;
-                  const isStep1Done = assetCounts.audioCount >= total;
-
-                  return (
-                    <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.015)',
-                      border: isGeneratingVoice ? '1.5px solid transparent' : isStep1Done ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
-                      borderRadius: '10px',
-                      gap: '10px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: isStep1Done ? '#10b981' : 'linear-gradient(135deg, #6366f1, #a855f7)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
-                            flexShrink: 0,
-                            animation: isGeneratingVoice ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                          }}>
-                            {isStep1Done ? '✓' : '1'}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Tạo giọng lồng tiếng
-                              {isExternalVoiceSkill && (
-                                <span style={{ marginLeft: '8px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
-                                  tuỳ chọn
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                          {isExternalVoiceSkill && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              title="Đã render giọng bên ElevenLabs? Thả file dài vào đây, tool tự cắt theo từng slide."
-                              style={{
-                                padding: '7px 12px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap',
-                                background: showVoiceSplit ? 'rgba(37,244,238,0.15)' : undefined,
-                                border: showVoiceSplit ? '1px solid rgba(37,244,238,0.4)' : undefined,
-                                color: showVoiceSplit ? 'var(--secondary)' : undefined
-                              }}
-                              onClick={() => setShowVoiceSplit((v) => !v)}
-                              disabled={isRenderingVideo}
-                            >
-                              {showVoiceSplit ? '▲ Đóng ghép giọng' : '🎧 Ghép giọng ElevenLabs'}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            title="Cấu hình giọng đọc (Edge / CapCut)"
-                            style={{ padding: '7px 10px', fontSize: '0.76rem', borderRadius: '8px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                            onClick={() => {
-                              setShowVoiceConfig(!showVoiceConfig);
-                            }}
-                            disabled={isGeneratingVoice || isRenderingVideo}
-                          >
-                            ⚙️
-                          </button>
-                          <button
-                            type="button"
-                            className="btn"
-                            style={{
-                              padding: '7px 14px',
-                              fontSize: '0.76rem',
-                              borderRadius: '8px',
-                              fontWeight: 700,
-                              background: isStep1Done ? 'rgba(46, 213, 115, 0.15)' : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                              color: isStep1Done ? '#2ed573' : '#fff',
-                              border: isStep1Done ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
-                              boxShadow: isStep1Done ? 'none' : '0 4px 15px rgba(168, 85, 247, 0.35)',
-                              cursor: isGeneratingVoice ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                            onClick={handleGenerateVoice}
-                            disabled={isGeneratingVoice || isRenderingVideo}
-                          >
-                            {isGeneratingVoice ? '⏳ Đang tạo...' : isStep1Done ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {isExternalVoiceSkill && showVoiceSplit && (
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
-                          <VoiceSplitPanel
-                            segments={result.segments}
-                            folderPath={result.input?.folderPath || 'example'}
-                            category={result.category}
-                            keepTags={showEmotionTags}
-                            onApplied={checkAssets}
-                          />
-                        </div>
-                      )}
-
-                      {/* Tốc độ đọc — chỉ cho reading_practice, vì skill này đọc nguyên 1 đoạn văn
-                      dài liên tục nên tốc độ giọng đọc ảnh hưởng trực tiếp tới trải nghiệm luyện
-                      đọc/nghe. Gửi cho nhà cung cấp TTS khi bấm Tạo Lồng Tiếng. */}
-                      {isReadingPractice && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, flexShrink: 0 }}>🗣️ Tốc độ đọc:</span>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            {[
-                              { value: 'slow', label: '🐢 Chậm' },
-                              { value: 'medium', label: '🚶 Vừa' },
-                              { value: 'fast', label: '🐇 Nhanh' }
-                            ].map(opt => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => setRenderReadingSpeed(opt.value)}
-                                disabled={isGeneratingVoice || isRenderingVideo}
-                                title={`Đặt tốc độ giọng đọc: ${opt.label}`}
-                                style={{
-                                  padding: '5px 12px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 700,
-                                  borderRadius: '7px',
-                                  cursor: (isGeneratingVoice || isRenderingVideo) ? 'not-allowed' : 'pointer',
-                                  border: renderReadingSpeed === opt.value ? '1px solid var(--secondary)' : '1px solid rgba(255,255,255,0.1)',
-                                  background: renderReadingSpeed === opt.value ? 'rgba(37,244,238,0.12)' : 'rgba(0,0,0,0.3)',
-                                  color: renderReadingSpeed === opt.value ? 'var(--secondary)' : '#fff'
-                                }}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang tạo giọng đọc */}
-                      {isGeneratingVoice && (
-                        <StepProgressBar
-                          percent={(voiceProgress / total) * 100}
-                          label={`${voiceProgress}/${total}`}
-                          color="#00f2fe"
-                          showShimmer={true}
-                        />
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Bước 2 (pexels_talk_video): Chọn video nền Pexels */}
-                {isPexelsTalkVideo && (() => {
-                  const isStep1Done = assetCounts.audioCount >= result.segments.length;
-                  const hasBgVideo = assetCounts.hasBgVideo;
-                  return (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.015)',
-                      border: hasBgVideo ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(167, 139, 250, 0.25)' : '1px solid rgba(255, 255, 255, 0.03)',
-                      borderRadius: '10px',
-                      opacity: isStep1Done ? 1 : 0.5,
-                      gap: '10px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                          background: hasBgVideo ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #a78bfa, #7c3aed)' : 'rgba(255,255,255,0.1)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontWeight: 800, fontSize: '0.8rem'
-                        }}>
-                          {hasBgVideo ? '✓' : '2'}
-                        </div>
-                        <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                          Chọn Video Nền Pexels
-                        </span>
-                        {hasBgVideo && (
-                          <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>
-                            ✓ Đã có video nền
-                          </span>
-                        )}
-                      </div>
-
-                      {isStep1Done && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                              type="text"
-                              value={pexelsQuery}
-                              onChange={(e) => setPexelsQuery(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && handlePexelsSearch()}
-                              placeholder="Nhập từ khoá tìm video nền (vd: nature, city, sunset)"
-                              disabled={isPexelsSearching || isDlBgVideo}
-                              style={{
-                                flex: 1, padding: '7px 10px', fontSize: '0.8rem', borderRadius: '7px',
-                                background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)',
-                                color: '#fff', outline: 'none'
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                              onClick={handlePexelsSearch}
-                              disabled={isPexelsSearching || isDlBgVideo || !pexelsQuery.trim()}
-                            >
-                              {isPexelsSearching ? '⏳ Tìm...' : '🔍 Tìm video'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              title="Để AI đọc lời kể rồi tự đề xuất bộ từ khoá cảnh quay bám nội dung kịch bản"
-                              style={{ padding: '7px 12px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, whiteSpace: 'nowrap' }}
-                              onClick={() => handleSuggestPexelsKeywords()}
-                              disabled={isPexelsSearching || isDlBgVideo || isSuggestingKeywords}
-                            >
-                              {isSuggestingKeywords ? '⏳ Đang nghĩ...' : '✨ Gợi ý theo kịch bản'}
-                            </button>
-                          </div>
-
-                          {/* Bộ từ khoá đang dùng — cho người dùng thấy lưới đang tìm theo những cảnh
-                          nào, và bấm 1 từ khoá để xem riêng kết quả của nó. */}
-                          {pexelsKeywords.length > 1 && (
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Đang tìm theo:</span>
-                              {pexelsKeywords.map(kw => (
-                                <button
-                                  key={kw}
-                                  type="button"
-                                  onClick={() => {
-                                    // Truyền thẳng kw vào runPexelsSearch: setPexelsQuery là bất đồng bộ
-                                    // nên gọi handlePexelsSearch ngay sau đó sẽ tìm bằng giá trị CŨ.
-                                    setPexelsQuery(kw);
-                                    setPexelsKeywords([kw]);
-                                    setPexelsHasMore(true);
-                                    runPexelsSearch([kw], 1);
-                                  }}
-                                  disabled={isPexelsSearching || isDlBgVideo}
-                                  title={`Chỉ xem kết quả của "${kw}"`}
-                                  style={{
-                                    fontSize: '0.7rem', padding: '3px 9px', borderRadius: '999px',
-                                    background: 'rgba(167,139,250,0.12)', color: '#c4b5fd',
-                                    border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
-                                  }}
-                                >
-                                  {kw}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {pexelsSearchMsg && (
-                            <div style={{ fontSize: '0.78rem', color: pexelsSearchMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
-                              {pexelsSearchMsg}
-                            </div>
-                          )}
-
-                          {pexelsVideos.length > 0 && (() => {
-                            const selectedCount = selectedPexelsIds.length;
-                            const coverPercent = estimatedVideoSeconds > 0
-                              ? Math.min(100, Math.round((selectedCoverSeconds / estimatedVideoSeconds) * 100))
-                              : 0;
-                            return (
-                              <>
-                                {/* Gợi ý + tiến độ phủ. Dùng ĐỘ PHỦ THẬT (tổng thời lượng clip, mỗi clip
-                                tính tối đa 30 giây) chứ không đếm số lượng suông, vì clip Pexels dài
-                                ngắn rất khác nhau. */}
-                                <div style={{
-                                  display: 'flex', flexDirection: 'column', gap: '6px',
-                                  fontSize: '0.76rem', padding: '7px 10px', borderRadius: '7px',
-                                  background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)',
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                    <span style={{ color: '#c4b5fd' }}>
-                                      💡 Video dài ~{formatDuration(estimatedVideoSeconds)} — nên chọn <strong>{recommendedBgClipCount} clip</strong> để nền không lặp lại.
-                                    </span>
-                                    <span style={{
-                                      marginLeft: 'auto', fontWeight: 700,
-                                      color: selectedCount === 0 ? 'var(--text-muted)' : bgSelectionFull ? '#10b981' : '#fbbf24',
-                                    }}>
-                                      {selectedCount === 0
-                                        ? 'Chưa chọn — sẽ tự lấy mặc định'
-                                        : `${selectedCount} clip · phủ ${formatDuration(Math.round(selectedCoverSeconds))}/${formatDuration(estimatedVideoSeconds)}`}
-                                    </span>
-                                  </div>
-                                  {selectedCount > 0 && (
-                                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                                      <div style={{
-                                        height: '100%', width: `${coverPercent}%`, borderRadius: '2px',
-                                        background: bgSelectionFull ? '#10b981' : 'linear-gradient(90deg,#a78bfa,#7c3aed)',
-                                        transition: 'width 0.25s ease',
-                                      }} />
-                                    </div>
-                                  )}
-                                  {bgSelectionFull && !hasUnappliedBgSelection && (
-                                    <span style={{ color: '#10b981', fontWeight: 600 }}>
-                                      ✓ Đã đủ phủ hết video — bỏ bớt một clip nếu muốn đổi sang clip khác.
-                                    </span>
-                                  )}
-                                  {/* Lựa chọn chưa được tải về đĩa: nếu bấm thẳng "Tạo Lại Video" thì
-                                  render vẫn dùng clip nền cũ. Nút áp dụng để ngay đây (đầu lưới)
-                                  thay vì chỉ nằm dưới đáy — trước đây nó khuất tầm nhìn nên rất dễ
-                                  chọn xong rồi tưởng là đã xong. */}
-                                  {hasUnappliedBgSelection && (
-                                    <div style={{
-                                      display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
-                                      marginTop: '2px', paddingTop: '7px', borderTop: '1px solid rgba(255,255,255,0.08)',
-                                    }}>
-                                      <span style={{ color: '#fbbf24', fontWeight: 600 }}>
-                                        ⚠️ {selectedCount} clip đang chọn chưa được tải về.
-                                      </span>
-                                      <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        style={{ padding: '5px 12px', fontSize: '0.75rem', borderRadius: '6px', fontWeight: 700 }}
-                                        onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
-                                        disabled={isDlBgVideo || isRenderingVideo}
-                                      >
-                                        {isDlBgVideo ? '⏳ Đang tải...' : '⬇ Áp dụng ngay'}
-                                      </button>
-                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                                        (hoặc cứ bấm "Tạo Lại Video" — sẽ tự tải trước khi dựng)
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                                  {pexelsVideos.map(video => {
-                                    const thumb = video.image || (video.video_pictures?.[0]?.picture);
-                                    const order = selectedPexelsIds.indexOf(video.id);
-                                    const isSelected = order !== -1;
-                                    // Đã phủ đủ thì các clip CHƯA chọn bị khoá lại, phải bỏ bớt mới chọn tiếp được.
-                                    const isLocked = !isSelected && bgSelectionFull;
-                                    const isPreviewing = previewPexelsId === video.id;
-                                    // Bản dựng nhẹ nhất để xem thử cho nhanh, không cần nét.
-                                    const previewFile = (video.video_files || [])
-                                      .filter(f => f.file_type === 'video/mp4' && f.link)
-                                      .sort((a, b) => (a.width || 0) - (b.width || 0))[0];
-                                    return (
-                                      <div
-                                        key={video.id}
-                                        style={{
-                                          position: 'relative', borderRadius: '8px', overflow: 'hidden',
-                                          border: isSelected ? '2px solid #a78bfa' : '1px solid rgba(167,139,250,0.3)',
-                                          boxShadow: isSelected ? '0 0 12px rgba(167,139,250,0.45)' : 'none',
-                                          cursor: isDlBgVideo ? 'wait' : isLocked ? 'not-allowed' : 'pointer',
-                                          aspectRatio: '16/9', background: '#000',
-                                          opacity: isLocked ? 0.4 : 1,
-                                          transition: 'border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
-                                        }}
-                                        onClick={() => { if (!isDlBgVideo) togglePexelsSelection(video); }}
-                                        title={
-                                          isLocked
-                                            ? 'Đã chọn đủ clip phủ hết video — bỏ chọn bớt một clip rồi mới chọn được clip này'
-                                            : `${video.width}×${video.height} · ${video.duration}s · ${isSelected ? 'Nhấn để bỏ chọn' : 'Nhấn để chọn'}`
-                                        }
-                                      >
-                                        {isPreviewing && previewFile ? (
-                                          <video
-                                            src={previewFile.link}
-                                            autoPlay muted loop playsInline
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                          />
-                                        ) : thumb ? (
-                                          <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isSelected ? 1 : 0.8 }} />
-                                        ) : null}
-
-                                        <div style={{
-                                          position: 'absolute', inset: 0,
-                                          background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.75))',
-                                          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-                                          padding: '6px 8px', pointerEvents: 'none',
-                                        }}>
-                                          <span style={{ fontSize: '0.68rem', color: '#fff', fontWeight: 700 }}>
-                                            {isSelected ? 'Đã chọn' : isLocked ? 'Đã đủ' : '＋ Chọn'}
-                                          </span>
-                                          <span style={{ fontSize: '0.66rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-                                            {video.duration}s
-                                          </span>
-                                        </div>
-
-                                        {/* Nút xem thử — bấm riêng, không kéo theo việc chọn/bỏ chọn clip */}
-                                        {previewFile && (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setPreviewPexelsId(isPreviewing ? null : video.id);
-                                            }}
-                                            title={isPreviewing ? 'Dừng xem thử' : 'Xem thử clip này'}
-                                            style={{
-                                              position: 'absolute', top: '5px', right: '5px',
-                                              width: '24px', height: '24px', borderRadius: '6px',
-                                              border: 'none', cursor: 'pointer', padding: 0,
-                                              background: isPreviewing ? '#a78bfa' : 'rgba(0,0,0,0.6)',
-                                              color: isPreviewing ? '#1a1924' : '#fff',
-                                              fontSize: '0.7rem', lineHeight: 1,
-                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}
-                                          >
-                                            {isPreviewing ? '⏸' : '▶'}
-                                          </button>
-                                        )}
-
-                                        {/* Số thứ tự = đúng thứ tự clip sẽ xuất hiện trong video */}
-                                        {isSelected && (
-                                          <div style={{
-                                            position: 'absolute', top: '5px', left: '5px',
-                                            width: '20px', height: '20px', borderRadius: '50%',
-                                            background: '#a78bfa', color: '#1a1924',
-                                            fontSize: '0.68rem', fontWeight: 800,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          }}>
-                                            {order + 1}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {pexelsHasMore && (
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700, alignSelf: 'center' }}
-                                    onClick={() => runPexelsSearch(pexelsKeywords, pexelsPage + 1, { append: true })}
-                                    disabled={isPexelsSearching || isDlBgVideo}
-                                  >
-                                    {isPexelsSearching ? '⏳ Đang tải...' : `⬇ Xem thêm clip (trang ${pexelsPage + 1})`}
-                                  </button>
-                                )}
-
-                                {selectedCount > 0 && (
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      style={{ padding: '7px 14px', fontSize: '0.78rem', borderRadius: '7px', fontWeight: 700 }}
-                                      onClick={() => handleDownloadAllBgVideos(selectedPexelsVideos, { keepList: true })}
-                                      disabled={isDlBgVideo}
-                                    >
-                                      {isDlBgVideo ? '⏳ Đang tải...' : `✓ Dùng ${selectedCount} clip đã chọn`}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      style={{ padding: '7px 12px', fontSize: '0.76rem', borderRadius: '7px' }}
-                                      onClick={() => setSelectedPexelsIds([])}
-                                      disabled={isDlBgVideo}
-                                    >
-                                      Bỏ chọn hết
-                                    </button>
-                                    {!bgSelectionFull && (
-                                      <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-                                        Chưa phủ hết — nền sẽ lặp lại để chạy đủ thời lượng.
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-
-                          {isDlBgVideo && dlBgVideoProgress.total > 0 && (
-                            <div style={{ fontSize: '0.78rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span>⏳ Đang tải video nền {dlBgVideoProgress.current}/{dlBgVideoProgress.total}...</span>
-                              <div style={{
-                                flex: 1, height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden'
-                              }}>
-                                <div style={{
-                                  height: '100%', borderRadius: '2px', background: 'linear-gradient(90deg,#a78bfa,#7c3aed)',
-                                  width: `${(dlBgVideoProgress.current / dlBgVideoProgress.total) * 100}%`,
-                                  transition: 'width 0.3s ease'
-                                }} />
-                              </div>
-                            </div>
-                          )}
-                          {!isDlBgVideo && dlBgVideoMsg && (
-                            <div style={{ fontSize: '0.78rem', color: dlBgVideoMsg.startsWith('✓') ? '#10b981' : '#fbbf24' }}>
-                              {dlBgVideoMsg}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Bước 2: Sinh & tải ảnh — ẩn với pexels_talk_video */}
-                {!isPexelsTalkVideo && (() => {
-                  const total = result.segments.length;
-                  // isStep1Done ở đây là CỬA MỞ của bước này, không phải "đã lồng tiếng xong":
-                  // skill lồng tiếng ngoài thì cửa luôn mở (xem isExternalVoiceSkill).
-                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
-                  const completedFlow = flowStatus ? flowStatus.completed : 0;
-                  const isFlowDone = flowStatus && flowStatus.phase === 'completed';
-                  const hasAllImages = assetCounts.imageCount >= total;
-                  const isStep2Done = isFlowDone || hasAllImages;
-                  const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running';
-
-                  return (
-                    <div className={isStep2Running ? 'running-glow-card' : ''} style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.015)',
-                      border: isStep2Running ? '1.5px solid transparent' : isStep2Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 255, 255, 0.03)',
-                      borderRadius: '10px',
-                      opacity: isStep1Done ? 1 : 0.5,
-                      gap: '10px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: isStep2Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #FE2C55, #ff5a79)' : 'rgba(255,255,255,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
-                            flexShrink: 0,
-                            animation: isStep2Running ? 'pulse-ring 1.6s ease-in-out infinite' : 'none'
-                          }}>
-                            {isStep2Done ? '✓' : '2'}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Sinh & tải ảnh tự động
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
-                            style={{
-                              padding: '7px 10px',
-                              fontSize: '0.82rem',
-                              borderRadius: '8px',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                              cursor: isOpeningImages ? 'wait' : 'pointer'
-                            }}
-                            onClick={handleOpenImagesFolder}
-                            disabled={isOpeningImages}
-                          >
-                            {isOpeningImages ? '⏳' : '📁'}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn"
-                            style={{
-                              padding: '7px 14px',
-                              fontSize: '0.76rem',
-                              borderRadius: '8px',
-                              fontWeight: 700,
-                              background: isStep2Done ? 'rgba(46, 213, 115, 0.15)' : isStep1Done ? 'linear-gradient(135deg, var(--primary), var(--accent))' : 'rgba(255, 255, 255, 0.05)',
-                              color: isStep2Done ? '#2ed573' : isStep1Done ? '#fff' : 'rgba(255, 255, 255, 0.3)',
-                              border: isStep2Done ? '1px solid rgba(46, 213, 115, 0.3)' : isStep1Done ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-                              boxShadow: isStep2Done || !isStep1Done ? 'none' : '0 4px 15px rgba(254, 44, 85, 0.25)',
-                              cursor: !isStep1Done ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap',
-                              flexShrink: 0
-                            }}
-                            onClick={() => pushToFlow(flowStatus)}
-                            disabled={!isStep1Done}
-                          >
-                            {flowButtonLabel(flowStatus)}
-                          </button>
-                        </div>
-                      </div>
-
-                      {openImagesError && (
-                        <div style={{ fontSize: '0.74rem', color: '#f87171' }}>⚠️ {openImagesError}</div>
-                      )}
-
-                      {/* Dòng tiến độ dạng thanh - chỉ hiện TRONG lúc đang chạy, ẩn ngay khi xong */}
-                      {isStep2Running && flowStatus && flowStatus.total > 0 && (
-                        <StepProgressBar
-                          percent={(flowStatus.completed / flowStatus.total) * 100}
-                          label={`${flowStatus.completed}/${flowStatus.total}`}
-                          color={flowStatus.color}
-                          showShimmer={true}
-                        />
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {(() => {
-                  const total = result.segments.length;
-                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
-                  const isStep3Done = assetCounts.hasBgMusic || !renderBgMusicEnabled;
-
-                  const currentTrackName = bgMusicTrackLabel(selectedBgMusicTrackId, { short: true, library: bgMusicLibrary });
-
-                  return (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '12px 16px',
-                      background: 'rgba(255, 255, 255, 0.015)',
-                      border: isStep3Done ? '1px solid rgba(16, 185, 129, 0.25)' : isStep1Done ? '1px solid rgba(168, 85, 247, 0.28)' : '1px solid rgba(255, 255, 255, 0.03)',
-                      borderRadius: '10px',
-                      opacity: (isStep1Done && renderBgMusicEnabled) ? 1 : 0.5,
-                      gap: '10px',
-                      transition: 'all 0.2s ease'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: isStep3Done ? '#10b981' : isStep1Done ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'rgba(255,255,255,0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
-                            flexShrink: 0
-                          }}>
-                            {isStep3Done ? '✓' : '3'}
-                          </div>
-                          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 700 }}>
-                              Nhạc nền hòa âm
-                            </span>
-                            <span style={{
-                              fontSize: '0.72rem',
-                              padding: '2px 8px',
-                              borderRadius: '6px',
-                              fontWeight: 700,
-                              background: renderBgMusicEnabled ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                              color: renderBgMusicEnabled ? '#d8b4fe' : 'rgba(255, 255, 255, 0.5)',
-                              border: renderBgMusicEnabled ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid rgba(255, 255, 255, 0.1)'
-                            }}>
-                              {renderBgMusicEnabled ? `🎵 ${currentTrackName} (${renderBgMusicVolume}%)` : '🔇 Tắt nhạc'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                          {/* Nút Cài đặt dạng Icon. Chỉ khoá khi đang chạy render/lồng tiếng — trước
-                          đây còn khoá theo !isStep1Done và !renderBgMusicEnabled, nghĩa là muốn
-                          xem/đổi bản nhạc thì buộc phải bật nhạc lên và phải lồng tiếng xong đã,
-                          dù chọn nhạc nền chẳng phụ thuộc gì vào hai việc đó. */}
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            title="Chọn bản nhạc nền & chỉnh âm lượng"
-                            style={{
-                              padding: '7px 10px',
-                              fontSize: '0.76rem',
-                              borderRadius: '8px',
-                              fontWeight: 700,
-                              whiteSpace: 'nowrap',
-                              opacity: (isRenderingVideo || isGeneratingVoice) ? 0.5 : 1,
-                              cursor: (isRenderingVideo || isGeneratingVoice) ? 'not-allowed' : 'pointer'
-                            }}
-                            onClick={() => setShowBgMusicModal(true)}
-                            disabled={isRenderingVideo || isGeneratingVoice}
-                          >
-                            ⚙️
-                          </button>
-
-                          {/* Công tắc Bật/Tắt Nhạc Nền — lưu ngay xuống kịch bản, nếu không thì tắt
-                          nhạc xong rời trang là lần mở sau nhạc lại tự bật. */}
-                          <label className="custom-switch" title={renderBgMusicEnabled ? 'Đang bật nhạc nền' : 'Đang tắt nhạc nền'} style={{ margin: 0, transform: 'scale(0.85)' }}>
-                            <input
-                              type="checkbox"
-                              checked={renderBgMusicEnabled}
-                              disabled={isRenderingVideo || isGeneratingVoice}
-                              onChange={(e) => {
-                                setRenderBgMusicEnabled(e.target.checked);
-                                persistBgMusicConfig({ bgMusicEnabled: e.target.checked });
-                              }}
-                            />
-                            <span className="switch-slider" style={{
-                              backgroundColor: renderBgMusicEnabled ? '#a855f7' : 'rgba(255, 255, 255, 0.1)'
-                            }}></span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
+                <VoiceGenerationStep controller={{
+                  result, assetCounts, isGeneratingVoice, isRenderingVideo,
+                  isExternalVoiceSkill, showVoiceSplit, setShowVoiceSplit,
+                  setShowVoiceConfig, handleGenerateVoice, showEmotionTags, checkAssets,
+                  isReadingPractice, renderReadingSpeed, setRenderReadingSpeed, voiceProgress,
+                  settings,
+                }} />
+                {/* Bước 2: Chọn video nền Pexels */}
+                {isPexelsTalkVideo && (
+                  <PexelsBackgroundStep
+                    formatDuration={formatDuration}
+                    isRenderingVideo={isRenderingVideo}
+                    controller={{
+                      assetCounts, result, pexelsQuery, setPexelsQuery, pexelsVideos,
+                      isPexelsSearching, pexelsSearchMsg, isDlBgVideo, dlBgVideoMsg,
+                      dlBgVideoProgress, selectedPexelsIds, setSelectedPexelsIds,
+                      previewPexelsId, setPreviewPexelsId, pexelsKeywords, setPexelsKeywords,
+                      pexelsPage, pexelsHasMore, setPexelsHasMore, isSuggestingKeywords,
+                      selectedPexelsVideos, selectedCoverSeconds, estimatedVideoSeconds,
+                      bgSelectionFull, recommendedBgClipCount, hasUnappliedBgSelection,
+                      togglePexelsSelection, handlePexelsSearch, handleSuggestPexelsKeywords,
+                      handleDownloadAllBgVideos, runPexelsSearch,
+                    }}
+                  />
+                )}
+                <ProductionAssetsSteps controller={{
+                  isPexelsTalkVideo, result, isExternalVoiceSkill, assetCounts, flowStatus,
+                  isOpeningImages, handleOpenImagesFolder, openImagesError, pushToFlow,
+                  flowButtonLabel, renderBgMusicEnabled, selectedBgMusicTrackId, bgMusicLibrary,
+                  renderBgMusicVolume, isRenderingVideo, isGeneratingVoice, setShowBgMusicModal,
+                  setRenderBgMusicEnabled, persistBgMusicConfig,
+                }} />
                 {/* Bước Render video */}
                 {(() => {
                   const total = result.segments.length;
@@ -4653,9 +3397,6 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   //
                   // Đuôi file không nhất thiết là .mp3: luồng cắt giọng ElevenLabs ghi ra .wav. Cả
                   // render-project.mjs lẫn check-assets đều dò đuôi thật, nên đừng gắn cứng .mp3 ở đây.
-                  const isReadyToRender = isStep1Done && isStep2Done;
-                  const isRenderDone = assetCounts.videoCreated;
-                  const stepNum = isPexelsTalkVideo ? '3' : '4';
                   // Đã có ảnh, chỉ còn thiếu giọng đọc — trường hợp thường gặp của skill lồng tiếng ngoài.
                   const waitingForExternalAudio = isExternalVoiceSkill && isStep2Done && !isStep1Done;
 
@@ -4700,90 +3441,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
 
 
-              {/* ADVANCED REMOTION CONFIG DETAILS (COLLAPSIBLE) */}
-              <details style={{ marginTop: '16px', outline: 'none' }}>
-                <summary style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', fontWeight: 700, userSelect: 'none' }}>
-                  🛠️ Xem cấu hình Remotion nâng cao (JSON & Copy)
-                </summary>
-                <div style={{ marginTop: '12px', background: 'rgba(0, 0, 0, 0.15)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--secondary)', fontWeight: 600 }}>Cấu hình Remotion JSON (configs/ của skill):</span>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '4px 10px', fontSize: '0.72rem', borderRadius: '6px', fontWeight: 700 }}
-                      onClick={() => {
-                        const configToCopy = result.remotionConfig || {
-                          title: result.title || "slideshow-video",
-                          captionPosition: "bottom",
-                          imageFit: "cover",
-                          kenBurns: true,
-                          transitionSeconds: 0.5,
-                          bgColor: "#0E0F13",
-                          fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-                          captionMode: "chunked",
-                          captionWordsPerChunk: 4,
-                          audioPaddingSeconds: 0.4,
-                          bgMusicVolume: 0.12,
-                          scenes: result.segments.map(seg => {
-                            const folder = result.input?.folderPath || 'example';
-                            const imgExt = result.input?.imageExt || 'jpg';
-                            const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
-                            const paddedNum = String(seg.segmentNumber).padStart(2, '0');
-                            return {
-                              image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
-                              audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
-                              caption: seg.subtitle || seg.dialogueOrNarration || ""
-                            };
-                          })
-                        };
-                        onCopy(JSON.stringify(configToCopy, null, 2), 'remotion_config');
-                      }}
-                    >
-                      {copiedKey === 'remotion_config' ? '✓ Đã chép!' : '📋 Sao chép cấu hình'}
-                    </button>
-                  </div>
-                  <pre style={{
-                    margin: 0,
-                    fontSize: '0.78rem',
-                    lineHeight: 1.45,
-                    color: 'rgba(255, 255, 255, 0.85)',
-                    background: 'rgba(0, 0, 0, 0.3)',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    maxHeight: '180px',
-                    overflowY: 'auto',
-                    fontFamily: 'monospace',
-                    border: '1px solid rgba(255,255,255,0.05)'
-                  }}>
-                    {JSON.stringify(result.remotionConfig || {
-                      title: result.title || "slideshow-video",
-                      captionPosition: "bottom",
-                      imageFit: "cover",
-                      kenBurns: true,
-                      transitionSeconds: 0.5,
-                      bgColor: "#0E0F13",
-                      fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
-                      captionMode: "chunked",
-                      captionWordsPerChunk: 4,
-                      audioPaddingSeconds: 0.4,
-                      bgMusicVolume: 0.12,
-                      scenes: result.segments.map(seg => {
-                        const folder = result.input?.folderPath || 'example';
-                        const imgExt = result.input?.imageExt || 'jpg';
-                        const audExt = assetCounts.audioExt || result.input?.audioExt || 'mp3';
-                        const paddedNum = String(seg.segmentNumber).padStart(2, '0');
-                        return {
-                          image: `${folder}/images/scene-${paddedNum}.${imgExt}`,
-                          audio: `${folder}/audio/scene-${paddedNum}.${audExt}`,
-                          caption: seg.subtitle || seg.dialogueOrNarration || ""
-                        };
-                      })
-                    }, null, 2)}
-                  </pre>
-                </div>
-              </details>
-
+              <RemotionConfigDetails
+                result={result}
+                audioExt={assetCounts.audioExt}
+                copiedKey={copiedKey}
+                onCopy={onCopy}
+              />
               {/* Status Message Alerts (Only show error messages, since success is already shown in the step pipeline status above) */}
               {voiceMsg && !voiceMsg.startsWith('✓') && (
                 <div style={{
@@ -5223,6 +3886,50 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   <button
                     type="button"
                     className="btn btn-secondary"
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.78rem',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: showFullScriptViewer ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255, 255, 255, 0.05)',
+                      borderColor: showFullScriptViewer ? 'rgba(99, 102, 241, 0.55)' : 'rgba(255, 255, 255, 0.12)',
+                      color: showFullScriptViewer ? '#a5b4fc' : undefined
+                    }}
+                    onClick={() => setShowFullScriptViewer(v => !v)}
+                    title="Xem toàn bộ kịch bản nói: Bản có gắn tag cho ElevenLabs và Bản chuẩn không tag"
+                  >
+                    <span>🎙️</span>
+                    <span>{showFullScriptViewer ? '▲ Thu gọn kịch bản nói' : '📜 Xem toàn bộ kịch bản nói'}</span>
+                  </button>
+                  {scriptHasEmotionTags && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      title={showEmotionTags
+                        ? 'Đang HIỆN [tag] cảm xúc — bản copy và lời thoại bên dưới dán thẳng sang ElevenLabs v3. Bấm để ẩn tag nếu muốn dùng bản sạch cho CapCut/TTS thông thường.'
+                        : 'Đang ẨN [tag] cảm xúc. Bấm để hiện lại [tag] cảm xúc cho ElevenLabs v3.'}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        color: showEmotionTags ? '#0f172a' : undefined,
+                        background: showEmotionTags ? 'var(--warning)' : undefined,
+                        borderColor: showEmotionTags ? 'var(--warning)' : undefined
+                      }}
+                      onClick={() => setShowEmotionTags(v => !v)}
+                    >
+                      {showEmotionTags ? '🏷️ Đang hiện [tag]' : '🏷️ Đang ẩn [tag]'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
                     title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
                     style={{ padding: '6px 14px', fontSize: '0.78rem', flexShrink: 0, borderRadius: '8px', fontWeight: 700 }}
                     onClick={handleOpenImagesFolder}
@@ -5276,6 +3983,24 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     ? `⚠️ Đang có ${dirtySegments.length} slide sửa chưa lưu (slide ${dirtySegments.map(s => s.segmentNumber).join(', ')}). Nhấn "💾 Lưu" để ghi lại — ảnh đã tạo vẫn giữ nguyên, chỉ cần tạo lại giọng đọc.`
                     : '✏️ Chế độ sửa đang bật. Gõ trực tiếp vào các ô bên dưới. Sửa mô tả hoạt cảnh chỉ đổi prompt ảnh cho lần sinh ảnh SAU, không tự vẽ lại ảnh đã có.'}
                 </div>
+              )}
+
+              {/* Khung xem toàn bộ kịch bản nói (Voice Script) với bản có tag ElevenLabs và bản chuẩn không tag */}
+              {showFullScriptViewer && (
+                <FullScriptViewer
+                  projectId={result.id || result._id}
+                  segments={result.segments}
+                  copiedKey={copiedKey}
+                  onCopy={onCopy}
+                  showEmotionTags={showEmotionTags}
+                  onToggleEmotionTags={setShowEmotionTags}
+                  onClose={() => setShowFullScriptViewer(false)}
+                  onApplyTags={(updatedSegments) => {
+                    if (onResult) {
+                      onResult({ ...result, segments: updatedSegments });
+                    }
+                  }}
+                />
               )}
 
               {/* Nền theo TỪNG CÂU (chỉ skill video nền Pexels) */}
@@ -5563,7 +4288,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                                     />
                                   ) : (
                                     <p className="timeline-field timeline-field-audio" style={{ color: 'var(--warning)', fontWeight: 600, margin: '4px 0 0 0' }}>
-                                      {cleanNarrationText(seg.dialogueOrNarration, { keepTags: showEmotionTags })}
+                                      {renderNarrationWithHighlights(seg.dialogueOrNarration, showEmotionTags)}
                                     </p>
                                   )}
                                 </div>

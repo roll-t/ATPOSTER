@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getMongoClientDb } from '@/src/infrastructure/persistence/index.js';
 import { resolveProjectDir } from '@/src/infrastructure/rendering/remotion/paths.js';
-import { parseApiKeys } from '@/src/infrastructure/ai/gemini/apiKeys.js';
+import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { translateSubtitleLines } from '@/src/infrastructure/composition/video-studio.js';
 
 const SAFE_FOLDER_NAME = /^[A-Za-z0-9_-]+$/;
@@ -24,7 +24,7 @@ export async function POST(request) {
 
     const db = await getMongoClientDb();
     const settingsRecord = await db.collection('settings').findOne({});
-    const apiKeys = parseApiKeys(geminiApiKey || settingsRecord?.geminiApiKey || '');
+    const apiKeys = resolveApiKeys(geminiApiKey, settingsRecord?.geminiApiKey, process.env.GEMINI_API_KEY);
     if (apiKeys.length === 0) {
       return NextResponse.json({ error: 'Chưa cấu hình Gemini API Key. Vui lòng thiết lập khóa API ở mục cài đặt phía trên.' }, { status: 400 });
     }

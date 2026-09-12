@@ -4,6 +4,7 @@ import {
   regenerateNarrationScript as regenerateNarrationScriptUseCase,
   translateAndExpandInputs as translateAndExpandInputsUseCase,
   translateSubtitleLines as translateSubtitleLinesUseCase,
+  tagElevenLabsScript as tagElevenLabsScriptUseCase,
 } from '../../application/video-studio/use-cases/index.js';
 import { callGeminiApi, callGeminiWithKeyRotation } from '../ai/gemini/callGeminiApi.js';
 
@@ -22,3 +23,6 @@ export const translateAndExpandInputs = (input) =>
 
 export const translateSubtitleLines = (lines, apiKeyOrKeys) =>
   translateSubtitleLinesUseCase(lines, apiKeyOrKeys, callGeminiWithKeyRotation);
+
+export const tagElevenLabsScript = (lines, apiKeyOrKeys) =>
+  tagElevenLabsScriptUseCase(lines, apiKeyOrKeys, callGeminiWithKeyRotation);

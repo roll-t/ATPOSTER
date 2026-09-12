@@ -7,7 +7,7 @@ whole repository or the large UI files unless the task is in that feature.
 
 - Root (`app/`, `src/`, `skills/`): Video studio app — generate scripts/assets, TTS, video rendering, Remotion skills.
 - `desktop`: Electron desktop application shell.
-- `SERVER/VieNeu`: local TTS service only.
+- `packages/VieNue`: local TTS service only.
 - `app_runner`: launch scripts only; it contains no business logic.
 
 ## Change rules
