@@ -28,17 +28,43 @@ function isFlowUrl(url) {
 // không có phản ứng gì. Ở đây ta dò xem có cửa sổ 'normal' (loại có thanh tab) nào đang mở
 // không; nếu có thì mở tab vào đó, còn không thì tạo hẳn 1 cửa sổ 'normal' mới để đảm bảo
 // luôn nhìn thấy được.
-function openInNormalWindow(url) {
+function openInNormalWindow(url, onOpened) {
   chrome.windows.getAll({ populate: false }, (windows) => {
     const normalWindow = (windows || []).find(w => w.type === 'normal');
     if (normalWindow) {
-      chrome.tabs.create({ url, windowId: normalWindow.id }, () => {
+      chrome.tabs.create({ url, windowId: normalWindow.id }, (tab) => {
+        if (tab?.id) chrome.storage.local.set({ flowTargetTabId: tab.id });
         chrome.windows.update(normalWindow.id, { focused: true });
+        if (onOpened) onOpened(tab);
       });
     } else {
-      chrome.windows.create({ url, type: 'normal', focused: true });
+      chrome.windows.create({ url, type: 'normal', focused: true }, (win) => {
+        const tab = win?.tabs?.[0];
+        if (tab?.id) chrome.storage.local.set({ flowTargetTabId: tab.id });
+        if (onOpened) onOpened(tab);
+      });
     }
   });
+}
+
+// chrome.tabs.query() không đảm bảo tab đầu tiên là tab người dùng vừa làm việc. Ưu tiên tab đã
+// ghim cho hàng đợi, sau đó tab active, cuối cùng tab được truy cập gần nhất.
+function selectBestFlowTab(tabs, preferredTabId) {
+  if (!Array.isArray(tabs) || tabs.length === 0) return null;
+  return tabs.find((tab) => tab.id === preferredTabId)
+    || tabs.find((tab) => tab.active)
+    || [...tabs].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}
+
+function normalizeStudioOrigin(value) {
+  try {
+    const url = new URL(value || 'http://localhost:3001');
+    const isLocalHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (url.protocol !== 'http:' || !isLocalHost) return 'http://localhost:3001';
+    return url.origin;
+  } catch (_) {
+    return 'http://localhost:3001';
+  }
 }
 
 // Mở thẳng trang Google Flow (sẽ tự động bấm "Dự án mới" nếu ở trang chủ dashboard)
@@ -105,6 +131,8 @@ async function isDebuggerAttached(tabId) {
 async function ensureAttached(tabId) {
   if (await isDebuggerAttached(tabId)) {
     attachedTab = tabId;
+    try { await sendCmd(tabId, 'Emulation.setFocusEmulationEnabled', { enabled: true }); } catch (_) {}
+    try { await sendCmd(tabId, 'Page.setWebLifecycleState', { state: 'active' }); } catch (_) {}
     return;
   }
 
@@ -137,6 +165,11 @@ async function ensureAttached(tabId) {
     }
   }
   attachedTab = tabId;
+  // Giữ lifecycle của Flow ở trạng thái active khi người dùng chuyển tab. Không cướp focus thật,
+  // nhưng tránh Chrome hạ timer/render pipeline xuống chế độ nền quá chậm.
+  try { await sendCmd(tabId, 'Emulation.setFocusEmulationEnabled', { enabled: true }); } catch (_) {}
+  try { await sendCmd(tabId, 'Page.setWebLifecycleState', { state: 'active' }); } catch (_) {}
+  try { await chrome.tabs.update(tabId, { autoDiscardable: false }); } catch (_) {}
 }
 
 async function detach() {
@@ -203,24 +236,23 @@ async function debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY) {
   await sendCmd(tabId, "Input.insertText", { text: prompt });
   await wait(300);
 
-  // 4) Enter thật
-  await sendCmd(tabId, "Input.dispatchKeyEvent", {
-    type: "rawKeyDown", key: "Enter", code: "Enter",
-    windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-  });
-  await sendCmd(tabId, "Input.dispatchKeyEvent", {
-    type: "keyUp", key: "Enter", code: "Enter",
-    windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-  });
-
-  // 5) Nếu có toạ độ nút Tạo / Mũi tên (submitX, submitY), click thêm nút Tạo để đảm bảo gửi thành công
+  // 4) Chỉ submit ĐÚNG MỘT LẦN. Bản cũ bấm Enter rồi 200ms sau lại click tọa độ nút cũ; lần đầu
+  // Flow đổi layout ngay sau Enter nên cú click thứ hai có thể trúng nhầm ảnh/control khác.
   if (typeof submitX === 'number' && typeof submitY === 'number' && submitX > 0 && submitY > 0) {
-    await wait(200);
     await sendCmd(tabId, "Input.dispatchMouseEvent", {
       type: "mousePressed", x: submitX, y: submitY, button: "left", clickCount: 1,
     });
     await sendCmd(tabId, "Input.dispatchMouseEvent", {
       type: "mouseReleased", x: submitX, y: submitY, button: "left", clickCount: 1,
+    });
+  } else {
+    await sendCmd(tabId, "Input.dispatchKeyEvent", {
+      type: "rawKeyDown", key: "Enter", code: "Enter",
+      windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+    });
+    await sendCmd(tabId, "Input.dispatchKeyEvent", {
+      type: "keyUp", key: "Enter", code: "Enter",
+      windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
     });
   }
 }
@@ -293,9 +325,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const targetUrl = FLOW_DEFAULT_URL;
 
       // Tìm tab Google Flow đang mở
-      chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
+      chrome.storage.local.get(['flowTargetTabId'], ({ flowTargetTabId }) => chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
         if (tabs && tabs.length > 0) {
-          const targetTab = tabs[0];
+          const targetTab = selectBestFlowTab(tabs, flowTargetTabId);
+          chrome.storage.local.set({ flowTargetTabId: targetTab.id });
           // Focus tab Flow đang có
           chrome.tabs.update(targetTab.id, { active: true }, () => {
             chrome.windows.update(targetTab.windowId, { drawAttention: true, focused: true });
@@ -311,7 +344,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.log('[Flow Helper Extension] Đã mở tab mới cho Google Flow.');
           sendResponse({ success: true, status: 'new_tab_opened' });
         }
-      });
+      }));
     });
     return true; // Keep message channel open for async response
   }
@@ -339,13 +372,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     };
 
     const sendToApi = (base64Url) => {
-      const apiHost = origin || 'http://localhost:3000';
+      const apiHost = normalizeStudioOrigin(origin);
       fetch(`${apiHost}/api/prompts/save-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ folderPath, filename, dataUrl: base64Url, category })
       })
-      .then(r => r.json())
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body.error || `Save API HTTP ${r.status}`);
+        return body;
+      })
       .then(res => {
         sendResponse(res);
       })
@@ -360,7 +397,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (srcUrl && srcUrl.startsWith('http')) {
       // Tải ảnh trực tiếp bằng background script để vượt qua CORS
       fetch(srcUrl)
-        .then(res => res.arrayBuffer())
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`Image HTTP ${res.status}`);
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType && !contentType.startsWith('image/')) throw new Error(`Không phải ảnh: ${contentType}`);
+          const buffer = await res.arrayBuffer();
+          if (buffer.byteLength > 30 * 1024 * 1024) throw new Error('Ảnh vượt quá giới hạn 30MB');
+          return buffer;
+        })
         .then(buffer => {
           const bytes = new Uint8Array(buffer);
           const base64 = bufferToBase64(bytes);
@@ -392,7 +436,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icon.png',
-      title: title || 'AutoPoster Google Flow Helper',
+      title: title || 'Nexora Video Google Flow Helper',
       message: msg,
       priority: 2
     });
@@ -417,14 +461,14 @@ chrome.action.onClicked.addListener(async (tab) => {
     }
   }
 
-  chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
-    if (tabs && tabs.length > 0) {
-      const targetTab = tabs[0];
+  chrome.storage.local.get(['flowTargetTabId'], ({ flowTargetTabId }) => chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
+    const targetTab = selectBestFlowTab(tabs, flowTargetTabId);
+    if (targetTab) {
       chrome.tabs.update(targetTab.id, { active: true }, () => {
         chrome.windows.update(targetTab.windowId, { focused: true });
       });
     } else {
       openFlowTab();
     }
-  });
+  }));
 });

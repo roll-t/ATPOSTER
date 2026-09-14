@@ -9,6 +9,25 @@ let isCollapsed = false;
 let currentGenerationBaseline = null; // Ảnh có sẵn trước lần gửi gần nhất (dùng để nhận diện ảnh mới)
 let hasAutoCreatedProject = false;
 
+// Timer của tab nền có thể bị Chrome dồn xuống một nhịp/phút. MutationObserver vẫn thức ngay khi
+// Flow chèn ảnh hoặc gỡ loader, nên dùng DOM làm tín hiệu chính và timer chỉ làm fallback.
+function scheduleFlowCheck(callback, fallbackMs = 3000) {
+  let settled = false;
+  let observer = null;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (observer) observer.disconnect();
+    clearTimeout(timer);
+    callback();
+  };
+  const timer = setTimeout(finish, fallbackMs);
+  if (document.body) {
+    observer = new MutationObserver(finish);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  }
+}
+
 // Kiểm tra xem context của extension còn "sống" không. Khi extension được reload (chrome://extensions)
 // trong lúc tab Flow cũ vẫn còn mở, content script cũ trở thành "zombie" - chrome.runtime.id sẽ là
 // undefined - mọi lệnh gọi chrome.storage/chrome.runtime sau đó sẽ ném lỗi "Extension context invalidated".
@@ -477,7 +496,7 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
         }
         return;
       }
-      setTimeout(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1), 3000);
+      scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
       return;
     }
   } else {
@@ -491,7 +510,7 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
         }
         return;
       }
-      setTimeout(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1), 3000);
+      scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
       return;
     }
   }
@@ -516,7 +535,7 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
       }
       return;
     }
-    setTimeout(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1), 3000);
+    scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
   }
 }
 
@@ -643,22 +662,25 @@ function getProjectFolder() {
 function snapshotImageSrcs(allElements) {
   const srcSet = new Set();
   const elSet = new WeakSet();
+  const srcByElement = new WeakMap();
   for (const el of (allElements || collectAllElements(document.body))) {
     if (el.tagName !== 'IMG') continue;
     const src = el.currentSrc || el.src || '';
-    const w = el.naturalWidth || el.width || 0;
-    const h = el.naturalHeight || el.height || 0;
-    if (src && w > 180 && h > 180) {
+    // Chụp mọi IMG, kể cả placeholder chưa decode/kích thước 0. Nếu chỉ chụp ảnh đã lớn thì ảnh
+    // cũ vừa load chậm sẽ bị nhận nhầm thành kết quả đầu tiên của prompt mới.
+    if (src) {
       srcSet.add(src);
       elSet.add(el);
+      srcByElement.set(el, src);
     }
   }
-  return { srcSet, elSet };
+  return { srcSet, elSet, srcByElement };
 }
 
 function findNewGeneratedImages(baseline, allElements) {
   const srcSet = baseline ? baseline.srcSet : null;
   const elSet = baseline ? baseline.elSet : null;
+  const srcByElement = baseline ? baseline.srcByElement : null;
   const found = [];
   const seenThisPass = new Set();
   for (const el of (allElements || collectAllElements(document.body))) {
@@ -666,13 +688,22 @@ function findNewGeneratedImages(baseline, allElements) {
     const src = el.currentSrc || el.src || '';
     const w = el.naturalWidth || el.width || 0;
     const h = el.naturalHeight || el.height || 0;
+    const rect = el.getBoundingClientRect();
     const srcIsNew = !(srcSet && srcSet.has(src));
     const elIsNew = !(elSet && elSet.has(el));
-    if (src && el.complete && w > 180 && h > 180 && !seenThisPass.has(src) && srcIsNew && elIsNew) {
+    const reusedWithNewSrc = Boolean(srcByElement && srcByElement.get(el) && srcByElement.get(el) !== src);
+    const visiblyLarge = rect.width > 120 && rect.height > 120 && rect.bottom > 0 && rect.right > 0;
+    if (src && el.complete && w > 180 && h > 180 && visiblyLarge && !seenThisPass.has(src) && srcIsNew && (elIsNew || reusedWithNewSrc)) {
       seenThisPass.add(src);
       found.push(el);
     }
   }
+  // Flow đặt kết quả mới nhất ở ô trên-trái; thứ tự DOM có thể khác thứ tự đang hiển thị.
+  found.sort((a, b) => {
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    return (ar.top - br.top) || (ar.left - br.left);
+  });
   return found;
 }
 
@@ -1295,12 +1326,13 @@ async function runAutoLoop(runId) {
     chrome.runtime.sendMessage({
       action: 'SHOW_SYSTEM_NOTIFICATION',
       payload: {
-        title: 'AutoPoster Google Flow',
+        title: 'Nexora Video Google Flow',
         message: `🎉 Đã hoàn tất tự động sinh ảnh cho kịch bản: "${queue ? queue.title : ''}"!`
       }
     }, (response) => {
       const err = chrome.runtime.lastError;
     });
+    chrome.runtime.sendMessage({ action: 'DEBUG_DETACH' }, () => void chrome.runtime.lastError);
   }
 }
 
@@ -1320,6 +1352,7 @@ chrome.storage.onChanged.addListener((changes) => {
         clearTimeout(autoRunTimeout);
         autoRunTimeout = null;
       }
+      chrome.runtime.sendMessage({ action: 'DEBUG_DETACH' }, () => void chrome.runtime.lastError);
     }
   }
   if (changes.flowQueue) {

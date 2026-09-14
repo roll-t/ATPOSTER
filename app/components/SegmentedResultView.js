@@ -37,6 +37,7 @@ import { showToast } from './Toast.js';
 import { detectTimeEra } from '@/src/domain/content/timeEraDetector.js';
 import { orderBgVideosByOrientation } from '@/src/domain/video/pexelsBackgrounds.js';
 import { getSegmentActMeta, isSelfContainedStickFigureSlide } from '@/src/domain/video/segmentPresentation.js';
+import { normalizeVideoRenderConfig } from '@/src/domain/video/renderConfigContract.js';
 
 export { isSelfContainedStickFigureSlide } from '@/src/domain/video/segmentPresentation.js';
 
@@ -281,7 +282,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       fontSize: result.remotionConfig?.fontSize || result.remotionConfig?.captionFontSize || CAPTION_STYLE_DEFAULTS.readingPage.fontSize,
       textColor: result.remotionConfig?.textColor || result.remotionConfig?.captionTextColor || CAPTION_STYLE_DEFAULTS.readingPage.textColor,
       bgColor: result.remotionConfig?.bgColor || result.remotionConfig?.captionBgColor || CAPTION_STYLE_DEFAULTS.readingPage.bgColor,
-      bgTransparent: result.remotionConfig?.isBgTransparent !== undefined ? result.remotionConfig.isBgTransparent : (result.remotionConfig?.bgTransparent !== undefined ? result.remotionConfig.bgTransparent : CAPTION_STYLE_DEFAULTS.readingPage.bgTransparent),
+      bgTransparent: result.remotionConfig?.captionBgTransparent !== undefined ? result.remotionConfig.captionBgTransparent : (result.remotionConfig?.isBgTransparent !== undefined ? result.remotionConfig.isBgTransparent : (result.remotionConfig?.bgTransparent !== undefined ? result.remotionConfig.bgTransparent : CAPTION_STYLE_DEFAULTS.readingPage.bgTransparent)),
       highlightColor: result.remotionConfig?.highlightColor || CAPTION_STYLE_DEFAULTS.readingPage.highlightColor
     }
     : (() => {
@@ -316,7 +317,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         fontSize: rc.fontSize || rc.captionFontSize || savedLocalConfig?.fontSize || savedLocalFontSize || categoryOverride?.fontSize || styleDefault.fontSize,
         textColor: rc.textColor || rc.captionTextColor || savedLocalConfig?.textColor || savedLocalTextColor || styleDefault.textColor,
         bgColor: rc.bgColor || rc.captionBgColor || savedLocalConfig?.bgColor || savedLocalBgColor || styleDefault.bgColor,
-        bgTransparent: rc.isBgTransparent !== undefined ? rc.isBgTransparent : (rc.bgTransparent !== undefined ? rc.bgTransparent : (savedLocalConfig?.isBgTransparent !== undefined ? savedLocalConfig.isBgTransparent : styleDefault.bgTransparent)),
+        bgTransparent: rc.captionBgTransparent !== undefined ? rc.captionBgTransparent : (rc.isBgTransparent !== undefined ? rc.isBgTransparent : (rc.bgTransparent !== undefined ? rc.bgTransparent : (savedLocalConfig?.isBgTransparent !== undefined ? savedLocalConfig.isBgTransparent : styleDefault.bgTransparent))),
         highlightColor: rc.highlightColor || savedLocalConfig?.highlightColor || savedLocalHighlight || categoryOverride?.highlightColor || styleDefault.highlightColor
       };
     })();
@@ -397,7 +398,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   });
   const [renderCaptionTextColor, setRenderCaptionTextColor] = useState(initialDefaults.textColor);
   const [renderCaptionBgColor, setRenderCaptionBgColor] = useState(initialDefaults.bgColor);
-  const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState(() => String(result.remotionConfig?.bgOpacity ?? '100'));
+  const [renderCaptionBgOpacity, setRenderCaptionBgOpacity] = useState(() => String(result.remotionConfig?.captionBgOpacity ?? result.remotionConfig?.bgOpacity ?? '100'));
   const [renderCaptionBgTransparent, setRenderCaptionBgTransparent] = useState(initialDefaults.bgTransparent);
   // Màu pill tô sáng từ đang đọc (chỉ có tác dụng thấy được với kiểu "karaoke"/"page") — trước
   // đây bị hardcode cứng trong Caption.tsx, giờ có thể tuỳ chỉnh qua highlightColor (schema.ts).
@@ -413,14 +414,15 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [customTab, setCustomTab] = useState('style'); // 'style' | 'layout' | 'typography'
 
   // Tuỳ chỉnh LAYOUT kiểu CapCut (chỉ dùng cho reading_practice) — đọc từ remotionConfig nếu đã lưu
-  const [renderHeroHeightPercent, setRenderHeroHeightPercent] = useState(() => String(result.remotionConfig?.heroPercent ?? '25'));
-  const [renderTitleHeightPercent, setRenderTitleHeightPercent] = useState(() => String(result.remotionConfig?.titlePercent ?? '10'));
-  const [renderBodyHeightPercent, setRenderBodyHeightPercent] = useState(() => String(result.remotionConfig?.bodyPercent ?? '40'));
+  const [renderHeroHeightPercent, setRenderHeroHeightPercent] = useState(() => String(result.remotionConfig?.heroHeightPercent ?? result.remotionConfig?.heroPercent ?? '25'));
+  const [renderTitleHeightPercent, setRenderTitleHeightPercent] = useState(() => String(result.remotionConfig?.titleHeightPercent ?? result.remotionConfig?.titlePercent ?? '10'));
+  const [renderBodyHeightPercent, setRenderBodyHeightPercent] = useState(() => String(result.remotionConfig?.bodyHeightPercent ?? result.remotionConfig?.bodyPercent ?? '40'));
   const [renderTitleFontSize, setRenderTitleFontSize] = useState(() => String(result.remotionConfig?.titleFontSize ?? '44'));
   const [renderTitleBodyGap, setRenderTitleBodyGap] = useState(() => String(result.remotionConfig?.titleBodyGap ?? '18'));
-  const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState(() => String(result.remotionConfig?.paddingPercent ?? '10'));
+  const [renderContentPaddingPercent, setRenderContentPaddingPercent] = useState(() => String(result.remotionConfig?.contentPaddingPercent ?? result.remotionConfig?.paddingPercent ?? '10'));
   const [renderBodyAlign, setRenderBodyAlign] = useState(() => result.remotionConfig?.bodyAlign || 'left');
   const [renderImageMode, setRenderImageMode] = useState(() => result.remotionConfig?.imageMode || 'hero');
+  const [selectedElement, setSelectedElement] = useState('caption');
   const [renderImageScale, setRenderImageScale] = useState(() => {
     const savedLocal = typeof window !== 'undefined' ? (localStorage.getItem(`default_image_scale_${result.category}`) || localStorage.getItem('default_image_scale')) : null;
     if (result.remotionConfig?.imageScale !== undefined) return String(Math.round(result.remotionConfig.imageScale * 100));
@@ -815,8 +817,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       : null;
 
     // Font & Typography
-    const activeFont = rc.font
-      || rc.captionFont
+    const activeFont = rc.captionFont
+      || rc.font
       || defaultCfg.font
       || (catKey && s?.[`defaultCaptionFont__${catKey}`])
       || s?.[settingsKey('defaultCaptionFont')]
@@ -824,8 +826,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       || styleDefaults.font;
     if (activeFont) setRenderCaptionFont(activeFont);
 
-    const activeFontSize = rc.fontSize
-      || rc.captionFontSize
+    const activeFontSize = rc.captionFontSize
+      || rc.fontSize
       || defaultCfg.fontSize
       || (catKey && s?.[`defaultCaptionFontSize__${catKey}`])
       || s?.[settingsKey('defaultCaptionFontSize')]
@@ -835,14 +837,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       || styleDefaults.fontSize;
     if (activeFontSize) setRenderCaptionFontSize(String(activeFontSize));
 
-    const activeSecondaryFontSize = rc.secondaryFontSize !== undefined && rc.secondaryFontSize !== null
-      ? String(rc.secondaryFontSize)
+    const activeSecondaryFontSize = rc.captionSecondaryFontSize !== undefined && rc.captionSecondaryFontSize !== null
+      ? String(rc.captionSecondaryFontSize)
+      : rc.secondaryFontSize !== undefined && rc.secondaryFontSize !== null
+        ? String(rc.secondaryFontSize)
       : (defaultCfg.secondaryFontSize !== undefined ? String(defaultCfg.secondaryFontSize) : '');
     setRenderCaptionSecondaryFontSize(activeSecondaryFontSize);
 
     // Colors
-    const activeTextColor = rc.textColor
-      || rc.captionTextColor
+    const activeTextColor = rc.captionTextColor
+      || rc.textColor
       || defaultCfg.textColor
       || (catKey && s?.[`defaultCaptionTextColor__${catKey}`])
       || s?.[settingsKey('defaultCaptionTextColor')]
@@ -850,8 +854,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       || styleDefaults.textColor;
     if (activeTextColor) setRenderCaptionTextColor(activeTextColor);
 
-    const activeBgColor = rc.bgColor
-      || rc.captionBgColor
+    const activeBgColor = rc.captionBgColor
+      || rc.bgColor
       || defaultCfg.bgColor
       || (catKey && s?.[`defaultCaptionBgColor__${catKey}`])
       || s?.[settingsKey('defaultCaptionBgColor')]
@@ -859,13 +863,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       || styleDefaults.bgColor;
     if (activeBgColor) setRenderCaptionBgColor(activeBgColor);
 
-    const activeBgOpacity = rc.bgOpacity !== undefined
-      ? String(rc.bgOpacity)
+    const activeBgOpacity = rc.captionBgOpacity !== undefined
+      ? String(rc.captionBgOpacity)
+      : rc.bgOpacity !== undefined
+        ? String(rc.bgOpacity)
       : (defaultCfg.bgOpacity !== undefined ? String(defaultCfg.bgOpacity) : '100');
     setRenderCaptionBgOpacity(activeBgOpacity);
 
-    const activeBgTransparent = rc.isBgTransparent !== undefined
-      ? rc.isBgTransparent
+    const activeBgTransparent = rc.captionBgTransparent !== undefined
+      ? rc.captionBgTransparent
+      : rc.isBgTransparent !== undefined
+        ? rc.isBgTransparent
       : (rc.bgTransparent !== undefined ? rc.bgTransparent : (defaultCfg.isBgTransparent !== undefined ? defaultCfg.isBgTransparent : styleDefaults.bgTransparent));
     setRenderCaptionBgTransparent(activeBgTransparent);
 
@@ -1007,12 +1015,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderLogoScale(activeLogoScale);
 
     // Reading practice layout
-    setRenderHeroHeightPercent(rc.heroPercent !== undefined ? String(rc.heroPercent) : (defaultCfg.heroPercent !== undefined ? String(defaultCfg.heroPercent) : '25'));
-    setRenderTitleHeightPercent(rc.titlePercent !== undefined ? String(rc.titlePercent) : (defaultCfg.titlePercent !== undefined ? String(defaultCfg.titlePercent) : '10'));
-    setRenderBodyHeightPercent(rc.bodyPercent !== undefined ? String(rc.bodyPercent) : (defaultCfg.bodyPercent !== undefined ? String(defaultCfg.bodyPercent) : '40'));
+    setRenderHeroHeightPercent(rc.heroHeightPercent !== undefined ? String(rc.heroHeightPercent) : (rc.heroPercent !== undefined ? String(rc.heroPercent) : (defaultCfg.heroPercent !== undefined ? String(defaultCfg.heroPercent) : '25')));
+    setRenderTitleHeightPercent(rc.titleHeightPercent !== undefined ? String(rc.titleHeightPercent) : (rc.titlePercent !== undefined ? String(rc.titlePercent) : (defaultCfg.titlePercent !== undefined ? String(defaultCfg.titlePercent) : '10')));
+    setRenderBodyHeightPercent(rc.bodyHeightPercent !== undefined ? String(rc.bodyHeightPercent) : (rc.bodyPercent !== undefined ? String(rc.bodyPercent) : (defaultCfg.bodyPercent !== undefined ? String(defaultCfg.bodyPercent) : '40')));
     setRenderTitleFontSize(rc.titleFontSize !== undefined ? String(rc.titleFontSize) : (defaultCfg.titleFontSize !== undefined ? String(defaultCfg.titleFontSize) : '44'));
     setRenderTitleBodyGap(rc.titleBodyGap !== undefined ? String(rc.titleBodyGap) : (defaultCfg.titleBodyGap !== undefined ? String(defaultCfg.titleBodyGap) : '18'));
-    setRenderContentPaddingPercent(rc.paddingPercent !== undefined ? String(rc.paddingPercent) : (defaultCfg.paddingPercent !== undefined ? String(defaultCfg.paddingPercent) : '10'));
+    setRenderContentPaddingPercent(rc.contentPaddingPercent !== undefined ? String(rc.contentPaddingPercent) : (rc.paddingPercent !== undefined ? String(rc.paddingPercent) : (defaultCfg.paddingPercent !== undefined ? String(defaultCfg.paddingPercent) : '10')));
     setRenderBodyAlign(rc.bodyAlign || defaultCfg.bodyAlign || 'left');
     setRenderImageMode(rc.imageMode || defaultCfg.imageMode || 'hero');
   };
@@ -2228,6 +2236,62 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  // Single conversion boundary for the editor. The live simulator, saved settings and render API
+  // all consume this same canonical snapshot instead of rebuilding similar-but-different objects.
+  const buildCurrentRenderConfig = ({ applySkillOverrides = true } = {}) => normalizeVideoRenderConfig({
+    ...(result.remotionConfig || {}),
+    captionEnabled: applySkillOverrides && forcedCaptionStyle === 'none' ? false : renderCaptionEnabled,
+    captionStyle: applySkillOverrides ? forcedCaptionStyle : (renderCaptionEnabled ? renderCaptionStyle : 'none'),
+    captionTextAlign: renderCaptionTextAlign,
+    captionAnimation: renderCaptionAnimation,
+    captionFont: renderCaptionFont,
+    captionFontSize: renderCaptionFontSize,
+    captionSecondaryFontSize: renderCaptionSecondaryFontSize,
+    captionTextColor: renderCaptionTextColor,
+    captionBgColor: renderCaptionBgTransparent ? 'transparent' : renderCaptionBgColor,
+    captionBgOpacity: renderCaptionBgOpacity,
+    captionBgTransparent: renderCaptionBgTransparent,
+    highlightColor: renderHighlightColor,
+    captionMarginY: renderCaptionMarginY,
+    captionWidth: renderCaptionWidth,
+    captionPosition: result.remotionConfig?.captionPosition,
+    transitionStyle: renderTransitionStyle,
+    kenBurnsMode: applySkillOverrides ? forcedKenBurnsMode : result.remotionConfig?.kenBurnsMode,
+    cornerPatch: applySkillOverrides ? forcedCornerPatch : result.remotionConfig?.cornerPatch,
+    channelLogo: renderChannelLogo,
+    logoTranslateX: renderLogoTranslateX,
+    logoTranslateY: renderLogoTranslateY,
+    logoScale: renderLogoScale,
+    imageScale: Number(renderImageScale) / 100,
+    imageTranslateY: renderImageTranslateY,
+    showOpeningComment: renderShowOpeningComment,
+    openingCommentAuthor: renderOpeningCommentAuthor,
+    openingCommentText: renderOpeningCommentText,
+    openingCommentTranslateY: renderOpeningCommentTranslateY,
+    openingCommentScale: renderOpeningCommentScale,
+    showOpeningNewsBanner: renderShowOpeningNewsBanner,
+    openingNewsHeadline: renderOpeningNewsHeadline,
+    openingNewsBrand: renderOpeningNewsBrand,
+    openingNewsLikes: renderOpeningNewsLikes,
+    openingNewsBannerTranslateY: renderOpeningNewsBannerTranslateY,
+    openingNewsBannerScale: renderOpeningNewsBannerScale,
+    bilingual: renderBilingual,
+    bgMusicEnabled: renderBgMusicEnabled,
+    bgMusicVolume: renderBgMusicVolume,
+    bgMusicTrackId: selectedBgMusicTrackId,
+    heroHeightPercent: renderHeroHeightPercent,
+    titleHeightPercent: renderTitleHeightPercent,
+    bodyHeightPercent: renderBodyHeightPercent,
+    titleFontSize: renderTitleFontSize,
+    titleBodyGap: renderTitleBodyGap,
+    contentPaddingPercent: renderContentPaddingPercent,
+    bodyAlign: renderBodyAlign,
+    imageMode: renderImageMode,
+    level: result.input?.level || result.level,
+  }, { category: result.category, orientation: currentOrientation });
+
+  const currentRenderConfig = buildCurrentRenderConfig();
+
   const handleCancelRender = async () => {
     if (renderAbortControllerRef.current) {
       renderAbortControllerRef.current.abort();
@@ -2285,54 +2349,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
           ...(result.segments ? { segments: result.segments, title: result.title } : {}),
-          captionStyle: forcedCaptionStyle,
-          transitionStyle: renderTransitionStyle,
-          kenBurnsMode: forcedKenBurnsMode,
-          cornerPatch: forcedCornerPatch,
-          channelLogo: renderChannelLogo,
-          logoTranslateX: Number(renderLogoTranslateX),
-          logoTranslateY: Number(renderLogoTranslateY),
-          logoScale: Number(renderLogoScale),
-          showOpeningComment: renderShowOpeningComment,
-          openingCommentAuthor: renderOpeningCommentAuthor,
-          openingCommentText: renderOpeningCommentText,
-          openingCommentTranslateY: Number(renderOpeningCommentTranslateY),
-          openingCommentScale: Number(renderOpeningCommentScale),
-          showOpeningNewsBanner: renderShowOpeningNewsBanner,
-          openingNewsHeadline: renderOpeningNewsHeadline,
-          openingNewsBrand: renderOpeningNewsBrand,
-          openingNewsLikes: renderOpeningNewsLikes,
-          openingNewsBannerTranslateY: Number(renderOpeningNewsBannerTranslateY),
-          openingNewsBannerScale: Number(renderOpeningNewsBannerScale),
-          bilingual: renderBilingual,
-          orientation: orientation,
-          aspectRatio: currentAspectRatio,
-          level: result.input?.level || result.level || undefined,
-          captionFont: renderCaptionFont || undefined,
-          captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
-          captionSecondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
-          captionTextColor: renderCaptionTextColor || undefined,
-          captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
-          captionTextAlign: renderCaptionTextAlign,
-          captionAnimation: renderCaptionAnimation,
-          // highlightColor dùng cho karaoke, hook, và thanh accent/viền của style news
-          highlightColor: (!isReadingPractice && (renderCaptionStyle === 'karaoke' || renderCaptionStyle === 'hook' || renderCaptionStyle === 'news' || renderHighlightColor)) ? (renderHighlightColor || undefined) : undefined,
-          captionBgOpacity: isReadingPractice && renderCaptionBgOpacity ? Number(renderCaptionBgOpacity) : undefined,
-          heroHeightPercent: isReadingPractice && renderHeroHeightPercent ? Number(renderHeroHeightPercent) : undefined,
-          titleHeightPercent: isReadingPractice && renderTitleHeightPercent ? Number(renderTitleHeightPercent) : undefined,
-          bodyHeightPercent: isReadingPractice && renderBodyHeightPercent ? Number(renderBodyHeightPercent) : undefined,
-          titleFontSize: isReadingPractice && renderTitleFontSize ? Number(renderTitleFontSize) : undefined,
-          titleBodyGap: isReadingPractice && renderTitleBodyGap ? Number(renderTitleBodyGap) : undefined,
-          contentPaddingPercent: isReadingPractice && renderContentPaddingPercent ? Number(renderContentPaddingPercent) : undefined,
-          bodyAlign: isReadingPractice ? renderBodyAlign : undefined,
-          imageMode: isReadingPractice ? renderImageMode : undefined,
-          bgMusicEnabled: renderBgMusicEnabled,
-          bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) / 100 : undefined,
-          imageScale: Number(renderImageScale) / 100,
-          imageTranslateY: Number(renderImageTranslateY),
-          captionMarginY: Number(renderCaptionMarginY),
-          captionWidth: Number(renderCaptionWidth),
-          captionPosition: result.remotionConfig?.captionPosition || (['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(result.category) ? 'top' : (renderCaptionStyle === 'page' ? 'center' : 'bottom'))
+          renderConfig: currentRenderConfig,
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -2657,52 +2674,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         }
       }
 
-      const configObj = {
-        captionEnabled: renderCaptionEnabled,
-        captionTextAlign: renderCaptionTextAlign,
-        captionAnimation: renderCaptionAnimation,
-        captionStyle: renderCaptionEnabled ? renderCaptionStyle : 'none',
-        font: renderCaptionFont,
-        fontSize: renderCaptionFontSize,
-        secondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
-        textColor: renderCaptionTextColor,
-        bgColor: renderCaptionBgColor,
-        bgOpacity: renderCaptionBgOpacity,
-        isBgTransparent: renderCaptionBgTransparent,
-        highlightColor: renderHighlightColor,
-        heroPercent: renderHeroHeightPercent,
-        titlePercent: renderTitleHeightPercent,
-        bodyPercent: renderBodyHeightPercent,
-        titleFontSize: renderTitleFontSize,
-        titleBodyGap: renderTitleBodyGap,
-        paddingPercent: renderContentPaddingPercent,
-        bodyAlign: renderBodyAlign,
-        imageMode: renderImageMode,
-        bilingual: renderBilingual,
-        channelLogo: renderChannelLogo,
-        logoTranslateX: Number(renderLogoTranslateX),
-        logoTranslateY: Number(renderLogoTranslateY),
-        logoScale: Number(renderLogoScale),
-        bgMusicEnabled: renderBgMusicEnabled,
-        bgMusicVolume: renderBgMusicVolume,
-        bgMusicTrackId: selectedBgMusicTrackId,
-        imageScale: Number(renderImageScale) / 100,
-        imageTranslateY: Number(renderImageTranslateY),
-        captionMarginY: Number(renderCaptionMarginY),
-        captionWidth: Number(renderCaptionWidth),
-        showOpeningComment: renderShowOpeningComment,
-        openingCommentAuthor: renderOpeningCommentAuthor,
-        openingCommentText: renderOpeningCommentText,
-        openingCommentTranslateY: Number(renderOpeningCommentTranslateY),
-        openingCommentScale: Number(renderOpeningCommentScale),
-        showOpeningNewsBanner: renderShowOpeningNewsBanner,
-        openingNewsHeadline: renderOpeningNewsHeadline,
-        openingNewsBrand: renderOpeningNewsBrand,
-        openingNewsLikes: renderOpeningNewsLikes,
-        openingNewsBannerTranslateY: Number(renderOpeningNewsBannerTranslateY),
-        openingNewsBannerScale: Number(renderOpeningNewsBannerScale),
-        transitionStyle: renderTransitionStyle
-      };
+      const configObj = buildCurrentRenderConfig({ applySkillOverrides: false });
 
       const mergedRemotionConfig = {
         ...(result.remotionConfig || {}),
@@ -4621,53 +4593,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             <VideoResultPanel
               result={{
                 ...result,
-                remotionConfig: {
-                  ...(result.remotionConfig || {}),
-                  captionEnabled: renderCaptionEnabled,
-                  captionTextAlign: renderCaptionTextAlign,
-                  captionAnimation: renderCaptionAnimation,
-                  captionStyle: renderCaptionEnabled ? renderCaptionStyle : 'none',
-                  font: renderCaptionFont,
-                  captionFont: renderCaptionFont,
-                  fontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
-                  captionFontSize: renderCaptionFontSize ? Number(renderCaptionFontSize) : undefined,
-                  highlightColor: renderHighlightColor,
-                  textColor: renderCaptionTextColor,
-                  captionTextColor: renderCaptionTextColor,
-                  captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
-                  isBgTransparent: renderCaptionBgTransparent,
-                  captionBgTransparent: renderCaptionBgTransparent,
-                  captionMarginY: renderCaptionMarginY !== undefined && renderCaptionMarginY !== null ? Number(renderCaptionMarginY) : 0,
-                  captionWidth: renderCaptionWidth !== undefined && renderCaptionWidth !== null ? Number(renderCaptionWidth) : 92,
-                  captionPosition: result.remotionConfig?.captionPosition || (
-                    ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(result?.category)
-                      ? 'top'
-                      : (renderCaptionStyle === 'page' ? 'center' : 'bottom')
-                  ),
-                  transitionStyle: renderTransitionStyle,
-                  channelLogo: renderChannelLogo,
-                  logoTranslateX: renderLogoTranslateX !== undefined && renderLogoTranslateX !== null ? Number(renderLogoTranslateX) : 0,
-                  logoTranslateY: renderLogoTranslateY !== undefined && renderLogoTranslateY !== null ? Number(renderLogoTranslateY) : 0,
-                  logoScale: renderLogoScale ? Number(renderLogoScale) : 1,
-                  showOpeningComment: renderShowOpeningComment,
-                  openingCommentAuthor: renderOpeningCommentAuthor,
-                  openingCommentText: renderOpeningCommentText,
-                  openingCommentTranslateY: renderOpeningCommentTranslateY !== undefined && renderOpeningCommentTranslateY !== null ? Number(renderOpeningCommentTranslateY) : 0,
-                  openingCommentScale: renderOpeningCommentScale ? Number(renderOpeningCommentScale) : 1,
-                  showOpeningNewsBanner: renderShowOpeningNewsBanner,
-                  openingNewsHeadline: renderOpeningNewsHeadline,
-                  openingNewsBrand: renderOpeningNewsBrand,
-                  openingNewsLikes: renderOpeningNewsLikes,
-                  openingNewsBannerTranslateY: renderOpeningNewsBannerTranslateY !== undefined && renderOpeningNewsBannerTranslateY !== null ? Number(renderOpeningNewsBannerTranslateY) : 0,
-                  openingNewsBannerScale: renderOpeningNewsBannerScale ? Number(renderOpeningNewsBannerScale) : 1,
-                  orientation: currentOrientation,
-                  width: isLandscape ? 1920 : 1080,
-                  height: isLandscape ? 1080 : 1920,
-                  bgMusicEnabled: renderBgMusicEnabled,
-                  bgMusicVolume: renderBgMusicVolume ? Number(renderBgMusicVolume) : 35,
-                  imageScale: renderImageScale ? Number(renderImageScale) / 100 : 1,
-                  imageTranslateY: renderImageTranslateY !== undefined && renderImageTranslateY !== null ? Number(renderImageTranslateY) : 0
-                },
+                remotionConfig: currentRenderConfig,
                 input: {
                   ...(result.input || {}),
                   aspectRatio: currentAspectRatio,
@@ -4676,6 +4602,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               }}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={setActiveSceneIndex}
+              selectedElement={selectedElement}
+              onSelectedElementChange={setSelectedElement}
               allHaveElements={allHaveElements}
               assetCounts={assetCounts}
               videoVersion={videoVersion}
@@ -4727,6 +4655,40 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               result={result}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={setActiveSceneIndex}
+              selectedElement={selectedElement}
+              onSelectedElementChange={setSelectedElement}
+              renderImageScale={renderImageScale}
+              setRenderImageScale={setRenderImageScale}
+              renderImageTranslateY={renderImageTranslateY}
+              setRenderImageTranslateY={setRenderImageTranslateY}
+              renderLogoTranslateX={renderLogoTranslateX}
+              setRenderLogoTranslateX={setRenderLogoTranslateX}
+              renderLogoTranslateY={renderLogoTranslateY}
+              setRenderLogoTranslateY={setRenderLogoTranslateY}
+              renderLogoScale={renderLogoScale}
+              setRenderLogoScale={setRenderLogoScale}
+              renderOpeningCommentTranslateY={renderOpeningCommentTranslateY}
+              setRenderOpeningCommentTranslateY={setRenderOpeningCommentTranslateY}
+              renderOpeningCommentScale={renderOpeningCommentScale}
+              setRenderOpeningCommentScale={setRenderOpeningCommentScale}
+              renderOpeningNewsBannerTranslateY={renderOpeningNewsBannerTranslateY}
+              setRenderOpeningNewsBannerTranslateY={setRenderOpeningNewsBannerTranslateY}
+              renderOpeningNewsBannerScale={renderOpeningNewsBannerScale}
+              setRenderOpeningNewsBannerScale={setRenderOpeningNewsBannerScale}
+              onUpdateRenderConfig={(updates) => {
+                if (updates?.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
+                if (updates?.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
+                if (updates?.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
+                if (updates?.imageScale !== undefined) setRenderImageScale(String(Math.round(updates.imageScale * 100)));
+                if (updates?.imageTranslateY !== undefined) setRenderImageTranslateY(String(Math.round(updates.imageTranslateY)));
+                if (updates?.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
+                if (updates?.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
+                if (updates?.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
+                if (updates?.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(Math.round(updates.openingCommentTranslateY)));
+                if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
+                if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
+                if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
+              }}
               assetCounts={assetCounts}
               renderCaptionEnabled={renderCaptionEnabled}
               setRenderCaptionEnabled={(val) => {

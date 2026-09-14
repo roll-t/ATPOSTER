@@ -10,10 +10,27 @@ function isFlowTabUrl(url) {
   return !!url && (url.includes('flow.google.com') || url.includes('labs.google/fx'));
 }
 
+function selectBestFlowTab(tabs, preferredTabId) {
+  if (!Array.isArray(tabs) || tabs.length === 0) return null;
+  return tabs.find((tab) => tab.id === preferredTabId)
+    || tabs.find((tab) => tab.active)
+    || [...tabs].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}
+
+function withPreferredFlowTab(callback) {
+  chrome.storage.local.get(['flowTargetTabId'], ({ flowTargetTabId }) => {
+    chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
+      const targetTab = selectBestFlowTab(tabs, flowTargetTabId);
+      if (targetTab?.id) chrome.storage.local.set({ flowTargetTabId: targetTab.id });
+      callback(targetTab);
+    });
+  });
+}
+
 const i18n = {
   vi: {
     headerTitle: 'Bảng điều khiển Google Flow',
-    emptyState: `Chưa nhận được kịch bản nào từ App AutoPoster.<br/><br/>Vui lòng tạo kịch bản và nhấn "Đẩy sang Google Flow".`,
+    emptyState: `Chưa nhận được kịch bản nào từ Nexora Video.<br/><br/>Vui lòng tạo kịch bản và nhấn "Đẩy sang Google Flow".`,
     currentScript: 'Kịch bản hiện tại',
     enableAutoRun: 'Kích hoạt Tự động chạy (Auto Run)',
     btnRunAll: '🚀 Run tất cả kịch bản',
@@ -39,7 +56,7 @@ const i18n = {
   },
   en: {
     headerTitle: 'Google Flow Panel',
-    emptyState: `No scripts received from AutoPoster App.<br/><br/>Please generate a prompt and click "Push to Google Flow".`,
+    emptyState: `No scripts received from Nexora Video.<br/><br/>Please generate a prompt and click "Push to Google Flow".`,
     currentScript: 'Current Script',
     enableAutoRun: 'Enable Auto Run',
     btnRunAll: '🚀 Run All Slides',
@@ -69,9 +86,8 @@ const i18n = {
 const btnOpenFlow = document.getElementById('btn-open-flow');
 if (btnOpenFlow) {
   btnOpenFlow.onclick = () => {
-    chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (tabs) => {
-      if (tabs && tabs.length > 0) {
-        const targetTab = tabs[0];
+    withPreferredFlowTab((targetTab) => {
+      if (targetTab) {
         chrome.tabs.update(targetTab.id, { active: true }, () => {
           chrome.windows.update(targetTab.windowId, { focused: true });
         });
@@ -230,10 +246,8 @@ function render() {
         if (targetTab) {
           chrome.tabs.sendMessage(targetTab.id, { action: 'RELOAD_QUEUE' });
         } else {
-          chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (flowTabs) => {
-            if (flowTabs && flowTabs.length > 0) {
-              chrome.tabs.sendMessage(flowTabs[0].id, { action: 'RELOAD_QUEUE' });
-            }
+          withPreferredFlowTab((flowTab) => {
+            if (flowTab) chrome.tabs.sendMessage(flowTab.id, { action: 'RELOAD_QUEUE' });
           });
         }
       });
@@ -291,9 +305,8 @@ function render() {
           });
         } else {
           // Tìm bất kỳ tab Google Flow nào đang mở
-          chrome.tabs.query({ url: FLOW_TABS_PATTERNS }, (flowTabs) => {
-            if (flowTabs && flowTabs.length > 0) {
-              const activeTab = flowTabs[0];
+          withPreferredFlowTab((activeTab) => {
+            if (activeTab) {
               chrome.tabs.update(activeTab.id, { active: true }, () => {
                 chrome.windows.update(activeTab.windowId, { focused: true }, () => {
                   chrome.tabs.sendMessage(activeTab.id, { action: 'RUN_SINGLE_SEGMENT', index: idx }, (response) => {

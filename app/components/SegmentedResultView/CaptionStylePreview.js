@@ -240,7 +240,7 @@ export default function CaptionStylePreview({
         }}
       >
         <img
-          src="/images/watermark/the-mind-logo.png"
+          src="/images/watermark/nexora-video-logo.png"
           alt="Watermark"
           style={{
             width: isFullLiveScreen ? (isLandscape ? 130 : 96) : (isLandscape ? 50 : 38),

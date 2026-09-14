@@ -138,7 +138,7 @@ export const slideshowVideoSchema = z.object({
   // tắt được. Mặc định true để mọi cấu hình cũ render ra y hệt như trước.
   imageCornerPatch: z.boolean().default(true),
 
-  // Logo kênh mờ ở đáy MỌI slide (public/logo/the-mind-logo.png). Trước đây gắn cứng trong
+  // Logo kênh mờ ở đáy MỌI slide (public/logo/nexora-video-logo.png). Trước đây gắn cứng trong
   // Scene.tsx, không có đường nào tắt — mà cùng một skill Remotion này còn render dòng video Phật
   // giáo, nơi người dùng có thể không muốn gắn thương hiệu lên tranh.
   // Mặc định true để mọi video cũ giữ nguyên logo như trước.

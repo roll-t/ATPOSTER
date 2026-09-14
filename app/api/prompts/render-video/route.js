@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { getRemotionDir, getRemotionPublicDir, resolveProjectDir, getEffectiveFolderPath } from '@/src/infrastructure/rendering/remotion/paths.js';
 import { getSkill } from '@/src/application/video-studio/skills/index.js';
+import { normalizeVideoRenderConfig, videoRenderConfigToCliArgs } from '@/src/domain/video/renderConfigContract.js';
 
 // Tên thư mục project chỉ được chứa chữ/số/gạch dưới/gạch ngang — khớp với cách
 // generateDefaultFolderName() ở usePromptStudio.js sinh tên tự động, đồng thời chặn
@@ -47,6 +48,7 @@ export async function POST(req) {
       logoTranslateX, logoTranslateY, logoScale,
       showOpeningComment, openingCommentAuthor, openingCommentText, openingCommentTranslateY, openingCommentScale,
       showOpeningNewsBanner, openingNewsHeadline, openingNewsBrand, openingNewsLikes, openingNewsBannerTranslateY, openingNewsBannerScale,
+      renderConfig: requestedRenderConfig,
       // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
       segments: segmentsForManifest, title: titleForManifest
     } = await req.json();
@@ -58,6 +60,12 @@ export async function POST(req) {
     if (!SAFE_FOLDER_NAME.test(projectFolder)) {
       return NextResponse.json({ error: 'Tên thư mục không hợp lệ. Chỉ được dùng chữ, số, "_" và "-".' }, { status: 400 });
     }
+
+    // New clients send one canonical snapshot used by both the simulator and this render. Keep
+    // accepting individual fields below for older desktop builds during the migration window.
+    const canonicalRenderConfig = requestedRenderConfig && typeof requestedRenderConfig === 'object'
+      ? normalizeVideoRenderConfig(requestedRenderConfig, { category, orientation })
+      : null;
 
     // Thư mục chứa code remotion — mỗi category có thể render bởi 1 skill Remotion riêng
     // (xem lib/remotionPaths.js), nên phải resolve đúng skill theo category thay vì luôn
@@ -211,6 +219,21 @@ export async function POST(req) {
       }
     }
 
+
+    // Persist the exact visual snapshot next to the assets. This makes every render reproducible
+    // and prevents a database/local-state race from changing the MP4 after the user pressed Render.
+    if (canonicalRenderConfig && fs.existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        manifest.remotionConfig = canonicalRenderConfig;
+        manifest.orientation = canonicalRenderConfig.orientation;
+        manifest.updatedAt = Date.now();
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+      } catch (err) {
+        return NextResponse.json({ error: `Không thể lưu snapshot render: ${err.message}` }, { status: 500 });
+      }
+    }
+
     // Chỉ chuyển tiếp các option hợp lệ (nằm trong danh sách cho phép) thành cờ dòng lệnh
     // cho render-project.mjs — bỏ qua giá trị lạ thay vì để lọt vào tham số tiến trình con.
     const extraArgs = [];
@@ -290,6 +313,11 @@ export async function POST(req) {
     }
     if (captionMode === 'full' || captionMode === 'chunked') {
       extraArgs.push(`--captionMode=${captionMode}`);
+    }
+
+    if (canonicalRenderConfig) {
+      extraArgs.length = 0;
+      extraArgs.push(...videoRenderConfigToCliArgs(canonicalRenderConfig));
     }
 
     console.log(`[API RenderVideo] Bắt đầu render cho dự án: ${relativeFolder} (${extraArgs.join(' ') || 'mặc định'})`);

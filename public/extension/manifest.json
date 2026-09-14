@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AutoPoster Google Flow Helper",
-  "version": "1.2.1",
-  "description": "Hỗ trợ tự động hóa sinh ảnh/video trên Google Labs Flow từ ứng dụng AutoPoster: tự điền prompt & bấm Tạo cho từng phân đoạn.",
+  "name": "Nexora Video Google Flow Helper",
+  "version": "1.3.0",
+  "description": "Tự động sinh ảnh/video trên Google Flow từ Nexora Video Studio.",
   "permissions": [
     "activeTab",
     "storage",
@@ -14,7 +14,11 @@
     "notifications"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://flow.google.com/*",
+    "https://labs.google/fx/*",
+    "https://*.googleusercontent.com/*"
   ],
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -32,7 +36,8 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "http://localhost/*",
+        "http://127.0.0.1/*"
       ],
       "js": ["content-bridge.js"]
     },

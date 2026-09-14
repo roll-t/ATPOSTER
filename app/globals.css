@@ -1,23 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Inter:wght@400;500;600;700;800;900&family=Itim&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Oswald:wght@400;500;600;700&family=Paytone+One&family=Roboto:ital,wght@0,400;0,500;0,700;0,900;1,400;1,700&display=swap');
 
 :root {
-  --background: #090810;
-  --foreground: #f4f4f7;
-  --card-bg: rgba(22, 20, 38, 0.7);
-  --card-border: rgba(168, 85, 247, 0.15);
-  --card-hover-border: rgba(168, 85, 247, 0.4);
+  /* Nexora Video brand system */
+  --background: #0B0F1A;
+  --foreground: #F8FAFF;
+  --card-bg: rgba(15, 22, 42, 0.76);
+  --card-border: rgba(168, 85, 255, 0.18);
+  --card-hover-border: rgba(0, 209, 255, 0.42);
 
-  --primary: #FE2C55;
-  /* TikTok Rose-Red */
-  --primary-hover: #e02447;
-  --secondary: #25F4EE;
-  /* TikTok Cyan */
-  --secondary-hover: #1ed1cb;
-  --accent: #7A12FF;
-  /* Deep Violet */
+  --primary: #00D1FF;
+  --primary-hover: #00B9E6;
+  --secondary: #A855FF;
+  --secondary-hover: #9146E6;
+  --accent: #FF4FD8;
 
-  --text-main: #f4f4f7;
-  --text-muted: #8e8d9f;
+  --text-main: #F8FAFF;
+  --text-muted: #94A3B8;
   --text-dark: #121118;
 
   --success: #00f2fe;
@@ -869,3 +867,283 @@ input:checked + .switch-slider:before {
     transform: rotate(360deg);
   }
 }
+
+/* ========================================================
+   CAPCUT DESKTOP INSPECTOR THEME (ATPOSTER Studio)
+   ======================================================== */
+.capcut-panel {
+  background: #181818 !important;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.capcut-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: #333333;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  margin: 4px 0;
+}
+
+.capcut-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: transform 0.1s ease;
+}
+
+.capcut-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+.capcut-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.capcut-input {
+  background: #202020;
+  border: 1px solid #303030;
+  border-radius: 4px;
+  color: #ffffff;
+  outline: none;
+  font-size: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.capcut-input:focus {
+  border-color: #00e5ff !important;
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.2);
+}
+
+.capcut-btn-primary {
+  background: #00e5ff;
+  color: #000000;
+  border: none;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.capcut-btn-primary:hover {
+  background: #33ecff;
+}
+
+.capcut-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.capcut-btn-secondary {
+  background: #242424;
+  border: 1px solid #343434;
+  border-radius: 4px;
+  color: #d0d0d0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.capcut-btn-secondary:hover {
+  background: #2f2f2f;
+  color: #ffffff;
+  border-color: #484848;
+}
+
+.capcut-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* CapCut Control Row & Numeric Stepper Components */
+.capcut-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.capcut-label {
+  font-size: 12px;
+  color: #9a9a9a;
+  font-weight: 500;
+  min-width: 75px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.capcut-stepper-box {
+  display: inline-flex;
+  align-items: center;
+  background: #222222;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  height: 24px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  min-width: 58px;
+  max-width: 68px;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+
+.capcut-stepper-box:focus-within {
+  border-color: #00e5ff;
+}
+
+.capcut-stepper-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  text-align: right;
+  padding: 0 2px;
+}
+
+.capcut-stepper-arrows {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  margin-left: 2px;
+}
+
+.capcut-stepper-btn {
+  background: none;
+  border: none;
+  color: #777777;
+  font-size: 7px;
+  line-height: 7px;
+  padding: 1px 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s ease;
+}
+
+.capcut-stepper-btn:hover {
+  color: #00e5ff;
+}
+
+.capcut-keyframe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: #666666;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.capcut-keyframe-btn:hover {
+  color: #00e5ff;
+}
+
+.capcut-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: #777777;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.capcut-reset-btn:hover {
+  color: #ffffff;
+}
+
+.capcut-align-toolbar {
+  display: inline-flex;
+  align-items: center;
+  background: #202020;
+  border: 1px solid #303030;
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.capcut-align-btn {
+  width: 26px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #888888;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.capcut-align-btn:hover {
+  background: #2c2c2c;
+  color: #ffffff;
+}
+
+.capcut-align-btn.active {
+  background: #363636;
+  color: #00e5ff;
+}
+
+.capcut-preset-chip {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 3px;
+  border: 1px solid #333333;
+  background: #1c1c1c;
+  color: #888888;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.capcut-preset-chip:hover {
+  color: #ffffff;
+  border-color: #444444;
+}
+
+.capcut-preset-chip.active {
+  background: #2d2d2d;
+  color: #00e5ff;
+  border-color: #00e5ff;
+  font-weight: 600;
+}
+
+

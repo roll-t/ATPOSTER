@@ -79,12 +79,12 @@ function findStandaloneServer() {
 async function ensureServerRunning() {
   const isAlreadyRunning = await checkServerReady();
   if (isAlreadyRunning) {
-    console.log(`[ATPOSTER Desktop] Server da chay san tren port ${PORT}`);
+    console.log(`[Nexora Video Desktop] Server da chay san tren port ${PORT}`);
     return;
   }
 
   const standaloneServer = findStandaloneServer();
-  console.log(`[ATPOSTER Desktop] Dang khoi dong Video Studio Server...`);
+  console.log(`[Nexora Video Desktop] Dang khoi dong Video Studio Server...`);
 
   try {
     if (standaloneServer) {
@@ -95,12 +95,12 @@ async function ensureServerRunning() {
         try {
           fs.cpSync(srcStatic, destStatic, { recursive: true });
         } catch (e) {
-          console.error('[ATPOSTER Desktop] Khong the copy static files:', e);
+          console.error('[Nexora Video Desktop] Khong the copy static files:', e);
         }
       }
 
       // Dùng trực tiếp Node runtime tích hợp sẵn của Electron
-      console.log(`[ATPOSTER Desktop] Khoi chay Standalone Server: ${standaloneServer}`);
+      console.log(`[Nexora Video Desktop] Khoi chay Standalone Server: ${standaloneServer}`);
       serverProcess = spawn(process.execPath, [standaloneServer], {
         cwd: path.dirname(standaloneServer),
         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PORT: String(PORT) },
@@ -108,7 +108,7 @@ async function ensureServerRunning() {
       });
     } else if (fs.existsSync(ROOT_DIR)) {
       // Fallback sang npm run dev
-      console.log(`[ATPOSTER Desktop] Khoi chay qua npm run dev tai ${ROOT_DIR}...`);
+      console.log(`[Nexora Video Desktop] Khoi chay qua npm run dev tai ${ROOT_DIR}...`);
       const isWindows = process.platform === 'win32';
       const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
@@ -119,10 +119,10 @@ async function ensureServerRunning() {
         stdio: 'pipe'
       });
     } else {
-      console.error('[ATPOSTER Desktop] Khong tim thay thu muc ROOT_DIR:', ROOT_DIR);
+      console.error('[Nexora Video Desktop] Khong tim thay thu muc ROOT_DIR:', ROOT_DIR);
     }
   } catch (err) {
-    console.error('[ATPOSTER Desktop] Loi khi khoi dong server process:', err);
+    console.error('[Nexora Video Desktop] Loi khi khoi dong server process:', err);
   }
 
   if (serverProcess) {
@@ -156,7 +156,7 @@ async function ensureServerRunning() {
 function createApplicationMenu() {
   const template = [
     {
-      label: 'ATPOSTER',
+      label: 'Nexora Video',
       submenu: [
         {
           label: 'Tai lai trang (Reload)',
@@ -231,8 +231,8 @@ function createWindow() {
     height: 920,
     minWidth: 1080,
     minHeight: 720,
-    backgroundColor: '#090810',
-    title: 'ATPOSTER Video Studio',
+    backgroundColor: '#0B0F1A',
+    title: 'Nexora Video Studio',
     icon: ICON_PATH,
     autoHideMenuBar: true,
     show: false,
@@ -241,8 +241,8 @@ function createWindow() {
       ? { trafficLightPosition: { x: 14, y: 16 } }
       : {
           titleBarOverlay: {
-            color: '#090810',
-            symbolColor: '#f4f4f7',
+            color: '#0B0F1A',
+            symbolColor: '#F8FAFF',
             height: 36
           }
         }),
@@ -289,7 +289,7 @@ function createWindow() {
     if (ready && !hasLoaded) {
       hasLoaded = true;
       clearInterval(pollInterval);
-      console.log('[ATPOSTER Desktop] Server da san sang! Dang load giao dien...');
+      console.log('[Nexora Video Desktop] Server da san sang! Dang load giao dien...');
       mainWindow.loadURL(SERVER_URL);
     } else if (Date.now() - startTime > maxWaitMs) {
       clearInterval(pollInterval);

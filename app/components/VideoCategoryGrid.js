@@ -664,7 +664,7 @@ export default function VideoCategoryGrid({ onSelectCategory, onOpenVideos }) {
             fontSize: '1.65rem',
             fontWeight: 900,
             color: '#fff',
-            margin: '0 0 6px 0',
+            margin: 0,
             letterSpacing: '-0.4px',
             display: 'flex',
             alignItems: 'center',
@@ -672,9 +672,6 @@ export default function VideoCategoryGrid({ onSelectCategory, onOpenVideos }) {
           }}>
             🎬 Danh Mục Các Chủ Đề Video
           </h1>
-          <p style={{ color: 'rgba(255, 255, 255, 0.7)', margin: 0, fontSize: '0.84rem', lineHeight: 1.45 }}>
-            Chọn bộ Skill chuyên biệt dưới đây để tự động tạo kịch bản phân đoạn Gemini AI & xuất video Remotion MP4 chất lượng cao.
-          </p>
         </div>
 
         {/* Nút "Video Đã Tạo" nằm bên phải chỗ người dùng đánh dấu */}

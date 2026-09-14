@@ -395,7 +395,7 @@ export const Scene: React.FC<{
         }}
       >
         <Img
-          src={staticFile("logo/the-mind-logo.png")}
+          src={staticFile("logo/nexora-video-logo.png")}
           style={{
             width: 220,
             height: "auto",

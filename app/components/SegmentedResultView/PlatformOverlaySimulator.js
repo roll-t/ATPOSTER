@@ -263,7 +263,7 @@ export function PlatformMockupOverlay({
   showSafeZoneGrid = false,
   overlayOpacity = 0.85,
   title = '',
-  channelName = 'ATPOSTER'
+  channelName = 'Nexora Video'
 }) {
   if (platform === 'none' && !showSafeZoneGrid) return null;
 

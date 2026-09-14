@@ -108,7 +108,18 @@ function PromptsStudioContent() {
       {/* Sidebar dành riêng cho Prompt AI Studio (ẩn khi đang ở trong không gian làm việc của skill) */}
       {!isSkillWorkspace && (
         <aside className="sidebar-nav">
-          <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            className="sidebar-header"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+            onClick={handleBackToGrid}
+          >
             <img
               src="/icons/logo-mark.png"
               alt="Nexora Video Logo"
@@ -116,31 +127,46 @@ function PromptsStudioContent() {
                 width: '68px',
                 height: 'auto',
                 objectFit: 'contain',
-                filter: 'drop-shadow(0 3px 12px rgba(0, 189, 255, 0.45))',
-                marginBottom: '2px'
+                filter: 'drop-shadow(0 4px 14px rgba(0, 209, 255, 0.45))'
               }}
             />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-                <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1.1 }}>
-                  Nexora
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.74rem',
-                    fontWeight: 800,
-                    letterSpacing: '1px',
-                    background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 30%, #f093fb 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    lineHeight: 1.1
-                  }}
-                >
-                  VIDEO
-                </span>
-              </div>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>v1.0.0 Alpha</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+              <span
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 900,
+                  color: '#ffffff',
+                  letterSpacing: '-0.3px',
+                  lineHeight: 1.1
+                }}
+              >
+                Nexora
+              </span>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 900,
+                  letterSpacing: '1.2px',
+                  background: 'linear-gradient(135deg, #00D1FF 0%, #A855FF 52%, #FF4FD8 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  lineHeight: 1.1
+                }}
+              >
+                VIDEO
+              </span>
             </div>
+            <span
+              style={{
+                fontSize: '0.66rem',
+                color: 'var(--text-muted)',
+                fontWeight: 600,
+                letterSpacing: '0.5px',
+                marginTop: '3px'
+              }}
+            >
+              v1.0.0 Alpha
+            </span>
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginTop: '32px' }}>

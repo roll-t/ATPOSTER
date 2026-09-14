@@ -20,6 +20,8 @@ export default function VideoResultPanel({
   handleCancelRender,
   activeSceneIndex,
   onSceneIndexChange,
+  selectedElement,
+  onSelectedElementChange,
   onResult,
   resyncVoiceForSegments,
   checkAssets,
@@ -208,6 +210,8 @@ export default function VideoResultPanel({
               folderPath={folderPath}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={onSceneIndexChange}
+              selectedElement={selectedElement}
+              onSelectedElementChange={onSelectedElementChange}
               onResult={onResult}
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
@@ -369,6 +373,8 @@ export default function VideoResultPanel({
               folderPath={folderPath}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={onSceneIndexChange}
+              selectedElement={selectedElement}
+              onSelectedElementChange={onSelectedElementChange}
               onResult={onResult}
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}

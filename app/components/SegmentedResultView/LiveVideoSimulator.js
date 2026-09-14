@@ -98,6 +98,8 @@ export default function LiveVideoSimulator({
   folderPath = 'example',
   activeSceneIndex,
   onSceneIndexChange,
+  selectedElement: controlledSelectedElement,
+  onSelectedElementChange,
   onResult,
   resyncVoiceForSegments,
   checkAssets,
@@ -124,10 +126,10 @@ export default function LiveVideoSimulator({
 
   const textColor = rc.textColor || rc.captionTextColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
-  const bgColor = rc.bgColor || rc.captionBgColor || '#000000';
+  const bgColor = rc.captionBgColor || rc.bgColor || '#000000';
   const videoBgColor = rc.videoBgColor || (category === 'stick_figure_slideshow_video' ? '#FFFFFF' : '#000000');
-  const bgOpacity = Number(rc.bgOpacity !== undefined ? rc.bgOpacity : 65) / 100;
-  const isBgTransparent = Boolean(rc.isBgTransparent || rc.captionBgTransparent);
+  const bgOpacity = Number(rc.captionBgOpacity !== undefined ? rc.captionBgOpacity : (rc.bgOpacity !== undefined ? rc.bgOpacity : 65)) / 100;
+  const isBgTransparent = Boolean(rc.captionBgTransparent || rc.isBgTransparent || rc.captionBgColor === 'transparent');
   const captionStyle = rc.captionStyle || 'classic';
   const captionEnabled = rc.captionEnabled !== false && rc.showCaption !== false && captionStyle !== 'none';
   const captionTextAlign = rc.captionTextAlign || rc.textAlign || 'center';
@@ -158,7 +160,8 @@ export default function LiveVideoSimulator({
   const openingNewsBannerTranslateY = Number(rc.openingNewsBannerTranslateY !== undefined && rc.openingNewsBannerTranslateY !== null ? rc.openingNewsBannerTranslateY : 0);
   const openingNewsBannerScale = Number(rc.openingNewsBannerScale !== undefined && rc.openingNewsBannerScale !== null ? rc.openingNewsBannerScale : 1);
 
-  const globalKenBurns = rc.kenBurns || rc.globalKenBurns !== false;
+  const globalKenBurnsMode = rc.kenBurnsMode;
+  const globalKenBurns = rc.kenBurns !== false && rc.globalKenBurns !== false && globalKenBurnsMode !== 'none';
   const globalImageFit = rc.globalImageFit || 'cover';
   const imageScale = Number(rc.imageScale || 1);
   const imageTranslateY = Number(rc.imageTranslateY || 0);
@@ -284,7 +287,7 @@ export default function LiveVideoSimulator({
     if (force || Math.abs(bgAudio.currentTime - seekTime) > 0.35) {
       try {
         bgAudio.currentTime = seekTime;
-      } catch (_) {}
+      } catch (_) { }
     }
   }, []);
 
@@ -348,7 +351,13 @@ export default function LiveVideoSimulator({
   const [overlayOpacity, setOverlayOpacity] = useState(0.85);
 
   // State quản lý thành phần đang được chọn để kéo di chuyển & thu phóng như Photoshop
-  const [selectedElement, setSelectedElement] = useState('none');
+  const [internalSelectedElement, setInternalSelectedElement] = useState('none');
+  const selectedElement = controlledSelectedElement !== undefined ? controlledSelectedElement : internalSelectedElement;
+  const setSelectedElement = useCallback((val) => {
+    const nextVal = typeof val === 'function' ? val(selectedElement) : val;
+    setInternalSelectedElement(nextVal);
+    onSelectedElementChange?.(nextVal);
+  }, [selectedElement, onSelectedElementChange]);
   const [isLogoHovered, setIsLogoHovered] = useState(false); // 'none' | 'caption' | 'image'
 
   // Nhấn Escape để bỏ chọn
@@ -358,7 +367,7 @@ export default function LiveVideoSimulator({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [setSelectedElement]);
 
   // Ấn vào vùng khác (vùng trống trên canvas hoặc bên ngoài) để bỏ chọn item đang chọn
   useEffect(() => {
@@ -378,8 +387,13 @@ export default function LiveVideoSimulator({
         return;
       }
 
+      // Không bỏ chọn nếu bấm vào panel chỉnh sửa bên phải (VideoEditorPanel)
+      if (target.closest?.('[data-video-editor-panel]') || target.closest?.('.video-editor-panel')) {
+        return;
+      }
+
       // Không bỏ chọn nếu bấm vào các nút/input điều khiển form (như kéo slider, chọn font, đổi tab ở VideoEditorPanel)
-      if (target.closest?.('input') || target.closest?.('select') || target.closest?.('button')) {
+      if (target.closest?.('input') || target.closest?.('select') || target.closest?.('button') || target.closest?.('textarea') || target.closest?.('label')) {
         return;
       }
 
@@ -389,7 +403,7 @@ export default function LiveVideoSimulator({
 
     window.addEventListener('pointerdown', handlePointerDownOutside);
     return () => window.removeEventListener('pointerdown', handlePointerDownOutside);
-  }, [selectedElement]);
+  }, [selectedElement, setSelectedElement]);
 
   // Ref lưu giá trị gốc tại thời điểm bắt đầu kéo để tính toán chính xác tuyệt đối, không bị lệch hoặc làm tròn về 0
   const dragStartValuesRef = useRef({
@@ -883,7 +897,7 @@ export default function LiveVideoSimulator({
         if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
         if (bgMusicAudioRef.current) {
           bgMusicAudioRef.current.pause();
-          try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+          try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
         }
       }
     };
@@ -928,7 +942,7 @@ export default function LiveVideoSimulator({
           const curTotal = (sceneOffsets[currentSlideIndex] || 0) + curTime;
           const expectedBgTime = curTotal % bg.duration;
           if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
-            try { bg.currentTime = expectedBgTime; } catch (_) {}
+            try { bg.currentTime = expectedBgTime; } catch (_) { }
           }
         }
 
@@ -949,7 +963,7 @@ export default function LiveVideoSimulator({
             if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
             if (bgMusicAudioRef.current) {
               bgMusicAudioRef.current.pause();
-              try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+              try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
             }
           }
           return;
@@ -966,7 +980,7 @@ export default function LiveVideoSimulator({
             const curTotal = (sceneOffsets[currentSlideIndex] || 0) + next;
             const expectedBgTime = curTotal % bg.duration;
             if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
-              try { bg.currentTime = expectedBgTime; } catch (_) {}
+              try { bg.currentTime = expectedBgTime; } catch (_) { }
             }
           }
 
@@ -985,7 +999,7 @@ export default function LiveVideoSimulator({
               if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
               if (bgMusicAudioRef.current) {
                 bgMusicAudioRef.current.pause();
-                try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+                try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
               }
             }
             return 0;
@@ -1096,7 +1110,7 @@ export default function LiveVideoSimulator({
       voiceAudioRef.current.play().catch(() => { });
     }
     if (bgMusicAudioRef.current && bgMusicEnabled) {
-      try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+      try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
       bgMusicAudioRef.current.play().catch(() => { });
     }
   };
@@ -1161,7 +1175,7 @@ export default function LiveVideoSimulator({
   };
 
   const sceneProgress = currentSceneDuration > 0 ? Math.min(1, Math.max(0, slideCurrentTime / currentSceneDuration)) : 0;
-  const kenBurnsDir = currentSegment.kenBurns || (globalKenBurns ? (currentSlideIndex % 2 === 0 ? 'in' : 'out') : 'none');
+  const kenBurnsDir = currentSegment.kenBurns || globalKenBurnsMode || (globalKenBurns ? (currentSlideIndex % 2 === 0 ? 'in' : 'out') : 'none');
   let kbScale = 1;
   let kbTranslateX = 0;
   if (kenBurnsDir === 'in') kbScale = 1 + 0.12 * sceneProgress;
@@ -1393,7 +1407,12 @@ export default function LiveVideoSimulator({
               </div>
             )}
 
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 25%, transparent 68%, rgba(0,0,0,0.78) 100%)', pointerEvents: 'none' }} />
+            {/* Pexels Remotion uses one exact 55% black veil. Slideshow skills do not add a
+                full-frame gradient, so drawing one only in the simulator made their MP4 brighter
+                and less contrasty than the preview. */}
+            {isPexelsTalk ? (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', pointerEvents: 'none' }} />
+            ) : null}
           </div>
 
 
@@ -1844,7 +1863,7 @@ export default function LiveVideoSimulator({
                 }}
               >
                 <img
-                  src="/images/watermark/the-mind-logo.png?v=trimmed"
+                  src="/images/watermark/nexora-video-logo.png?v=1"
                   alt="Logo thương hiệu"
                   style={{
                     width: effectiveIsPortrait ? (isFullscreen ? '96px' : '76px') : '62px',
@@ -1873,7 +1892,7 @@ export default function LiveVideoSimulator({
               showSafeZoneGrid={showSafeZoneGrid}
               overlayOpacity={overlayOpacity}
               title={result?.title}
-              channelName={rc.channelName || 'ATPOSTER'}
+              channelName={rc.channelName || 'Nexora Video'}
             />
           )}
 

@@ -107,7 +107,7 @@ const captionWidth = flags.captionWidth !== undefined ? Number(flags.captionWidt
 const logoTranslateX = flags.logoTranslateX !== undefined ? Number(flags.logoTranslateX) : 0;
 const logoTranslateY = flags.logoTranslateY !== undefined ? Number(flags.logoTranslateY) : 0;
 const rawLogoScale = flags.logoScale !== undefined ? Number(flags.logoScale) : 1.0;
-const logoScale = (Number.isFinite(rawLogoScale) && rawLogoScale >= 0.2 && rawLogoScale <= 2.0) ? rawLogoScale : 1.0;
+const logoScale = (Number.isFinite(rawLogoScale) && rawLogoScale >= 0.1 && rawLogoScale <= 4.0) ? rawLogoScale : 1.0;
 
 const showOpeningComment = flags.showOpeningComment === undefined ? true : flags.showOpeningComment !== "false";
 const openingCommentAuthor = flags.openingCommentAuthor || "Trả lời bình luận";

@@ -1,9 +1,9 @@
 {
   "name": "atposter",
   "version": "1.0.0",
-  "description": "ATPOSTER Video Studio Desktop & Web Application",
+  "description": "Nexora Video Studio Desktop & Web Application",
   "private": true,
-  "author": "ATPOSTER",
+  "author": "Nexora Video",
   "main": "desktop/main.cjs",
   "type": "module",
   "workspaces": [
@@ -50,7 +50,7 @@
   },
   "build": {
     "appId": "com.atposter.studio",
-    "productName": "ATPOSTER Video Studio",
+    "productName": "Nexora Video Studio",
     "directories": {
       "output": "dist-desktop"
     },
@@ -74,7 +74,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ATPOSTER Video Studio",
+      "shortcutName": "Nexora Video Studio",
       "differentialPackage": false
     },
     "files": [
@@ -96,6 +96,7 @@
           "!**/.git/**",
           "!dist-desktop/**",
           "!skills/*/remotion/public/*/**",
+          "skills/*/remotion/public/logo/nexora-video-logo.png",
           "!skills/*/remotion/out/**"
         ]
       }

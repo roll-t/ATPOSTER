@@ -48,20 +48,24 @@ coverage/
 # Generated video/image/audio project outputs (keep source assets & README)
 /skills/moral_talk_slideshow/remotion/public/*
 !/skills/moral_talk_slideshow/remotion/public/README.md
-!/skills/moral_talk_slideshow/remotion/public/logo/**
+!/skills/moral_talk_slideshow/remotion/public/logo/
+!/skills/moral_talk_slideshow/remotion/public/logo/nexora-video-logo.png
 
 /skills/reading-page-video/remotion/public/*
 !/skills/reading-page-video/remotion/public/README.md
-!/skills/reading-page-video/remotion/public/logo/**
+!/skills/reading-page-video/remotion/public/logo/
+!/skills/reading-page-video/remotion/public/logo/nexora-video-logo.png
 
 /skills/pexels-talk-video/remotion/public/*
 !/skills/pexels-talk-video/remotion/public/README.md
-!/skills/pexels-talk-video/remotion/public/logo/**
+!/skills/pexels-talk-video/remotion/public/logo/
+!/skills/pexels-talk-video/remotion/public/logo/nexora-video-logo.png
 
 /skills/stick-figure-slideshow-video/remotion/public/*
 !/skills/stick-figure-slideshow-video/remotion/public/README.md
 !/skills/stick-figure-slideshow-video/remotion/public/assets/**
-!/skills/stick-figure-slideshow-video/remotion/public/logo/**
+!/skills/stick-figure-slideshow-video/remotion/public/logo/
+!/skills/stick-figure-slideshow-video/remotion/public/logo/nexora-video-logo.png
 
 /skills/music-player-video/remotion/public/*
 !/skills/music-player-video/remotion/public/README.md
