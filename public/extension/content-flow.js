@@ -7,6 +7,7 @@ let currentRunId = null;
 let sidebarEl = null;
 let isCollapsed = false;
 let currentGenerationBaseline = null; // Ảnh có sẵn trước lần gửi gần nhất (dùng để nhận diện ảnh mới)
+let hasAutoCreatedProject = false;
 
 // Kiểm tra xem context của extension còn "sống" không. Khi extension được reload (chrome://extensions)
 // trong lúc tab Flow cũ vẫn còn mở, content script cũ trở thành "zombie" - chrome.runtime.id sẽ là
@@ -123,10 +124,16 @@ function isFlowUrl(url) {
 
 // Kiểm tra xem hiện có đang ở trang chủ (dashboard) của Google Flow hay không
 function isDashboardPage() {
+  // Nếu đã tìm thấy ô nhập prompt (đang ở trong canvas/dự án) thì CHẮC CHẮN không phải dashboard
+  if (findInputField()) {
+    return false;
+  }
+
   const { hostname, pathname } = window.location;
   if (hostname.includes('flow.google.com')) {
     const cleanPath = (pathname || '').replace(/\/+$/, '');
-    return cleanPath === '' || cleanPath === '/' || cleanPath === '/tools/flow' || cleanPath === '/project';
+    // Chỉ là dashboard khi đang ở trang chủ rỗng không có ô nhập
+    return cleanPath === '' || cleanPath === '/' || cleanPath === '/tools/flow/dashboard';
   }
   const currentUrl = window.location.href;
   return currentUrl.endsWith('/flow') || currentUrl.endsWith('/flow/') || (currentUrl.includes('/flow/project') && !currentUrl.split('/project/')[1]);
@@ -134,6 +141,11 @@ function isDashboardPage() {
 
 // Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
 function handleDashboardAutoCreate() {
+  // Nếu đã có ô nhập prompt (đang ở trong dự án hoặc canvas) -> TUYỆT ĐỐI KHÔNG click tạo dự án mới / dấu cộng
+  if (findInputField() || hasAutoCreatedProject) {
+    return;
+  }
+
   if (isDashboardPage()) {
     console.log('[Flow Helper] Đang ở trang chủ Google Flow. Tìm nút tạo Dự án mới (bao gồm Shadow DOM)...');
 
@@ -174,6 +186,7 @@ function handleDashboardAutoCreate() {
     }
 
     console.log('[Flow Helper] Đã tìm thấy nút tạo Dự án mới. Đang tự động click...', clickTarget);
+    hasAutoCreatedProject = true;
     simulateClick(clickTarget);
   }
 }
@@ -199,18 +212,22 @@ function init() {
     return;
   }
 
-  // Tự động kích hoạt bấm nút Dự án mới nếu đang ở trang chủ
-  handleDashboardAutoCreate();
+  // Nếu chưa có ô nhập prompt và đang ở trang chủ, mới thử tìm nút tạo dự án
+  if (!findInputField()) {
+    handleDashboardAutoCreate();
+  }
+
   const checkDashboardInterval = setInterval(() => {
     if (!isExtensionAlive()) {
       clearInterval(checkDashboardInterval);
       return;
     }
-    if (isDashboardPage()) {
-      handleDashboardAutoCreate();
-    } else {
+    // Ngay khi phát hiện ô nhập prompt hoặc không còn ở trang dashboard -> lập tức dừng kiểm tra
+    if (findInputField() || !isDashboardPage()) {
       clearInterval(checkDashboardInterval);
+      return;
     }
+    handleDashboardAutoCreate();
   }, 1500);
 
   chrome.storage.local.get(['flowQueue', 'autoRunActive'], (result) => {
@@ -969,6 +986,12 @@ function findInputField() {
     const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
     const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
     const cls = (typeof el.className === 'string') ? el.className.toLowerCase() : '';
+    const id = (el.id || '').toLowerCase();
+
+    // Loại trừ ô tìm kiếm ở thanh công cụ / header
+    if (id.includes('search') || cls.includes('search') || placeholder.includes('tìm') || placeholder.includes('search') || ariaLabel.includes('search') || ariaLabel.includes('tìm')) {
+      return false;
+    }
 
     const isInput = tagName === 'TEXTAREA' ||
       (tagName === 'INPUT' && el.type === 'text') ||
@@ -978,7 +1001,6 @@ function findInputField() {
     if (!isInput) return false;
 
     // Loại trừ ô nhập tên dự án (thường có class hoặc tên chứa title, name, header, topbar)
-    const id = (el.id || '').toLowerCase();
     if (id.includes('title') || id.includes('name') || cls.includes('title') || cls.includes('project-name')) {
       return false;
     }
@@ -986,7 +1008,9 @@ function findInputField() {
     // Ưu tiên ô nhập có placeholder liên quan đến sinh video/hình ảnh
     return placeholder.includes('tạo') || placeholder.includes('create') || placeholder.includes('muốn') ||
       placeholder.includes('prompt') || placeholder.includes('write') || placeholder.includes('gõ') ||
-      ariaLabel.includes('tạo') || ariaLabel.includes('create') || ariaLabel.includes('prompt');
+      placeholder.includes('nhập') || placeholder.includes('describe') || placeholder.includes('imagine') ||
+      ariaLabel.includes('tạo') || ariaLabel.includes('create') || ariaLabel.includes('prompt') ||
+      ariaLabel.includes('muốn') || ariaLabel.includes('describe');
   });
 
   if (target) return target;
@@ -1004,6 +1028,10 @@ function findInputField() {
 
     if (isInput) {
       const rect = el.getBoundingClientRect();
+      const id = (el.id || '').toLowerCase();
+      const cls = (typeof el.className === 'string') ? el.className.toLowerCase() : '';
+      if (id.includes('search') || cls.includes('search')) return false;
+
       // Chọn ô nhập liệu nằm thấp nhất màn hình (tọa độ top lớn nhất)
       if (rect.top > maxRectTop && rect.height > 0) {
         maxRectTop = rect.top;

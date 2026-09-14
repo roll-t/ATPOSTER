@@ -168,7 +168,7 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
             color: '#c4b5fd',
             fontWeight: 800,
           }}>
-            {BG_MUSIC_PROMPTS.length} bản · Lịch Sử Nhật Bản
+            {BG_MUSIC_PROMPTS.length} bản tuyển chọn đa chủ đề
           </span>
         </h2>
         <p style={{

@@ -159,13 +159,14 @@ const CaptionLine: React.FC<{
       display: "flex",
       flexWrap: "wrap",
       justifyContent: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
+      textAlign: captionTextAlign,
       alignItems: "baseline",
       rowGap: 2,
       columnGap: 10,
       fontFamily,
       lineHeight,
       letterSpacing,
-      textWrap: "balance" as any,
+      textWrap: captionTextAlign === "center" ? ("balance" as any) : undefined,
     }}
   >
     {words.map((word, i) => {
@@ -355,6 +356,7 @@ export const Caption: React.FC<{
         <div
           key={idx}
           style={{
+            width: "100%",
             fontSize: primaryFontSize,
             fontWeight: 800,
             color: primaryColor,
@@ -381,6 +383,7 @@ export const Caption: React.FC<{
       highlightIndex={highlightsWords ? localActiveIndex : undefined}
       highlightColor={resolvedHighlightColor}
       highlightTextColor={isPage ? "#2A2118" : "#FFFFFF"}
+      captionTextAlign={captionTextAlign}
     />
   );
 
@@ -393,6 +396,7 @@ export const Caption: React.FC<{
       color={isTiktok ? "#FFE14D" : isPage ? "rgba(42, 33, 24, 0.65)" : "rgba(255, 255, 255, 0.82)"}
       letterSpacing={dynamicLetterSpacing}
       strokeColor={isTiktok ? "#000000" : undefined}
+      captionTextAlign={captionTextAlign}
     />
   ) : null;
 
@@ -401,7 +405,7 @@ export const Caption: React.FC<{
       style={{
         justifyContent: position === "bottom" ? "flex-end" : position === "top" ? "flex-start" : "center",
         alignItems: captionTextAlign === "left" ? "flex-start" : (captionTextAlign === "right" ? "flex-end" : "center"),
-        padding: "0 90px",
+        padding: "0 40px",
         opacity: opacity * animOpacity,
       }}
     >

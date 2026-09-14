@@ -71,6 +71,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [extQueueState, setExtQueueState] = useState(null);
   const [isRenderingVideo, setIsRenderingVideo] = useState(false);
   const [renderMsg, setRenderMsg] = useState('');
+  const voiceAbortControllerRef = useRef(null);
+  const renderAbortControllerRef = useRef(null);
   // Phá cache trình duyệt cho khung xem trước video sau khi render lại — cùng vấn đề/cách xử lý
   // như heroImageVersion cho ảnh minh hoạ: URL /api/prompts/video-stream không đổi giữa các lần
   // render (cùng folderPath), nên nếu không có tham số phân biệt, thẻ <video> vẫn giữ nguyên
@@ -474,6 +476,57 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return savedLocal !== null ? savedLocal : '1';
   });
+  const [renderShowOpeningComment, setRenderShowOpeningComment] = useState(() => {
+    if (result.remotionConfig?.showOpeningComment !== undefined && result.remotionConfig?.showOpeningComment !== null) {
+      return Boolean(result.remotionConfig.showOpeningComment);
+    }
+    return true;
+  });
+  const [renderOpeningCommentAuthor, setRenderOpeningCommentAuthor] = useState(() => {
+    return result.remotionConfig?.openingCommentAuthor || 'Trả lời bình luận';
+  });
+  const [renderOpeningCommentText, setRenderOpeningCommentText] = useState(() => {
+    return result.remotionConfig?.openingCommentText || '';
+  });
+  const [renderOpeningCommentTranslateY, setRenderOpeningCommentTranslateY] = useState(() => {
+    if (result.remotionConfig?.openingCommentTranslateY !== undefined && result.remotionConfig?.openingCommentTranslateY !== null) {
+      return String(result.remotionConfig.openingCommentTranslateY);
+    }
+    return '0';
+  });
+  const [renderOpeningCommentScale, setRenderOpeningCommentScale] = useState(() => {
+    if (result.remotionConfig?.openingCommentScale !== undefined && result.remotionConfig?.openingCommentScale !== null) {
+      return String(result.remotionConfig.openingCommentScale);
+    }
+    return '1';
+  });
+  const [renderShowOpeningNewsBanner, setRenderShowOpeningNewsBanner] = useState(() => {
+    if (result.remotionConfig?.showOpeningNewsBanner !== undefined && result.remotionConfig?.showOpeningNewsBanner !== null) {
+      return Boolean(result.remotionConfig.showOpeningNewsBanner);
+    }
+    return false;
+  });
+  const [renderOpeningNewsHeadline, setRenderOpeningNewsHeadline] = useState(() => {
+    return result.remotionConfig?.openingNewsHeadline || result?.title || (result.segments?.[0]?.dialogueOrNarration || result.segments?.[0]?.subtitle || '');
+  });
+  const [renderOpeningNewsBrand, setRenderOpeningNewsBrand] = useState(() => {
+    return result.remotionConfig?.openingNewsBrand || 'TIN TỨC';
+  });
+  const [renderOpeningNewsLikes, setRenderOpeningNewsLikes] = useState(() => {
+    return result.remotionConfig?.openingNewsLikes || '27.1K';
+  });
+  const [renderOpeningNewsBannerTranslateY, setRenderOpeningNewsBannerTranslateY] = useState(() => {
+    if (result.remotionConfig?.openingNewsBannerTranslateY !== undefined && result.remotionConfig?.openingNewsBannerTranslateY !== null) {
+      return String(result.remotionConfig.openingNewsBannerTranslateY);
+    }
+    return '0';
+  });
+  const [renderOpeningNewsBannerScale, setRenderOpeningNewsBannerScale] = useState(() => {
+    if (result.remotionConfig?.openingNewsBannerScale !== undefined && result.remotionConfig?.openingNewsBannerScale !== null) {
+      return String(result.remotionConfig.openingNewsBannerScale);
+    }
+    return '1';
+  });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
@@ -551,7 +604,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     pexelsAutoSelectedRef, selectedPexelsIds, setSelectedPexelsIds,
     previewPexelsId, setPreviewPexelsId, pexelsKeywords, setPexelsKeywords,
     pexelsPage, pexelsHasMore, setPexelsHasMore, isSuggestingKeywords,
-    segmentBg, isAssigningSegmentBg, segmentBgProgress, segmentBgMsg,
+    segmentBg, setSegmentBg, isAssigningSegmentBg, segmentBgProgress, segmentBgMsg,
     reassigningSegment, isCleaningBg, estimatedVideoSeconds, selectedPexelsVideos,
     selectedCoverSeconds, bgSelectionFull, recommendedBgClipCount,
     togglePexelsSelection, runPexelsSearch, handleAutoAssignSegmentBg,
@@ -1249,6 +1302,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.logoTranslateX !== undefined) setRenderLogoTranslateX(String(c.logoTranslateX));
     if (c.logoTranslateY !== undefined) setRenderLogoTranslateY(String(c.logoTranslateY));
     if (c.logoScale !== undefined) setRenderLogoScale(String(c.logoScale));
+    if (c.showOpeningComment !== undefined) setRenderShowOpeningComment(Boolean(c.showOpeningComment));
+    if (c.openingCommentAuthor !== undefined) setRenderOpeningCommentAuthor(String(c.openingCommentAuthor));
+    if (c.openingCommentText !== undefined) setRenderOpeningCommentText(String(c.openingCommentText));
+    if (c.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(c.openingCommentTranslateY));
+    if (c.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(c.openingCommentScale));
+    if (c.showOpeningNewsBanner !== undefined) setRenderShowOpeningNewsBanner(Boolean(c.showOpeningNewsBanner));
+    if (c.openingNewsHeadline !== undefined) setRenderOpeningNewsHeadline(String(c.openingNewsHeadline));
+    if (c.openingNewsBrand !== undefined) setRenderOpeningNewsBrand(String(c.openingNewsBrand));
+    if (c.openingNewsLikes !== undefined) setRenderOpeningNewsLikes(String(c.openingNewsLikes));
+    if (c.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(c.openingNewsBannerTranslateY));
+    if (c.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(c.openingNewsBannerScale));
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
     // CỐ Ý không áp bgMusicEnabled/bgMusicVolume/bgMusicTrackId ở đây, dù bản preset cũ (lưu từ
     // trước bản sửa này) hay Mẫu hệ thống của reading_practice vẫn có thể còn mang các trường này.
@@ -2012,6 +2076,30 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const handleGenerateVoice = async () => {
+    if (isGeneratingVoice) {
+      // Nhấn lần nữa khi đang tạo giọng -> Hủy/dừng tiến trình
+      if (voiceAbortControllerRef.current) {
+        voiceAbortControllerRef.current.abort();
+        voiceAbortControllerRef.current = null;
+      }
+      try {
+        const folderPath = result.input?.folderPath || 'example';
+        await fetch('/api/prompts/voiceover', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderPath })
+        });
+      } catch (e) {
+        console.warn('Voice cancel request failed:', e);
+      }
+      setIsGeneratingVoice(false);
+      setVoiceMsg('⏹ Đã dừng tiến trình tạo giọng đọc.');
+      checkAssets();
+      return;
+    }
+
+    const abortController = new AbortController();
+    voiceAbortControllerRef.current = abortController;
     setIsGeneratingVoice(true);
     setVoiceMsg('');
     setVoiceProgress(0);
@@ -2019,6 +2107,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       const res = await fetch('/api/prompts/voiceover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
           // Tiêu đề THẬT của kịch bản — chỉ dùng khi server phải tự tạo manifest.json (file này
@@ -2048,9 +2137,25 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
       const { doneEvent, errorEvent } = await readVoiceoverStream(res, (evt) => setVoiceProgress(evt.completed));
 
+      if (abortController.signal.aborted) {
+        setVoiceMsg('⏹ Đã dừng tiến trình tạo giọng đọc.');
+        checkAssets();
+        return;
+      }
+
       if (errorEvent) {
-        setVoiceMsg(`Lỗi: ${errorEvent.error || 'Không thể tạo âm thanh.'}`);
+        if (errorEvent.type === 'cancelled' || errorEvent.error === 'Process cancelled by user') {
+          setVoiceMsg('⏹ Đã dừng tiến trình tạo giọng đọc.');
+        } else {
+          setVoiceMsg(`Lỗi: ${errorEvent.error || 'Không thể tạo âm thanh.'}`);
+        }
+        checkAssets();
       } else if (doneEvent) {
+        if (doneEvent.cancelled) {
+          setVoiceMsg('⏹ Đã dừng tiến trình tạo giọng đọc.');
+          checkAssets();
+          return;
+        }
         const fallbackNote = Array.isArray(doneEvent.capcutFallbackSlides) && doneEvent.capcutFallbackSlides.length > 0
           ? ` ⚠️ Slide ${doneEvent.capcutFallbackSlides.join(', ')} bị lỗi giọng CapCut đã chọn, tạm dùng giọng Edge dự phòng nên nghe khác giọng — có thể tạo lại giọng đọc để thử lại.`
           : '';
@@ -2064,8 +2169,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setVoiceMsg('Lỗi: Không nhận được phản hồi hoàn chỉnh từ server.');
       }
     } catch (err) {
-      setVoiceMsg('Lỗi: Không thể kết nối tới server.');
+      if (err.name === 'AbortError' || abortController.signal.aborted) {
+        setVoiceMsg('⏹ Đã dừng tiến trình tạo giọng đọc.');
+        checkAssets();
+      } else {
+        setVoiceMsg('Lỗi: Không thể kết nối tới server.');
+      }
     } finally {
+      if (voiceAbortControllerRef.current === abortController) {
+        voiceAbortControllerRef.current = null;
+      }
       setIsGeneratingVoice(false);
     }
   };
@@ -2115,7 +2228,33 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
   };
 
+  const handleCancelRender = async () => {
+    if (renderAbortControllerRef.current) {
+      renderAbortControllerRef.current.abort();
+      renderAbortControllerRef.current = null;
+    }
+    try {
+      const folderPath = result.input?.folderPath || 'example';
+      await fetch('/api/prompts/render-video', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath })
+      });
+    } catch (e) {
+      console.warn('Render cancel request failed:', e);
+    }
+    setIsRenderingVideo(false);
+    setRenderMsg('⏹ Đã dừng tiến trình tạo video.');
+  };
+
   const handleRenderVideo = async () => {
+    if (isRenderingVideo) {
+      await handleCancelRender();
+      return;
+    }
+
+    const abortController = new AbortController();
+    renderAbortControllerRef.current = abortController;
     setIsRenderingVideo(true);
     setRenderMsg('');
     try {
@@ -2126,6 +2265,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setRenderMsg('Đang tải các clip nền bạn vừa chọn...');
         await applyPendingBgSelection();
       }
+      if (abortController.signal.aborted) return;
       if (renderBgMusicEnabled && !assetCounts.hasBgMusic) {
         try {
           await handleSelectDefaultMusic(resolveAutoBgTrackId());
@@ -2133,12 +2273,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           console.warn('Auto copy default bg music error:', e);
         }
       }
+      if (abortController.signal.aborted) return;
       const isRenderLandscape = currentOrientation === 'landscape';
       const orientation = isRenderLandscape ? 'landscape' : 'portrait';
 
       const res = await fetch('/api/prompts/render-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({
           folderPath: result.input?.folderPath || 'example',
           category: result.category,
@@ -2151,6 +2293,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           logoTranslateX: Number(renderLogoTranslateX),
           logoTranslateY: Number(renderLogoTranslateY),
           logoScale: Number(renderLogoScale),
+          showOpeningComment: renderShowOpeningComment,
+          openingCommentAuthor: renderOpeningCommentAuthor,
+          openingCommentText: renderOpeningCommentText,
+          openingCommentTranslateY: Number(renderOpeningCommentTranslateY),
+          openingCommentScale: Number(renderOpeningCommentScale),
+          showOpeningNewsBanner: renderShowOpeningNewsBanner,
+          openingNewsHeadline: renderOpeningNewsHeadline,
+          openingNewsBrand: renderOpeningNewsBrand,
+          openingNewsLikes: renderOpeningNewsLikes,
+          openingNewsBannerTranslateY: Number(renderOpeningNewsBannerTranslateY),
+          openingNewsBannerScale: Number(renderOpeningNewsBannerScale),
           bilingual: renderBilingual,
           orientation: orientation,
           aspectRatio: currentAspectRatio,
@@ -2160,11 +2313,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           captionSecondaryFontSize: renderCaptionSecondaryFontSize ? Number(renderCaptionSecondaryFontSize) : undefined,
           captionTextColor: renderCaptionTextColor || undefined,
           captionBgColor: renderCaptionBgTransparent ? 'transparent' : (renderCaptionBgColor || undefined),
-          // "karaoke" (tô màu từ đang đọc) VÀ "hook" (tô màu cụm từ nhấn trong "Tiêu đề mở đầu")
-          // đều thực sự dùng highlightColor lúc render (xem Caption.tsx/HookCaption) — trước đây
-          // chỉ gửi cho karaoke, nên đổi màu ở Studio cho kiểu "hook" không bao giờ vào được tới
-          // video, render-project.mjs luôn nhận undefined và rơi về màu đỏ hồng #FE2C55 mặc định.
-          highlightColor: (!isReadingPractice && (renderCaptionStyle === 'karaoke' || renderCaptionStyle === 'hook')) ? (renderHighlightColor || undefined) : undefined,
+          captionTextAlign: renderCaptionTextAlign,
+          captionAnimation: renderCaptionAnimation,
+          // highlightColor dùng cho karaoke, hook, và thanh accent/viền của style news
+          highlightColor: (!isReadingPractice && (renderCaptionStyle === 'karaoke' || renderCaptionStyle === 'hook' || renderCaptionStyle === 'news' || renderHighlightColor)) ? (renderHighlightColor || undefined) : undefined,
           captionBgOpacity: isReadingPractice && renderCaptionBgOpacity ? Number(renderCaptionBgOpacity) : undefined,
           heroHeightPercent: isReadingPractice && renderHeroHeightPercent ? Number(renderHeroHeightPercent) : undefined,
           titleHeightPercent: isReadingPractice && renderTitleHeightPercent ? Number(renderTitleHeightPercent) : undefined,
@@ -2183,19 +2335,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           captionPosition: result.remotionConfig?.captionPosition || (['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(result.category) ? 'top' : (renderCaptionStyle === 'page' ? 'center' : 'bottom'))
         })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (abortController.signal.aborted) {
+        setRenderMsg('⏹ Đã dừng tiến trình tạo video.');
+        return;
+      }
       if (res.ok && data.success) {
         setRenderMsg(`✓ Đã tạo video thành công!`);
         setVideoVersion(v => v + 1);
         setMusicChangedSinceRender(false);
         checkAssets();
+      } else if (res.status === 499 || data.cancelled || data.aborted) {
+        setRenderMsg('⏹ Đã dừng tiến trình tạo video.');
       } else {
         setRenderMsg(`Lỗi: ${data.error || 'Không thể render video.'}`);
         showToast.error(`Lỗi render video: ${data.details || data.error}`, 6000);
       }
     } catch (err) {
-      setRenderMsg('Lỗi: Không thể kết nối tới server.');
+      if (err.name === 'AbortError' || abortController.signal.aborted) {
+        setRenderMsg('⏹ Đã dừng tiến trình tạo video.');
+      } else {
+        setRenderMsg('Lỗi: Không thể kết nối tới server.');
+      }
     } finally {
+      if (renderAbortControllerRef.current === abortController) {
+        renderAbortControllerRef.current = null;
+      }
       setIsRenderingVideo(false);
     }
   };
@@ -2525,6 +2690,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         imageTranslateY: Number(renderImageTranslateY),
         captionMarginY: Number(renderCaptionMarginY),
         captionWidth: Number(renderCaptionWidth),
+        showOpeningComment: renderShowOpeningComment,
+        openingCommentAuthor: renderOpeningCommentAuthor,
+        openingCommentText: renderOpeningCommentText,
+        openingCommentTranslateY: Number(renderOpeningCommentTranslateY),
+        openingCommentScale: Number(renderOpeningCommentScale),
+        showOpeningNewsBanner: renderShowOpeningNewsBanner,
+        openingNewsHeadline: renderOpeningNewsHeadline,
+        openingNewsBrand: renderOpeningNewsBrand,
+        openingNewsLikes: renderOpeningNewsLikes,
+        openingNewsBannerTranslateY: Number(renderOpeningNewsBannerTranslateY),
+        openingNewsBannerScale: Number(renderOpeningNewsBannerScale),
         transitionStyle: renderTransitionStyle
       };
 
@@ -4473,6 +4649,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   logoTranslateX: renderLogoTranslateX !== undefined && renderLogoTranslateX !== null ? Number(renderLogoTranslateX) : 0,
                   logoTranslateY: renderLogoTranslateY !== undefined && renderLogoTranslateY !== null ? Number(renderLogoTranslateY) : 0,
                   logoScale: renderLogoScale ? Number(renderLogoScale) : 1,
+                  showOpeningComment: renderShowOpeningComment,
+                  openingCommentAuthor: renderOpeningCommentAuthor,
+                  openingCommentText: renderOpeningCommentText,
+                  openingCommentTranslateY: renderOpeningCommentTranslateY !== undefined && renderOpeningCommentTranslateY !== null ? Number(renderOpeningCommentTranslateY) : 0,
+                  openingCommentScale: renderOpeningCommentScale ? Number(renderOpeningCommentScale) : 1,
+                  showOpeningNewsBanner: renderShowOpeningNewsBanner,
+                  openingNewsHeadline: renderOpeningNewsHeadline,
+                  openingNewsBrand: renderOpeningNewsBrand,
+                  openingNewsLikes: renderOpeningNewsLikes,
+                  openingNewsBannerTranslateY: renderOpeningNewsBannerTranslateY !== undefined && renderOpeningNewsBannerTranslateY !== null ? Number(renderOpeningNewsBannerTranslateY) : 0,
+                  openingNewsBannerScale: renderOpeningNewsBannerScale ? Number(renderOpeningNewsBannerScale) : 1,
                   orientation: currentOrientation,
                   width: isLandscape ? 1920 : 1080,
                   height: isLandscape ? 1080 : 1920,
@@ -4501,6 +4688,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               musicChangedSinceRender={musicChangedSinceRender}
               isRenderDone={isRenderDone}
               handleRenderVideo={handleRenderVideo}
+              handleCancelRender={handleCancelRender}
               onResult={onResult}
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
@@ -4513,6 +4701,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 if (updates?.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
                 if (updates?.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
                 if (updates?.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
+                if (updates?.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(Math.round(updates.openingCommentTranslateY)));
+                if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
+                if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
+                if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
               }}
             />
           </div>
@@ -4582,6 +4774,20 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               setRenderTransitionStyle={setRenderTransitionStyle}
               renderChannelLogo={renderChannelLogo}
               setRenderChannelLogo={setRenderChannelLogo}
+              renderShowOpeningComment={renderShowOpeningComment}
+              setRenderShowOpeningComment={setRenderShowOpeningComment}
+              renderOpeningCommentAuthor={renderOpeningCommentAuthor}
+              setRenderOpeningCommentAuthor={setRenderOpeningCommentAuthor}
+              renderOpeningCommentText={renderOpeningCommentText}
+              setRenderOpeningCommentText={setRenderOpeningCommentText}
+              renderShowOpeningNewsBanner={renderShowOpeningNewsBanner}
+              setRenderShowOpeningNewsBanner={setRenderShowOpeningNewsBanner}
+              renderOpeningNewsHeadline={renderOpeningNewsHeadline}
+              setRenderOpeningNewsHeadline={setRenderOpeningNewsHeadline}
+              renderOpeningNewsBrand={renderOpeningNewsBrand}
+              setRenderOpeningNewsBrand={setRenderOpeningNewsBrand}
+              renderOpeningNewsLikes={renderOpeningNewsLikes}
+              setRenderOpeningNewsLikes={setRenderOpeningNewsLikes}
               handleSaveAndApply={handleSaveAndApply}
               isSavingStyle={isSavingStyle}
               saveStyleMsg={saveStyleMsg}

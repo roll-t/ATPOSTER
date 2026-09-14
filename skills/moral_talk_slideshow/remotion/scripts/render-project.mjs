@@ -120,6 +120,19 @@ const logoTranslateY = flags.logoTranslateY !== undefined ? Number(flags.logoTra
 const rawLogoScale = flags.logoScale !== undefined ? Number(flags.logoScale) : 1.0;
 const logoScale = (Number.isFinite(rawLogoScale) && rawLogoScale >= 0.2 && rawLogoScale <= 2.0) ? rawLogoScale : 1.0;
 
+const showOpeningComment = flags.showOpeningComment !== "false";
+const openingCommentAuthor = flags.openingCommentAuthor || "Trả lời bình luận";
+const openingCommentText = flags.openingCommentText || "";
+const openingCommentTranslateY = flags.openingCommentTranslateY !== undefined ? Number(flags.openingCommentTranslateY) : 0;
+const openingCommentScale = flags.openingCommentScale !== undefined ? Number(flags.openingCommentScale) : 1.0;
+
+const showOpeningNewsBanner = flags.showOpeningNewsBanner === "true";
+const openingNewsHeadline = flags.openingNewsHeadline || "";
+const openingNewsBrand = flags.openingNewsBrand || "TIN TỨC";
+const openingNewsLikes = flags.openingNewsLikes || "27.1K";
+const openingNewsBannerTranslateY = flags.openingNewsBannerTranslateY !== undefined ? Number(flags.openingNewsBannerTranslateY) : 0;
+const openingNewsBannerScale = flags.openingNewsBannerScale !== undefined ? Number(flags.openingNewsBannerScale) : 1.0;
+
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
 // nơi tag được strip trước khi gửi tổng hợp giọng). Strip theo TỪNG DÒNG (không strip \s+ toàn
@@ -296,6 +309,17 @@ const remotionConfig = {
   logoTranslateX,
   logoTranslateY,
   logoScale,
+  showOpeningComment,
+  openingCommentAuthor,
+  openingCommentText,
+  openingCommentTranslateY,
+  openingCommentScale,
+  showOpeningNewsBanner,
+  openingNewsHeadline,
+  openingNewsBrand,
+  openingNewsLikes,
+  openingNewsBannerTranslateY,
+  openingNewsBannerScale,
   audioPaddingSeconds: flags.audioPaddingSeconds !== undefined ? Number(flags.audioPaddingSeconds) : 0,
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh

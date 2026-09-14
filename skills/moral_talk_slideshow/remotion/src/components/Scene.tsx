@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
-import { Caption, BulletsLayout, SplitLayout, CaptionLeftOverlay, ChapterTitleOverlay } from "@atposter/remotion-shared";
+import { Caption, BulletsLayout, SplitLayout, CaptionLeftOverlay, ChapterTitleOverlay, CommentSticker, NewsOpeningBanner } from "@atposter/remotion-shared";
 import { Sfx } from "@atposter/remotion-shared";
 import { Arrows } from "@atposter/remotion-shared";
 import { Scene as SceneConfig, SlideshowVideoProps } from "../schema";
@@ -71,6 +71,17 @@ export const Scene: React.FC<{
   logoTranslateX?: number;
   logoTranslateY?: number;
   logoScale?: number;
+  showOpeningComment?: boolean;
+  openingCommentAuthor?: string;
+  openingCommentText?: string;
+  openingCommentTranslateY?: number;
+  openingCommentScale?: number;
+  showOpeningNewsBanner?: boolean;
+  openingNewsHeadline?: string;
+  openingNewsBrand?: string;
+  openingNewsLikes?: string;
+  openingNewsBannerTranslateY?: number;
+  openingNewsBannerScale?: number;
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
@@ -108,6 +119,17 @@ export const Scene: React.FC<{
   logoTranslateX = 0,
   logoTranslateY = 0,
   logoScale = 1,
+  showOpeningComment = true,
+  openingCommentAuthor = "Trả lời bình luận",
+  openingCommentText = "",
+  openingCommentTranslateY = 0,
+  openingCommentScale = 1,
+  showOpeningNewsBanner = false,
+  openingNewsHeadline = "",
+  openingNewsBrand = "TIN TỨC",
+  openingNewsLikes = "27.1K",
+  openingNewsBannerTranslateY = 0,
+  openingNewsBannerScale = 1,
   imageScale,
   imageTranslateY,
   captionMarginY,
@@ -235,7 +257,7 @@ export const Scene: React.FC<{
       {/* "image-only": bỏ hẳn phụ đề dù scene CÓ caption — dùng làm nhịp nghỉ, để hình tự nói.
           Khác với việc để caption rỗng ở khâu viết kịch bản: caption vẫn cần giữ nguyên vì lời kể
           (dialogueOrNarration) và phụ đề là 2 trường tách biệt, xoá caption đi thì mất luôn dữ
-          liệu, còn ở đây chỉ là không VẼ nó ra. */}
+          liệu, còn ở đây chỉ là không VẼ nu nó ra. */}
       {/* captionStyle "none" đứng TRƯỚC mọi nhánh bố cục: nó là lệnh "video này không có chữ",
           nên phải thắng cả "caption-left". Đặt sau thì một slide lỡ mang layout caption-left vẫn
           vẽ chữ ra, và đó đúng là loại lỗi chỉ lộ ra sau khi render xong cả video. */}
@@ -287,8 +309,32 @@ export const Scene: React.FC<{
           opacity={1}
         />
       )}
+
+      {/* Hộp bình luận mở đầu chuẩn TikTok (Scene 0 / Cảnh 1) */}
+      {sceneIndex === 0 && showOpeningComment && (
+        <CommentSticker
+          author={openingCommentAuthor}
+          text={openingCommentText || scene.caption || videoTitle || ""}
+          translateY={openingCommentTranslateY}
+          scale={openingCommentScale}
+          durationInFrames={sceneDurationInFrames}
+        />
+      )}
+
+      {/* Banner tin tức nửa dưới mở đầu (Red News Lower Banner) (Scene 0 / Cảnh 1) */}
+      {sceneIndex === 0 && showOpeningNewsBanner && (
+        <NewsOpeningBanner
+          brand={openingNewsBrand}
+          headline={openingNewsHeadline || videoTitle || scene.caption || ""}
+          likes={openingNewsLikes}
+          translateY={openingNewsBannerTranslateY}
+          scale={openingNewsBannerScale}
+          durationInFrames={sceneDurationInFrames}
+        />
+      )}
+
       {/* Logo kênh mờ ở đáy khung — bật/tắt trong "Cấu hình kiểu render" (schema: channelLogo) */}
-      {channelLogo ? (
+      {channelLogo && !(sceneIndex === 0 && showOpeningNewsBanner) ? (
       <div
         style={{
           position: "absolute",

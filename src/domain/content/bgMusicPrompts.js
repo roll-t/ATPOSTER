@@ -210,6 +210,32 @@ export const BG_MUSIC_PROMPTS = [
     instruments:
       'Acoustic Grand Piano trong trẻo mộc mạc · dàn dây strings mượt mà kiểu Joe Hisaishi · giai điệu hoài niệm tuổi thơ.',
   },
+  {
+    id: 'knowledge_curiosity',
+    themeKey: 'knowledge_curiosity',
+    label: 'Kiến Thức & Khoa Học Tò Mò',
+    sublabel: 'Vui Nhộn (Ten Ten Ten, Tin Tin Tin) — Video Tiếng Việt',
+    icon: '💡',
+    useCase:
+      'Dành cho video kiến thức khoa học, giải thích hiện tượng, sự thật thú vị bằng TIẾNG VIỆT (kênh YouTube/TikTok/Reels phong cách Kurzgesagt, Ted-Ed, Động Lực, Tri Thức). Tiếng đàn dây gảy ngón pizzicato nảy tưng tửng ("ten ten ten"), đàn gõ marimba và chuông gõ glockenspiel trong trẻo ("tin tin tin"), giai điệu tò mò, dí dỏm, rất bắt tai và tạo khoảng trống dải tần trung âm hoàn hảo cho giọng thuyết minh tiếng Việt.',
+    prompt:
+      'Quirky playful science and trivia documentary underscore, curious and clever, bouncy staccato pizzicato violin and cello plucks, cheerful wooden marimba melody, bright bell-like glockenspiel accents, light acoustic upright bass walking line, subtle gentle shaker groove, 108 BPM, light bouncy 4/4 time, cheerful C major and A minor diatonic scale, clean dry studio acoustic, sparse arrangement, constant dynamics, no build-ups, seamless loop, mixed to sit under Vietnamese spoken narration and educational voiceover',
+    instruments:
+      'Pizzicato strings gảy ngón ("ten ten ten") · Marimba phím gỗ nảy vui nhộn · Glockenspiel chuông gõ trong trẻo ("tin tin tin") · Upright bass nhún nhảy nhịp nhàng giữ nhịp tò mò.',
+  },
+  {
+    id: 'smart_trivia_puzzle',
+    themeKey: 'knowledge_curiosity',
+    label: 'Mẹo Vặt & Tư Duy Trí Tuệ',
+    sublabel: 'Đố Vui, Khám Phá Bất Ngờ — Video Tiếng Việt',
+    icon: '🧩',
+    useCase:
+      'Dành cho video giải mã bí ẩn khoa học đời sống, mẹo vặt thường thức, câu đố tư duy bằng TIẾNG VIỆT. Âm thanh mộc lách cách thông minh, nhẹ nhàng và cuốn hút, giữ người xem theo dõi hết clip.',
+    prompt:
+      'Upbeat explainer and trivia background music, witty and inquisitive, playful wooden xylophone and vibraphone arpeggios, soft muted acoustic guitar tick, gentle pizzicato accents, warm electric piano chords, light finger snaps and rim click rhythm, 112 BPM, steady curious groove, bright diatonic, pristine mix, very sparse, constant dynamics, no crescendo, seamless loop, mixed to sit under Vietnamese voiceover',
+    instruments:
+      'Xylophone & Vibraphone gõ lách cách thông minh · Guitar mộc tỉa êm · Tiếng búng tay nhẹ nhàng · Âm lượng đều đặn không giật mình.',
+  },
 ];
 
 export const MUSIC_PROMPT_CATEGORIES = [
@@ -272,6 +298,16 @@ export const MUSIC_PROMPT_CATEGORIES = [
     shortDescription: 'Giai điệu piano trong veo kết hợp dàn dây du dương, gợi cảm giác hoài niệm về mùa hè tuổi thơ Joe Hisaishi.',
     tags: ['Joe Hisaishi Style', 'Acoustic Grand Piano', 'Dàn Dây Ấm Áp', 'Hoài Niệm Tuổi Thơ'],
     accentColor: '#10b981',
+  },
+  {
+    id: 'knowledge_curiosity',
+    icon: '💡',
+    label: 'Kiến Thức, Khoa Học & Khám Phá Thú Vị',
+    badge: 'KIẾN THỨC & TÒ MÒ',
+    badgeBg: 'linear-gradient(135deg, #06b6d4, #0284c7)',
+    shortDescription: 'Tiếng đàn pizzicato gảy ngón ("ten ten ten"), đàn gõ marimba & chuông glockenspiel ("tin tin tin") vui tai, tò mò, bắt tai cho video kiến thức & mẹo vặt.',
+    tags: ['Pizzicato Strings', 'Marimba Vui Nhộn', 'Chuông Glockenspiel', 'Tò Mò 108 BPM'],
+    accentColor: '#06b6d4',
   },
 ];
 

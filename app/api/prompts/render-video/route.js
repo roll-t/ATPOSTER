@@ -19,16 +19,34 @@ const CAPTION_FONTS = ['paytone-one', 'itim', 'be-vietnam-pro', 'roboto', 'monts
 // out command injection regardless of what's in the string.
 const CSS_COLOR_RE = /^[a-zA-Z0-9#(),.\s%-]+$/;
 
+// Quản lý tiến trình render đang chạy để có thể huỷ bỏ khi người dùng nhấn Dừng
+const activeRenderProcesses = new Map();
+
+function killProcessTree(child) {
+  if (!child || !child.pid) return;
+  try {
+    if (process.platform === 'win32') {
+      execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], () => {});
+    } else {
+      child.kill('SIGKILL');
+    }
+  } catch (err) {
+    console.warn('[killProcessTree] Error:', err?.message);
+  }
+}
+
 export async function POST(req) {
   try {
     const {
-      folderPath, category, captionStyle, captionMode, transitionStyle, bilingual, orientation,
+      folderPath, category, captionStyle, captionMode, transitionStyle, bilingual, orientation, captionTextAlign, captionAnimation,
       captionFont, captionFontSize, captionSecondaryFontSize, captionTextColor, captionBgColor, captionBgOpacity, highlightColor,
       bgColor, videoBgColor,
       heroHeightPercent, titleHeightPercent, bodyHeightPercent, titleFontSize, titleBodyGap,
       contentPaddingPercent, bodyAlign, imageMode, level, bgMusicEnabled, bgMusicVolume,
       imageScale, imageTranslateY, captionMarginY, captionWidth, captionPosition, kenBurnsMode, cornerPatch, channelLogo,
       logoTranslateX, logoTranslateY, logoScale,
+      showOpeningComment, openingCommentAuthor, openingCommentText, openingCommentTranslateY, openingCommentScale,
+      showOpeningNewsBanner, openingNewsHeadline, openingNewsBrand, openingNewsLikes, openingNewsBannerTranslateY, openingNewsBannerScale,
       // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
       segments: segmentsForManifest, title: titleForManifest
     } = await req.json();
@@ -240,8 +258,35 @@ export async function POST(req) {
     pushRangedNumber(logoTranslateX, 'logoTranslateX', -1500, 1500);
     pushRangedNumber(logoTranslateY, 'logoTranslateY', -1800, 1800);
     pushRangedNumber(logoScale, 'logoScale', 0.1, 4.0);
+    if (typeof showOpeningComment === 'boolean') extraArgs.push(`--showOpeningComment=${showOpeningComment}`);
+    if (typeof openingCommentAuthor === 'string' && openingCommentAuthor.trim()) {
+      extraArgs.push(`--openingCommentAuthor=${openingCommentAuthor.trim()}`);
+    }
+    if (typeof openingCommentText === 'string' && openingCommentText.trim()) {
+      extraArgs.push(`--openingCommentText=${openingCommentText.trim()}`);
+    }
+    pushRangedNumber(openingCommentTranslateY, 'openingCommentTranslateY', -1800, 1800);
+    pushRangedNumber(openingCommentScale, 'openingCommentScale', 0.1, 4.0);
+    if (typeof showOpeningNewsBanner === 'boolean') extraArgs.push(`--showOpeningNewsBanner=${showOpeningNewsBanner}`);
+    if (typeof openingNewsHeadline === 'string' && openingNewsHeadline.trim()) {
+      extraArgs.push(`--openingNewsHeadline=${openingNewsHeadline.trim()}`);
+    }
+    if (typeof openingNewsBrand === 'string' && openingNewsBrand.trim()) {
+      extraArgs.push(`--openingNewsBrand=${openingNewsBrand.trim()}`);
+    }
+    if (typeof openingNewsLikes === 'string' && openingNewsLikes.trim()) {
+      extraArgs.push(`--openingNewsLikes=${openingNewsLikes.trim()}`);
+    }
+    pushRangedNumber(openingNewsBannerTranslateY, 'openingNewsBannerTranslateY', -1800, 1800);
+    pushRangedNumber(openingNewsBannerScale, 'openingNewsBannerScale', 0.1, 4.0);
     if (captionPosition === 'top' || captionPosition === 'bottom' || captionPosition === 'center') {
       extraArgs.push(`--captionPosition=${captionPosition}`);
+    }
+    if (captionTextAlign === 'left' || captionTextAlign === 'center' || captionTextAlign === 'right') {
+      extraArgs.push(`--captionTextAlign=${captionTextAlign}`);
+    }
+    if (typeof captionAnimation === 'string' && captionAnimation.trim()) {
+      extraArgs.push(`--captionAnimation=${captionAnimation.trim()}`);
     }
     if (captionMode === 'full' || captionMode === 'chunked') {
       extraArgs.push(`--captionMode=${captionMode}`);
@@ -258,16 +303,46 @@ export async function POST(req) {
     // relativeFolder (không phải projectFolder trần) — có thể là "category/projectFolder" cho
     // project mới lồng theo category, khớp đúng với nơi targetProjectDir vừa đồng bộ tới ở trên.
     const renderResult = await new Promise((resolve) => {
-      execFile(process.execPath, [scriptPath, relativeFolder, ...extraArgs], { cwd: baseRemotionDir }, (error, stdout, stderr) => {
+      let isResolved = false;
+      const child = execFile(process.execPath, [scriptPath, relativeFolder, ...extraArgs], { cwd: baseRemotionDir }, (error, stdout, stderr) => {
+        activeRenderProcesses.delete(projectFolder);
+        if (isResolved) return;
+        isResolved = true;
         if (error) {
-          console.error('[API RenderVideo] Lỗi render:', error);
-          resolve({ success: false, error: error.message, stderr, stdout });
+          if (req.signal?.aborted) {
+            resolve({ success: false, aborted: true, error: 'Đã dừng render video theo yêu cầu.' });
+          } else {
+            console.error('[API RenderVideo] Lỗi render:', error);
+            resolve({ success: false, error: error.message, stderr, stdout });
+          }
         } else {
           console.log('[API RenderVideo] Render thành công:', stdout);
           resolve({ success: true, stdout });
         }
       });
+
+      activeRenderProcesses.set(projectFolder, child);
+
+      if (req.signal) {
+        req.signal.addEventListener('abort', () => {
+          console.log(`[API RenderVideo] Yêu cầu render cho ${projectFolder} bị huỷ bởi client.`);
+          killProcessTree(child);
+          activeRenderProcesses.delete(projectFolder);
+          if (!isResolved) {
+            isResolved = true;
+            resolve({ success: false, aborted: true, error: 'Đã dừng render video theo yêu cầu.' });
+          }
+        });
+      }
     });
+
+    if (renderResult.aborted) {
+      return NextResponse.json({
+        success: false,
+        aborted: true,
+        message: 'Đã dừng tạo video theo yêu cầu.'
+      }, { status: 499 });
+    }
 
     if (renderResult.success) {
       return NextResponse.json({
@@ -288,5 +363,25 @@ export async function POST(req) {
   } catch (err) {
     console.error('[API RenderVideo Exception]:', err);
     return NextResponse.json({ error: err.message || 'Lỗi không xác định khi tạo video.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req) {
+  try {
+    const { folderPath } = await req.json().catch(() => ({}));
+    if (!folderPath) {
+      return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
+    }
+    const projectFolder = folderPath.trim();
+    const child = activeRenderProcesses.get(projectFolder);
+    if (child) {
+      console.log(`[API RenderVideo DELETE] Dừng tiến trình render cho ${projectFolder}`);
+      killProcessTree(child);
+      activeRenderProcesses.delete(projectFolder);
+      return NextResponse.json({ success: true, message: 'Đã dừng tiến trình tạo video.' });
+    }
+    return NextResponse.json({ success: true, message: 'Không có tiến trình render nào đang chạy.' });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

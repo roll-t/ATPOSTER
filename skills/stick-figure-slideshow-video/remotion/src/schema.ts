@@ -180,6 +180,27 @@ export const slideshowVideoSchema = z.object({
   captionMarginY: z.number().min(-1600).max(1600).default(0),
   captionWidth: z.number().min(30).max(100).default(92),
   kenBurns: z.boolean().default(true),
+
+  channelLogo: z.boolean().default(true),
+  logoTranslateX: z.number().default(0),
+  logoTranslateY: z.number().default(0),
+  logoScale: z.number().default(1),
+
+  captionTextAlign: z.enum(["left", "center", "right"]).default("center"),
+  captionAnimation: z.enum(["spring", "fade", "pop", "slide", "wave", "none", "zoom", "slide-up"]).default("none"),
+
+  showOpeningComment: z.boolean().default(true),
+  openingCommentAuthor: z.string().default("Trả lời bình luận"),
+  openingCommentText: z.string().default(""),
+  openingCommentTranslateY: z.number().default(0),
+  openingCommentScale: z.number().default(1),
+
+  showOpeningNewsBanner: z.boolean().default(false),
+  openingNewsHeadline: z.string().default(""),
+  openingNewsBrand: z.string().default("TIN TỨC"),
+  openingNewsLikes: z.string().default("27.1K"),
+  openingNewsBannerTranslateY: z.number().default(0),
+  openingNewsBannerScale: z.number().default(1),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),
@@ -286,6 +307,7 @@ export const slideshowVideoSchema = z.object({
   // captions-only video) there's a voice to keep intelligible.
   bgMusic: z.string().optional(),
   bgMusicVolume: z.number().min(0).max(1).default(0.12),
+  brandLogo: z.string().optional(),
 });
 
 export type SlideshowVideoProps = z.infer<typeof slideshowVideoSchema>;

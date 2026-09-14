@@ -359,6 +359,7 @@ DURATION & PACING (NHỊP DỒN DẬP - NHIỀU ẢNH):
 - Với video 1 phút (under_1m): BẮT BUỘC tạo 20 đến 25 ảnh/phân đoạn, nhịp chuyển cảnh dồn dập, trung bình mỗi ảnh hiển thị ${slideSecondsHint}.
 - Thời lượng đọc mỗi segment: ${slideSecondsHint}.
 - QUY TẮC ĐỘ DÀI LỜI NÓI (CỰC KỲ QUAN TRỌNG): Để đảm bảo mỗi ảnh lướt nhanh từ ${slideSecondsHint}, câu thoại/thuyết minh (dialogueOrNarration) của mỗi phân đoạn PHẢI rất ngắn gọn, cô đọng (chỉ khoảng 6 đến 12 từ mỗi segment), nói dứt khoát chuyển cảnh liên tục. Tuyệt đối không viết câu dài dòng làm chậm nhịp video.
+- QUY TẮC NÓI LIỀN MẠCH, KHÔNG PHẨY VỤN: Mỗi phân đoạn vốn đã rất ngắn gọn (6 đến 12 từ), do đó câu văn PHẢI nói liền mạch trong một hơi, tự nhiên trôi chảy. TUYỆT ĐỐI KHÔNG chèn dấu phẩy vụn vặt cắt đôi câu ngắn (ví dụ SAI: "Sau một tuần, mức nhiệt trung bình, giảm xuống âm 17 độ C." -> ĐÚNG: "Sau một tuần, mức nhiệt trung bình giảm xuống âm 17 độ C."). Chỉ dùng dấu phẩy khi câu thực sự dài hoặc có 2 vế rõ ràng; tuyệt đối không ngắt giữa chủ ngữ và vị ngữ làm giọng đọc giật cục khó chịu.
 
 USER'S TOPIC:
 "${input.scenario || 'No specific topic given'}"

@@ -16,6 +16,21 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     imageTranslateY,
     captionMarginY,
     captionWidth,
+    channelLogo,
+    logoTranslateX,
+    logoTranslateY,
+    logoScale,
+    showOpeningComment,
+    openingCommentAuthor,
+    openingCommentText,
+    openingCommentTranslateY,
+    openingCommentScale,
+    showOpeningNewsBanner,
+    openingNewsHeadline,
+    openingNewsBrand,
+    openingNewsLikes,
+    openingNewsBannerTranslateY,
+    openingNewsBannerScale,
     captionTextAlign,
     captionAnimation,
     kenBurns,
@@ -78,6 +93,21 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               imageTranslateY={imageTranslateY}
               captionMarginY={captionMarginY}
               captionWidth={captionWidth}
+              channelLogo={channelLogo}
+              logoTranslateX={logoTranslateX}
+              logoTranslateY={logoTranslateY}
+              logoScale={logoScale}
+              showOpeningComment={showOpeningComment}
+              openingCommentAuthor={openingCommentAuthor}
+              openingCommentText={openingCommentText}
+              openingCommentTranslateY={openingCommentTranslateY}
+              openingCommentScale={openingCommentScale}
+              showOpeningNewsBanner={showOpeningNewsBanner}
+              openingNewsHeadline={openingNewsHeadline}
+              openingNewsBrand={openingNewsBrand}
+              openingNewsLikes={openingNewsLikes}
+              openingNewsBannerTranslateY={openingNewsBannerTranslateY}
+              openingNewsBannerScale={openingNewsBannerScale}
               captionTextAlign={captionTextAlign}
               captionAnimation={captionAnimation}
               captionPosition={captionPosition}

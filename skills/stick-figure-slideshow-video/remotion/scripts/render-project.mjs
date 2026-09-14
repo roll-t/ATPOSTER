@@ -104,6 +104,23 @@ const imageScale = flags.imageScale !== undefined ? Number(flags.imageScale) : 1
 const imageTranslateY = flags.imageTranslateY !== undefined ? Number(flags.imageTranslateY) : 0;
 const captionMarginY = flags.captionMarginY !== undefined ? Number(flags.captionMarginY) : 0;
 const captionWidth = flags.captionWidth !== undefined ? Number(flags.captionWidth) : 92;
+const logoTranslateX = flags.logoTranslateX !== undefined ? Number(flags.logoTranslateX) : 0;
+const logoTranslateY = flags.logoTranslateY !== undefined ? Number(flags.logoTranslateY) : 0;
+const rawLogoScale = flags.logoScale !== undefined ? Number(flags.logoScale) : 1.0;
+const logoScale = (Number.isFinite(rawLogoScale) && rawLogoScale >= 0.2 && rawLogoScale <= 2.0) ? rawLogoScale : 1.0;
+
+const showOpeningComment = flags.showOpeningComment === undefined ? true : flags.showOpeningComment !== "false";
+const openingCommentAuthor = flags.openingCommentAuthor || "Trả lời bình luận";
+const openingCommentText = flags.openingCommentText || "";
+const openingCommentTranslateY = flags.openingCommentTranslateY !== undefined ? Number(flags.openingCommentTranslateY) : 0;
+const openingCommentScale = flags.openingCommentScale !== undefined ? Number(flags.openingCommentScale) : 1.0;
+
+const showOpeningNewsBanner = flags.showOpeningNewsBanner === "true";
+const openingNewsHeadline = flags.openingNewsHeadline || "";
+const openingNewsBrand = flags.openingNewsBrand || "TIN TỨC";
+const openingNewsLikes = flags.openingNewsLikes || "27.1K";
+const openingNewsBannerTranslateY = flags.openingNewsBannerTranslateY !== undefined ? Number(flags.openingNewsBannerTranslateY) : 0;
+const openingNewsBannerScale = flags.openingNewsBannerScale !== undefined ? Number(flags.openingNewsBannerScale) : 1.0;
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
@@ -326,6 +343,23 @@ const remotionConfig = {
   imageTranslateY,
   captionMarginY,
   captionWidth,
+  captionTextAlign: flags.captionTextAlign || "center",
+  captionAnimation: flags.captionAnimation || (captionStyle === "news" ? "none" : "zoom"),
+  channelLogo: flags.channelLogo !== "false",
+  logoTranslateX,
+  logoTranslateY,
+  logoScale,
+  showOpeningComment,
+  openingCommentAuthor,
+  openingCommentText,
+  openingCommentTranslateY,
+  openingCommentScale,
+  showOpeningNewsBanner,
+  openingNewsHeadline,
+  openingNewsBrand,
+  openingNewsLikes,
+  openingNewsBannerTranslateY,
+  openingNewsBannerScale,
   audioPaddingSeconds: flags.audioPaddingSeconds !== undefined ? Number(flags.audioPaddingSeconds) : 0,
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh

@@ -109,6 +109,20 @@ export default function VideoEditorPanel({
   setRenderVideoBgColor,
   renderChannelLogo = true,
   setRenderChannelLogo,
+  renderShowOpeningComment = true,
+  setRenderShowOpeningComment,
+  renderOpeningCommentAuthor = 'Trả lời bình luận',
+  setRenderOpeningCommentAuthor,
+  renderOpeningCommentText = '',
+  setRenderOpeningCommentText,
+  renderShowOpeningNewsBanner = false,
+  setRenderShowOpeningNewsBanner,
+  renderOpeningNewsHeadline = '',
+  setRenderOpeningNewsHeadline,
+  renderOpeningNewsBrand = 'TIN TỨC',
+  setRenderOpeningNewsBrand,
+  renderOpeningNewsLikes = '27.1K',
+  setRenderOpeningNewsLikes,
   handleSaveAndApply,
   isSavingStyle = false,
   saveStyleMsg = '',
@@ -727,6 +741,274 @@ export default function VideoEditorPanel({
               />
               <span className="switch-slider" style={{ backgroundColor: renderChannelLogo ? '#a855f7' : 'rgba(255,255,255,0.15)' }}></span>
             </label>
+          </div>
+
+          {/* Tuỳ chọn Mở đầu video (Cảnh 1): Bình thường / Hộp hỏi / Banner tin tức / Cả hai */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: (renderShowOpeningComment || renderShowOpeningNewsBanner) ? 'rgba(239, 68, 68, 0.08)' : 'rgba(0,0,0,0.25)', borderRadius: '10px', border: (renderShowOpeningComment || renderShowOpeningNewsBanner) ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.06)', padding: '12px', transition: 'all 0.15s ease' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '1.05rem' }}>🎬</span>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#fff' }}>
+                    Mở đầu video (Cảnh 1)
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.64rem', color: 'rgba(255,255,255,0.45)' }}>
+                  Tuỳ chọn giao diện frame đầu
+                </span>
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.55)', marginBottom: '8px' }}>
+                Chọn phong cách xuất hiện mở đầu thu hút người xem:
+              </div>
+
+              {/* 4 Nút chọn nhanh kiểu mở đầu */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                {/* Option 1: Bình thường (không sticker, không banner) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(false);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
+                  }}
+                  style={{
+                    padding: '8px 6px',
+                    borderRadius: '7px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    background: (!renderShowOpeningComment && !renderShowOpeningNewsBanner) ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0,0,0,0.3)',
+                    border: (!renderShowOpeningComment && !renderShowOpeningNewsBanner) ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.1)',
+                    color: (!renderShowOpeningComment && !renderShowOpeningNewsBanner) ? '#fff' : 'rgba(255,255,255,0.65)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem' }}>⚪</span>
+                  <span>Bình thường</span>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 400, opacity: 0.7 }}>Không sticker/banner</span>
+                </button>
+
+                {/* Option 2: Hộp bình luận (TikTok Question Sticker) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(true);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
+                  }}
+                  style={{
+                    padding: '8px 6px',
+                    borderRadius: '7px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    background: (renderShowOpeningComment && !renderShowOpeningNewsBanner) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(0,0,0,0.3)',
+                    border: (renderShowOpeningComment && !renderShowOpeningNewsBanner) ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                    color: (renderShowOpeningComment && !renderShowOpeningNewsBanner) ? '#60a5fa' : 'rgba(255,255,255,0.65)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem' }}>💬</span>
+                  <span>Hộp bình luận</span>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 400, opacity: 0.7 }}>Sticker hỏi ở trên</span>
+                </button>
+
+                {/* Option 3: Banner tin tức nửa dưới */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(false);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
+                  }}
+                  style={{
+                    padding: '8px 6px',
+                    borderRadius: '7px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    background: (!renderShowOpeningComment && renderShowOpeningNewsBanner) ? 'rgba(239, 68, 68, 0.25)' : 'rgba(0,0,0,0.3)',
+                    border: (!renderShowOpeningComment && renderShowOpeningNewsBanner) ? '1.5px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                    color: (!renderShowOpeningComment && renderShowOpeningNewsBanner) ? '#f87171' : 'rgba(255,255,255,0.65)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem' }}>📰</span>
+                  <span>Banner tin tức</span>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 400, opacity: 0.7 }}>Nửa màn hình dưới đỏ</span>
+                </button>
+
+                {/* Option 4: Cả hai */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(true);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
+                  }}
+                  style={{
+                    padding: '8px 6px',
+                    borderRadius: '7px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px',
+                    background: (renderShowOpeningComment && renderShowOpeningNewsBanner) ? 'rgba(168, 85, 247, 0.25)' : 'rgba(0,0,0,0.3)',
+                    border: (renderShowOpeningComment && renderShowOpeningNewsBanner) ? '1.5px solid #a855f7' : '1px solid rgba(255,255,255,0.1)',
+                    color: (renderShowOpeningComment && renderShowOpeningNewsBanner) ? '#c084fc' : 'rgba(255,255,255,0.65)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem' }}>🔥</span>
+                  <span>Cả hai</span>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 400, opacity: 0.7 }}>Hộp hỏi + Banner tin</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Cấu hình chi tiết Hộp bình luận khi được bật */}
+            {renderShowOpeningComment && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>💬</span> Cài đặt Hộp bình luận (trên):
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.64rem', color: 'rgba(255,255,255,0.6)', marginBottom: '3px' }}>
+                    Tên người hỏi / Dòng tiêu đề sticker:
+                  </label>
+                  <input
+                    type="text"
+                    value={renderOpeningCommentAuthor || ''}
+                    placeholder="Trả lời bình luận"
+                    onChange={(e) => setRenderOpeningCommentAuthor && setRenderOpeningCommentAuthor(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '5px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '6px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.64rem', color: 'rgba(255,255,255,0.6)', marginBottom: '3px' }}>
+                    Nội dung câu hỏi bình luận (để trống = lấy lời mở đầu):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={renderOpeningCommentText || ''}
+                    placeholder={result?.segments?.[0]?.dialogueOrNarration || result?.segments?.[0]?.subtitle || result?.title || 'Câu hỏi mở đầu...'}
+                    onChange={(e) => setRenderOpeningCommentText && setRenderOpeningCommentText(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '5px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '6px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      outline: 'none',
+                      resize: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Cấu hình chi tiết Banner tin tức nửa dưới khi được bật */}
+            {renderShowOpeningNewsBanner && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>📰</span> Cài đặt Banner tin tức (nửa dưới):
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.64rem', color: 'rgba(255,255,255,0.6)', marginBottom: '3px' }}>
+                    Tiêu đề giật tít màu vàng (để trống = lấy tiêu đề video):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={renderOpeningNewsHeadline || ''}
+                    placeholder={result?.title || result?.segments?.[0]?.dialogueOrNarration || result?.segments?.[0]?.subtitle || 'TIÊU ĐỀ NỔI BẬT DỄ ĐỌC...'}
+                    onChange={(e) => setRenderOpeningNewsHeadline && setRenderOpeningNewsHeadline(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '5px 8px',
+                      fontSize: '0.72rem',
+                      borderRadius: '6px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#FACC15',
+                      fontWeight: 700,
+                      outline: 'none',
+                      resize: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.64rem', color: 'rgba(255,255,255,0.6)', marginBottom: '3px' }}>
+                      Kênh / Thương hiệu:
+                    </label>
+                    <input
+                      type="text"
+                      value={renderOpeningNewsBrand || ''}
+                      placeholder="TIN TỨC"
+                      onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '5px 8px',
+                        fontSize: '0.72rem',
+                        borderRadius: '6px',
+                        background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.64rem', color: 'rgba(255,255,255,0.6)', marginBottom: '3px' }}>
+                      Số lượt thích (♡):
+                    </label>
+                    <input
+                      type="text"
+                      value={renderOpeningNewsLikes || ''}
+                      placeholder="27.1K"
+                      onChange={(e) => setRenderOpeningNewsLikes && setRenderOpeningNewsLikes(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '5px 8px',
+                        fontSize: '0.72rem',
+                        borderRadius: '6px',
+                        background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Nút Lưu cấu hình & Ghim mặc định */}

@@ -7,3 +7,5 @@ export * from "./components/Arrows";
 export * from "./components/Sfx";
 export * from "./components/Caption";
 export * from "./components/SceneLayouts";
+export * from "./components/CommentSticker";
+export * from "./components/NewsOpeningBanner";

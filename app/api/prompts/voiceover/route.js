@@ -10,6 +10,10 @@ import { DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/in
 import { synthesizeCapcutTts, isCapcutVoice } from '@/src/infrastructure/tts/capcutTts.js';
 import { transliterateEnglishForVietnameseTts, prewarmTransliterationCache } from '@/src/infrastructure/tts/englishPhoneticVi.js';
 import { createSilentMp3Buffer } from '@/src/infrastructure/tts/silence.js';
+import { cleanUnnaturalTtsCommas } from '@/src/domain/narration/ttsPunctuationCleaner.js';
+
+// Quản lý huỷ tiến trình lồng tiếng khi người dùng bấm Dừng
+const activeVoiceoverCancellations = new Map();
 
 // Default voice fallbacks for VieNeu-TTS (local python server)
 const DEFAULT_VIENEU_MALE_VOICE = 'Phạm Tuyên';
@@ -52,16 +56,17 @@ function getVieneuVoiceForText(dialogueText, vieneuVoiceMappings) {
   return mappings.narrator || DEFAULT_VIENEU_FEMALE_VOICE;
 }
 
-// Chuẩn hoá lời thoại trước khi gửi cho công cụ đọc: bỏ tên nhân vật ở đầu câu ("Nam: ...") và
-// xoá hẳn các [thẻ cảm xúc] trong ngoặc vuông, tránh việc chúng bị đọc to lên thành lời.
+// Chuẩn hoá lời thoại trước khi gửi cho công cụ đọc: bỏ tên nhân vật ở đầu câu ("Nam: ..."),
+// xoá hẳn các [thẻ cảm xúc] trong ngoặc vuông, và làm mịn dấu phẩy vụn vặt để đọc liền mạch.
 function normalizeTtsText(rawText) {
-  return (rawText || '')
+  const cleaned = (rawText || '')
     .replace(/^[A-Za-z0-9\s]+:\s*/, '')
     .replace(/\[[^\]]*\]/g, ' ')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+  return cleanUnnaturalTtsCommas(cleaned);
 }
 
 // Các đuôi file audio có thể đã được tạo trước đó cho 1 slide — dùng để biết slide nào ĐÃ có
@@ -229,6 +234,11 @@ export async function POST(request) {
       async start(controller) {
         const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
 
+        let isCancelled = false;
+        activeVoiceoverCancellations.set(cleanFolder, () => {
+          isCancelled = true;
+        });
+
         try {
           const results = [];
           // Giãn cách nhẹ giữa các lần gọi Edge TTS liên tiếp — dịch vụ miễn phí này thỉnh thoảng bắt
@@ -263,6 +273,12 @@ export async function POST(request) {
           }
 
           for (const scene of scenesToProcess) {
+            if (isCancelled || request.signal?.aborted) {
+              console.log(`[API Voiceover] Tiến trình lồng tiếng cho ${cleanFolder} đã được người dùng dừng.`);
+              send({ type: 'cancelled', message: 'Đã dừng lồng tiếng theo yêu cầu.' });
+              break;
+            }
+
             const { segmentNumber, dialogueOrNarration } = scene;
             const text = (dialogueOrNarration || '').trim();
 
@@ -473,6 +489,7 @@ export async function POST(request) {
           console.error('[API Voiceover Exception]:', err);
           send({ type: 'error', error: err.message || 'Lỗi không xác định khi tạo âm thanh.' });
         } finally {
+          activeVoiceoverCancellations.delete(cleanFolder);
           controller.close();
         }
       }
@@ -488,6 +505,25 @@ export async function POST(request) {
   } catch (error) {
     console.error('[API Voiceover Exception]:', error);
     return NextResponse.json({ error: error.message || 'Lỗi không xác định khi tạo âm thanh.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { folderPath } = await request.json().catch(() => ({}));
+    if (!folderPath) {
+      return NextResponse.json({ error: 'Thiếu folderPath' }, { status: 400 });
+    }
+    const cleanFolder = folderPath.trim();
+    const cancelFn = activeVoiceoverCancellations.get(cleanFolder);
+    if (cancelFn) {
+      cancelFn();
+      activeVoiceoverCancellations.delete(cleanFolder);
+      return NextResponse.json({ success: true, message: 'Đã dừng tiến trình lồng tiếng.' });
+    }
+    return NextResponse.json({ success: true, message: 'Không có tiến trình lồng tiếng nào đang chạy.' });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 

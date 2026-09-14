@@ -17,6 +17,7 @@ export default function VideoResultPanel({
   musicChangedSinceRender = false,
   isRenderDone = false,
   handleRenderVideo,
+  handleCancelRender,
   activeSceneIndex,
   onSceneIndexChange,
   onResult,
@@ -135,22 +136,30 @@ export default function VideoResultPanel({
 
           {/* Nút Tạo Video thay cho chỗ xem trước mô phỏng */}
           {isRenderingVideo ? (
-            <span
+            <button
+              type="button"
+              className="btn"
+              onClick={() => (handleCancelRender ? handleCancelRender() : handleRenderVideo?.())}
+              title="Nhấn để dừng xuất video"
               style={{
                 padding: '4px 12px',
                 borderRadius: '7px',
                 fontSize: '0.78rem',
-                fontWeight: 700,
-                background: 'rgba(99, 102, 241, 0.2)',
-                color: '#818cf8',
-                border: '1px solid rgba(99, 102, 241, 0.4)',
+                fontWeight: 800,
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#ff6b6b',
+                border: '1px solid rgba(239, 68, 68, 0.45)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              ⏳ Đang xuất ({renderProgress}%)
-            </span>
+              <span>⏹</span>
+              <span>Dừng tạo video ({renderProgress}%)</span>
+            </button>
           ) : handleRenderVideo ? (
             <button
               type="button"

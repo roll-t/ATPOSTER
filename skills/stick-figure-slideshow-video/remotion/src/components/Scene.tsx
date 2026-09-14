@@ -1,9 +1,9 @@
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { SceneImage, KenBurnsDirection } from "@atposter/remotion-shared";
 import { RevealMask, RevealLayout } from "./RevealMask";
 import { SceneCanvas } from "./SceneCanvas";
-import { Caption } from "@atposter/remotion-shared";
+import { Caption, CommentSticker, NewsOpeningBanner } from "@atposter/remotion-shared";
 import { BulletsLayout, SplitLayout, CaptionLeftOverlay, ChapterTitleOverlay } from "@atposter/remotion-shared";
 import { Sfx } from "@atposter/remotion-shared";
 import { Arrows } from "@atposter/remotion-shared";
@@ -75,6 +75,21 @@ export const Scene: React.FC<{
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
+  channelLogo?: boolean;
+  logoTranslateX?: number;
+  logoTranslateY?: number;
+  logoScale?: number;
+  showOpeningComment?: boolean;
+  openingCommentAuthor?: string;
+  openingCommentText?: string;
+  openingCommentTranslateY?: number;
+  openingCommentScale?: number;
+  showOpeningNewsBanner?: boolean;
+  openingNewsHeadline?: string;
+  openingNewsBrand?: string;
+  openingNewsLikes?: string;
+  openingNewsBannerTranslateY?: number;
+  openingNewsBannerScale?: number;
   captionWidth?: number;
   captionTextAlign?: "left" | "center" | "right";
   captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
@@ -109,6 +124,21 @@ export const Scene: React.FC<{
   imageTranslateY,
   captionMarginY,
   captionWidth = 92,
+  channelLogo = true,
+  logoTranslateX = 0,
+  logoTranslateY = 0,
+  logoScale = 1,
+  showOpeningComment = true,
+  openingCommentAuthor = "Trả lời bình luận",
+  openingCommentText = "",
+  openingCommentTranslateY = 0,
+  openingCommentScale = 1,
+  showOpeningNewsBanner = false,
+  openingNewsHeadline = "",
+  openingNewsBrand = "TIN TỨC",
+  openingNewsLikes = "27.1K",
+  openingNewsBannerTranslateY = 0,
+  openingNewsBannerScale = 1,
   captionTextAlign = "center",
   captionAnimation,
   captionPosition,
@@ -229,17 +259,6 @@ export const Scene: React.FC<{
             highlightColor={layoutHighlightColor}
             showBilingual={showBilingual}
           />
-        ) : layout === "caption-left" ? (
-          <CaptionLeftOverlay
-            caption={scene.caption}
-            fontFamily={fontFamily}
-            captionFont={captionFont}
-            fontSize={layoutFontSize}
-            secondaryFontSize={layoutSecondaryFontSize}
-            textColor={layoutTextColor}
-            highlightColor={layoutHighlightColor}
-            showBilingual={showBilingual}
-          />
         ) : layout === "image-only" ? null : (
           <Caption
             text={scene.caption}
@@ -308,18 +327,7 @@ export const Scene: React.FC<{
           highlightColor={layoutHighlightColor}
           showBilingual={showBilingual}
         />
-      ) : layout === "caption-left" ? (
-        <CaptionLeftOverlay
-          caption={scene.caption}
-          fontFamily={fontFamily}
-          captionFont={captionFont}
-          fontSize={layoutFontSize}
-          secondaryFontSize={layoutSecondaryFontSize}
-          textColor={layoutTextColor}
-          highlightColor={layoutHighlightColor}
-          showBilingual={showBilingual}
-        />
-      ) : layout === "image-only" ? null : (
+      ) : layout === "image-only" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
       <Caption
         text={scene.caption}
         sceneIndex={sceneIndex}
@@ -327,6 +335,8 @@ export const Scene: React.FC<{
         position={captionPosition}
         captionMarginY={captionMarginY}
         captionWidth={captionWidth}
+        captionTextAlign={captionTextAlign}
+        captionAnimation={captionAnimation}
         fontFamily={fontFamily}
         mode={captionMode}
         wordsPerChunk={captionWordsPerChunk}
@@ -343,6 +353,59 @@ export const Scene: React.FC<{
         opacity={1}
       />
       )}
+
+      {/* Hộp bình luận mở đầu chuẩn TikTok (Scene 0 / Cảnh 1) */}
+      {sceneIndex === 0 && showOpeningComment && (
+        <CommentSticker
+          author={openingCommentAuthor}
+          text={openingCommentText || scene.caption || videoTitle || ""}
+          translateY={openingCommentTranslateY}
+          scale={openingCommentScale}
+          durationInFrames={sceneDurationInFrames}
+        />
+      )}
+
+      {/* Banner tin tức nửa dưới mở đầu (Red News Lower Banner) (Scene 0 / Cảnh 1) */}
+      {sceneIndex === 0 && showOpeningNewsBanner && (
+        <NewsOpeningBanner
+          brand={openingNewsBrand}
+          headline={openingNewsHeadline || videoTitle || scene.caption || ""}
+          likes={openingNewsLikes}
+          translateY={openingNewsBannerTranslateY}
+          scale={openingNewsBannerScale}
+          durationInFrames={sceneDurationInFrames}
+        />
+      )}
+
+      {/* Logo kênh mờ ở đáy khung */}
+      {channelLogo && !(sceneIndex === 0 && showOpeningNewsBanner) ? (
+      <div
+        style={{
+          position: "absolute",
+          bottom: 130,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          pointerEvents: "none",
+          zIndex: 4,
+          opacity: 0.45,
+          transform: `translate(${logoTranslateX}px, ${logoTranslateY}px) scale(${logoScale})`,
+        }}
+      >
+        <Img
+          src={staticFile("logo/the-mind-logo.png")}
+          style={{
+            width: 220,
+            height: "auto",
+            objectFit: "contain",
+            mixBlendMode: "screen",
+            filter: "brightness(0.98)",
+          }}
+        />
+      </div>
+      ) : null}
     </AbsoluteFill>
   );
 };

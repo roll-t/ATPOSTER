@@ -146,6 +146,25 @@ export const slideshowVideoSchema = z.object({
   logoTranslateX: z.number().default(0),
   logoTranslateY: z.number().default(0),
   logoScale: z.number().default(1),
+
+  // Căn lề và hiệu ứng chữ phụ đề
+  captionTextAlign: z.enum(["left", "center", "right"]).default("center"),
+  captionAnimation: z.enum(["spring", "fade", "pop", "slide", "wave", "none"]).default("spring"),
+
+  // Hộp câu hỏi / bình luận mở đầu chuẩn TikTok (hiển thị ở Scene 0 / Cảnh 1)
+  showOpeningComment: z.boolean().default(true),
+  openingCommentAuthor: z.string().default("Trả lời bình luận"),
+  openingCommentText: z.string().default(""),
+  openingCommentTranslateY: z.number().default(0),
+  openingCommentScale: z.number().default(1),
+
+  // Banner tin tức nửa màn hình dưới (Cảnh 1)
+  showOpeningNewsBanner: z.boolean().default(false),
+  openingNewsHeadline: z.string().default(""),
+  openingNewsBrand: z.string().default("TIN TỨC"),
+  openingNewsLikes: z.string().default("27.1K"),
+  openingNewsBannerTranslateY: z.number().default(0),
+  openingNewsBannerScale: z.number().default(1),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),

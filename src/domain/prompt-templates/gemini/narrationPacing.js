@@ -10,12 +10,18 @@
  * ép rõ ngưỡng số từ tối đa giữa 2 dấu câu, thay vì chỉ nói chung chung "nên ngắt câu".
  */
 export function buildPunctuationRhythmGuidance() {
-  return `Rhythm & pacing via punctuation (IMPORTANT — this is what actually controls how the narration sounds when spoken): the text-to-speech engine has no real pause markup, it paces itself PURELY from punctuation — a comma makes it take a brief breath, a period makes it come to a fuller stop before continuing. The most common mistake to avoid: a sentence that runs on too long with no comma/period reads as one rushed, breathless stream — split MORE aggressively than feels necessary on the page:
-   - Never let more than about 10-14 words pass without a comma or period. If a clause is running longer than that, break it with a comma at the nearest natural breath point (before "nhưng"/"và"/"mà"/"vì"/"rồi", or right after a complete clause) — even if the unbroken version would still be grammatically correct.
-   - End each complete idea with a period instead of chaining several ideas together indefinitely — a full stop lets one idea land and gives the voice a real pause before the next idea starts.
-   - After writing a sentence, silently read it back in one breath and ask: does this sound rushed? If yes, add another comma or split it into two sentences — do not leave it as one long unbroken clause.
-   - Don't overload a sentence with commas just to slow it down either; each comma must sit at a genuine pause point, or the voice starts sounding choppy instead of natural.
-   - Vary sentence length across the segment (a short, punchy sentence next to a slightly longer one) — but even the longer ones must still be broken up internally with commas, never left as one long unbroken clause.`;
+  return `Pacing & natural flow via punctuation (CRITICAL — controls how the narration flows when spoken):
+   - Text-to-speech engines (Edge TTS, VieNeu, CapCut) take a full audible breath and pause (~300ms) at EVERY single comma (,), and a longer stop at periods (.).
+   - SPEAK SMOOTHLY AND CONTINUOUSLY (LIỀN MẠCH, TRÔI CHẢY):
+     * In short-form videos, each segment is already concise (typically 6-14 words).
+     * DO NOT chop up a short sentence with unnecessary commas — doing so forces the voice to stutter, drop pitch, and speak in awkward, jerky fragments (nói giật giật, ngắt ngắt khó chịu).
+     * Write each short segment as ONE smooth, unbroken, continuous breath clause. Let the voice read the whole thought fluently without artificial pauses.
+   - STRICT COMMA RULES — ONLY USE A COMMA WHEN GENUINELY LONG OR COMPOUND:
+     * Only insert a comma when a clause is genuinely LONG (over ~15-18 words) and truly requires a breath pause, or between two clearly distinct grammatical clauses (e.g. before contrasting conjunctions: "nhưng", "tuy nhiên", "mặc dù", "thế nhưng").
+     * STRICT PROHIBITION: NEVER place a comma between a subject and its predicate/verb! (e.g. CẤM: "mức nhiệt trung bình, giảm xuống âm 17 độ C" ❌ -> PHẢI VIẾT: "mức nhiệt trung bình giảm xuống âm 17 độ C" ✅; CẤM: "nguyên nhân chính, là..." ❌ -> PHẢI VIẾT: "nguyên nhân chính là..." ✅).
+     * NEVER sprinkle commas every 3 to 4 words. A 10-word sentence should almost NEVER have 2 commas.
+   - Use periods (.) to firmly close complete ideas so the voice pauses naturally only at the end of a sentence before moving to the next idea.
+   - Read each sentence aloud in your mind: if it stumbles or feels jerky and disjointed, REMOVE the comma so it speaks in one clean, natural flow.`;
 }
 
 /**

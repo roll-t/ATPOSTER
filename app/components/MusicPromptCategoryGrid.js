@@ -316,6 +316,71 @@ function GhibliPianoPreview() {
   );
 }
 
+function KnowledgeCuriosityPreview() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: 'linear-gradient(135deg, #042f2e 0%, #0c4a6e 100%)',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '12px',
+      boxSizing: 'border-box'
+    }}>
+      <svg viewBox="0 0 160 70" style={{ width: '100%', height: '65px' }}>
+        {/* Glow Aura behind Light Bulb */}
+        <circle cx="80" cy="28" r="22" fill="#38bdf8" opacity="0.18" />
+
+        {/* Light Bulb (Idea / Knowledge) */}
+        <path d="M 74 18 A 9 9 0 1 1 86 18 C 86 22 83 25 83 29 L 77 29 C 77 25 74 22 74 18 Z" fill="#fef08a" stroke="#facc15" strokeWidth="1.2" />
+        <line x1="77" y1="32" x2="83" y2="32" stroke="#e2e8f0" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="78" y1="35" x2="82" y2="35" stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round" />
+
+        {/* Sparkle rays ("tin tin tin") */}
+        <line x1="80" y1="4" x2="80" y2="7" stroke="#38bdf8" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="66" y1="9" x2="69" y2="12" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="94" y1="9" x2="91" y2="12" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="60" y1="18" x2="64" y2="19" stroke="#22d3ee" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1="100" y1="18" x2="96" y2="19" stroke="#22d3ee" strokeWidth="1.2" strokeLinecap="round" />
+
+        {/* Bouncing Pizzicato Arc ("ten ten ten") */}
+        <path d="M 18 54 Q 34 32 50 54 Q 65 34 80 54 Q 95 34 110 54 Q 126 32 142 54" stroke="#06b6d4" strokeWidth="1.8" fill="none" strokeDasharray="3 2" />
+
+        {/* Marimba / Xylophone wooden bars */}
+        <rect x="24" y="46" width="5" height="17" rx="1.5" fill="#f59e0b" opacity="0.85" />
+        <rect x="33" y="43" width="5" height="20" rx="1.5" fill="#f59e0b" opacity="0.85" />
+        <rect x="42" y="40" width="5" height="23" rx="1.5" fill="#f59e0b" opacity="0.85" />
+
+        <rect x="113" y="40" width="5" height="23" rx="1.5" fill="#38bdf8" opacity="0.85" />
+        <rect x="122" y="43" width="5" height="20" rx="1.5" fill="#38bdf8" opacity="0.85" />
+        <rect x="131" y="46" width="5" height="17" rx="1.5" fill="#38bdf8" opacity="0.85" />
+
+        {/* Musical notes bouncing */}
+        <circle cx="50" cy="32" r="2" fill="#a5f3fc" />
+        <circle cx="110" cy="32" r="2" fill="#a5f3fc" />
+      </svg>
+
+      <div style={{
+        position: 'absolute',
+        top: '8px',
+        right: '12px',
+        fontSize: '9px',
+        color: '#38bdf8',
+        fontWeight: 800,
+        background: 'rgba(6, 182, 212, 0.15)',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        border: '1px solid rgba(56, 189, 248, 0.3)'
+      }}>
+        PIZZICATO & MARIMBA 108 BPM
+      </div>
+    </div>
+  );
+}
+
 export default function MusicPromptCategoryGrid({ onSelectCategory }) {
   return (
     <div style={{ padding: '4px 4px 28px 4px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -421,6 +486,7 @@ export default function MusicPromptCategoryGrid({ onSelectCategory }) {
                 {cat.id === 'lofi_chill' && <LofiChillPreview />}
                 {cat.id === 'ambient_sleep' && <AmbientSleepPreview />}
                 {cat.id === 'ghibli_piano' && <GhibliPianoPreview />}
+                {cat.id === 'knowledge_curiosity' && <KnowledgeCuriosityPreview />}
               </div>
 
               {/* Bottom Card Content Section */}

@@ -145,6 +145,19 @@ export default function LiveVideoSimulator({
   const logoTranslateY = Number(rc.logoTranslateY !== undefined && rc.logoTranslateY !== null ? rc.logoTranslateY : 0);
   const logoScale = Number(rc.logoScale !== undefined && rc.logoScale !== null ? rc.logoScale : 1);
 
+  const showOpeningComment = rc.showOpeningComment !== false;
+  const openingCommentAuthor = rc.openingCommentAuthor || 'Trả lời bình luận';
+  const openingCommentText = rc.openingCommentText || '';
+  const openingCommentTranslateY = Number(rc.openingCommentTranslateY !== undefined && rc.openingCommentTranslateY !== null ? rc.openingCommentTranslateY : 0);
+  const openingCommentScale = Number(rc.openingCommentScale !== undefined && rc.openingCommentScale !== null ? rc.openingCommentScale : 1);
+
+  const showOpeningNewsBanner = Boolean(rc.showOpeningNewsBanner);
+  const openingNewsHeadline = (rc.openingNewsHeadline || result?.title || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || '').trim();
+  const openingNewsBrand = (rc.openingNewsBrand || rc.channelName || 'TIN TỨC').trim();
+  const openingNewsLikes = (rc.openingNewsLikes || '27.1K').trim();
+  const openingNewsBannerTranslateY = Number(rc.openingNewsBannerTranslateY !== undefined && rc.openingNewsBannerTranslateY !== null ? rc.openingNewsBannerTranslateY : 0);
+  const openingNewsBannerScale = Number(rc.openingNewsBannerScale !== undefined && rc.openingNewsBannerScale !== null ? rc.openingNewsBannerScale : 1);
+
   const globalKenBurns = rc.kenBurns || rc.globalKenBurns !== false;
   const globalImageFit = rc.globalImageFit || 'cover';
   const imageScale = Number(rc.imageScale || 1);
@@ -248,11 +261,40 @@ export default function LiveVideoSimulator({
   const bgMusicAudioRef = useRef(null);
   const hideControlsTimerRef = useRef(null);
 
+  // Tính thời gian tích lũy toàn video (cộng dồn từ cảnh 1 đến thời điểm hiện tại)
+  const totalElapsedTime = Math.min(
+    totalDuration,
+    (sceneOffsets[currentSlideIndex] || 0) + slideCurrentTime
+  );
+  const totalProgressPercent = Math.min(100, Math.max(0, (totalElapsedTime / totalDuration) * 100));
+  const totalElapsedTimeRef = useRef(totalElapsedTime);
+  totalElapsedTimeRef.current = totalElapsedTime;
+
+  // Đồng bộ nhạc nền chuẩn xác theo mốc thời gian của video (rhythm / timeline sync)
+  const syncBgMusicToTime = useCallback((targetTotalTime = totalElapsedTimeRef.current, force = false) => {
+    const bgAudio = bgMusicAudioRef.current;
+    if (!bgAudio) return;
+    const dur = bgAudio.duration;
+    let seekTime = 0;
+    if (Number.isFinite(dur) && dur > 0) {
+      seekTime = targetTotalTime % dur;
+    } else {
+      seekTime = Math.max(0, targetTotalTime);
+    }
+    if (force || Math.abs(bgAudio.currentTime - seekTime) > 0.35) {
+      try {
+        bgAudio.currentTime = seekTime;
+      } catch (_) {}
+    }
+  }, []);
+
   const remotionCanvasWidth = effectiveIsPortrait ? 1080 : 1920;
   const currentContainerWidth = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
   const remotionScale = currentContainerWidth / remotionCanvasWidth;
   const visualLogoX = Math.round(logoTranslateX * remotionScale);
   const visualLogoY = Math.round(logoTranslateY * remotionScale);
+  const visualCommentY = Math.round(openingCommentTranslateY * remotionScale);
+  const visualNewsBannerY = Math.round(openingNewsBannerTranslateY * remotionScale);
 
   const currentSegment = segments[currentSlideIndex] || segments[0] || {};
   const currentPaddedNum = String(currentSegment.segmentNumber || currentSlideIndex + 1).padStart(2, '0');
@@ -358,7 +400,9 @@ export default function LiveVideoSimulator({
     imageTranslateY: 0,
     logoTranslateX: 0,
     logoTranslateY: 0,
-    logoScale: 1
+    logoScale: 1,
+    commentTranslateY: 0,
+    commentScale: 1
   });
 
   const handleCaptionDragStart = useCallback(() => {
@@ -519,6 +563,110 @@ export default function LiveVideoSimulator({
     const startScale = dragStartValuesRef.current.logoScale || 1;
     const nextScale = Math.max(0.3, Math.min(3.5, Number((startScale * ratio).toFixed(2))));
     onUpdateRenderConfig({ logoScale: nextScale });
+  }, [onUpdateRenderConfig]);
+
+  const handleCommentDragStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale]);
+
+  // Xử lý kéo di chuyển Hộp bình luận mở đầu trên trục Y trực tiếp
+  const handleCommentDrag = useCallback(({ deltaY }) => {
+    if (!onUpdateRenderConfig) return;
+    const canvasWidth = effectiveIsPortrait ? 1080 : 1920;
+    const containerW = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+    const rScale = containerW / canvasWidth;
+    const deltaRemotionY = deltaY / rScale;
+    const nextY = Math.round((dragStartValuesRef.current.commentTranslateY || 0) + deltaRemotionY);
+    onUpdateRenderConfig({
+      openingCommentTranslateY: Math.max(-600, Math.min(800, nextY))
+    });
+  }, [effectiveIsPortrait, onUpdateRenderConfig]);
+
+  const handleCommentScaleStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale]);
+
+  // Xử lý kéo 4 góc neo để thu phóng kích thước Hộp bình luận trực tiếp
+  const handleCommentScale = useCallback(({ ratio }) => {
+    if (!onUpdateRenderConfig) return;
+    const startScale = dragStartValuesRef.current.commentScale || 1;
+    const nextScale = Math.max(0.4, Math.min(2.5, Number((startScale * ratio).toFixed(2))));
+    onUpdateRenderConfig({ openingCommentScale: nextScale });
+  }, [onUpdateRenderConfig]);
+
+  const handleNewsBannerDragStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale,
+      newsBannerTranslateY: openingNewsBannerTranslateY,
+      newsBannerScale: openingNewsBannerScale,
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale]);
+
+  const handleNewsBannerDrag = useCallback(({ deltaY }) => {
+    if (!onUpdateRenderConfig) return;
+    const canvasWidth = effectiveIsPortrait ? 1080 : 1920;
+    const containerW = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+    const rScale = containerW / canvasWidth;
+    const deltaRemotionY = deltaY / rScale;
+    const nextY = Math.round((dragStartValuesRef.current.newsBannerTranslateY || 0) + deltaRemotionY);
+    onUpdateRenderConfig({
+      openingNewsBannerTranslateY: Math.max(-600, Math.min(600, nextY))
+    });
+  }, [effectiveIsPortrait, onUpdateRenderConfig]);
+
+  const handleNewsBannerScaleStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale,
+      newsBannerTranslateY: openingNewsBannerTranslateY,
+      newsBannerScale: openingNewsBannerScale,
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale]);
+
+  const handleNewsBannerScale = useCallback(({ ratio }) => {
+    if (!onUpdateRenderConfig) return;
+    const startScale = dragStartValuesRef.current.newsBannerScale || 1;
+    const nextScale = Math.max(0.5, Math.min(2.0, Number((startScale * ratio).toFixed(2))));
+    onUpdateRenderConfig({ openingNewsBannerScale: nextScale });
   }, [onUpdateRenderConfig]);
 
   const clearCloseTimer = () => {
@@ -697,7 +845,9 @@ export default function LiveVideoSimulator({
   useEffect(() => {
     setSlideCurrentTime(0);
     setImageError(false);
-  }, [currentSlideIndex]);
+    const sceneStart = sceneOffsets[currentSlideIndex] || 0;
+    syncBgMusicToTime(sceneStart, !isPlaying);
+  }, [currentSlideIndex, sceneOffsets, isPlaying, syncBgMusicToTime]);
 
   useEffect(() => {
     const voiceAudio = voiceAudioRef.current;
@@ -729,6 +879,12 @@ export default function LiveVideoSimulator({
       } else {
         setIsPlaying(false);
         goToScene(0);
+        setSlideCurrentTime(0);
+        if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+        if (bgMusicAudioRef.current) {
+          bgMusicAudioRef.current.pause();
+          try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+        }
       }
     };
     const onErr = () => {
@@ -766,6 +922,16 @@ export default function LiveVideoSimulator({
         const curTime = va.currentTime || 0;
         setSlideCurrentTime(curTime);
 
+        // Giữ nhạc nền khớp nhịp theo thời gian thực của video (tự sửa nếu bị trôi nhịp)
+        const bg = bgMusicAudioRef.current;
+        if (bg && !bg.paused && Number.isFinite(bg.duration) && bg.duration > 0) {
+          const curTotal = (sceneOffsets[currentSlideIndex] || 0) + curTime;
+          const expectedBgTime = curTotal % bg.duration;
+          if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
+            try { bg.currentTime = expectedBgTime; } catch (_) {}
+          }
+        }
+
         // Chuyển cảnh chuẩn xác khi audio kết thúc
         if (va.duration && Number.isFinite(va.duration) && curTime >= va.duration - 0.05) {
           if (playOnlySceneIndexRef.current !== null) {
@@ -779,6 +945,12 @@ export default function LiveVideoSimulator({
           } else {
             setIsPlaying(false);
             goToScene(0);
+            setSlideCurrentTime(0);
+            if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+            if (bgMusicAudioRef.current) {
+              bgMusicAudioRef.current.pause();
+              try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+            }
           }
           return;
         }
@@ -789,6 +961,15 @@ export default function LiveVideoSimulator({
 
         setSlideCurrentTime((prev) => {
           const next = prev + delta;
+          const bg = bgMusicAudioRef.current;
+          if (bg && !bg.paused && Number.isFinite(bg.duration) && bg.duration > 0) {
+            const curTotal = (sceneOffsets[currentSlideIndex] || 0) + next;
+            const expectedBgTime = curTotal % bg.duration;
+            if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
+              try { bg.currentTime = expectedBgTime; } catch (_) {}
+            }
+          }
+
           if (next >= currentSceneDuration) {
             if (playOnlySceneIndexRef.current !== null) {
               playOnlySceneIndexRef.current = null;
@@ -800,6 +981,12 @@ export default function LiveVideoSimulator({
             } else {
               setIsPlaying(false);
               goToScene(0);
+              setSlideCurrentTime(0);
+              if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+              if (bgMusicAudioRef.current) {
+                bgMusicAudioRef.current.pause();
+                try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
+              }
             }
             return 0;
           }
@@ -821,6 +1008,7 @@ export default function LiveVideoSimulator({
     const bgAudio = bgMusicAudioRef.current;
 
     if (isPlaying) {
+      syncBgMusicToTime(totalElapsedTimeRef.current, true);
       if (voiceAudio) voiceAudio.play().catch(() => { });
       if (bgAudio && bgMusicEnabled) {
         bgAudio.volume = isMuted ? 0 : bgMusicVolume;
@@ -830,7 +1018,7 @@ export default function LiveVideoSimulator({
       if (voiceAudio) voiceAudio.pause();
       if (bgAudio) bgAudio.pause();
     }
-  }, [isPlaying, bgMusicEnabled, bgMusicVolume, isMuted]);
+  }, [isPlaying, bgMusicEnabled, bgMusicVolume, isMuted, syncBgMusicToTime]);
 
   useEffect(() => {
     if (voiceAudioRef.current) voiceAudioRef.current.muted = isMuted;
@@ -847,11 +1035,11 @@ export default function LiveVideoSimulator({
     bgAudio.src = bgMusicSrc;
     bgAudio.load();
     if (isPlaying && bgMusicEnabled) {
-      bgAudio.currentTime = 0;
+      syncBgMusicToTime(totalElapsedTimeRef.current, true);
       bgAudio.volume = isMuted ? 0 : bgMusicVolume;
       bgAudio.play().catch(() => { });
     }
-  }, [bgMusicSrc]);
+  }, [bgMusicSrc, isPlaying, bgMusicEnabled, isMuted, bgMusicVolume, syncBgMusicToTime]);
 
   const togglePlay = () => {
     playOnlySceneIndexRef.current = null;
@@ -859,11 +1047,19 @@ export default function LiveVideoSimulator({
   };
   const handlePrevSlide = () => {
     playOnlySceneIndexRef.current = null;
-    setCurrentSlideIndex((p) => Math.max(0, p - 1));
+    const prevIdx = Math.max(0, currentSlideIndex - 1);
+    setCurrentSlideIndex(prevIdx);
+    setSlideCurrentTime(0);
+    if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+    syncBgMusicToTime(sceneOffsets[prevIdx] || 0, true);
   };
   const handleNextSlide = () => {
     playOnlySceneIndexRef.current = null;
-    setCurrentSlideIndex((p) => Math.min(totalScenes - 1, p + 1));
+    const nextIdx = Math.min(totalScenes - 1, currentSlideIndex + 1);
+    setCurrentSlideIndex(nextIdx);
+    setSlideCurrentTime(0);
+    if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+    syncBgMusicToTime(sceneOffsets[nextIdx] || 0, true);
   };
 
   const handlePlaySingleScene = (sceneIdx) => {
@@ -871,11 +1067,14 @@ export default function LiveVideoSimulator({
       playOnlySceneIndexRef.current = null;
       setIsPlaying(false);
       if (voiceAudioRef.current) voiceAudioRef.current.pause();
+      if (bgMusicAudioRef.current) bgMusicAudioRef.current.pause();
       return;
     }
 
     playOnlySceneIndexRef.current = sceneIdx;
     setSlideCurrentTime(0);
+    const sceneStartTime = sceneOffsets[sceneIdx] || 0;
+    syncBgMusicToTime(sceneStartTime, true);
     if (currentSlideIndex === sceneIdx) {
       if (voiceAudioRef.current) {
         voiceAudioRef.current.currentTime = 0;
@@ -897,17 +1096,10 @@ export default function LiveVideoSimulator({
       voiceAudioRef.current.play().catch(() => { });
     }
     if (bgMusicAudioRef.current && bgMusicEnabled) {
-      bgMusicAudioRef.current.currentTime = 0;
+      try { bgMusicAudioRef.current.currentTime = 0; } catch (_) {}
       bgMusicAudioRef.current.play().catch(() => { });
     }
   };
-
-  // Tính thời gian tích lũy toàn video (cộng dồn từ cảnh 1 đến thời điểm hiện tại)
-  const totalElapsedTime = Math.min(
-    totalDuration,
-    (sceneOffsets[currentSlideIndex] || 0) + slideCurrentTime
-  );
-  const totalProgressPercent = Math.min(100, Math.max(0, (totalElapsedTime / totalDuration) * 100));
 
   // Tua trực tiếp trên TOÀN BỘ VIDEO (bấm vào bất kỳ đâu trên thanh để nhảy đến cảnh và giây tương ứng)
   const handleSeekTotalTimeline = (e) => {
@@ -937,6 +1129,7 @@ export default function LiveVideoSimulator({
     if (voiceAudioRef.current) {
       voiceAudioRef.current.currentTime = inSceneTime;
     }
+    syncBgMusicToTime(targetTotalTime, true);
   };
 
   const toggleFullscreen = () => {
@@ -1082,7 +1275,16 @@ export default function LiveVideoSimulator({
           }}
         >
           <audio ref={voiceAudioRef} preload="auto" />
-          <audio key={bgMusicSrc} ref={bgMusicAudioRef} src={bgMusicSrc} loop preload="auto" />
+          <audio
+            key={bgMusicSrc}
+            ref={bgMusicAudioRef}
+            src={bgMusicSrc}
+            loop
+            preload="auto"
+            onLoadedMetadata={() => {
+              syncBgMusicToTime(totalElapsedTimeRef.current, true);
+            }}
+          />
 
           {/* LỚP 1: ẢNH / VIDEO NỀN / BULLETS */}
           <div
@@ -1197,7 +1399,7 @@ export default function LiveVideoSimulator({
 
 
           {/* LỚP 3: PHỤ ĐỀ MÔ PHỎNG CHUẨN XÁC REMOTION */}
-          {!hasBullets && cleanPrimary && captionEnabled && (
+          {!hasBullets && cleanPrimary && captionEnabled && !(currentSlideIndex === 0 && showOpeningNewsBanner) && (
             <div
               key={`sub-${currentSlideIndex}`}
               style={{
@@ -1336,8 +1538,263 @@ export default function LiveVideoSimulator({
             </div>
           )}
 
+          {/* LỚP 3.5: HỘP BÌNH LUẬN MỞ ĐẦU (TIKTOK COMMENT STICKER) TRÊN CẢNH 1 */}
+          {currentSlideIndex === 0 && showOpeningComment && (
+            <div
+              style={{
+                position: 'absolute',
+                top: effectiveIsPortrait ? '11%' : '7%',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                pointerEvents: 'none',
+                zIndex: selectedElement === 'comment' ? 46 : 30,
+                transition: selectedElement === 'comment' ? 'none' : 'all 0.2s ease'
+              }}
+            >
+              <TransformGizmoOverlay
+                active={selectedElement === 'comment' && !isPlaying}
+                label="Hộp bình luận (Cảnh 1)"
+                detail={`${Math.round(openingCommentScale * 100)}% • Y: ${Math.round(openingCommentTranslateY)}px`}
+                boxInset="-2px"
+                counterScale={openingCommentScale}
+                badgePosition={openingCommentTranslateY < -200 ? 'inside-top' : 'outside-top'}
+                onDragStart={handleCommentDragStart}
+                onDrag={handleCommentDrag}
+                onScaleStart={handleCommentScaleStart}
+                onScale={handleCommentScale}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({ openingCommentTranslateY: 0, openingCommentScale: 1 })}
+                style={{
+                  transform: `translateY(${visualCommentY}px) scale(${openingCommentScale})`,
+                  transformOrigin: 'center top',
+                  pointerEvents: isPlaying ? 'none' : 'auto',
+                  cursor: isPlaying ? 'default' : (selectedElement === 'comment' ? 'move' : 'pointer'),
+                  maxWidth: '88%',
+                  width: 'fit-content',
+                  transition: selectedElement === 'comment' || isPlaying ? 'none' : 'transform 0.2s ease'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('comment');
+                }}
+              >
+                <div
+                  style={{
+                    position: 'relative',
+                    background: '#FFFFFF',
+                    borderRadius: `${Math.round(28 * remotionScale)}px`,
+                    padding: `${Math.round(18 * remotionScale)}px ${Math.round(26 * remotionScale)}px`,
+                    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.35), 0 3px 12px rgba(0, 0, 0, 0.16)',
+                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: `${Math.round(14 * remotionScale)}px`,
+                    userSelect: 'none'
+                  }}
+                >
+                  {/* Mấu nhọn speech bubble */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${Math.round(-9 * remotionScale)}px`,
+                      left: `${Math.round(30 * remotionScale)}px`,
+                      width: `${Math.round(18 * remotionScale)}px`,
+                      height: `${Math.round(18 * remotionScale)}px`,
+                      background: '#FFFFFF',
+                      transform: 'rotate(45deg)',
+                      borderRadius: '2px',
+                      boxShadow: '-2px -2px 4px rgba(0,0,0,0.04)'
+                    }}
+                  />
+
+                  {/* Avatar icon */}
+                  <div
+                    style={{
+                      width: `${Math.max(28, Math.round(52 * remotionScale))}px`,
+                      height: `${Math.max(28, Math.round(52 * remotionScale))}px`,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontSize: `${Math.max(14, Math.round(24 * remotionScale))}px`,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                      boxShadow: '0 3px 10px rgba(59, 130, 246, 0.35)',
+                      border: '1.5px solid #ffffff'
+                    }}
+                  >
+                    💬
+                  </div>
+
+                  {/* Text */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{
+                          fontSize: `${Math.max(10, Math.round(20 * remotionScale))}px`,
+                          fontWeight: 700,
+                          color: '#6b7280',
+                          letterSpacing: '0.01em',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {openingCommentAuthor || 'Trả lời bình luận'}
+                      </span>
+                      <span style={{ fontSize: `${Math.max(9, Math.round(17 * remotionScale))}px`, color: '#9ca3af' }}>• Khán giả</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "'Be Vietnam Pro', 'Noto Sans', Arial, sans-serif",
+                        fontSize: `${Math.max(11, Math.round(26 * remotionScale))}px`,
+                        fontWeight: 700,
+                        lineHeight: 1.35,
+                        color: '#111827',
+                        letterSpacing: '0.01em',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {(openingCommentText || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || result?.title || '').trim()}
+                    </div>
+                  </div>
+                </div>
+              </TransformGizmoOverlay>
+            </div>
+          )}
+
+          {/* LỚP 3.6: BANNER TIN TỨC NỬA MÀN HÌNH DƯỚI (CẢNH 1) */}
+          {currentSlideIndex === 0 && showOpeningNewsBanner && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+                pointerEvents: 'none',
+                zIndex: selectedElement === 'news_banner' ? 47 : 32,
+                transition: selectedElement === 'news_banner' ? 'none' : 'all 0.2s ease'
+              }}
+            >
+              <TransformGizmoOverlay
+                active={selectedElement === 'news_banner' && !isPlaying}
+                label="Banner tin tức (Cảnh 1)"
+                detail={`${Math.round(openingNewsBannerScale * 100)}% • Y: ${Math.round(openingNewsBannerTranslateY)}px`}
+                boxInset="-2px"
+                counterScale={openingNewsBannerScale}
+                badgePosition={openingNewsBannerTranslateY > 100 ? 'outside-top' : 'inside-top'}
+                onDragStart={handleNewsBannerDragStart}
+                onDrag={handleNewsBannerDrag}
+                onScaleStart={handleNewsBannerScaleStart}
+                onScale={handleNewsBannerScale}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({ openingNewsBannerTranslateY: 0, openingNewsBannerScale: 1 })}
+                style={{
+                  transform: `translateY(${visualNewsBannerY}px) scale(${openingNewsBannerScale})`,
+                  transformOrigin: 'center bottom',
+                  pointerEvents: isPlaying ? 'none' : 'auto',
+                  cursor: isPlaying ? 'default' : (selectedElement === 'news_banner' ? 'move' : 'pointer'),
+                  width: '100%',
+                  transition: selectedElement === 'news_banner' || isPlaying ? 'none' : 'transform 0.2s ease'
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('news_banner');
+                }}
+              >
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    minHeight: effectiveIsPortrait ? `${Math.round(180 * remotionScale)}px` : `${Math.round(140 * remotionScale)}px`,
+                    background: 'linear-gradient(180deg, rgba(190, 18, 60, 0.94) 0%, rgba(136, 19, 55, 0.98) 100%)',
+                    borderRadius: `${Math.round(20 * remotionScale)}px ${Math.round(20 * remotionScale)}px 0 0`,
+                    padding: `${Math.round(14 * remotionScale)}px ${Math.round(18 * remotionScale)}px ${Math.round(20 * remotionScale)}px`,
+                    boxSizing: 'border-box',
+                    boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: `${Math.round(8 * remotionScale)}px`,
+                    userSelect: 'none',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {/* Cụm thương hiệu & icons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: `${Math.round(8 * remotionScale)}px` }}>
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        padding: `${Math.round(3 * remotionScale)}px ${Math.round(8 * remotionScale)}px`,
+                        borderRadius: `${Math.round(6 * remotionScale)}px`
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: '#FFFFFF',
+                          fontFamily: "'Paytone One', 'Be Vietnam Pro', sans-serif",
+                          fontSize: `${Math.max(10, Math.round(13 * remotionScale))}px`,
+                          fontWeight: 900,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        {openingNewsBrand}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(10 * remotionScale))}px`, color: '#fff' }}>👍</div>
+                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(9 * remotionScale))}px`, color: '#BE123C' }}>💬</div>
+                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(9 * remotionScale))}px`, color: '#fff' }}>↗️</div>
+                    </div>
+                  </div>
+
+                  {/* Headline */}
+                  <div style={{ display: 'flex', alignItems: 'stretch', gap: `${Math.round(8 * remotionScale)}px`, margin: `${Math.round(4 * remotionScale)}px 0` }}>
+                    <div style={{ width: `${Math.round(4 * remotionScale)}px`, borderRadius: '2px', background: '#FACC15', boxShadow: '0 0 8px rgba(250, 204, 21, 0.6)', flexShrink: 0 }} />
+                    <div
+                      style={{
+                        fontFamily: "'Paytone One', 'Be Vietnam Pro', 'Montserrat', Arial, sans-serif",
+                        fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
+                        fontWeight: 900,
+                        lineHeight: 1.25,
+                        color: '#FACC15',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.02em',
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {openingNewsHeadline}
+                    </div>
+                  </div>
+
+                  {/* Like counter */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: `${Math.max(11, Math.round(14 * remotionScale))}px`, color: '#FFFFFF', fontWeight: 800 }}>♡</span>
+                    <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: `${Math.max(11, Math.round(13 * remotionScale))}px`, fontWeight: 900, color: '#FFFFFF', letterSpacing: '0.03em' }}>
+                      {openingNewsLikes}
+                    </span>
+                  </div>
+                </div>
+              </TransformGizmoOverlay>
+            </div>
+          )}
+
           {/* LỚP 4: LOGO KÊNH THƯƠNG HIỆU */}
-          {showChannelLogo && (
+          {showChannelLogo && !(currentSlideIndex === 0 && showOpeningNewsBanner) && (
             <div
               style={{
                 position: 'absolute',
@@ -1543,9 +2000,11 @@ export default function LiveVideoSimulator({
                     const rect = e.currentTarget.getBoundingClientRect();
                     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                     const targetInSceneTime = ratio * dur;
+                    const targetTotalTime = (sceneOffsets[idx] || 0) + targetInSceneTime;
                     goToScene(idx);
                     setSlideCurrentTime(targetInSceneTime);
                     if (voiceAudioRef.current) voiceAudioRef.current.currentTime = targetInSceneTime;
+                    syncBgMusicToTime(targetTotalTime, true);
                   }}
                   style={{
                     flex: Math.max(0.1, dur),
@@ -1677,6 +2136,50 @@ export default function LiveVideoSimulator({
                     title="Chọn Logo để kéo di chuyển & scale trực tiếp"
                   >
                     <span>🏷️</span> Logo
+                  </button>
+                )}
+                {currentSlideIndex === 0 && showOpeningComment && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement(selectedElement === 'comment' ? 'none' : 'comment')}
+                    style={{
+                      background: selectedElement === 'comment' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
+                      border: selectedElement === 'comment' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
+                      color: selectedElement === 'comment' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title="Chọn Hộp bình luận để kéo di chuyển & scale trực tiếp"
+                  >
+                    <span>💬</span> Hộp hỏi
+                  </button>
+                )}
+                {currentSlideIndex === 0 && showOpeningNewsBanner && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedElement(selectedElement === 'news_banner' ? 'none' : 'news_banner')}
+                    style={{
+                      background: selectedElement === 'news_banner' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                      border: selectedElement === 'news_banner' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid transparent',
+                      color: selectedElement === 'news_banner' ? '#f87171' : 'rgba(255,255,255,0.75)',
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title="Chọn Banner tin tức để kéo di chuyển & scale trực tiếp"
+                  >
+                    <span>📰</span> Banner tin
                   </button>
                 )}
                 {selectedElement !== 'none' && (

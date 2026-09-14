@@ -67,7 +67,7 @@ export default function VoiceGenerationStep({ controller }) {
 
   const selectedVoiceLabel = isElevenLabsMode
     ? (showVoiceSplit ? '▲ Đóng ghép giọng' : '🎧 Ghép giọng ElevenLabs')
-    : (isGeneratingVoice ? '⏳ Đang tạo...' : complete ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng');
+    : (isGeneratingVoice ? `⏹ Dừng tạo (${voiceProgress}/${total})` : complete ? '🎙️ Lồng Tiếng Lại' : '🎙️ Tạo Lồng Tiếng');
 
   return <div className={isGeneratingVoice ? 'running-glow-card' : ''} style={{
     display: 'flex', flexDirection: 'column', padding: '12px 16px', gap: '10px', borderRadius: '10px',
@@ -202,22 +202,27 @@ export default function VoiceGenerationStep({ controller }) {
             position: 'relative',
             background: isElevenLabsMode
               ? 'rgba(255, 255, 255, 0.08)'
-              : complete
-                ? 'rgba(46, 213, 115, 0.15)'
-                : 'linear-gradient(135deg, #6366f1, #a855f7)',
-            border: complete && !isElevenLabsMode
-              ? '1px solid rgba(46, 213, 115, 0.35)'
-              : isElevenLabsMode
-                ? '1px solid rgba(255, 255, 255, 0.15)'
-                : 'none',
-            boxShadow: complete || isElevenLabsMode ? 'none' : '0 4px 14px rgba(168, 85, 247, 0.3)',
+              : isGeneratingVoice
+                ? 'rgba(239, 68, 68, 0.2)'
+                : complete
+                  ? 'rgba(46, 213, 115, 0.15)'
+                  : 'linear-gradient(135deg, #6366f1, #a855f7)',
+            border: isGeneratingVoice
+              ? '1px solid rgba(239, 68, 68, 0.5)'
+              : complete && !isElevenLabsMode
+                ? '1px solid rgba(46, 213, 115, 0.35)'
+                : isElevenLabsMode
+                  ? '1px solid rgba(255, 255, 255, 0.15)'
+                  : 'none',
+            boxShadow: complete || isElevenLabsMode || isGeneratingVoice ? 'none' : '0 4px 14px rgba(168, 85, 247, 0.3)',
             boxSizing: 'border-box',
           }}
         >
           <button
             type="button"
             onClick={handleVoiceAction}
-            disabled={isGeneratingVoice || isRenderingVideo}
+            disabled={isRenderingVideo}
+            title={isGeneratingVoice ? 'Nhấn để dừng tiến trình tạo giọng đọc' : undefined}
             style={{
               height: '100%',
               display: 'inline-flex',
@@ -227,17 +232,17 @@ export default function VoiceGenerationStep({ controller }) {
               padding: '0 12px',
               fontSize: '0.76rem',
               fontWeight: 700,
-              color: isElevenLabsMode ? '#fff' : complete ? '#2ed573' : '#fff',
+              color: isGeneratingVoice ? '#ff6b6b' : isElevenLabsMode ? '#fff' : complete ? '#2ed573' : '#fff',
               background: 'transparent',
               border: 'none',
               borderRadius: '7px 0 0 7px',
-              cursor: isGeneratingVoice || isRenderingVideo ? 'not-allowed' : 'pointer',
+              cursor: isRenderingVideo ? 'not-allowed' : 'pointer',
               whiteSpace: 'nowrap',
               transition: 'background 0.15s ease',
             }}
             onMouseEnter={e => {
-              if (!isGeneratingVoice && !isRenderingVideo) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+              if (!isRenderingVideo) {
+                e.currentTarget.style.background = isGeneratingVoice ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.08)';
               }
             }}
             onMouseLeave={e => {
@@ -368,15 +373,25 @@ export default function VoiceGenerationStep({ controller }) {
             type="button"
             className="btn"
             onClick={handleGenerateVoice}
-            disabled={isGeneratingVoice || isRenderingVideo}
+            disabled={isRenderingVideo}
+            title={isGeneratingVoice ? 'Nhấn để dừng tiến trình tạo giọng đọc' : undefined}
             style={{
-              background: complete ? 'rgba(46,213,115,.15)' : 'linear-gradient(135deg,#6366f1,#a855f7)',
-              border: complete ? '1px solid rgba(46, 213, 115, 0.3)' : 'none',
-              color: complete ? '#2ed573' : '#fff',
+              background: isGeneratingVoice
+                ? 'rgba(239, 68, 68, 0.2)'
+                : complete
+                  ? 'rgba(46,213,115,.15)'
+                  : 'linear-gradient(135deg,#6366f1,#a855f7)',
+              border: isGeneratingVoice
+                ? '1px solid rgba(239, 68, 68, 0.5)'
+                : complete
+                  ? '1px solid rgba(46, 213, 115, 0.3)'
+                  : 'none',
+              color: isGeneratingVoice ? '#ff6b6b' : complete ? '#2ed573' : '#fff',
               padding: '7px 14px',
               fontSize: '0.76rem',
               borderRadius: '8px',
               fontWeight: 700,
+              cursor: isRenderingVideo ? 'not-allowed' : 'pointer',
               whiteSpace: 'nowrap',
               lineHeight: 1.4,
             }}

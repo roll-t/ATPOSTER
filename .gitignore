@@ -42,6 +42,8 @@ coverage/
 /data/
 /SERVER/data/
 /TTS/
+/packages/VieNue/data/
+/packages/remotion-shared/
 
 # Generated video/image/audio project outputs (keep source assets & README)
 /skills/moral_talk_slideshow/remotion/public/*
