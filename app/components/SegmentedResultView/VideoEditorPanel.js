@@ -1108,13 +1108,6 @@ export default function VideoEditorPanel({
           ======================================================== */}
       {currentTab === 'image' && (
         <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <CapCutClipStepper
-            activeIndex={activeSceneIndex}
-            total={totalScenes}
-            onPrev={() => onSceneIndexChange && onSceneIndexChange(Math.max(0, activeSceneIndex - 1))}
-            onNext={() => onSceneIndexChange && onSceneIndexChange(Math.min(totalScenes - 1, activeSceneIndex + 1))}
-          />
-
           {/* Section: Transform (Chuẩn CapCut Image 2) */}
           <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
@@ -1219,82 +1212,6 @@ export default function VideoEditorPanel({
                   onUpdateRenderConfig?.({ imageTranslateY: 25 });
                 }}
               />
-            </div>
-          </div>
-
-          {/* Section: Ảnh cảnh hiện tại */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title={`Ảnh Cảnh ${activeSceneIndex + 1}`}
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{ position: 'relative', width: '100%', height: '135px', borderRadius: '6px', overflow: 'hidden', background: '#121212', border: '1px solid #2d2d2d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {currentImgSrc ? (
-                <img
-                  key={`${currentImgSrc}-${imageVersion}`}
-                  src={currentImgSrc}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
-              ) : (
-                <div style={{ textAlign: 'center', color: '#666', fontSize: '0.75rem' }}>
-                  Chưa có ảnh cho cảnh này
-                </div>
-              )}
-            </div>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/png, image/jpeg, image/webp"
-              onChange={handleImageFileChange}
-              style={{ display: 'none' }}
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingImage}
-              className="capcut-btn-secondary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              <span>📁</span>
-              <span>{isUploadingImage ? 'Đang lưu ảnh...' : 'Tải ảnh thay thế từ máy tính'}</span>
-            </button>
-            {imageUploadMsg && (
-              <span style={{ fontSize: '0.7rem', color: imageUploadMsg.startsWith('Lỗi') ? '#f87171' : '#00e5ff', textAlign: 'center' }}>
-                {imageUploadMsg}
-              </span>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #2a2a2a', paddingTop: '8px' }}>
-              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
-                Mô tả hình ảnh (AI Prompt):
-              </span>
-              <textarea
-                rows={2}
-                value={currentVisualPromptDraft}
-                onChange={(e) => setCurrentVisualPromptDraft(e.target.value)}
-                placeholder="Mô tả bối cảnh hình ảnh..."
-                className="capcut-input"
-                style={{ width: '100%', padding: '6px 8px', lineHeight: 1.35, resize: 'vertical', boxSizing: 'border-box' }}
-              />
-              <button
-                type="button"
-                onClick={handleSaveVisualPrompt}
-                disabled={isSavingVisualPrompt}
-                className="capcut-btn-secondary"
-                style={{ alignSelf: 'flex-end', padding: '5px 12px', fontSize: '0.71rem' }}
-              >
-                {isSavingVisualPrompt ? 'Đang lưu...' : '💾 Lưu mô tả'}
-              </button>
-              {visualPromptSaveMsg && (
-                <span style={{ fontSize: '0.7rem', color: '#00e5ff', textAlign: 'right' }}>
-                  {visualPromptSaveMsg}
-                </span>
-              )}
             </div>
           </div>
 
