@@ -74,6 +74,45 @@ function renderStyleVisualPreview(styleId, highlightColor = '#d9a620', textColor
   }
 }
 
+function renderAnimationVisualPreview(animId, isActive) {
+  const color = isActive ? '#00e5ff' : '#8c8c8c';
+  switch (animId) {
+    case 'none':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="8.5" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      );
+    case 'zoom':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 3 21 3 21 9" />
+          <polyline points="9 21 3 21 3 15" />
+          <line x1="21" y1="3" x2="14" y2="10" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      );
+    case 'fade':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="8.5" strokeDasharray="3 2" />
+          <circle cx="12" cy="12" r="3.5" fill={color} />
+        </svg>
+      );
+    case 'slide-up':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="6 11 12 5 18 11" />
+          <line x1="6" y1="20" x2="18" y2="20" strokeWidth="1.5" strokeDasharray="2 2" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 // ==========================================
 // CAPCUT DESKTOP SUB-COMPONENTS (PRO NLE UI)
 // ==========================================
@@ -1062,10 +1101,14 @@ export default function VideoEditorPanel({
               </div>
             </div>
 
-            {/* Animation tiêu đề */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <span className="capcut-label">Hoạt ảnh:</span>
-              <div style={{ display: 'flex', gap: '4px' }}>
+            {/* Animation tiêu đề (Ô hoạt ảnh trực quan chuẩn CapCut) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="capcut-label">Hoạt ảnh phụ đề:</span>
+                <span style={{ fontSize: '0.65rem', color: '#777' }}>Hiệu ứng xuất hiện</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
                 {CAPTION_ANIMATIONS.map((anim) => {
                   const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
                   const isActive = currentAnim === anim.id;
@@ -1073,11 +1116,36 @@ export default function VideoEditorPanel({
                     <button
                       key={anim.id}
                       type="button"
-                      title={anim.desc}
+                      title={`${anim.label} - ${anim.desc}`}
                       onClick={() => setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id)}
-                      className={`capcut-preset-chip ${isActive ? 'active' : ''}`}
+                      style={{
+                        position: 'relative',
+                        padding: '6px 3px 5px 3px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: isActive ? '#282828' : '#1c1c1c',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '56px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden'
+                      }}
                     >
-                      {anim.label}
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                        {renderAnimationVisualPreview(anim.id, isActive)}
+                      </div>
+                      <div style={{ fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
+                        {anim.label}
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                          ✓
+                        </div>
+                      )}
                     </button>
                   );
                 })}
