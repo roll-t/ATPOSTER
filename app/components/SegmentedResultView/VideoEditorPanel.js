@@ -935,80 +935,10 @@ export default function VideoEditorPanel({
       </div>
 
       {/* ========================================================
-          1. TAB VĂN BẢN (TEXT & VOICEOVER)
+          1. TAB VĂN BẢN (TYPOGRAPHY & SUBTITLE STYLES)
           ======================================================== */}
       {currentTab === 'caption' && (
         <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <CapCutClipStepper
-            activeIndex={activeSceneIndex}
-            total={totalScenes}
-            onPrev={() => onSceneIndexChange && onSceneIndexChange(Math.max(0, activeSceneIndex - 1))}
-            onNext={() => onSceneIndexChange && onSceneIndexChange(Math.min(totalScenes - 1, activeSceneIndex + 1))}
-          />
-
-          {/* Section: Nội dung chữ */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title={`Nội dung Cảnh ${activeSceneIndex + 1}`}
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
-                Phụ đề hiển thị:
-              </span>
-              <textarea
-                rows={2}
-                value={currentSubtitleDraft}
-                onChange={(e) => setCurrentSubtitleDraft(e.target.value)}
-                placeholder="Nhập nội dung phụ đề..."
-                className="capcut-input"
-                style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
-                Lời kể / Thuyết minh:
-              </span>
-              <textarea
-                rows={2}
-                value={currentNarrationDraft}
-                onChange={(e) => setCurrentNarrationDraft(e.target.value)}
-                placeholder="Lời đọc thuyết minh..."
-                className="capcut-input"
-                style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handlePlaySceneAudio}
-                className="capcut-btn-secondary"
-                style={{ flex: 1, padding: '7px 10px', fontSize: '0.72rem' }}
-              >
-                {isPlayingSceneAudio ? '🔊 Đang phát...' : '▶ Nghe thử voice'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveCurrentScene}
-                disabled={isSavingScene || isResyncingVoice}
-                className="capcut-btn-primary"
-                style={{ flex: 1.3, padding: '7px 12px', fontSize: '0.74rem' }}
-              >
-                {isSavingScene ? '⏳ Đang lưu...' : isResyncingVoice ? '🎙️ Tạo voice...' : '💾 Lưu Cảnh Này'}
-              </button>
-            </div>
-            {sceneSaveMsg && (
-              <span style={{ fontSize: '0.71rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
-                {sceneSaveMsg}
-              </span>
-            )}
-          </div>
-
           {/* Section: Định dạng chữ & Typography */}
           <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
