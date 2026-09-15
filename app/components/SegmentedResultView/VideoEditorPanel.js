@@ -986,7 +986,7 @@ export default function VideoEditorPanel({
         {[
           { id: 'caption', label: 'Văn bản' },
           { id: 'image', label: 'Hình ảnh' },
-          { id: 'animation', label: 'Hoạt ảnh' },
+          { id: 'animation', label: 'Animation' },
           { id: 'logo', label: 'Logo' },
           { id: 'opening', label: 'Mở đầu' },
           { id: 'scenes', label: `Cảnh (${totalScenes})` },
@@ -1469,7 +1469,7 @@ export default function VideoEditorPanel({
               className="capcut-btn-primary"
               style={{ width: '100%', padding: '9px 14px', fontSize: '0.78rem', fontWeight: 600 }}
             >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Hoạt Ảnh'}
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Animation'}
             </button>
             {saveStyleMsg && (
               <span style={{ fontSize: '0.72rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
