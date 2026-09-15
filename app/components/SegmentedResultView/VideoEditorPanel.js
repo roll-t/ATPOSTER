@@ -1162,7 +1162,21 @@ export default function VideoEditorPanel({
               className="capcut-btn-secondary"
               style={{ width: '100%', padding: '8px 12px', fontSize: '0.74rem', marginTop: '4px' }}
             >
-              {currentTab === 'image' && (
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Style Tiêu Đề'}
+            </button>
+            {saveStyleMsg && (
+              <span style={{ fontSize: '0.7rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
+                {saveStyleMsg}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          2. TAB HÌNH ẢNH (MEDIA & TRANSFORM - CHUẨN CAPCUT DESKTOP)
+          ======================================================== */}
+      {currentTab === 'image' && (
         <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <CapCutClipStepper
             activeIndex={activeSceneIndex}
