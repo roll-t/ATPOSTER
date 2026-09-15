@@ -161,6 +161,16 @@ NARRATION STYLE:
 - ONE narrator's voiceover (third-person, documentary/storytelling tone) — NOT dialogue between characters.
 - The stick figure simply ACTS OUT what the narration describes. It is silent — no speech, no dialogue.
 
+SIMPLE HAND-DRAWN 2D EXPLAINER STYLE (APPLIES TO EVERY visualDescription):
+- Describe only the SUBJECT, readable pose, one focal prop, and simple placement. Prefer 1–3 figures and 1–2 props; every frame must be understood in one glance.
+- Character design is fixed: a smooth blank white oval head with NO eyes, NO nose, NO mouth; slim black-ink arms and legs; a neat flat-color torso/clothing shape; optional tidy hand-drawn hair or one basic period-specific garment silhouette.
+- Make every figure attractive and well-proportioned: consistent oval heads, balanced torso and limb lengths, clean joint connections, simple rounded hands/feet, clear natural poses, and a readable silhouette. Emotion comes from posture and gesture, never facial details.
+- Use clean confident black outlines with only slight organic variation, like a polished hand-drawn web explainer cartoon — charming, not messy or crude.
+- Use a bright high-key pastel palette of about 5–7 colors across the frame: soft charcoal/navy outlines, clean ivory-white heads, light sky blue, sunny cream/yellow, fresh mint, peach/coral and light blue-grey. Colors should feel cheerful and airy, never dark, muddy or neon. Use one stronger coral/orange focal accent only when needed.
+- Background = 2–4 large LIGHT flat color areas only, such as pale-blue sky + sunny-cream wall/land + light-grey ground line. Keep generous bright space. No small decorative details; distant scenery may use one or two simple soft-charcoal silhouettes.
+- Flat color fills only. NEVER request gradients, glow, bloom, dramatic/cinematic lighting, 3D, realistic rendering, cel-shaded volume, shadows, highlights, complex texture, atmospheric depth, detailed environments, or detailed facial anatomy.
+- No text, labels, speech bubbles, borders, panels, or watermarks inside the generated image.
+
 ${buildHumanVoiceGuidance({ isVietnamese })}
 ${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
@@ -187,8 +197,9 @@ QUY TẮC ĐỒNG BỘ KIỂU NHÂN VẬT XUYÊN SUỐT TOÀN BỘ VIDEO (100% U
 ${(input.characterStyle || 'stick_figure') === 'regular_human' ? `
 - MỌI cảnh có nhân vật: Trong "visualDescription" BẮT BUỘC mô tả là "a stylized 2D cartoon human [caveman / hunter / scientist / explorer / child / student]".
 - TUYỆT ĐỐI KHÔNG dùng từ "stick figure" hay "stickman"! Mọi con người đều phải là người hoạt họa 2D hoàn chỉnh thống nhất từ đầu đến cuối.` : `
-- MỌI cảnh có nhân vật: Trong "visualDescription" BẮT BUỘC mô tả rõ ràng là "a cartoon stick figure [dressed in animal furs / lab coat / prehistoric clothes / modern clothes]".
-- DÙ KỂ VỀ KỶ BĂNG HÀ, THỜI ĐỒ ĐÁ, NGƯỜI VƯỢN HAY HIỆN ĐẠI: Bất cứ khi nào có con người xuất hiện, BẮT BUỘC ghi rõ tiền tố "cartoon stick figure" (ví dụ: "two cartoon stick figures in animal furs sitting around campfire", TUYỆT ĐỐI KHÔNG ghi "two cavemen" hay "two Neanderthals" trống không vì sẽ khiến AI vẽ thành người thật tả thực, phá hỏng tính đồng bộ của cả video)!`}
+- MỌI cảnh có nhân vật: Trong "visualDescription" BẮT BUỘC mô tả rõ là "a simple faceless hand-drawn 2D stick figure with a blank white oval head and thin black line limbs".
+- Khuôn mặt phải để trắng hoàn toàn: không mắt, không mũi, không miệng. Đầu oval đều và đẹp; tỉ lệ đầu, thân, tay chân cân đối; khớp nối sạch; bàn tay/bàn chân bo tròn đơn giản; dáng đứng/ngồi tự nhiên. Thân/quần áo là một mảng màu pastel phẳng gọn; tóc là vài nét vẽ có chủ ý, không rối. Nếu cần chỉ nghề nghiệp/thời đại, dùng đúng MỘT đạo cụ hoặc dáng áo nhận diện.
+- DÙ KỂ VỀ THỜI ĐỒ ĐÁ, NGƯỜI VƯỢN HAY HIỆN ĐẠI: mọi con người đều phải giữ cùng kiểu người que nét vẽ 2D này. Không dùng từ trống như "caveman" hoặc "scientist" nếu chưa có tiền tố "simple hand-drawn 2D stick figure".`}
 
 ═══════════════════════════════════════════════════════
 PNG ASSET LIBRARY — use ONLY these exact IDs, no others
@@ -410,7 +421,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 1,
       "layout": "default",
-      "visualDescription": "Deep underwater abyss of the Mariana Trench plunging down into complete darkness, faint silhouettes of hydrothermal vents with glowing mineral smoke. Pure underwater scenery, NO characters, no text.",
+      "visualDescription": "Simple hand-drawn 2D cutaway of the Mariana Trench using clean charcoal outlines, layered light sky-blue water bands, pale blue-grey seabed and one coral pressure symbol, bright pastel flat colors only.",
       "dialogueOrNarration": "${isVietnamese ? 'Ở độ sâu 11.000 mét tại rãnh Mariana, ánh sáng mặt trời biến mất hoàn toàn.' : 'At 11,000 meters deep in the Mariana Trench, sunlight completely vanishes.'}",
       "subtitle": "${isVietnamese ? 'Ở độ sâu 11.000m tại rãnh Mariana, ánh sáng mặt trời biến mất hoàn toàn.' : 'At 11,000 meters deep in the Mariana Trench, sunlight completely vanishes.'}",
       "durationSeconds": 2.5,
@@ -421,7 +432,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 2,
       "layout": "caption-left",
-      "visualDescription": "A cartoon stick figure comically staggering under the crushing weight of a gigantic slab of dark ocean water above them, sweating with wide shocked eyes. Pure visual scene, no text.",
+      "visualDescription": "A polished faceless hand-drawn 2D stick figure with a smooth blank ivory oval head, balanced slim charcoal limbs and a mint torso bends naturally under one coral pressure slab; pale-blue background and light-grey ground, clean outlines, bright flat colors.",
       "dialogueOrNarration": "${isVietnamese ? 'Áp suất tại đây lên tới 1.000 atmosphere, tương đương 50 máy bay đè lên đầu.' : 'Water pressure reaches 1,000 atmospheres, equal to 50 jumbo jets on your head.'}",
       "subtitle": "${isVietnamese ? 'Áp suất lên tới 1.000 atmosphere, tương đương 50 máy bay đè lên đầu.' : 'Water pressure reaches 1,000 atmospheres, equal to 50 jumbo jets on your head.'}",
       "durationSeconds": 2.5,
@@ -433,7 +444,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 3,
       "layout": "caption-left",
-      "visualDescription": "Close-up cutaway diagram of TMAO biological molecules forming a glowing protective shield around fragile cellular protein structures, shimmering underwater. Pure scientific concept, NO characters, no text.",
+      "visualDescription": "A simple hand-drawn diagram of three ivory molecule circles forming a shield around one coral protein coil, clean charcoal outlines over two large pale-blue background bands, bright flat colors only.",
       "dialogueOrNarration": "${isVietnamese ? 'Sinh vật nơi đây sống được nhờ hợp chất TMAO bảo vệ cấu trúc tế bào.' : 'Creatures survive here thanks to TMAO molecules protecting cellular structures.'}",
       "subtitle": "${isVietnamese ? 'Sinh vật nơi đây sống sót nhờ hợp chất TMAO bảo vệ cấu trúc tế bào.' : 'Creatures survive here thanks to TMAO molecules protecting cellular structures.'}",
       "durationSeconds": 3,
@@ -444,7 +455,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     {
       "segmentNumber": 4,
       "layout": "default",
-      "visualDescription": "An excited scientist cartoon stick figure examining satellite telemetry of Jupiter ocean moon Europa on a glowing futuristic desk console. Pure visual scene, no text.",
+      "visualDescription": "A polished faceless hand-drawn 2D scientist stick figure with a smooth blank ivory oval head and balanced slim limbs looks naturally through one small telescope at an ivory moon; light sky-blue background, sunny-cream ground and clean charcoal outlines.",
       "dialogueOrNarration": "${isVietnamese ? 'Khám phá này giúp con người mở ra hy vọng tìm thấy sự sống trên mặt trăng Europa.' : 'This discovery gives scientists hope of finding life on Jupiter ocean moon Europa.'}",
       "subtitle": "${isVietnamese ? 'Khám phá này mở ra hy vọng tìm thấy sự sống trên mặt trăng Europa.' : 'This discovery gives scientists hope of finding life on Jupiter ocean moon Europa.'}",
       "durationSeconds": 3,
@@ -455,7 +466,7 @@ RETURN FORMAT — raw JSON only, no markdown code fences
     }
   ],
   "thumbnail": {
-    "visualDescription": "Detailed whiteboard-style stick-figure thumbnail scene — the most dramatic/emotional moment of the story, plain white background, high-contrast composition, suitable for a YouTube 16:9 thumbnail. No text in the image itself.",
+    "visualDescription": "Bright polished hand-drawn 2D explainer-cartoon thumbnail with 1–3 attractive well-proportioned faceless stick figures, smooth blank ivory oval heads, balanced slim charcoal limbs, one clear focal prop, 5–7 airy pastel flat colors, two light background bands, clean confident outlines, no text.",
     "headlineText": "CATCHY HOOK TEXT!"
   }
 }

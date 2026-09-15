@@ -1,4 +1,5 @@
-import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
+import { buildBookPitchHookGuidance, getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
+import { getMoralThemeVoice } from '../../content/moralThemes.js';
 import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
 import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
 
@@ -24,6 +25,7 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
   const isMoralTalk = category === 'moral_talk_slideshow';
   const isVietnamesePrimary = (input.narrationLanguage || 'vi') !== 'en';
   const theme = input.moralTheme || 'self_help';
+  const moralVoice = getMoralThemeVoice(theme);
   const moralStyle = isMoralTalk ? getMoralTalkStyleReference(theme) : null;
 
   const languageAndToneBlock = isMoralTalk
@@ -51,7 +53,7 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
   // tắc...") — vì số slide giữ NGUYÊN như kịch bản cũ (không được đổi count khi viết lại), chỉ
   // cần nhắc Gemini giữ số đó khớp với số slide liệt kê thực tế bên dưới, không tự ý đổi số mà
   // không đổi số lượng slide — đồng thời sửa luôn nếu bản cũ lỡ mở đầu bằng "Có" (không dùng nữa).
-  const listCountNote = isMoralTalk && !moralStyle.isReflectiveTheme
+  const listCountNote = isMoralTalk && !moralStyle.isReflectiveTheme && moralVoice !== 'book_pitch'
     ? `\nNOTE: if the first slide's narration states a count of points (e.g. "5 nguyên tắc..." or "Top 5 nguyên tắc..."), keep that number accurate to how many list-point slides actually follow below (do not change the total slide count, only the wording) — and if the current wording opens with "Có" (e.g. "Có 5 nguyên tắc..."), drop that "Có" and start directly with the number/"Top" instead.\n`
     : '';
 
@@ -80,7 +82,9 @@ ${languageAndToneBlock}
 
 ${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
 
-${buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
+${moralVoice === 'book_pitch'
+    ? buildBookPitchHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })
+    : buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
 - Applied to this rewrite: slide 1's new narration must open with that hook sentence. If the current slide-1 narration warms up before naming the topic, that warm-up is exactly what you must delete — slide 1 keeps its image, but its words start on the subject.
 ${styleReferenceBlock}${listCountNote}
 EXISTING SLIDES (in order — write new narration for each, keep the same segmentNumber, same count, same order):

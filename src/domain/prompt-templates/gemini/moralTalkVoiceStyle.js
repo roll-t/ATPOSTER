@@ -49,6 +49,35 @@ NUMBERING CONVENTION FOR THE POINTS (MANDATORY, IDENTICAL FOR EVERY VOICE IN THI
 - NEVER use ordinal forms ("Thứ nhất", "Thứ hai", "Điều thứ ba", "Số một") to lead a point. The bare cardinal + period is the ONLY accepted form, in every register — warm/reflective included.
 - Correct: "Ba. Kính rượu người lớn hơn thì cụng ly thấp hơn." — Wrong: "Ba là, kính rượu người lớn hơn..." / "Thứ ba, kính rượu người lớn hơn..." / "Ba, kính rượu người lớn hơn...".`;
 
+/**
+ * Hook riêng cho video bán sách. Không dùng buildHookGuidance() chung vì tên sách thường nằm ngay
+ * trong scenario; TOPIC LOCK chung sẽ ép tên sách vào câu đầu, trong khi book pitch cần mở đúng
+ * nỗi đau của người xem rồi mới reveal sách. ENUMERATED_OPENING_RULE cũng không phù hợp ở đây:
+ * các bài học có đánh số nằm trong thân bài, không có nghĩa video phải mở bằng "3 bài học...".
+ */
+export function buildBookPitchHookGuidance({ isVietnamese = true, topic = '' } = {}) {
+  const topicClean = String(topic || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const examples = isVietnamese
+    ? `- SAI: "Có bao giờ bạn tự hỏi tại sao mình mãi chưa thành công?" — chung chung, dùng cho sách nào cũng được.
+- ĐÚNG: "Lương vừa về ba ngày, tài khoản của bạn lại gần về không." — một cảnh cụ thể, đúng nỗi đau tiền bạc.
+- ĐÚNG: "Bạn không thiếu quyết tâm. Bạn đang bắt đầu quá lớn." — phản trực giác và mở ra lời giải về thói quen.`
+    : `- BAD: "Have you ever wondered why you are still not successful?" — generic enough for any book.
+- GOOD: "Three days after payday, your account is nearly empty again." — a concrete money pain.
+- GOOD: "You don't lack motivation. You're starting too big." — a useful reframe that opens the loop.`;
+
+  return `BOOK-PITCH OPENING — EARN ATTENTION BEFORE YOU SELL:
+- SOURCE TOPIC: "${topicClean || 'Use the supplied book title and reader pain point.'}"
+- Extract TWO separate anchors from the topic: (A) the exact BOOK TITLE/AUTHOR and (B) the READER'S SPECIFIC PAIN or desired change. Preserve A exactly for the reveal, but open on B.
+- SEGMENT 1: one concrete mirror line, at most ${isVietnamese ? '12 Vietnamese words' : '12 spoken words'}. Show a moment the target reader recognises from their own day. No greeting, no introduction, no book title, no vague life philosophy.
+- SEGMENT 2: deepen the cost OR deliver a counter-intuitive reframe. It must add new information, not restate segment 1.
+- SEGMENT 3: promise a specific payoff/open loop that the video will close. The viewer must know what useful answer they will get by staying.
+- Reveal the book no later than the first 20–25% of the video; for a video under 60 seconds, the title should be heard by roughly second 8–10. Do not make viewers endure 7–8 slides before learning what the solution is.
+- The opening is about the VIEWER, not praise for the product. Never start with "Cuốn sách này rất hay", bestseller rankings, the author biography, or "Hôm nay mình giới thiệu...".
+- Do not default to "Có bao giờ bạn tự hỏi...". Prefer a direct observation, a familiar micro-scene, a costly mistake, or a counter-intuitive correction.
+- SWAP TEST: if segment 1 could sell five unrelated books without changing a word, it is generic filler. Rewrite it around the exact pain in this topic.
+${examples}`;
+}
+
 export function getMoralTalkStyleReference(theme) {
   // Văn phong đọc từ registry (moralThemes.js) chứ KHÔNG so sánh chuỗi tại đây nữa: trước đây là
   // `theme === 'self_help' || theme === 'rules_of_life'`, nên mọi nhóm chủ đề thêm về sau đều âm
@@ -122,52 +151,52 @@ ${ENUMERATED_OPENING_RULE}
   }
 
   if (getMoralThemeVoice(theme) === 'book_pitch') {
-    const narrationModeLine = `- Write as an insightful book curator / mentor sharing a life-changing book to solve a real human struggle — empathetic, sharp, high conversion, transitioning naturally from a painful problem to the book's core lessons, and closing with a compelling reason to own the book. Speak directly to "bạn".`;
+    const narrationModeLine = `- Speak like a trusted friend who has read the book and is handing the listener one useful idea at the right moment — empathetic, concise and credible. Help first, sell second. Address the listener as "bạn"; never sound like an advertisement, a lecturer, or a book-summary robot.`;
 
-    const bookPitchSample = `Có bao giờ bạn tự hỏi: tại sao mình nỗ lực rất nhiều, nhưng cứ sau ba ngày là lại bỏ cuộc?
+    const bookPitchSample = `Bạn đặt báo thức lúc sáu giờ, rồi tắt nó lần thứ ba.
 
-Bạn tự trách mình lười biếng, thiếu ý chí và không thể làm nên việc gì lớn.
+Không phải bạn lười. Bạn đang đòi ý chí làm việc của một hệ thống.
 
-Nhưng sự thật là: bạn không hề lười, bạn chỉ đang dựa vào cảm xúc nhất thời thay vì một hệ thống thói quen đúng đắn.
+Muốn giữ một thói quen, hãy làm nó dễ đến mức khó từ chối.
 
-Đó chính là chân lý mà cuốn sách **Atomic Habits** — Thay Đổi Tí Hon của James Clear đã mở mắt cho hàng triệu người trên thế giới.
+Đó là ý cốt lõi trong **Atomic Habits** của James Clear.
 
-Cuốn sách chỉ ra rằng: muốn thay đổi cuộc đời, đừng cố thay đổi kết quả, hãy thay đổi những thói quen nhỏ nhất mỗi ngày.
+Có ba cách trong sách bạn có thể thử ngay hôm nay.
 
-Một. **Quy tắc hai phút**. Khi bắt đầu một thói quen mới, hãy thu nhỏ nó lại sao cho bạn chỉ mất đúng hai phút để hoàn thành.
+Một. Bắt đầu bằng hai phút: mở sách, đọc đúng một trang.
 
-Hai. **Gom thói quen**. Hãy gắn một thói quen mới bạn muốn rèn luyện ngay sau một hành động quen thuộc bạn làm hàng ngày.
+Hai. Gắn việc mới sau việc cũ: đánh răng xong, đọc luôn.
 
-Ba. **Tối ưu môi trường sống**. Muốn đọc sách, hãy để sách trên gối; muốn tập trung, hãy để điện thoại ở một căn phòng khác.
+Ba. Đặt cuốn sách ngay trên gối, đừng giấu nó trong tủ.
 
-Cuộc đời của bạn hôm nay chính là tổng hòa của những thói quen nhỏ bạn lặp đi lặp lại trong quá khứ.
+Bạn không cần đổi đời sau một đêm. Chỉ cần đừng bỏ ngày hôm nay.
 
-Cuốn sách này mình đã để sẵn ở **giỏ hàng góc trái màn hình**, hãy đầu tư cho bản thân ngay hôm nay để bắt đầu bước ngoặt mới!`;
+Nếu bạn đang muốn xây lại kỷ luật, **Atomic Habits** ở giỏ hàng.`;
 
     const styleReferenceBlock = `VOICE & STYLE — BOOK PITCH & AFFILIATE SELLING:
 
-MANDATORY 5-STAGE FORMULA (STRICTLY FOLLOW THIS STRUCTURE TO CONVERT VIEWERS INTO BOOK BUYERS):
-1. STAGE 1: HOOK & PAIN POINT (First 3-4 slides, 3-4s per slide):
-   - Open IMMEDIATELY with a sharp, relatable pain point, frustration, or counter-intuitive question that exposes a struggle the viewer experiences daily (e.g. chronic procrastination, working hard but having zero savings, overthinking, inability to say no).
-   - Break the pain point across 3-4 rapid slides showing different frustrating micro-moments.
-   - Example: Slide 1: "Có bao giờ bạn tự hỏi: tại sao mình nỗ lực rất nhiều..." -> Slide 2: "...nhưng cứ sau ba ngày là lại bỏ cuộc?"
-2. STAGE 2: THE ROOT CAUSE & PIVOT (1-2 slides):
-   - Reveal the real reason why typical solutions fail: it's not lack of willpower or bad luck, but a flawed mindset or missing system.
-   - Example: "Bạn không hề lười, bạn chỉ đang dựa vào cảm xúc nhất thời thay vì một hệ thống đúng đắn."
-3. STAGE 3: THE BOOK REVEAL (1-2 slides):
-   - Introduce the specific BOOK (and author if known) as the definitive solution that decodes this problem.
-   - Frame it with high authority and credibility: "Đó chính là điều mà cuốn sách **[Tên Sách]** của [Tác Giả] đã chỉ ra..."
-   - Always wrap the book title in double asterisks **...** in the subtitle so it stands out prominently.
-4. STAGE 4: WHAT THE BOOK TEACHES (6-9 slides, 3-4s each):
-   - Reveal 2 to 3 practical, eye-opening principles / frameworks directly from the book that solve the initial pain point.
-   - CRITICAL: Split EACH lesson across 2 to 3 consecutive slides with distinct pictograms (Slide A introduces the rule, Slide B shows the specific action or habit, Slide C shows the trap avoided).
-   - Use the NUMBERING CONVENTION: bare cardinal number + full stop ("Một. [Tên phương pháp]: [hành động cụ thể].", "Hai. ...", "Ba. ...").
-   - Each lesson must feel immediately actionable and valuable, giving the viewer an instant "Aha!" moment.
-5. STAGE 5: CALL TO ACTION / BOOK SALE (Last 2-3 slides):
-   - Emphasize the payoff: reading this book saves years of costly trial and error.
-   - Give an explicit, natural, compelling Call-To-Action (CTA) encouraging the viewer to buy the book now:
-     "Cuốn sách này mình đã để sẵn ở **giỏ hàng góc trái màn hình**, hãy đầu tư cho bản thân ngay hôm nay!" / "Đọc cuốn sách này ít nhất một lần để không còn phải loay hoay trong bế tắc!"
-   - Subtitle MUST highlight the book name and purchase trigger: "**Link sách ở giỏ hàng góc trái**" or "**Đặt sách ngay hôm nay**".
+RETENTION-FIRST 6-BEAT ARC (keep this order; scale the number of slides to the requested duration):
+1. MIRROR (about 5%): show one painfully specific moment from the viewer's real day.
+2. REFRAME + OPEN LOOP (about 10%): correct what they blame themselves for and promise the useful answer coming next.
+3. EARLY BOOK REVEAL (by 20–25%): name the exact book and author naturally as the source of the idea — not as a miracle cure. The title must appear by about second 8–10 in an under-60-second video.
+4. VALUE DELIVERY (about 50–60%): first announce exactly how many lessons are coming, then explain 2 or 3 genuinely distinct ideas from the book. For each idea use this mini-arc: RULE -> one concrete everyday ACTION -> the RESULT or mistake avoided. Every slide must move the thought forward.
+5. EMOTIONAL CALLBACK (about 10%): return to the opening pain and show what changes after applying the ideas. Close the open loop; do not add a new lesson here.
+6. LOW-FRICTION CTA (final 5–10%, normally 1 slide and never more than 2): recommend the book to the specific person who has the opening pain, then state where to find it. Example shape: "Nếu bạn đang muốn xây lại kỷ luật, **Atomic Habits** ở giỏ hàng." No shouting, fake urgency, guilt, or vague promise to "change your life".
+
+VALUE AND TRUST RULES:
+- Give useful value BEFORE asking for a purchase. At least 70% of the narration must be insight, example, or action — not praise, credibility claims, or CTA.
+- Preserve the exact book title and author supplied by the user. Never invent quotes, page numbers, awards, sales figures, bestseller status, author credentials, or claims such as "millions of people" unless present in the user's input.
+- Never claim the book guarantees wealth, healing, success, or a complete cure. Present it as a useful framework, not "the definitive solution".
+- Each lesson must be specific enough to try today. Reject abstract summaries such as "change your mindset" unless the next line shows exactly what to do.
+- Do not repeat "cuốn sách này" in consecutive slides. Vary naturally between the idea, the author, the title, or omit the subject.
+- Use one curiosity thread from the opening and explicitly close it before the CTA. Do not manufacture several unanswered questions.
+
+BODY NUMBERING ONLY:
+- If the value section contains 2–3 lessons, lead them with "Một. Hai. Ba." (English: "One. Two. Three."). Never say "Một là", "Thứ nhất", or put these number prefixes in subtitle text.
+- COUNT SIGNPOST IS MANDATORY: immediately BEFORE "Một.", tell the listener exactly how many lessons/actions are coming in one natural standalone sentence. Examples: "Có ba cách trong sách bạn có thể thử ngay hôm nay." / "Mình chọn ra ba ý dễ áp dụng nhất." The announced number MUST exactly match the numbered lessons that follow.
+- Prefer giving this count signpost its own short transition segment. When rewriting a fixed set of existing slides and there is no suitable spare transition slide, place the signpost as the final short sentence of the book-reveal segment — never omit it and never let "Một." appear without warning.
+- After the count signpost, the VERY NEXT narration beat must begin "Một." Do not insert praise, author biography, credibility claims, or another transition between the promised count and point one.
+- These numbers belong ONLY to the value section. Their presence must NEVER force the opening hook to begin with a count.
 
 SAMPLE REFERENCE SCRIPT:
 """
@@ -177,7 +206,7 @@ ${bookPitchSample}
 SUBTITLE RULES FOR BOOK PITCH:
 - Keep the Vietnamese subtitle concise (at most 8 to 14 words per slide, max 2 lines on mobile screens).
 - Wrap the book name, the core rules, and the CTA in **...** so they display in bold gold highlight on screen.
-${ENUMERATED_OPENING_RULE}`;
+- Highlight at most 1 to 2 short phrases per subtitle. Never bold a whole sentence.`;
 
     return { isReflectiveTheme: false, narrationModeLine, styleReferenceBlock };
   }

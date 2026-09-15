@@ -14,7 +14,7 @@
  * (styleReferenceBlock, xem moralTalkVoiceStyle.js — dùng chung với
  * buildRegenerateNarrationPrompt để nút "Viết lại lời kể" không lệch văn phong).
  */
-import { getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
+import { buildBookPitchHookGuidance, getMoralTalkStyleReference } from './moralTalkVoiceStyle.js';
 import { getMoralTheme, getMoralThemeVoice } from '../../content/moralThemes.js';
 import { buildPunctuationRhythmGuidance, buildVietnamesePronunciationNote } from './narrationPacing.js';
 import { buildHookGuidance, buildHumanVoiceGuidance } from './humanVoice.js';
@@ -38,23 +38,17 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
     else if (durationRange === '6_8m') targetSlides = '115 đến 145';
     else if (durationRange === '8_10m') targetSlides = '150 đến 180';
 
-    pacingGuidance = `- THEME CHARACTERISTIC: This is a BOOK SELLING / BOOK RECOMMENDATION video ("${getMoralTheme(theme).styleLabel}").
-- MANDATORY 5-STAGE SELLING STRUCTURE (DESIGNED TO CONVERT VIEWERS INTO BOOK BUYERS):
-  1. STAGE 1: PAIN POINT HOOK (Slides 1-4): Open with a painful reality, frustration, or struggle the audience deals with every day (procrastination, lack of money, bad habits, anxiety). Split across multiple rapid slides to build visual tension.
-  2. STAGE 2: ROOT CAUSE & PIVOT (Slides 5-6): Explain why traditional efforts fail (wrong system/mindset), bridging to the solution.
-  3. STAGE 3: BOOK REVEAL (Slides 7-8): Reveal the book title (and author if known) with bold emphasis in subtitle: "**Atomic Habits** của James Clear".
-  4. STAGE 4: WHAT THE BOOK TEACHES (Slides 9-17): Reveal 2-3 core actionable lessons/rules directly from the book, numbered with bare cardinal numbers ("Một. Quy tắc...", "Hai. ...", "Ba. ..."). CRITICAL: Split EACH lesson across 2 to 3 consecutive slides (3-4s per slide) with distinct pictograms showing rule vs action vs trap.
-  5. STAGE 5: CALL TO ACTION (Last 2-3 slides): Urgent CTA urging the viewer to buy/read this book right now at the cart/link on screen.
+    pacingGuidance = `- THEME CHARACTERISTIC: This is a RETENTION-FIRST BOOK RECOMMENDATION video ("${getMoralTheme(theme).styleLabel}").
 - REQUIRED SLIDE COUNT: Split the video into exactly ${targetSlides} segments/slides.
-- RAPID VISUAL TRANSITIONS (3 TO 4 SECONDS PER SLIDE — NEVER LINGER):
-  * DO NOT equate 1 sentence to 1 slide! In modern TikTok short videos, ONE sentence or idea CAN and SHOULD be split across 2 to 3 consecutive slides with different pictograms.
-  * For example: Slide A shows the setup/trigger ("Một phút nóng nảy..."), Slide B shows the consequence/destruction ("...có thể phá hỏng công sức mười năm gầy dựng.").
-  * Keep speech per slide snappy: strictly 3 to 4 seconds (roughly 8 to 13 words max per slide). This avoids static boring slides and keeps visual dopamine high!
+- PACING: each slide carries one complete spoken beat, usually 6–12 Vietnamese words (or 7–13 English words), around 2.5–4 seconds. Never cut a phrase at an unnatural conjunction merely to create more slides.
+- INFORMATION DENSITY: every slide must do exactly one job — pain, reframe, promise, reveal, lesson-count signpost, rule, example, result, callback, or CTA. No two consecutive slides may repeat the same claim in prettier words.
+- PATTERN INTERRUPT: alternate among direct statement, concrete micro-scene, short contrast, and actionable instruction. Do not use more than one rhetorical question in the entire script.
+- TIMING CHECK: book title by the first 20–25%; after reveal, announce the exact lesson count in one short beat and then go directly to "Một."; CTA only after the opening loop is closed.
 - VISUAL SYMBOLS FOR BOOK SELLING PICTOGRAMS:
   - Struggle/Pain slides: flat white pictogram figure experiencing frustration (holding head, looking at empty wallet, clock running out, trapped in tangle).
   - Book reveal slide: flat white pictogram figure holding an open book glowing with insight (symbolic lightbulb or star above book).
   - Practical lessons slides: flat white pictogram figures executing the specific practical habit (stepping up stairs, arranging blocks, shaking hands, putting phone away).
-  - CTA slide: flat white pictogram figure proudly holding the book, smiling, with an arrow or cart icon directing attention to the bottom-left corner of the frame.`;
+  - CTA slide: flat white pictogram figure holding an open book with one subtle cart/arrow icon; helpful recommendation, not hard-sell advertising.`;
   } else if (isReflectiveTheme) {
     let targetSlides = '16 đến 22';
     if (durationRange === '1_2m') targetSlides = '26 đến 36';
@@ -127,7 +121,9 @@ ${narrationLanguageBlock}
 
 ${buildHumanVoiceGuidance({ isVietnamese: isVietnamesePrimary })}
 
-${buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
+${voice === 'book_pitch'
+    ? buildBookPitchHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })
+    : buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
 
 ${styleReferenceBlock}
 

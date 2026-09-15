@@ -272,7 +272,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
     throw new Error('Chủ đề không hợp lệ.');
   }
 
-  // --- Nếu là Slide Hoạt Hình Người Que Phong Cách Phóng Sự Mack (Có màu sắc bối cảnh & đạo cụ xen kẽ) ---
+  // --- Slide người que: nét vẽ tay 2D tối giản, nền giấy sáng, rất ít màu và chi tiết. ---
   if (categoryKey === 'stick_figure_slideshow') {
     const selectedAspectRatio = input.aspectRatio === '16:9' ? '16:9' : '9:16';
     const isLandscape = selectedAspectRatio === '16:9';
@@ -300,7 +300,10 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       // 2. Cận cảnh đồ vật / biểu tượng (object focus)
       // 3. Cảnh khoa học / địa chất / vũ trụ / mặt cắt / hiện tượng tự nhiên không có người (scientific / environmental focus)
       const hasExplicitNoChar = /(no character|no people|no human|no stick|without character|without people|không có người|thuần cảnh|pure scenery|pure environment|cutaway|cross-section)/i.test(cleanDesc);
-      const mentionsCharacter = /(stick figure|stickman|character|person|people|human|humans|man|men|woman|women|cavem[ae]n|neanderthals?|homo sapiens|hunter|hunters|scientist|scientists|explorer|explorers|student|students|worker|workers|boy|boys|girl|girls|kid|kids|child|children|elder|elders|villager|villagers|warrior|warriors|diver|divers|astronaut|astronauts|individual|individuals|figure|figures|người que|nhân vật|con người|người|nhà khoa học|nhà thám hiểm|người tiền sử|thợ săn|thợ lặn|phi hành gia|cư dân|bộ lạc|thổ dân|đứa trẻ|trẻ em)/i.test(cleanDesc);
+      // English phải có ranh giới từ: regex cũ nhận "document" là nhân vật vì có chuỗi "men",
+      // làm cảnh đồng hồ/tài liệu bị đẩy nhầm sang prompt có người que.
+      const mentionsCharacter = /\b(?:stick figure|stickman|character|person|people|human|humans|man|men|woman|women|cavem[ae]n|neanderthals?|homo sapiens|hunter|hunters|scientist|scientists|explorer|explorers|student|students|worker|workers|boy|boys|girl|girls|kid|kids|child|children|elder|elders|villager|villagers|warrior|warriors|diver|divers|astronaut|astronauts|individual|individuals|figure|figures)\b/i.test(cleanDesc)
+        || /(?:người que|nhân vật|con người|người|nhà khoa học|nhà thám hiểm|người tiền sử|thợ săn|thợ lặn|phi hành gia|cư dân|bộ lạc|thổ dân|đứa trẻ|trẻ em)/i.test(cleanDesc);
       const isCharacterScene = !detectedEra.isPreHuman && mentionsCharacter && !hasExplicitNoChar;
 
       const characterStyle = input.characterStyle || 'stick_figure';
@@ -335,11 +338,23 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
         }
       }
 
+      // visualDescription cũ có thể đã được sinh bằng style Mack nhiều màu. Làm sạch các từ khóa
+      // trang trí ở lớp cuối để project cũ khi tạo lại ảnh cũng chuyển được sang nét vẽ tối giản.
+      if (isStickFigure) {
+        sanitizedDesc = sanitizedDesc
+          .replace(/\b(?:vibrant|cinematic|photorealistic|hyperrealistic|highly detailed|intricate|cel[- ]shaded|3d rendered?|cgi)\b/gi, '')
+          .replace(/\b(?:glowing|luminous|shimmering|sparkling)\b/gi, 'simple')
+          .replace(/\b(?:richly colored|rich colored|dramatic lighting|cinematic lighting|atmospheric depth|detailed textures?)\b/gi, '')
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([,.;])/g, '$1')
+          .trim();
+      }
+
       const isObjectFocus = !isCharacterScene && /(ngọn lửa|đốm lửa|bản đồ|máy móc|máy tính|con chip|bộ não|đồng hồ|hóa thạch|công cụ|vũ khí|lửa trại|tài liệu|báo cáo|dấu chân|chiếc áo|ngôi sao|hành tinh|fire|campfire|flame|map|brain|clock|machine|computer|chip|fossil|tool|shoe|clothes|document|desk|report|microscope|telescope)/i.test(sanitizedDesc);
 
       const compositionGuide = isLandscape
-        ? 'Edge-to-edge borderless widescreen 16:9 cinematic horizontal layout: artwork extends completely to all edges filling 100% of the canvas with dynamic wide framing, zero white borders, zero margins, zero padding, and zero outer frame.'
-        : 'Edge-to-edge borderless full-bleed 9:16 vertical layout: artwork extends completely to all edges filling 100% of the canvas with zero white borders, zero margins, zero padding, and zero outer frame.';
+        ? 'Bright borderless 16:9 horizontal composition: one clear central action, generous airy space, and only 2–4 large light pastel background bands/shapes. At most two distant soft-charcoal silhouette props.'
+        : 'Bright borderless 9:16 vertical composition: one clear central action, generous airy space, and only 2–4 large light pastel background bands/shapes. At most two distant soft-charcoal silhouette props.';
 
       let visualStyle = '';
       let sceneDirective = '';
@@ -349,23 +364,31 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
 
       if (isCharacterScene) {
         if (isStickFigure) {
-          visualStyle = 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation illustration with witty cartoon charm, borderless full-bleed composition.';
-          sceneDirective = `MANDATORY UNIFIED CHARACTER STYLE — 100% CARTOON STICK FIGURE THROUGHOUT ENTIRE VIDEO: All characters, humans, cavemen, hunters, and scientists in every single scene MUST strictly be rendered as expressive 2D cartoon stick figures (round minimalist white ball head, simple expressive dot eyes, line mouth, black ink limbs, dressed in contextual attire). STRICTLY ZERO realistic humans, ZERO detailed human facial features, ZERO realistic human anatomy. Visual depiction of ${sanitizedDesc}. Single static story illustration, borderless edge-to-edge full-bleed artwork extending to all borders with no arrows, no speech bubbles, and absolutely zero text labels.`;
-          negativePrompt = `--no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, realistic human, photorealistic human, detailed human face, realistic anatomy, realistic human facial features, realistic Neanderthal, realistic caveman, realistic human skin texture, semi-realistic human, realistic nose, realistic lips, anime human, 3d render, cgi, photorealistic, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
+          visualStyle = 'Bright polished hand-drawn 2D web-explainer cartoon with clean confident soft-charcoal outlines and airy pastel flat color fills. Every character has a smooth blank ivory-white oval head with no facial features, balanced slim line arms and legs, clean joint connections, simple rounded hands and feet, a neat pastel torso or garment silhouette, and optional tidy hand-drawn hair. Attractive consistent proportions and natural expressive poses. Background uses only 2–4 large light pastel color bands or shapes. Shared high-key palette: light sky blue, sunny cream, fresh mint, peach/coral, light blue-grey and ivory, with one stronger coral/orange focal accent when essential. No shading, highlights, or dimensional rendering.';
+          sceneDirective = `MANDATORY POLISHED CHARACTER STYLE — ALL PEOPLE USE THE SAME ATTRACTIVE FACELESS HAND-DRAWN 2D STICK-FIGURE DESIGN: smooth symmetrical ivory-white oval head with absolutely no eyes, nose, mouth, eyebrows, or facial details; balanced slim soft-charcoal line limbs; clean connected joints; simple rounded hands and feet; neat pastel body/clothing silhouette; optional tidy intentional hair strokes. Keep head-to-body scale, limb length, line weight, and silhouette consistent across every character. Use natural readable posture and gesture. Show one action with at most three figures and two essential props. Visual depiction of ${sanitizedDesc}. Reduce the setting to 2–4 broad LIGHT pastel background shapes and at most two distant soft-charcoal silhouettes. Static textless drawing.`;
+          negativePrompt = `--no ${noBorderNegative}text, words, letters, font, typography, subtitles, captions, speech bubble, thought bubble, writing, watermark, labels, eyes, nose, mouth, eyebrows, facial expression, detailed face, realistic human, realistic anatomy, malformed body, uneven head, tangled limbs, disconnected joints, extra arms, extra legs, extra hands, extra feet, crude drawing, messy scribbles, dark muddy palette, underexposed, neon colors, anime, 3d, cgi, photorealism, gradient, glow, bloom, shadows, highlights, dramatic lighting, cinematic lighting, volumetric lighting, cel shading, detailed scenery, detailed texture, atmospheric depth, ornate clothes, clutter, blurry`;
         } else {
           visualStyle = 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored background scenery, textured ground, props, and warm earthy cartoon color palette. Clean 2D cel-shaded animation illustration with stylized cartoon human proportions, borderless full-bleed composition.';
           sceneDirective = `MANDATORY UNIFIED CHARACTER STYLE — 100% STYLIZED 2D CARTOON HUMAN THROUGHOUT ENTIRE VIDEO: All characters, cavemen, hunters, and scientists in every single scene MUST strictly be rendered as stylized 2D cartoon humans with stylized animated features and cartoon human proportions. STRICTLY ZERO stick figures, ZERO stickman wire bodies. Visual depiction of ${sanitizedDesc}. Single static story illustration, borderless edge-to-edge full-bleed artwork extending to all borders with no arrows, no speech bubbles, and absolutely zero text labels.`;
           negativePrompt = `--no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, stick figure, stickman, stick body, wire limbs, minimalist ball head, meme face, 3d render, cgi, photorealistic, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
         }
       } else if (isObjectFocus) {
-        visualStyle = 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored scenery, textured surfaces, props, and warm earthy cartoon color palette (warm ochre, clay brown, muted terracotta, warm orange, olive, slate grey). NOT a plain white background void. Clean 2D cel-shaded animation illustration with witty cartoon charm, borderless full-bleed composition.';
-        sceneDirective = `Vibrant symbolic prop or conceptual close-up: visual depiction of ${sanitizedDesc} in bold stylized 2D cartoon illustration with glowing warm colors, artistic details, bold ink outlines, and a rich colored background atmosphere. Single static story illustration, borderless edge-to-edge full-bleed artwork with NO characters, no arrows, no speech bubbles, and absolutely zero text labels.`;
-        negativePrompt = `--no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, human, person, man, woman, stick figure, stickman, character, face, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
+        visualStyle = isStickFigure
+          ? 'Bright polished hand-drawn 2D explainer-cartoon object illustration, clean soft-charcoal outlines, basic geometric shapes, 5–7 airy pastel flat colors, and only 2–3 large light background color bands. Flat and unshaded.'
+          : 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn graphic art with bold clean black ink line work and warm stylized flat color fills. Rich storytelling environment with colored scenery, textured surfaces, props, and warm earthy cartoon color palette. Clean 2D cel-shaded animation illustration with stylized cartoon charm.';
+        sceneDirective = isStickFigure
+          ? `Draw only the essential object or concept from ${sanitizedDesc}, simplified into one clean outlined shape with at most one supporting prop. Use bright airy pastel flat fills and only 2–3 broad LIGHT background color shapes. No characters and absolutely zero text.`
+          : `Vibrant symbolic prop or conceptual close-up: visual depiction of ${sanitizedDesc} in bold stylized 2D cartoon illustration with warm colors and bold ink outlines. No characters and absolutely zero text labels.`;
+        negativePrompt = `--no ${noBorderNegative}text, words, letters, typography, subtitles, captions, speech bubble, writing, watermark, labels, human, person, stick figure, character, face, 3d, cgi, photorealism, realistic anatomy, rich colors, gradient, glow, bloom, cinematic lighting, detailed scenery, clutter, blurry`;
       } else {
         // Cảnh khoa học, địa chất, mặt cắt, đại dương sâu, vũ trụ, thiên nhiên không có người
-        visualStyle = 'Mack-style 2D animated documentary cartoon illustration, expressive hand-drawn scientific concept art and environmental landscape with bold clean black ink line work and rich stylized flat color fills. Atmospheric educational scenery with detailed cross-section layers, textured geology, celestial or planetary environment, and warm earthy cartoon color palette (warm ochre, deep cobalt, clay brown, glowing magma orange, slate grey). Pure scenery and environmental phenomena, NO human characters. NOT a plain white background void. Clean 2D cel-shaded animation artwork, borderless full-bleed composition.';
-        sceneDirective = `Scientific environment, geological cross-section, or conceptual landscape: visual depiction of ${sanitizedDesc} in bold stylized 2D cartoon art with rich warm colors, detailed environmental textures, cutaway layers, bold ink outlines, and atmospheric depth. Purely environmental and conceptual visual scene WITHOUT any characters, people, or stick figures. Single static story illustration, borderless edge-to-edge full-bleed artwork extending to all edges with no arrows, no speech bubbles, and absolutely zero text labels.`;
-        negativePrompt = `--no ${noBorderNegative}text, words, letters, font, typography, script, calligraphy, subtitles, captions, speech bubble, thought bubble, dialogue box, yellow banner, top banner, caption bar, title bar, headline, writing, watermark, signature, labels, callouts, text overlay, meme caption, human, person, man, woman, stick figure, stickman, character, face, safari hat, 3d render, cgi, photorealistic, realistic human anatomy, plain blank white void background, airbrushed shading, gradient clip art, blurry`;
+        visualStyle = isStickFigure
+          ? 'Bright polished hand-drawn 2D educational explainer diagram, clean soft-charcoal contours, only essential layers and shapes, 5–7 airy pastel flat colors, and no shading or dimensional effects.'
+          : 'Mack-style 2D animated documentary cartoon illustration with bold black ink line work, warm flat color fills, and a clear educational composition.';
+        sceneDirective = isStickFigure
+          ? `Reduce ${sanitizedDesc} to a simple outlined diagram with only the 2–4 flat-color shapes needed to understand the phenomenon. No detailed landscape, texture, lighting, or atmosphere. No characters and absolutely zero text.`
+          : `Scientific environment or conceptual landscape depicting ${sanitizedDesc} in stylized 2D cartoon art. No characters and absolutely zero text labels.`;
+        negativePrompt = `--no ${noBorderNegative}text, words, letters, typography, subtitles, captions, speech bubble, writing, watermark, labels, human, person, stick figure, character, face, 3d, cgi, photorealism, realistic anatomy, rich colors, gradient, glow, bloom, cinematic lighting, detailed texture, atmospheric depth, clutter, blurry`;
       }
 
       // Ghim mốc thời gian / kỷ nguyên (Time Era Pinning)
@@ -375,7 +398,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       }
 
       // Cấm tuyệt đối viền trắng, khung ảnh (Full-bleed mandate)
-      const strictBorderlessRule = 'BORDERLESS FULL-BLEED ARTWORK: The illustration must fill the canvas edge-to-edge completely. Strictly zero white borders, zero white margins, zero white outlines, zero frame, zero border lines, zero polaroid borders, zero sticker borders, zero card borders.';
+      const strictBorderlessRule = 'ONE CONTINUOUS BRIGHT FLAT 2D CANVAS: broad light-pastel background shapes reach every edge. Keep the frame high-key and airy. No separate border, frame, card, panel, margin, sticker contour, or vignette.';
 
       // Cấm tuyệt đối chữ, phụ đề, bong bóng thoại, thanh banner chữ trên ảnh
       const strictNoTextRule = 'ABSOLUTE ZERO TEXT MANDATE: The final artwork must be completely textless, wordless, and letterless. Strictly zero words, zero letters, zero subtitles, zero speech bubbles, zero thought bubbles, zero caption banners, zero dialogue boxes, zero text overlays, zero labels, zero signs anywhere in the image. Pure visual illustration only, 100% clean of any written characters or typography.';
@@ -383,14 +406,18 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
       const jsonPrompt = {
         title: `${title} - Slide ${seg.segmentNumber}`,
         category: 'Animated Documentary Stick Figure',
-        image_style: 'Mack Explainer Cartoon Style (Colorful Environment, Borderless Full-Bleed, Textless)',
+        image_style: isStickFigure
+          ? 'Bright Polished Faceless Hand-Drawn 2D Stick Figure (Clean Charcoal Outline, Airy Pastel Flat Colors, Textless)'
+          : 'Mack Explainer 2D Cartoon Style (Textless)',
         aspect_ratio: selectedAspectRatio,
         time_era: detectedEra.key,
         style: {
           visual_style: visualStyle,
           time_era: eraDirective,
           composition: compositionGuide,
-          color_palette: ['#18181B (bold ink outlines)', 'Warm Earthy Tones (ochre, clay brown, warm greys)', 'Stylized Accents (campfire amber, warm orange, olive, terracotta)'],
+          color_palette: isStickFigure
+            ? ['#263238 (soft charcoal outlines)', '#FFFDF7 (clean ivory-white heads)', '#BFE3F5 (light sky blue)', '#FFE0A3 (sunny cream)', '#BFE3CC (fresh mint)', '#FFD0C2 (soft peach)', '#D9E2EA (light blue-grey)', '#FF7043 (single focal coral/orange accent when essential)']
+            : ['#18181B (bold ink outlines)', 'Warm Earthy Tones', 'Muted stylized accents'],
           render_note: `${eraDirective} ${sceneDirective} ${strictBorderlessRule} ${strictNoTextRule}`
         },
         scene: {
