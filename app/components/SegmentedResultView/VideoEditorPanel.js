@@ -78,6 +78,17 @@ function renderStyleVisualPreview(styleId, highlightColor = '#d9a620', textColor
 // CAPCUT DESKTOP SUB-COMPONENTS (PRO NLE UI)
 // ==========================================
 
+const CAPCUT_CARD_STYLE = {
+  background: '#202020',
+  border: '1px solid #2e2e2e',
+  borderRadius: '8px',
+  padding: '12px 14px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px',
+  boxSizing: 'border-box'
+};
+
 function CapCutSectionHeader({
   title,
   isOpen = true,
@@ -94,7 +105,8 @@ function CapCutSectionHeader({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '2px 0 4px 0',
+        paddingBottom: '6px',
+        borderBottom: '1px solid #2a2a2a',
         userSelect: 'none'
       }}
     >
@@ -493,8 +505,8 @@ function CapCutClipStepper({ activeIndex, total, onPrev, onNext }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         background: '#202020',
-        padding: '5px 8px',
-        borderRadius: '4px',
+        padding: '6px 10px',
+        borderRadius: '6px',
         border: '1px solid #2e2e2e',
         flexShrink: 0
       }}
@@ -926,7 +938,7 @@ export default function VideoEditorPanel({
           1. TAB VĂN BẢN (TEXT & VOICEOVER)
           ======================================================== */}
       {currentTab === 'caption' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <CapCutClipStepper
             activeIndex={activeSceneIndex}
             total={totalScenes}
@@ -935,15 +947,15 @@ export default function VideoEditorPanel({
           />
 
           {/* Section: Nội dung chữ */}
-          <div className="capcut-card">
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title={`Nội dung Cảnh ${activeSceneIndex + 1}`}
               hasReset={false}
               hasKeyframe={false}
             />
 
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600, display: 'block', marginBottom: '3px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
                 Phụ đề hiển thị:
               </span>
               <textarea
@@ -956,8 +968,8 @@ export default function VideoEditorPanel({
               />
             </div>
 
-            <div>
-              <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600, display: 'block', marginBottom: '3px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
                 Lời kể / Thuyết minh:
               </span>
               <textarea
@@ -970,12 +982,12 @@ export default function VideoEditorPanel({
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
                 type="button"
                 onClick={handlePlaySceneAudio}
                 className="capcut-btn-secondary"
-                style={{ flex: 1, padding: '6px 8px', fontSize: '0.72rem' }}
+                style={{ flex: 1, padding: '7px 10px', fontSize: '0.72rem' }}
               >
                 {isPlayingSceneAudio ? '🔊 Đang phát...' : '▶ Nghe thử voice'}
               </button>
@@ -985,7 +997,7 @@ export default function VideoEditorPanel({
                 onClick={handleSaveCurrentScene}
                 disabled={isSavingScene || isResyncingVoice}
                 className="capcut-btn-primary"
-                style={{ flex: 1.3, padding: '6px 10px', fontSize: '0.74rem' }}
+                style={{ flex: 1.3, padding: '7px 12px', fontSize: '0.74rem' }}
               >
                 {isSavingScene ? '⏳ Đang lưu...' : isResyncingVoice ? '🎙️ Tạo voice...' : '💾 Lưu Cảnh Này'}
               </button>
@@ -998,7 +1010,7 @@ export default function VideoEditorPanel({
           </div>
 
           {/* Section: Định dạng chữ & Typography */}
-          <div className="capcut-card">
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title="Định dạng chữ (Typography)"
               checked={renderCaptionEnabled}
@@ -1011,7 +1023,7 @@ export default function VideoEditorPanel({
             />
 
             {/* Mẫu kiểu chữ (CapCut Presets) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
               {CAPTION_STYLES.map((st) => {
                 const isActive = renderCaptionStyle === st.id;
                 return (
@@ -1030,8 +1042,8 @@ export default function VideoEditorPanel({
                     }}
                     style={{
                       position: 'relative',
-                      padding: '4px 2px',
-                      borderRadius: '5px',
+                      padding: '5px 3px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
                       background: isActive ? '#282828' : '#1c1c1c',
@@ -1039,7 +1051,7 @@ export default function VideoEditorPanel({
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      height: '58px',
+                      height: '60px',
                       boxSizing: 'border-box',
                       transition: 'all 0.15s ease',
                       overflow: 'hidden'
@@ -1062,7 +1074,7 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Căn lề chữ (Alignment toolbar chuẩn CapCut Image 2) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
               <span className="capcut-label">Căn lề:</span>
               <CapCutAlignToolbar
                 currentAlignH={renderCaptionTextAlign}
@@ -1076,13 +1088,13 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Font chữ */}
-            <div className="capcut-control-row" style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+            <div className="capcut-control-row" style={{ minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
               <span className="capcut-label">Font chữ</span>
               <select
                 value={renderCaptionFont}
                 onChange={(e) => setRenderCaptionFont && setRenderCaptionFont(e.target.value)}
                 className="capcut-input"
-                style={{ flex: 1, padding: '4px 6px', fontSize: '0.72rem', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '5px 8px', fontSize: '0.74rem', cursor: 'pointer' }}
               >
                 {FONTS.map((f) => (
                   <option key={f.id} value={f.id} style={{ background: '#222', color: '#fff' }}>
@@ -1108,22 +1120,22 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Màu sắc */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>Highlight:</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="capcut-label">Highlight:</span>
                 <ColorPickerPopover color={renderHighlightColor} onChange={setRenderHighlightColor} label="Highlight" align="left" />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>Màu chữ:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="capcut-label">Màu chữ:</span>
                 <ColorPickerPopover color={renderCaptionTextColor || '#ffffff'} onChange={setRenderCaptionTextColor} label="Màu chữ" align="right" />
               </div>
             </div>
 
             {/* Animation tiêu đề */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
               <span className="capcut-label">Hoạt ảnh:</span>
-              <div style={{ display: 'flex', gap: '3px' }}>
+              <div style={{ display: 'flex', gap: '4px' }}>
                 {CAPTION_ANIMATIONS.map((anim) => {
                   const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
                   const isActive = currentAnim === anim.id;
@@ -1148,24 +1160,10 @@ export default function VideoEditorPanel({
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-secondary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.76rem', marginTop: '2px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.74rem', marginTop: '4px' }}
             >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Style Tiêu Đề'}
-            </button>
-            {saveStyleMsg && (
-              <span style={{ fontSize: '0.7rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
-                {saveStyleMsg}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          2. TAB HÌNH ẢNH (MEDIA & TRANSFORM - CHUẨN CAPCUT DESKTOP)
-          ======================================================== */}
-      {currentTab === 'image' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {currentTab === 'image' && (
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <CapCutClipStepper
             activeIndex={activeSceneIndex}
             total={totalScenes}
@@ -1174,7 +1172,7 @@ export default function VideoEditorPanel({
           />
 
           {/* Section: Transform (Chuẩn CapCut Image 2) */}
-          <div className="capcut-card">
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title="Transform"
               onReset={() => {
@@ -1229,7 +1227,7 @@ export default function VideoEditorPanel({
             />
 
             {/* Rotate row */}
-            <div className="capcut-control-row">
+            <div className="capcut-control-row" style={{ minHeight: '28px' }}>
               <span className="capcut-label">Rotate</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
                 <CapCutStepperBox
@@ -1255,7 +1253,7 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Alignment Toolbar chuẩn CapCut Desktop */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
               <span className="capcut-label">Align</span>
               <CapCutAlignToolbar
                 onAlignLeft={() => {}}
@@ -1281,14 +1279,14 @@ export default function VideoEditorPanel({
           </div>
 
           {/* Section: Ảnh cảnh hiện tại */}
-          <div className="capcut-card">
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title={`Ảnh Cảnh ${activeSceneIndex + 1}`}
               hasReset={false}
               hasKeyframe={false}
             />
 
-            <div style={{ position: 'relative', width: '100%', height: '135px', borderRadius: '4px', overflow: 'hidden', background: '#121212', border: '1px solid #2d2d2d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', height: '135px', borderRadius: '6px', overflow: 'hidden', background: '#121212', border: '1px solid #2d2d2d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {currentImgSrc ? (
                 <img
                   key={`${currentImgSrc}-${imageVersion}`}
@@ -1316,7 +1314,7 @@ export default function VideoEditorPanel({
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploadingImage}
               className="capcut-btn-secondary"
-              style={{ width: '100%', padding: '7px 10px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <span>📁</span>
               <span>{isUploadingImage ? 'Đang lưu ảnh...' : 'Tải ảnh thay thế từ máy tính'}</span>
@@ -1327,8 +1325,8 @@ export default function VideoEditorPanel({
               </span>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #2a2a2a', paddingTop: '8px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #2a2a2a', paddingTop: '8px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
                 Mô tả hình ảnh (AI Prompt):
               </span>
               <textarea
@@ -1344,7 +1342,7 @@ export default function VideoEditorPanel({
                 onClick={handleSaveVisualPrompt}
                 disabled={isSavingVisualPrompt}
                 className="capcut-btn-secondary"
-                style={{ alignSelf: 'flex-end', padding: '4px 10px', fontSize: '0.7rem' }}
+                style={{ alignSelf: 'flex-end', padding: '5px 12px', fontSize: '0.71rem' }}
               >
                 {isSavingVisualPrompt ? 'Đang lưu...' : '💾 Lưu mô tả'}
               </button>
@@ -1357,14 +1355,14 @@ export default function VideoEditorPanel({
           </div>
 
           {/* Section: Màu nền & Chuyển cảnh */}
-          <div className="capcut-card">
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title="Cài đặt khung hình &amp; Chuyển cảnh"
               hasReset={false}
               hasKeyframe={false}
             />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
               <span className="capcut-label">Màu nền video:</span>
               <ColorPickerPopover
                 color={renderVideoBgColor || '#000000'}
@@ -1380,7 +1378,7 @@ export default function VideoEditorPanel({
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <span className="capcut-label">Hiệu ứng chuyển cảnh:</span>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {TRANSITION_STYLES.map((t) => {
@@ -1404,9 +1402,9 @@ export default function VideoEditorPanel({
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.76rem', marginTop: '2px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
             >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Ảnh'}
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Media'}
             </button>
           </div>
         </div>
@@ -1416,8 +1414,8 @@ export default function VideoEditorPanel({
           3. TAB LOGO (BRAND LOGO)
           ======================================================== */}
       {currentTab === 'logo' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div className="capcut-card">
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <img
@@ -1440,7 +1438,7 @@ export default function VideoEditorPanel({
             </p>
           </div>
 
-          <div className="capcut-card" style={{ opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
+          <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
             <CapCutSectionHeader
               title="Transform"
               onReset={() => {
@@ -1494,7 +1492,7 @@ export default function VideoEditorPanel({
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.76rem', marginTop: '2px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
             >
               {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Logo'}
             </button>
@@ -1506,15 +1504,15 @@ export default function VideoEditorPanel({
           4. TAB MỞ ĐẦU (INTRO CẢNH 1)
           ======================================================== */}
       {currentTab === 'opening' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div className="capcut-card">
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title="Mở đầu video (Cảnh 1)"
               hasReset={false}
               hasKeyframe={false}
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
               {[
                 { id: 'none', label: 'Bình thường', desc: 'Không sticker/banner', active: !renderShowOpeningComment && !renderShowOpeningNewsBanner },
                 { id: 'comment', label: 'Hộp bình luận', desc: 'Sticker hỏi ở trên', active: renderShowOpeningComment && !renderShowOpeningNewsBanner },
@@ -1541,8 +1539,8 @@ export default function VideoEditorPanel({
                   }}
                   style={{
                     padding: '8px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.7rem',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
                     fontWeight: 600,
                     cursor: 'pointer',
                     border: m.active ? '1.5px solid #00e5ff' : '1px solid #303030',
@@ -1551,25 +1549,25 @@ export default function VideoEditorPanel({
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '2px'
+                    gap: '3px'
                   }}
                 >
                   <span>{m.label}</span>
-                  <span style={{ fontSize: '0.6rem', color: '#666', fontWeight: 400 }}>{m.desc}</span>
+                  <span style={{ fontSize: '0.62rem', color: '#666', fontWeight: 400 }}>{m.desc}</span>
                 </button>
               ))}
             </div>
 
             {renderShowOpeningComment && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', paddingTop: '8px', borderTop: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Hộp bình luận:</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Hộp bình luận:</span>
                 <input
                   type="text"
                   value={renderOpeningCommentAuthor || ''}
                   placeholder="Người hỏi (VD: Trả lời bình luận)"
                   onChange={(e) => setRenderOpeningCommentAuthor && setRenderOpeningCommentAuthor(e.target.value)}
                   className="capcut-input"
-                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
                 />
                 <textarea
                   rows={2}
@@ -1577,30 +1575,30 @@ export default function VideoEditorPanel({
                   placeholder="Nội dung câu hỏi..."
                   onChange={(e) => setRenderOpeningCommentText && setRenderOpeningCommentText(e.target.value)}
                   className="capcut-input"
-                  style={{ width: '100%', padding: '5px 8px', resize: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px', resize: 'none', boxSizing: 'border-box' }}
                 />
               </div>
             )}
 
             {renderShowOpeningNewsBanner && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', paddingTop: '8px', borderTop: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Banner tin tức:</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Banner tin tức:</span>
                 <textarea
                   rows={2}
                   value={renderOpeningNewsHeadline || ''}
                   placeholder="TIÊU ĐỀ NỔI BẬT..."
                   onChange={(e) => setRenderOpeningNewsHeadline && setRenderOpeningNewsHeadline(e.target.value)}
                   className="capcut-input"
-                  style={{ width: '100%', padding: '5px 8px', color: '#FACC15', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px', color: '#FACC15', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <input
                     type="text"
                     value={renderOpeningNewsBrand || ''}
                     placeholder="TIN TỨC"
                     onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
                     className="capcut-input"
-                    style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
                   />
                   <input
                     type="text"
@@ -1608,7 +1606,7 @@ export default function VideoEditorPanel({
                     placeholder="27.1K"
                     onChange={(e) => setRenderOpeningNewsLikes && setRenderOpeningNewsLikes(e.target.value)}
                     className="capcut-input"
-                    style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
@@ -1619,7 +1617,7 @@ export default function VideoEditorPanel({
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.76rem', marginTop: '2px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
             >
               {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Mở Đầu'}
             </button>
@@ -1631,7 +1629,7 @@ export default function VideoEditorPanel({
           5. TAB CẢNH (SCENES SPLIT VIEW)
           ======================================================== */}
       {currentTab === 'scenes' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
           {/* PHẦN TRÊN: CẢNH ĐANG ACTIVE HIỆN TẠI (Ôm sát nội dung) */}
           <div
             style={{
@@ -1641,11 +1639,11 @@ export default function VideoEditorPanel({
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
+              gap: '10px',
               background: '#202020',
               border: '1px solid #2e2e2e',
-              borderRadius: '6px',
-              padding: '10px',
+              borderRadius: '8px',
+              padding: '12px 14px',
               boxSizing: 'border-box'
             }}
           >
@@ -1676,7 +1674,7 @@ export default function VideoEditorPanel({
                     onClick={() => onSceneIndexChange && onSceneIndexChange(Math.max(0, activeSceneIndex - 1))}
                     disabled={activeSceneIndex === 0}
                     className="capcut-btn-secondary"
-                    style={{ flex: 1, padding: '3px 6px', fontSize: '0.7rem' }}
+                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.7rem' }}
                   >
                     ◀ Trước
                   </button>
@@ -1685,7 +1683,7 @@ export default function VideoEditorPanel({
                     onClick={() => onSceneIndexChange && onSceneIndexChange(Math.min(totalScenes - 1, activeSceneIndex + 1))}
                     disabled={activeSceneIndex >= totalScenes - 1}
                     className="capcut-btn-secondary"
-                    style={{ flex: 1, padding: '3px 6px', fontSize: '0.7rem' }}
+                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.7rem' }}
                   >
                     Tiếp ▶
                   </button>
@@ -1694,8 +1692,8 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Phụ đề trên video */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
                 Phụ đề hiển thị:
               </span>
               <textarea
@@ -1708,8 +1706,8 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Lời kể lồng tiếng */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
                 Lời kể / Thuyết minh:
               </span>
               <textarea
@@ -1722,12 +1720,12 @@ export default function VideoEditorPanel({
             </div>
 
             {/* Nghe thử & Nút lưu */}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
                 type="button"
                 onClick={handlePlaySceneAudio}
                 className="capcut-btn-secondary"
-                style={{ flex: 1, padding: '6px 8px', fontSize: '0.71rem' }}
+                style={{ flex: 1, padding: '7px 10px', fontSize: '0.72rem' }}
               >
                 {isPlayingSceneAudio ? '🔊 Đang phát...' : '▶ Nghe thử voice'}
               </button>
@@ -1737,7 +1735,7 @@ export default function VideoEditorPanel({
                 onClick={handleSaveCurrentScene}
                 disabled={isSavingScene || isResyncingVoice}
                 className="capcut-btn-primary"
-                style={{ flex: 1.2, padding: '6px 10px', fontSize: '0.72rem' }}
+                style={{ flex: 1.3, padding: '7px 12px', fontSize: '0.74rem' }}
               >
                 {isSavingScene ? '⏳ Đang lưu...' : isResyncingVoice ? '🎙️ Tạo voice...' : '💾 Lưu Cảnh Này'}
               </button>
@@ -1756,11 +1754,11 @@ export default function VideoEditorPanel({
               minHeight: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px',
+              gap: '8px',
               background: '#202020',
               border: '1px solid #2e2e2e',
-              borderRadius: '6px',
-              padding: '8px'
+              borderRadius: '8px',
+              padding: '10px 12px'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 6px 4px', borderBottom: '1px solid #2a2a2a', flexShrink: 0 }}>
@@ -1836,15 +1834,15 @@ export default function VideoEditorPanel({
           6. TAB CÀI ĐẶT (STYLE / SETTINGS)
           ======================================================== */}
       {currentTab === 'style' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div className="capcut-card">
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
               title="Cài đặt video &amp; Hiệu ứng chung"
               hasReset={false}
               hasKeyframe={false}
             />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', minHeight: '28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="capcut-label">Màu Primary:</span>
                 <ColorPickerPopover color={renderHighlightColor} onChange={setRenderHighlightColor} label="Primary" align="left" />
@@ -1879,7 +1877,7 @@ export default function VideoEditorPanel({
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.76rem', marginTop: '4px' }}
+              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
             >
               {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Video'}
             </button>
