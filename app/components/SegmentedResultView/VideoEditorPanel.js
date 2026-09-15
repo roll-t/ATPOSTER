@@ -29,11 +29,11 @@ const CAPTION_ANIMATIONS = [
 ];
 
 const TRANSITION_STYLES = [
-  { id: 'crossfade', label: 'Hòa tan' },
-  { id: 'slide-left', label: 'Trượt trái' },
-  { id: 'slide-right', label: 'Trượt phải' },
-  { id: 'slide-up', label: 'Trượt lên' },
-  { id: 'zoom', label: 'Phóng to' }
+  { id: 'crossfade', label: 'Hòa tan', desc: 'Mờ dần chuyển tiếp cảnh' },
+  { id: 'slide-left', label: 'Trượt trái', desc: 'Trượt từ phải sang trái' },
+  { id: 'slide-right', label: 'Trượt phải', desc: 'Trượt từ trái sang phải' },
+  { id: 'slide-up', label: 'Trượt lên', desc: 'Đẩy cảnh mới từ dưới lên' },
+  { id: 'zoom', label: 'Phóng to', desc: 'Phóng to cảnh tiếp theo' }
 ];
 
 const FONTS = [
@@ -106,6 +106,55 @@ function renderAnimationVisualPreview(animId, isActive) {
           <line x1="12" y1="19" x2="12" y2="5" />
           <polyline points="6 11 12 5 18 11" />
           <line x1="6" y1="20" x2="18" y2="20" strokeWidth="1.5" strokeDasharray="2 2" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function renderTransitionVisualPreview(transitionId, isActive) {
+  const color = isActive ? '#00e5ff' : '#8c8c8c';
+  switch (transitionId) {
+    case 'crossfade':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="11" height="11" rx="2" strokeOpacity="0.45" />
+          <rect x="10" y="10" width="11" height="11" rx="2" stroke={color} fill={isActive ? 'rgba(0, 229, 255, 0.18)' : 'none'} />
+        </svg>
+      );
+    case 'slide-left':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="12 19 5 12 12 5" />
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="5" x2="19" y2="19" strokeWidth="1.5" strokeDasharray="2 2" strokeOpacity="0.6" />
+        </svg>
+      );
+    case 'slide-right':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="12 5 19 12 12 19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <line x1="5" y1="5" x2="5" y2="19" strokeWidth="1.5" strokeDasharray="2 2" strokeOpacity="0.6" />
+        </svg>
+      );
+    case 'slide-up':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="5 12 12 5 19 12" />
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <line x1="5" y1="19" x2="19" y2="19" strokeWidth="1.5" strokeDasharray="2 2" strokeOpacity="0.6" />
+        </svg>
+      );
+    case 'zoom':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 3 21 3 21 9" />
+          <polyline points="9 21 3 21 3 15" />
+          <line x1="21" y1="3" x2="14" y2="10" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+          <rect x="8" y="8" width="8" height="8" rx="1.5" strokeWidth="1.2" strokeDasharray="2 1.5" strokeOpacity="0.7" />
         </svg>
       );
     default:
@@ -937,6 +986,7 @@ export default function VideoEditorPanel({
         {[
           { id: 'caption', label: 'Văn bản' },
           { id: 'image', label: 'Hình ảnh' },
+          { id: 'animation', label: 'Hoạt ảnh' },
           { id: 'logo', label: 'Logo' },
           { id: 'opening', label: 'Mở đầu' },
           { id: 'scenes', label: `Cảnh (${totalScenes})` },
@@ -1101,56 +1151,6 @@ export default function VideoEditorPanel({
               </div>
             </div>
 
-            {/* Animation tiêu đề (Ô hoạt ảnh trực quan chuẩn CapCut) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span className="capcut-label">Hoạt ảnh phụ đề:</span>
-                <span style={{ fontSize: '0.65rem', color: '#777' }}>Hiệu ứng xuất hiện</span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-                {CAPTION_ANIMATIONS.map((anim) => {
-                  const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
-                  const isActive = currentAnim === anim.id;
-                  return (
-                    <button
-                      key={anim.id}
-                      type="button"
-                      title={`${anim.label} - ${anim.desc}`}
-                      onClick={() => setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id)}
-                      style={{
-                        position: 'relative',
-                        padding: '6px 3px 5px 3px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
-                        background: isActive ? '#282828' : '#1c1c1c',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        height: '56px',
-                        boxSizing: 'border-box',
-                        transition: 'all 0.15s ease',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
-                        {renderAnimationVisualPreview(anim.id, isActive)}
-                      </div>
-                      <div style={{ fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
-                        {anim.label}
-                      </div>
-                      {isActive && (
-                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
-                          ✓
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             {/* Nút lưu style */}
             <button
@@ -1283,10 +1283,10 @@ export default function VideoEditorPanel({
             </div>
           </div>
 
-          {/* Section: Màu nền & Chuyển cảnh */}
+          {/* Section: Màu nền video */}
           <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
             <CapCutSectionHeader
-              title="Cài đặt khung hình &amp; Chuyển cảnh"
+              title="Cài đặt nền video (Background)"
               hasReset={false}
               hasKeyframe={false}
             />
@@ -1307,25 +1307,6 @@ export default function VideoEditorPanel({
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span className="capcut-label">Hiệu ứng chuyển cảnh:</span>
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                {TRANSITION_STYLES.map((t) => {
-                  const isActive = renderTransitionStyle === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setRenderTransitionStyle && setRenderTransitionStyle(t.id)}
-                      className={`capcut-preset-chip ${isActive ? 'active' : ''}`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={handleSaveAndApply}
@@ -1340,7 +1321,167 @@ export default function VideoEditorPanel({
       )}
 
       {/* ========================================================
-          3. TAB LOGO (BRAND LOGO)
+          3. TAB HOẠT ẢNH (ANIMATION & TRANSITION - CHUẨN CAPCUT)
+          ======================================================== */}
+      {currentTab === 'animation' && (
+        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Card 1: Hoạt ảnh phụ đề / chữ */}
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+            <CapCutSectionHeader
+              title="Hoạt ảnh phụ đề (Caption Animation)"
+              hasReset={true}
+              onReset={() => {
+                setRenderCaptionAnimation && setRenderCaptionAnimation('none');
+                if (result) {
+                  if (!result.remotionConfig) result.remotionConfig = {};
+                  result.remotionConfig.captionAnimation = 'none';
+                }
+              }}
+              hasKeyframe={false}
+            />
+            <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+              Hiệu ứng xuất hiện cho từng câu phụ đề và tiêu đề khi người thuyết minh bắt đầu nói.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+              {CAPTION_ANIMATIONS.map((anim) => {
+                const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
+                const isActive = currentAnim === anim.id;
+                return (
+                  <button
+                    key={anim.id}
+                    type="button"
+                    title={`${anim.label} - ${anim.desc}`}
+                    onClick={() => {
+                      setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id);
+                      if (result) {
+                        if (!result.remotionConfig) result.remotionConfig = {};
+                        result.remotionConfig.captionAnimation = anim.id;
+                      }
+                    }}
+                    style={{
+                      position: 'relative',
+                      padding: '6px 3px 5px 3px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                      background: isActive ? '#282828' : '#1c1c1c',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: '58px',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                      {renderAnimationVisualPreview(anim.id, isActive)}
+                    </div>
+                    <div style={{ fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
+                      {anim.label}
+                    </div>
+                    {isActive && (
+                      <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Card 2: Hiệu ứng chuyển cảnh giữa các slide */}
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+            <CapCutSectionHeader
+              title="Chuyển cảnh slide (Scene Transitions)"
+              hasReset={true}
+              onReset={() => {
+                setRenderTransitionStyle && setRenderTransitionStyle('crossfade');
+                if (result) {
+                  if (!result.remotionConfig) result.remotionConfig = {};
+                  result.remotionConfig.transitionStyle = 'crossfade';
+                }
+              }}
+              hasKeyframe={false}
+            />
+            <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+              Hiệu ứng chuyển tiếp chuyển động giữa các phân cảnh trong video.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+              {TRANSITION_STYLES.map((t) => {
+                const isActive = renderTransitionStyle === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    title={`${t.label} - ${t.desc || ''}`}
+                    onClick={() => {
+                      setRenderTransitionStyle && setRenderTransitionStyle(t.id);
+                      if (result) {
+                        if (!result.remotionConfig) result.remotionConfig = {};
+                        result.remotionConfig.transitionStyle = t.id;
+                      }
+                    }}
+                    style={{
+                      position: 'relative',
+                      padding: '6px 2px 5px 2px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                      background: isActive ? '#282828' : '#1c1c1c',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: '58px',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                      {renderTransitionVisualPreview(t.id, isActive)}
+                    </div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {t.label}
+                    </div>
+                    {isActive && (
+                      <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                        ✓
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Action Button: Lưu Cài Đặt Hoạt Ảnh */}
+          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+            <button
+              type="button"
+              onClick={handleSaveAndApply}
+              disabled={isSavingStyle}
+              className="capcut-btn-primary"
+              style={{ width: '100%', padding: '9px 14px', fontSize: '0.78rem', fontWeight: 600 }}
+            >
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Hoạt Ảnh'}
+            </button>
+            {saveStyleMsg && (
+              <span style={{ fontSize: '0.72rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
+                {saveStyleMsg}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          4. TAB LOGO (BRAND LOGO)
           ======================================================== */}
       {currentTab === 'logo' && (
         <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1782,24 +1923,6 @@ export default function VideoEditorPanel({
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span className="capcut-label">Chuyển cảnh giữa các slide:</span>
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                {TRANSITION_STYLES.map((t) => {
-                  const isActive = renderTransitionStyle === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setRenderTransitionStyle && setRenderTransitionStyle(t.id)}
-                      className={`capcut-preset-chip ${isActive ? 'active' : ''}`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             <button
               type="button"
