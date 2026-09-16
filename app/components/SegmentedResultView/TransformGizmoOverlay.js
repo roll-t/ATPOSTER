@@ -20,6 +20,7 @@ export default function TransformGizmoOverlay({
   style = {},
   className = '',
   onClick,
+  onPointerDown,
   onDragStart,
   onDrag,
   onDragEnd,
@@ -63,6 +64,13 @@ export default function TransformGizmoOverlay({
     // Chỉ xử lý chuột trái hoặc touch
     if (e.button !== undefined && e.button !== 0) return;
     e.stopPropagation();
+    e.preventDefault();
+
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (pointerId !== undefined && target?.setPointerCapture) {
+      try { target.setPointerCapture(pointerId); } catch (_) {}
+    }
 
     setIsInteracting(true);
     onDragStartRef.current?.();
@@ -78,6 +86,9 @@ export default function TransformGizmoOverlay({
 
     const handlePointerUp = () => {
       setIsInteracting(false);
+      if (pointerId !== undefined && target?.releasePointerCapture) {
+        try { target.releasePointerCapture(pointerId); } catch (_) {}
+      }
       onDragEndRef.current?.();
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
@@ -94,6 +105,12 @@ export default function TransformGizmoOverlay({
     if (e.button !== undefined && e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (pointerId !== undefined && target?.setPointerCapture) {
+      try { target.setPointerCapture(pointerId); } catch (_) {}
+    }
 
     setIsInteracting(true);
     onScaleStartRef.current?.(corner);
@@ -113,6 +130,9 @@ export default function TransformGizmoOverlay({
 
     const handlePointerUp = () => {
       setIsInteracting(false);
+      if (pointerId !== undefined && target?.releasePointerCapture) {
+        try { target.releasePointerCapture(pointerId); } catch (_) {}
+      }
       onScaleEndRef.current?.();
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
@@ -129,6 +149,12 @@ export default function TransformGizmoOverlay({
     if (e.button !== undefined && e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (pointerId !== undefined && target?.setPointerCapture) {
+      try { target.setPointerCapture(pointerId); } catch (_) {}
+    }
 
     setIsInteracting(true);
     onResizeWidthStartRef.current?.(side);
@@ -152,6 +178,9 @@ export default function TransformGizmoOverlay({
 
     const handlePointerUp = () => {
       setIsInteracting(false);
+      if (pointerId !== undefined && target?.releasePointerCapture) {
+        try { target.releasePointerCapture(pointerId); } catch (_) {}
+      }
       onResizeWidthEndRef.current?.();
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
@@ -167,14 +196,16 @@ export default function TransformGizmoOverlay({
     if (e.button !== undefined && e.button !== 0) return;
     if (e.target?.closest?.('button')) return;
     e.stopPropagation();
+    onPointerDown?.(e);
     if (!active) {
       onClick?.(e);
+    } else {
+      handleMovePointerDown(e);
     }
-    handleMovePointerDown(e);
-  }, [active, onClick, handleMovePointerDown]);
+  }, [active, onClick, onPointerDown, handleMovePointerDown]);
 
   const cornerSize = 8;
-  const hitSize = 16;
+  const hitSize = 24;
   const hitOffset = -hitSize / 2;
 
   const hitStyle = {
@@ -207,7 +238,7 @@ export default function TransformGizmoOverlay({
     <div
       style={{
         width: '6px',
-        height: '16px',
+        height: '18px',
         background: '#ffffff',
         border: '1.5px solid #25f4ee',
         borderRadius: '3px',
@@ -230,6 +261,7 @@ export default function TransformGizmoOverlay({
         justifyContent: 'center',
         cursor: active ? 'move' : 'pointer',
         userSelect: 'none',
+        touchAction: 'none',
         ...style
       }}
       onClick={onClick}
@@ -254,31 +286,38 @@ export default function TransformGizmoOverlay({
           {/* Badge thông tin & thanh điều hướng mini trên đỉnh Bounding Box */}
           {(() => {
             const invScale = counterScale > 0 ? Math.max(0.4, Math.min(2.5, 1 / counterScale)) : 1;
+            const isOutsideBottom = badgePosition === 'outside-bottom';
+            const isInsideBottom = badgePosition === 'inside-bottom';
+            const isInsideTop = badgePosition === 'inside-top';
+            const badgeTop = isInsideTop ? '8px' : (isOutsideBottom || isInsideBottom ? 'auto' : '-28px');
+            const badgeBottom = isOutsideBottom ? '-28px' : (isInsideBottom ? '8px' : 'auto');
+            const badgeOrigin = (isInsideTop || isOutsideBottom) ? 'top center' : 'bottom center';
             return (
               <div
                 style={{
                   position: 'absolute',
-                  top: badgePosition === 'inside-top' ? '8px' : '-28px',
+                  top: badgeTop,
+                  bottom: badgeBottom,
                   left: '50%',
                   transform: `translateX(-50%) scale(${invScale})`,
-                  transformOrigin: badgePosition === 'inside-top' ? 'top center' : 'bottom center',
+                  transformOrigin: badgeOrigin,
                   background: 'rgba(11, 15, 25, 0.94)',
-              border: '1px solid rgba(37, 244, 238, 0.45)',
-              borderRadius: '9999px',
-              padding: '2px 8px 2px 10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.8)',
-              pointerEvents: 'auto',
-              backdropFilter: 'blur(8px)',
-              zIndex: 30
-            }}
-          >
+                  border: '1px solid rgba(37, 244, 238, 0.45)',
+                  borderRadius: '9999px',
+                  padding: '2px 8px 2px 10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.8)',
+                  pointerEvents: 'auto',
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 30
+                }}
+              >
             <span style={{ color: '#25f4ee' }}>✥</span>
             <span>{label}</span>
             {detail && <span style={{ color: 'rgba(255, 255, 255, 0.65)' }}>• {detail}</span>}

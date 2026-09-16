@@ -17,6 +17,33 @@ function strokeShadow(color = '#000000', width = 2.5) {
   return shadows.join(', ');
 }
 
+function getNewsTagConfig(brandText) {
+  const text = (brandText || 'TIN TỨC').trim();
+  const lower = text.toLowerCase();
+
+  let icon = '⚡';
+  if (lower.includes('kiến thức') || lower.includes('khoa học') || lower.includes('học tập')) {
+    icon = '💡';
+  } else if (lower.includes('sự thật') || lower.includes('thú vị') || lower.includes('bất ngờ')) {
+    icon = '✨';
+  } else if (lower.includes('bí ẩn') || lower.includes('khám phá') || lower.includes('kỳ lạ') || lower.includes('tâm linh')) {
+    icon = '🔮';
+  } else if (lower.includes('chưa biết') || lower.includes('bạn có biết') || lower.includes('có thể bạn')) {
+    icon = '🧠';
+  } else if (lower.includes('tin tức') || lower.includes('tin nóng') || lower.includes('thời sự')) {
+    icon = '🔴';
+  }
+
+  // Đồng bộ 1 màu Primary Red thống nhất với màu chủ đạo của banner, cách điệu sang trọng
+  return {
+    icon,
+    text: text.toUpperCase(),
+    gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.98) 100%)',
+    border: '1.5px solid rgba(255, 255, 255, 0.45)',
+    shadow: '0 4px 16px rgba(185, 28, 28, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+  };
+}
+
 function renderWithHighlights(text, highlightColor = '#FE2C55') {
   if (!text) return null;
   const parts = String(text).split(/(\*\*[^*]+\*\*)/g).filter((p) => p.length > 0);
@@ -159,6 +186,9 @@ export default function LiveVideoSimulator({
   const openingNewsLikes = (rc.openingNewsLikes || '27.1K').trim();
   const openingNewsBannerTranslateY = Number(rc.openingNewsBannerTranslateY !== undefined && rc.openingNewsBannerTranslateY !== null ? rc.openingNewsBannerTranslateY : 0);
   const openingNewsBannerScale = Number(rc.openingNewsBannerScale !== undefined && rc.openingNewsBannerScale !== null ? rc.openingNewsBannerScale : 1);
+  const openingNewsTitleColor = rc.openingNewsTitleColor || '#FFE24A';
+  const openingNewsTitleSize = Number(rc.openingNewsTitleSize || 0);
+  const openingNewsHeadlineWidth = Math.max(30, Math.min(100, Number(rc.openingNewsHeadlineWidth !== undefined && rc.openingNewsHeadlineWidth !== null ? rc.openingNewsHeadlineWidth : 82)));
 
   const globalKenBurnsMode = rc.kenBurnsMode;
   const globalKenBurns = rc.kenBurns !== false && rc.globalKenBurns !== false && globalKenBurnsMode !== 'none';
@@ -377,8 +407,8 @@ export default function LiveVideoSimulator({
       const target = e.target;
       if (!target) return;
 
-      // Không bỏ chọn nếu bấm vào chính item đang chọn (gizmo, 4 góc neo, badge, các nút trên badge)
-      if (target.closest?.('[data-transform-gizmo]')) {
+      // Không bỏ chọn nếu bấm vào chính item đang chọn (gizmo, 4 góc neo, badge, các nút trên badge, banner tin tức)
+      if (target.closest?.('[data-transform-gizmo]') || target.closest?.('[data-news-banner]')) {
         return;
       }
 
@@ -630,7 +660,7 @@ export default function LiveVideoSimulator({
     onUpdateRenderConfig({ openingCommentScale: nextScale });
   }, [onUpdateRenderConfig]);
 
-  const handleNewsBannerDragStart = useCallback(() => {
+  const handleHeadlineDragStart = useCallback(() => {
     dragStartValuesRef.current = {
       captionMarginY,
       captionFontSize: baseFontSize,
@@ -644,22 +674,27 @@ export default function LiveVideoSimulator({
       commentScale: openingCommentScale,
       newsBannerTranslateY: openingNewsBannerTranslateY,
       newsBannerScale: openingNewsBannerScale,
+      newsHeadlineWidth: openingNewsHeadlineWidth,
+      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
     };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale]);
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
 
-  const handleNewsBannerDrag = useCallback(({ deltaY }) => {
+  const handleHeadlineDrag = useCallback(({ deltaY }) => {
     if (!onUpdateRenderConfig) return;
     const canvasWidth = effectiveIsPortrait ? 1080 : 1920;
     const containerW = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
     const rScale = containerW / canvasWidth;
     const deltaRemotionY = deltaY / rScale;
-    const nextY = Math.round((dragStartValuesRef.current.newsBannerTranslateY || 0) + deltaRemotionY);
+    const startY = dragStartValuesRef.current.newsBannerTranslateY !== undefined
+      ? dragStartValuesRef.current.newsBannerTranslateY
+      : openingNewsBannerTranslateY;
+    const nextY = Math.round(startY + deltaRemotionY);
     onUpdateRenderConfig({
       openingNewsBannerTranslateY: Math.max(-600, Math.min(600, nextY))
     });
-  }, [effectiveIsPortrait, onUpdateRenderConfig]);
+  }, [effectiveIsPortrait, openingNewsBannerTranslateY, onUpdateRenderConfig]);
 
-  const handleNewsBannerScaleStart = useCallback(() => {
+  const handleHeadlineScaleStart = useCallback(() => {
     dragStartValuesRef.current = {
       captionMarginY,
       captionFontSize: baseFontSize,
@@ -673,15 +708,54 @@ export default function LiveVideoSimulator({
       commentScale: openingCommentScale,
       newsBannerTranslateY: openingNewsBannerTranslateY,
       newsBannerScale: openingNewsBannerScale,
+      newsHeadlineWidth: openingNewsHeadlineWidth,
+      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
     };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale]);
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
 
-  const handleNewsBannerScale = useCallback(({ ratio }) => {
+  const handleHeadlineScale = useCallback(({ ratio }) => {
     if (!onUpdateRenderConfig) return;
-    const startScale = dragStartValuesRef.current.newsBannerScale || 1;
-    const nextScale = Math.max(0.5, Math.min(2.0, Number((startScale * ratio).toFixed(2))));
-    onUpdateRenderConfig({ openingNewsBannerScale: nextScale });
-  }, [onUpdateRenderConfig]);
+    const startSize = dragStartValuesRef.current.newsTitleSize !== undefined
+      ? dragStartValuesRef.current.newsTitleSize
+      : (openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54));
+    const nextSize = Math.max(20, Math.min(84, Math.round(startSize * ratio)));
+    onUpdateRenderConfig({ openingNewsTitleSize: nextSize });
+  }, [openingNewsTitleSize, openingNewsHeadline, onUpdateRenderConfig]);
+
+  const handleHeadlineResizeWidthStart = useCallback(() => {
+    dragStartValuesRef.current = {
+      captionMarginY,
+      captionFontSize: baseFontSize,
+      captionWidth,
+      imageScale,
+      imageTranslateY,
+      logoTranslateX,
+      logoTranslateY,
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale,
+      newsBannerTranslateY: openingNewsBannerTranslateY,
+      newsBannerScale: openingNewsBannerScale,
+      newsHeadlineWidth: openingNewsHeadlineWidth,
+      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
+    };
+  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
+
+  const handleHeadlineResizeWidth = useCallback(({ effectiveDeltaX }) => {
+    if (!onUpdateRenderConfig) return;
+    const containerW = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+    const percentDelta = (effectiveDeltaX / containerW) * 100;
+    const startW = dragStartValuesRef.current.newsHeadlineWidth !== undefined
+      ? dragStartValuesRef.current.newsHeadlineWidth
+      : openingNewsHeadlineWidth;
+    const nextW = Math.max(35, Math.min(100, Math.round(startW + percentDelta)));
+    onUpdateRenderConfig({ openingNewsHeadlineWidth: nextW });
+  }, [effectiveIsPortrait, openingNewsHeadlineWidth, onUpdateRenderConfig]);
+
+  const handleNewsBannerDragStart = handleHeadlineDragStart;
+  const handleNewsBannerDrag = handleHeadlineDrag;
+  const handleNewsBannerScaleStart = handleHeadlineScaleStart;
+  const handleNewsBannerScale = handleHeadlineScale;
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current) {
@@ -1686,129 +1760,242 @@ export default function LiveVideoSimulator({
             </div>
           )}
 
-          {/* LỚP 3.6: BANNER TIN TỨC NỬA MÀN HÌNH DƯỚI (CẢNH 1) */}
+          {/* LỚP 3.6: BANNER TIN TỨC 50% MÀN HÌNH DƯỚI (CẢNH 1) */}
           {currentSlideIndex === 0 && showOpeningNewsBanner && (
             <div
+              data-news-banner="container"
               style={{
                 position: 'absolute',
                 bottom: 0,
                 left: 0,
                 right: 0,
+                height: effectiveIsPortrait ? '50%' : '58%',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'flex-end',
                 pointerEvents: 'none',
-                zIndex: selectedElement === 'news_banner' ? 47 : 32,
-                transition: selectedElement === 'news_banner' ? 'none' : 'all 0.2s ease'
+                zIndex: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 47 : 32,
+                transform: `translateY(${visualNewsBannerY}px) scale(${openingNewsBannerScale})`,
+                transformOrigin: 'center bottom',
+                transition: (selectedElement === 'news_headline' || selectedElement === 'news_banner') || isPlaying ? 'none' : 'transform 0.2s ease'
               }}
             >
-              <TransformGizmoOverlay
-                active={selectedElement === 'news_banner' && !isPlaying}
-                label="Banner tin tức (Cảnh 1)"
-                detail={`${Math.round(openingNewsBannerScale * 100)}% • Y: ${Math.round(openingNewsBannerTranslateY)}px`}
-                boxInset="-2px"
-                counterScale={openingNewsBannerScale}
-                badgePosition={openingNewsBannerTranslateY > 100 ? 'outside-top' : 'inside-top'}
-                onDragStart={handleNewsBannerDragStart}
-                onDrag={handleNewsBannerDrag}
-                onScaleStart={handleNewsBannerScaleStart}
-                onScale={handleNewsBannerScale}
-                onDeselect={() => setSelectedElement('none')}
-                onReset={() => onUpdateRenderConfig?.({ openingNewsBannerTranslateY: 0, openingNewsBannerScale: 1 })}
+              <div
+                data-news-banner="body"
+                data-transform-gizmo="news_banner"
                 style={{
-                  transform: `translateY(${visualNewsBannerY}px) scale(${openingNewsBannerScale})`,
-                  transformOrigin: 'center bottom',
-                  pointerEvents: isPlaying ? 'none' : 'auto',
-                  cursor: isPlaying ? 'default' : (selectedElement === 'news_banner' ? 'move' : 'pointer'),
+                  position: 'relative',
                   width: '100%',
-                  transition: selectedElement === 'news_banner' || isPlaying ? 'none' : 'transform 0.2s ease'
+                  height: '100%',
+                  background: 'linear-gradient(180deg, rgba(185, 28, 28, 0) 0%, rgba(200, 30, 30, 0.45) 16%, rgba(220, 38, 38, 0.88) 34%, rgba(185, 28, 28, 0.96) 55%, rgba(127, 29, 29, 0.98) 80%, rgba(69, 10, 10, 1) 100%)',
+                  padding: `${Math.max(12, Math.round(38 * remotionScale))}px ${Math.round(18 * remotionScale)}px ${Math.round(18 * remotionScale)}px`,
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start',
+                  gap: `${Math.max(15, Math.round(50 * remotionScale))}px`,
+                  userSelect: 'none',
+                  overflow: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'visible' : 'hidden',
+                  pointerEvents: 'auto',
+                  cursor: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'default' : 'pointer'
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(false);
+                  setSelectedElement('news_headline');
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsPlaying(false);
-                  setSelectedElement('news_banner');
+                  setSelectedElement('news_headline');
                 }}
               >
+                {/* Vầng sáng radial vàng & đỏ nhẹ sau tiêu đề */}
                 <div
                   style={{
-                    position: 'relative',
-                    width: '100%',
-                    minHeight: effectiveIsPortrait ? `${Math.round(180 * remotionScale)}px` : `${Math.round(140 * remotionScale)}px`,
-                    background: 'linear-gradient(180deg, rgba(190, 18, 60, 0.94) 0%, rgba(136, 19, 55, 0.98) 100%)',
-                    borderRadius: `${Math.round(20 * remotionScale)}px ${Math.round(20 * remotionScale)}px 0 0`,
-                    padding: `${Math.round(14 * remotionScale)}px ${Math.round(18 * remotionScale)}px ${Math.round(20 * remotionScale)}px`,
-                    boxSizing: 'border-box',
-                    boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: `${Math.round(8 * remotionScale)}px`,
-                    userSelect: 'none',
-                    overflow: 'hidden'
+                    position: 'absolute',
+                    left: '-10%',
+                    top: '25%',
+                    width: `${Math.round(280 * remotionScale)}px`,
+                    height: `${Math.round(280 * remotionScale)}px`,
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(254, 240, 138, 0.12) 0%, rgba(220, 38, 38, 0) 70%)',
+                    pointerEvents: 'none'
                   }}
-                >
-                  {/* Cụm thương hiệu & icons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: `${Math.round(8 * remotionScale)}px` }}>
+                />
+
+                {/* Hoạ tiết sóng radar mờ góc dưới phải */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: `-${Math.round(10 * remotionScale)}px`,
+                    bottom: `${Math.round(10 * remotionScale)}px`,
+                    width: `${Math.round(140 * remotionScale)}px`,
+                    height: `${Math.round(140 * remotionScale)}px`,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    pointerEvents: 'none'
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: `${Math.round(10 * remotionScale)}px`,
+                    bottom: `${Math.round(20 * remotionScale)}px`,
+                    width: `${Math.round(90 * remotionScale)}px`,
+                    height: `${Math.round(90 * remotionScale)}px`,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    pointerEvents: 'none'
+                  }}
+                />
+
+                {/* HÀNG 1: THƯƠNG HIỆU / CHUYÊN MỤC TAG */}
+                {(() => {
+                  const tagCfg = getNewsTagConfig(openingNewsBrand);
+                  return (
                     <div
                       style={{
-                        display: 'inline-flex',
+                        display: 'flex',
                         alignItems: 'center',
-                        background: 'rgba(0, 0, 0, 0.35)',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        padding: `${Math.round(3 * remotionScale)}px ${Math.round(8 * remotionScale)}px`,
-                        borderRadius: `${Math.round(6 * remotionScale)}px`
+                        justifyContent: 'flex-start',
+                        position: 'relative',
+                        zIndex: 2
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          color: '#FFFFFF',
-                          fontFamily: "'Paytone One', 'Be Vietnam Pro', sans-serif",
-                          fontSize: `${Math.max(10, Math.round(13 * remotionScale))}px`,
-                          fontWeight: 900,
-                          letterSpacing: '0.04em',
-                          textTransform: 'uppercase'
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: `${Math.round(10 * remotionScale)}px`,
+                          background: tagCfg.gradient,
+                          border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                          padding: `${Math.round(5 * remotionScale)}px ${Math.round(16 * remotionScale)}px ${Math.round(5 * remotionScale)}px ${Math.round(7 * remotionScale)}px`,
+                          borderRadius: `${Math.round(24 * remotionScale)}px`,
+                          boxShadow: '0 6px 20px rgba(185, 28, 28, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.45)'
                         }}
                       >
-                        {openingNewsBrand}
-                      </span>
+                        {/* Vòng tròn cách điệu ôm icon */}
+                        <div
+                          style={{
+                            width: `${Math.max(22, Math.round(30 * remotionScale))}px`,
+                            height: `${Math.max(22, Math.round(30 * remotionScale))}px`,
+                            borderRadius: '50%',
+                            background: 'rgba(0, 0, 0, 0.32)',
+                            border: '1.2px solid rgba(255, 255, 255, 0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: `${Math.max(12, Math.round(16 * remotionScale))}px`
+                          }}
+                        >
+                          {tagCfg.icon}
+                        </div>
+                        <span
+                          style={{
+                            color: '#FFFFFF',
+                            fontFamily: "'Paytone One', 'Be Vietnam Pro', sans-serif",
+                            fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
+                            fontWeight: 900,
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
+                            textShadow: '0 2px 6px rgba(0,0,0,0.6)'
+                          }}
+                        >
+                          {tagCfg.text}
+                        </span>
+                      </div>
                     </div>
+                  );
+                })()}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(10 * remotionScale))}px`, color: '#fff' }}>👍</div>
-                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(9 * remotionScale))}px`, color: '#BE123C' }}>💬</div>
-                      <div style={{ width: `${Math.round(18 * remotionScale)}px`, height: `${Math.round(18 * remotionScale)}px`, borderRadius: '50%', background: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${Math.max(8, Math.round(9 * remotionScale))}px`, color: '#fff' }}>↗️</div>
-                    </div>
-                  </div>
-
-                  {/* Headline */}
-                  <div style={{ display: 'flex', alignItems: 'stretch', gap: `${Math.round(8 * remotionScale)}px`, margin: `${Math.round(4 * remotionScale)}px 0` }}>
-                    <div style={{ width: `${Math.round(4 * remotionScale)}px`, borderRadius: '2px', background: '#FACC15', boxShadow: '0 0 8px rgba(250, 204, 21, 0.6)', flexShrink: 0 }} />
+                {/* HÀNG 2: SHOW TIÊU ĐỀ KHỦNG VỚI GIZMO ĐIỀU CHỈNH GIỚI HẠN HIỂN THỊ */}
+                <TransformGizmoOverlay
+                  active={(selectedElement === 'news_headline' || selectedElement === 'news_banner')}
+                  label="Tiêu đề banner"
+                  detail={`Rộng: ${openingNewsHeadlineWidth}% • ${openingNewsTitleSize > 0 ? `${openingNewsTitleSize}px` : 'Auto'}`}
+                  boxInset="-6px"
+                  counterScale={openingNewsBannerScale}
+                  badgePosition="outside-bottom"
+                  enableHorizontalResize={true}
+                  onDragStart={handleHeadlineDragStart}
+                  onDrag={handleHeadlineDrag}
+                  onScaleStart={handleHeadlineScaleStart}
+                  onScale={handleHeadlineScale}
+                  onResizeWidthStart={handleHeadlineResizeWidthStart}
+                  onResizeWidth={handleHeadlineResizeWidth}
+                  onDeselect={() => setSelectedElement('none')}
+                  onReset={() => onUpdateRenderConfig?.({
+                    openingNewsHeadlineWidth: 82,
+                    openingNewsTitleSize: 0,
+                    openingNewsBannerTranslateY: 0
+                  })}
+                  style={{
+                    width: `${openingNewsHeadlineWidth}%`,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    pointerEvents: 'auto',
+                    cursor: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'move' : 'pointer',
+                    position: 'relative',
+                    zIndex: 2,
+                    alignItems: 'flex-start'
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setIsPlaying(false);
+                    setSelectedElement('news_headline');
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPlaying(false);
+                    setSelectedElement('news_headline');
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'stretch',
+                      gap: `${Math.max(12, Math.round(28 * remotionScale))}px`,
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      pointerEvents: 'none',
+                      userSelect: 'none'
+                    }}
+                  >
+                    {/* Vertical Gold Neon Accent */}
                     <div
                       style={{
-                        fontFamily: "'Paytone One', 'Be Vietnam Pro', 'Montserrat', Arial, sans-serif",
-                        fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
+                        width: `${Math.max(4, Math.round(6 * remotionScale))}px`,
+                        borderRadius: '3px',
+                        background: 'linear-gradient(180deg, #FDE047 0%, #F59E0B 70%, #EA580C 100%)',
+                        boxShadow: '0 0 12px rgba(250, 204, 21, 0.85)',
+                        flexShrink: 0
+                      }}
+                    />
+
+                    {/* Big Headline */}
+                    <div
+                      style={{
+                        fontFamily: "'Paytone One', 'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
+                        fontSize: openingNewsTitleSize > 0
+                          ? `${Math.max(12, Math.round(openingNewsTitleSize * remotionScale))}px`
+                          : `${Math.max(14, Math.round((openingNewsHeadline.length > 70 ? 44 : 54) * remotionScale))}px`,
                         fontWeight: 900,
                         lineHeight: 1.25,
-                        color: '#FACC15',
+                        color: openingNewsTitleColor,
                         textTransform: 'uppercase',
                         letterSpacing: '0.02em',
-                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
-                        wordBreak: 'break-word'
+                        textShadow: 'none',
+                        wordBreak: 'break-word',
+                        flex: 1,
+                        minWidth: 0
                       }}
                     >
                       {openingNewsHeadline}
                     </div>
                   </div>
-
-                  {/* Like counter */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span style={{ fontSize: `${Math.max(11, Math.round(14 * remotionScale))}px`, color: '#FFFFFF', fontWeight: 800 }}>♡</span>
-                    <span style={{ fontFamily: "'Be Vietnam Pro', sans-serif", fontSize: `${Math.max(11, Math.round(13 * remotionScale))}px`, fontWeight: 900, color: '#FFFFFF', letterSpacing: '0.03em' }}>
-                      {openingNewsLikes}
-                    </span>
-                  </div>
-                </div>
-              </TransformGizmoOverlay>
+                </TransformGizmoOverlay>
+              </div>
             </div>
           )}
 
@@ -2182,11 +2369,11 @@ export default function LiveVideoSimulator({
                 {currentSlideIndex === 0 && showOpeningNewsBanner && (
                   <button
                     type="button"
-                    onClick={() => setSelectedElement(selectedElement === 'news_banner' ? 'none' : 'news_banner')}
+                    onClick={() => setSelectedElement((selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'none' : 'news_headline')}
                     style={{
-                      background: selectedElement === 'news_banner' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
-                      border: selectedElement === 'news_banner' ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid transparent',
-                      color: selectedElement === 'news_banner' ? '#f87171' : 'rgba(255,255,255,0.75)',
+                      background: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                      border: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid transparent',
+                      color: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? '#f87171' : 'rgba(255,255,255,0.75)',
                       fontSize: '0.65rem',
                       fontWeight: 600,
                       borderRadius: '4px',
@@ -2196,9 +2383,9 @@ export default function LiveVideoSimulator({
                       alignItems: 'center',
                       gap: '3px'
                     }}
-                    title="Chọn Banner tin tức để kéo di chuyển & scale trực tiếp"
+                    title="Chọn Tiêu đề banner tin tức để co giãn giới hạn độ rộng và cỡ chữ trực tiếp"
                   >
-                    <span>📰</span> Banner tin
+                    <span>📰</span> Tiêu đề tin
                   </button>
                 )}
                 {selectedElement !== 'none' && (

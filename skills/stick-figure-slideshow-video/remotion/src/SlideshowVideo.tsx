@@ -31,6 +31,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
     openingNewsLikes,
     openingNewsBannerTranslateY,
     openingNewsBannerScale,
+    openingNewsTitleColor,
+    openingNewsTitleSize,
+    openingNewsHeadlineWidth,
     captionTextAlign,
     captionAnimation,
     kenBurns,
@@ -108,6 +111,9 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
               openingNewsLikes={openingNewsLikes}
               openingNewsBannerTranslateY={openingNewsBannerTranslateY}
               openingNewsBannerScale={openingNewsBannerScale}
+              openingNewsTitleColor={openingNewsTitleColor}
+              openingNewsTitleSize={openingNewsTitleSize}
+              openingNewsHeadlineWidth={openingNewsHeadlineWidth}
               captionTextAlign={captionTextAlign}
               captionAnimation={captionAnimation}
               captionPosition={captionPosition}

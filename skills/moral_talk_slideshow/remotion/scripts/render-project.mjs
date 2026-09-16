@@ -132,6 +132,9 @@ const openingNewsBrand = flags.openingNewsBrand || "TIN TỨC";
 const openingNewsLikes = flags.openingNewsLikes || "27.1K";
 const openingNewsBannerTranslateY = flags.openingNewsBannerTranslateY !== undefined ? Number(flags.openingNewsBannerTranslateY) : 0;
 const openingNewsBannerScale = flags.openingNewsBannerScale !== undefined ? Number(flags.openingNewsBannerScale) : 1.0;
+const openingNewsTitleColor = flags.openingNewsTitleColor || "#FFE24A";
+const openingNewsTitleSize = flags.openingNewsTitleSize !== undefined ? Number(flags.openingNewsTitleSize) : 0;
+const openingNewsHeadlineWidth = flags.openingNewsHeadlineWidth !== undefined ? Number(flags.openingNewsHeadlineWidth) : 82;
 
 // Gemini đôi khi lẫn [emotion tag] (vd "[warmly]") vào field subtitle hiển thị trên màn hình, dù
 // tag này chỉ nhằm hướng dẫn giọng đọc TTS diễn cảm hơn (xem AGENT_TOOL's voiceover/route.js —
@@ -322,6 +325,9 @@ const remotionConfig = {
   openingNewsLikes,
   openingNewsBannerTranslateY,
   openingNewsBannerScale,
+  openingNewsTitleColor,
+  openingNewsTitleSize,
+  openingNewsHeadlineWidth,
   audioPaddingSeconds: flags.audioPaddingSeconds !== undefined ? Number(flags.audioPaddingSeconds) : 0,
   scenes: scenes,
   // Chỉ đưa bgMusic vào config khi THỰC SỰ có file đã tải lên VÀ chưa bị tắt tường minh

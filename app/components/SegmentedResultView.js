@@ -529,6 +529,21 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     }
     return '1';
   });
+  const [renderOpeningNewsTitleColor, setRenderOpeningNewsTitleColor] = useState(() => {
+    return result.remotionConfig?.openingNewsTitleColor || '#FFE24A';
+  });
+  const [renderOpeningNewsTitleSize, setRenderOpeningNewsTitleSize] = useState(() => {
+    if (result.remotionConfig?.openingNewsTitleSize !== undefined && result.remotionConfig?.openingNewsTitleSize !== null) {
+      return Number(result.remotionConfig.openingNewsTitleSize);
+    }
+    return 0;
+  });
+  const [renderOpeningNewsHeadlineWidth, setRenderOpeningNewsHeadlineWidth] = useState(() => {
+    if (result.remotionConfig?.openingNewsHeadlineWidth !== undefined && result.remotionConfig?.openingNewsHeadlineWidth !== null) {
+      return Number(result.remotionConfig.openingNewsHeadlineWidth);
+    }
+    return 82;
+  });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
@@ -1321,6 +1336,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (c.openingNewsLikes !== undefined) setRenderOpeningNewsLikes(String(c.openingNewsLikes));
     if (c.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(c.openingNewsBannerTranslateY));
     if (c.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(c.openingNewsBannerScale));
+    if (c.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(c.openingNewsTitleColor));
+    if (c.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(c.openingNewsTitleSize));
+    if (c.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(c.openingNewsHeadlineWidth));
     if (c.bilingual !== undefined) setRenderBilingual(c.bilingual);
     // CỐ Ý không áp bgMusicEnabled/bgMusicVolume/bgMusicTrackId ở đây, dù bản preset cũ (lưu từ
     // trước bản sửa này) hay Mẫu hệ thống của reading_practice vẫn có thể còn mang các trường này.
@@ -2275,6 +2293,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     openingNewsLikes: renderOpeningNewsLikes,
     openingNewsBannerTranslateY: renderOpeningNewsBannerTranslateY,
     openingNewsBannerScale: renderOpeningNewsBannerScale,
+    openingNewsTitleColor: renderOpeningNewsTitleColor,
+    openingNewsTitleSize: renderOpeningNewsTitleSize,
+    openingNewsHeadlineWidth: renderOpeningNewsHeadlineWidth,
     bilingual: renderBilingual,
     bgMusicEnabled: renderBgMusicEnabled,
     bgMusicVolume: renderBgMusicVolume,
@@ -4633,6 +4654,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
                 if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
                 if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
+                if (updates?.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
+                if (updates?.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
+                if (updates?.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
               }}
             />
           </div>
@@ -4688,6 +4712,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
                 if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
                 if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
+                if (updates?.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
+                if (updates?.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
+                if (updates?.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
               }}
               assetCounts={assetCounts}
               renderCaptionEnabled={renderCaptionEnabled}
@@ -4750,6 +4777,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               setRenderOpeningNewsBrand={setRenderOpeningNewsBrand}
               renderOpeningNewsLikes={renderOpeningNewsLikes}
               setRenderOpeningNewsLikes={setRenderOpeningNewsLikes}
+              renderOpeningNewsTitleColor={renderOpeningNewsTitleColor}
+              setRenderOpeningNewsTitleColor={setRenderOpeningNewsTitleColor}
+              renderOpeningNewsTitleSize={renderOpeningNewsTitleSize}
+              setRenderOpeningNewsTitleSize={setRenderOpeningNewsTitleSize}
+              renderOpeningNewsHeadlineWidth={renderOpeningNewsHeadlineWidth}
+              setRenderOpeningNewsHeadlineWidth={setRenderOpeningNewsHeadlineWidth}
               handleSaveAndApply={handleSaveAndApply}
               isSavingStyle={isSavingStyle}
               saveStyleMsg={saveStyleMsg}

@@ -90,9 +90,12 @@ export const Scene: React.FC<{
   openingNewsLikes?: string;
   openingNewsBannerTranslateY?: number;
   openingNewsBannerScale?: number;
+  openingNewsTitleColor?: string;
+  openingNewsTitleSize?: number;
+  openingNewsHeadlineWidth?: number;
   captionWidth?: number;
   captionTextAlign?: "left" | "center" | "right";
-  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
+  captionAnimation?: SlideshowVideoProps["captionAnimation"];
   captionPosition: "top" | "bottom" | "center";
   captionMode: "chunked" | "full";
   captionWordsPerChunk: number;
@@ -139,6 +142,9 @@ export const Scene: React.FC<{
   openingNewsLikes = "27.1K",
   openingNewsBannerTranslateY = 0,
   openingNewsBannerScale = 1,
+  openingNewsTitleColor = "#FFE24A",
+  openingNewsTitleSize,
+  openingNewsHeadlineWidth,
   captionTextAlign = "center",
   captionAnimation,
   captionPosition,
@@ -374,6 +380,9 @@ export const Scene: React.FC<{
           translateY={openingNewsBannerTranslateY}
           scale={openingNewsBannerScale}
           durationInFrames={sceneDurationInFrames}
+          titleColor={openingNewsTitleColor}
+          titleFontSize={openingNewsTitleSize}
+          headlineWidth={openingNewsHeadlineWidth}
         />
       )}
 

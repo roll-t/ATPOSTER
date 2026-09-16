@@ -48,6 +48,7 @@ export async function POST(req) {
       logoTranslateX, logoTranslateY, logoScale,
       showOpeningComment, openingCommentAuthor, openingCommentText, openingCommentTranslateY, openingCommentScale,
       showOpeningNewsBanner, openingNewsHeadline, openingNewsBrand, openingNewsLikes, openingNewsBannerTranslateY, openingNewsBannerScale,
+      openingNewsTitleColor, openingNewsTitleSize, openingNewsHeadlineWidth,
       renderConfig: requestedRenderConfig,
       // Dùng cho PNG-based videos: nếu manifest.json chưa tồn tại, tự động tạo từ segments này
       segments: segmentsForManifest, title: titleForManifest
@@ -302,6 +303,11 @@ export async function POST(req) {
     }
     pushRangedNumber(openingNewsBannerTranslateY, 'openingNewsBannerTranslateY', -1800, 1800);
     pushRangedNumber(openingNewsBannerScale, 'openingNewsBannerScale', 0.1, 4.0);
+    if (typeof openingNewsTitleColor === 'string' && openingNewsTitleColor.trim()) {
+      extraArgs.push(`--openingNewsTitleColor=${openingNewsTitleColor.trim()}`);
+    }
+    pushRangedNumber(openingNewsTitleSize, 'openingNewsTitleSize', 0, 150);
+    pushRangedNumber(openingNewsHeadlineWidth, 'openingNewsHeadlineWidth', 30, 100);
     if (captionPosition === 'top' || captionPosition === 'bottom' || captionPosition === 'center') {
       extraArgs.push(`--captionPosition=${captionPosition}`);
     }

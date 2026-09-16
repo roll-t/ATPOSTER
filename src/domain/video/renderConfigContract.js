@@ -93,6 +93,9 @@ export function normalizeVideoRenderConfig(source = {}, context = {}) {
   put(config, 'openingNewsLikes', source.openingNewsLikes);
   put(config, 'openingNewsBannerTranslateY', numberInRange(source.openingNewsBannerTranslateY, -1800, 1800));
   put(config, 'openingNewsBannerScale', numberInRange(source.openingNewsBannerScale, 0.1, 4));
+  put(config, 'openingNewsTitleColor', source.openingNewsTitleColor);
+  put(config, 'openingNewsTitleSize', numberInRange(source.openingNewsTitleSize, 0, 150));
+  put(config, 'openingNewsHeadlineWidth', numberInRange(source.openingNewsHeadlineWidth, 30, 100));
 
   config.bilingual = Boolean(source.bilingual);
   config.bgMusicEnabled = source.bgMusicEnabled !== false;
@@ -125,6 +128,7 @@ const CLI_FIELDS = {
   openingCommentText: 'openingCommentText', openingCommentTranslateY: 'openingCommentTranslateY', openingCommentScale: 'openingCommentScale',
   showOpeningNewsBanner: 'showOpeningNewsBanner', openingNewsHeadline: 'openingNewsHeadline', openingNewsBrand: 'openingNewsBrand',
   openingNewsLikes: 'openingNewsLikes', openingNewsBannerTranslateY: 'openingNewsBannerTranslateY', openingNewsBannerScale: 'openingNewsBannerScale',
+  openingNewsTitleColor: 'openingNewsTitleColor', openingNewsTitleSize: 'openingNewsTitleSize', openingNewsHeadlineWidth: 'openingNewsHeadlineWidth',
   captionPosition: 'captionPosition', captionTextAlign: 'captionTextAlign', captionAnimation: 'captionAnimation',
 };
 

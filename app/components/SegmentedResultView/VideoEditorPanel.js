@@ -712,6 +712,12 @@ export default function VideoEditorPanel({
   setRenderOpeningNewsBrand,
   renderOpeningNewsLikes = '27.1K',
   setRenderOpeningNewsLikes,
+  renderOpeningNewsTitleColor = '#FFE24A',
+  setRenderOpeningNewsTitleColor,
+  renderOpeningNewsTitleSize = 0,
+  setRenderOpeningNewsTitleSize,
+  renderOpeningNewsHeadlineWidth = 82,
+  setRenderOpeningNewsHeadlineWidth,
   handleSaveAndApply,
   isSavingStyle = false,
   saveStyleMsg = '',
@@ -725,7 +731,7 @@ export default function VideoEditorPanel({
     if (selectedElement === 'caption') return 'caption';
     if (selectedElement === 'image') return 'image';
     if (selectedElement === 'logo') return 'logo';
-    if (selectedElement === 'comment' || selectedElement === 'news_banner') return 'opening';
+    if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline') return 'opening';
     return 'caption';
   });
 
@@ -737,7 +743,7 @@ export default function VideoEditorPanel({
       setCurrentTab('image');
     } else if (selectedElement === 'logo') {
       setCurrentTab('logo');
-    } else if (selectedElement === 'comment' || selectedElement === 'news_banner') {
+    } else if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline') {
       setCurrentTab('opening');
     }
   }, [selectedElement]);
@@ -751,7 +757,11 @@ export default function VideoEditorPanel({
     } else if (tabId === 'logo') {
       onSelectedElementChange?.('logo');
     } else if (tabId === 'opening') {
-      onSelectedElementChange?.('comment');
+      if (renderShowOpeningNewsBanner) {
+        onSelectedElementChange?.('news_headline');
+      } else {
+        onSelectedElementChange?.('comment');
+      }
     } else {
       onSelectedElementChange?.('none');
     }
@@ -1586,7 +1596,7 @@ export default function VideoEditorPanel({
               {[
                 { id: 'none', label: 'Bình thường', desc: 'Không sticker/banner', active: !renderShowOpeningComment && !renderShowOpeningNewsBanner },
                 { id: 'comment', label: 'Hộp bình luận', desc: 'Sticker hỏi ở trên', active: renderShowOpeningComment && !renderShowOpeningNewsBanner },
-                { id: 'news', label: 'Banner tin tức', desc: 'Nửa màn hình dưới đỏ', active: !renderShowOpeningComment && renderShowOpeningNewsBanner },
+                { id: 'news', label: 'Banner tin tức', desc: '50% mờ dần mép trên', active: !renderShowOpeningComment && renderShowOpeningNewsBanner },
                 { id: 'both', label: 'Cả hai', desc: 'Bình luận + Banner', active: renderShowOpeningComment && renderShowOpeningNewsBanner }
               ].map((m) => (
                 <button
@@ -1596,15 +1606,19 @@ export default function VideoEditorPanel({
                     if (m.id === 'none') {
                       setRenderShowOpeningComment && setRenderShowOpeningComment(false);
                       setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
+                      onSelectedElementChange?.('none');
                     } else if (m.id === 'comment') {
                       setRenderShowOpeningComment && setRenderShowOpeningComment(true);
                       setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
+                      onSelectedElementChange?.('comment');
                     } else if (m.id === 'news') {
                       setRenderShowOpeningComment && setRenderShowOpeningComment(false);
                       setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
+                      onSelectedElementChange?.('news_headline');
                     } else if (m.id === 'both') {
                       setRenderShowOpeningComment && setRenderShowOpeningComment(true);
                       setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
+                      onSelectedElementChange?.('news_headline');
                     }
                   }}
                   style={{
@@ -1651,33 +1665,195 @@ export default function VideoEditorPanel({
             )}
 
             {renderShowOpeningNewsBanner && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Banner tin tức:</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Banner & Tag thể loại:</span>
+
+                {/* Danh sách các Type Tag mẫu */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {[
+                    { label: 'Tin tức', icon: '🔴', val: 'Tin tức' },
+                    { label: 'Kiến thức', icon: '💡', val: 'Kiến thức' },
+                    { label: 'Sự thật thú vị', icon: '✨', val: 'Sự thật thú vị' },
+                    { label: 'Bí ẩn', icon: '🔮', val: 'Bí ẩn' },
+                    { label: 'Có thể bạn chưa biết', icon: '🧠', val: 'Có thể bạn chưa biết' }
+                  ].map((t) => {
+                    const currentVal = (renderOpeningNewsBrand || 'Tin tức').trim().toLowerCase();
+                    const isSelected = currentVal === t.val.toLowerCase();
+                    return (
+                      <button
+                        key={t.val}
+                        type="button"
+                        onClick={() => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(t.val)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          border: isSelected ? '1.5px solid #ef4444' : '1px solid #333',
+                          background: isSelected ? 'rgba(239, 68, 68, 0.2)' : '#1c1c1c',
+                          color: isSelected ? '#fca5a5' : '#bbb',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>{t.icon}</span>
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <input
+                  type="text"
+                  value={renderOpeningNewsBrand || ''}
+                  placeholder="Hoặc tự nhập Tag thể loại (VD: Lịch sử, Vũ trụ...)"
+                  onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
+                  className="capcut-input"
+                  style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
+                />
+
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={renderOpeningNewsHeadline || ''}
                   placeholder="TIÊU ĐỀ NỔI BẬT..."
                   onChange={(e) => setRenderOpeningNewsHeadline && setRenderOpeningNewsHeadline(e.target.value)}
                   className="capcut-input"
-                  style={{ width: '100%', padding: '6px 8px', color: '#FACC15', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '6px 8px', color: renderOpeningNewsTitleColor || '#FFE24A', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={renderOpeningNewsBrand || ''}
-                    placeholder="TIN TỨC"
-                    onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
-                    className="capcut-input"
-                    style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
-                  />
-                  <input
-                    type="text"
-                    value={renderOpeningNewsLikes || ''}
-                    placeholder="27.1K"
-                    onChange={(e) => setRenderOpeningNewsLikes && setRenderOpeningNewsLikes(e.target.value)}
-                    className="capcut-input"
-                    style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
-                  />
+
+                {/* Điều chỉnh màu sắc & cỡ chữ tiêu đề */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#1c1c1c', padding: '8px 10px', borderRadius: '8px', border: '1px solid #2d2d2d' }}>
+                  {/* Màu chữ tiêu đề */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa' }}>Màu tiêu đề:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {[
+                        { label: 'Vàng Neon', color: '#FFE24A' },
+                        { label: 'Trắng Sáng', color: '#FFFFFF' },
+                        { label: 'Đỏ Cam', color: '#FF4D4F' },
+                        { label: 'Xanh Neon', color: '#00E5FF' },
+                        { label: 'Xanh Lá', color: '#52C41A' },
+                      ].map((preset) => {
+                        const isMatch = (renderOpeningNewsTitleColor || '#FFE24A').toUpperCase() === preset.color.toUpperCase();
+                        return (
+                          <button
+                            key={preset.color}
+                            type="button"
+                            title={preset.label}
+                            onClick={() => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(preset.color)}
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '50%',
+                              backgroundColor: preset.color,
+                              border: isMatch ? '2px solid #fff' : '1px solid rgba(255,255,255,0.25)',
+                              cursor: 'pointer',
+                              outline: 'none',
+                              padding: 0,
+                              boxShadow: isMatch ? `0 0 8px ${preset.color}` : 'none',
+                              transform: isMatch ? 'scale(1.15)' : 'scale(1)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          />
+                        );
+                      })}
+                      <input
+                        type="color"
+                        value={renderOpeningNewsTitleColor || '#FFE24A'}
+                        onChange={(e) => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(e.target.value)}
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          padding: 0,
+                          border: '1px solid #444',
+                          borderRadius: '4px',
+                          background: 'none',
+                          cursor: 'pointer'
+                        }}
+                        title="Tự chọn màu tùy ý"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cỡ chữ tiêu đề */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>Cỡ chữ tiêu đề:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                      <input
+                        type="range"
+                        min="30"
+                        max="80"
+                        step="2"
+                        value={Number(renderOpeningNewsTitleSize) || 54}
+                        onChange={(e) => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(Number(e.target.value))}
+                        style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
+                      />
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '32px', textAlign: 'right' }}>
+                        {Number(renderOpeningNewsTitleSize) > 0 ? `${renderOpeningNewsTitleSize}px` : 'Auto'}
+                      </span>
+                      {Number(renderOpeningNewsTitleSize) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(0)}
+                          style={{
+                            background: '#2c2c2c',
+                            border: '1px solid #444',
+                            color: '#aaa',
+                            borderRadius: '4px',
+                            fontSize: '0.62rem',
+                            padding: '2px 5px',
+                            cursor: 'pointer'
+                          }}
+                          title="Tự động theo độ dài tiêu đề"
+                        >
+                          Auto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Giới hạn độ rộng tiêu đề (Width Boundary Limit) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>
+                      Giới hạn độ rộng:
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                      <input
+                        type="range"
+                        min="40"
+                        max="100"
+                        step="2"
+                        value={Number(renderOpeningNewsHeadlineWidth) || 82}
+                        onChange={(e) => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(Number(e.target.value))}
+                        style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
+                        title="Thu hẹp để chữ tự xuống dòng, tránh đè icon bên phải"
+                      />
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '36px', textAlign: 'right' }}>
+                        {Number(renderOpeningNewsHeadlineWidth) || 82}%
+                      </span>
+                      {Number(renderOpeningNewsHeadlineWidth) !== 82 && (
+                        <button
+                          type="button"
+                          onClick={() => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(82)}
+                          style={{
+                            background: '#2c2c2c',
+                            border: '1px solid #444',
+                            color: '#aaa',
+                            borderRadius: '4px',
+                            fontSize: '0.62rem',
+                            padding: '2px 5px',
+                            cursor: 'pointer'
+                          }}
+                          title="Đặt lại mặc định 82%"
+                        >
+                          Mặc định
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

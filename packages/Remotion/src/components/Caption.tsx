@@ -199,7 +199,7 @@ export const Caption: React.FC<{
   captionMarginY?: number;
   captionWidth?: number;
   captionTextAlign?: "left" | "center" | "right";
-  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up" | "pop" | "spring" | "slide" | "wave" | string;
   fontFamily: string;
   mode: "chunked" | "full";
   wordsPerChunk: number;
@@ -482,7 +482,7 @@ const HookCaption: React.FC<{
   captionMarginY?: number;
   captionWidth?: number;
   captionTextAlign?: "left" | "center" | "right";
-  captionAnimation?: "none" | "zoom" | "fade" | "slide-up";
+  captionAnimation?: "none" | "zoom" | "fade" | "slide-up" | "pop" | "spring" | "slide" | "wave" | string;
   fontFamily: string;
   captionFont?: CaptionFont;
   captionFontSize?: number;

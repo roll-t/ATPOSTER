@@ -201,6 +201,9 @@ export const slideshowVideoSchema = z.object({
   openingNewsLikes: z.string().default("27.1K"),
   openingNewsBannerTranslateY: z.number().default(0),
   openingNewsBannerScale: z.number().default(1),
+  openingNewsTitleColor: z.string().default("#FFE24A"),
+  openingNewsTitleSize: z.number().default(0),
+  openingNewsHeadlineWidth: z.number().default(82),
   // Duration of the transition applied between every pair of consecutive
   // scenes (and the fade-in/out at the very start/end of the video).
   transitionSeconds: z.number().min(0).max(2).default(0.5),

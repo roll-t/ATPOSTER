@@ -82,6 +82,9 @@ export const Scene: React.FC<{
   openingNewsLikes?: string;
   openingNewsBannerTranslateY?: number;
   openingNewsBannerScale?: number;
+  openingNewsTitleColor?: string;
+  openingNewsTitleSize?: number;
+  openingNewsHeadlineWidth?: number;
   imageScale: number;
   imageTranslateY: number;
   captionMarginY: number;
@@ -130,6 +133,9 @@ export const Scene: React.FC<{
   openingNewsLikes = "27.1K",
   openingNewsBannerTranslateY = 0,
   openingNewsBannerScale = 1,
+  openingNewsTitleColor = "#FFE24A",
+  openingNewsTitleSize,
+  openingNewsHeadlineWidth,
   imageScale,
   imageTranslateY,
   captionMarginY,
@@ -330,6 +336,9 @@ export const Scene: React.FC<{
           translateY={openingNewsBannerTranslateY}
           scale={openingNewsBannerScale}
           durationInFrames={sceneDurationInFrames}
+          titleColor={openingNewsTitleColor}
+          titleFontSize={openingNewsTitleSize}
+          headlineWidth={openingNewsHeadlineWidth}
         />
       )}
 
