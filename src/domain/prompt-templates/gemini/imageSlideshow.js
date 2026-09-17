@@ -8,24 +8,26 @@ import { buildHumanVoiceGuidance } from './humanVoice.js';
 import { detectTimeEra } from '../../content/timeEraDetector.js';
 
 const STICK_FIGURE_SLIDE_TIERS = {
-  'under_1m': { slides: '20 đến 25',  seconds: '2 đến 3 giây' },
-  '1_2m':     { slides: '35 đến 48',  seconds: '2 đến 3 giây' },
-  '2_3m':     { slides: '50 đến 70',  seconds: '2 đến 3.5 giây' },
-  '3_4m':     { slides: '70 đến 95',  seconds: '2 đến 3.5 giây' },
-  '4_6m':     { slides: '100 đến 140', seconds: '2 đến 3.5 giây' },
-  '6_8m':     { slides: '140 đến 190', seconds: '2 đến 3.5 giây' },
-  '8_10m':    { slides: '190 đến 250', seconds: '2 đến 3.5 giây' },
+  'under_1m': { slides: '20 đến 25', seconds: '2 đến 3 giây' },
+  '1_2m': { slides: '30 đến 42', seconds: '2.5 đến 3.5 giây' },
+  '2_3m': { slides: '45 đến 60', seconds: '3 đến 4 giây' },
+  '3_4m': { slides: '60 đến 80', seconds: '3 đến 4.5 giây' },
+  '4_6m': { slides: '75 đến 100', seconds: '3.5 đến 5 giây' },
+  '6_8m': { slides: '90 đến 120', seconds: '4 đến 5.5 giây' },
+  '8_10m': { slides: '100 đến 140', seconds: '4 đến 6 giây' },
 };
 
-function buildMackStickFigureStorytellingGuidance({ isVietnamese, topic, G, detectedEra }) {
+function buildMackStickFigureStorytellingGuidance({ isVietnamese, topic, G, detectedEra, durationRange = 'under_1m', durationInfo, targetSlides = '20 đến 25', slideSecondsHint = '2 đến 3 giây' }) {
   const isPreHuman = Boolean(detectedEra?.isPreHuman);
+  const isShort = durationRange === 'under_1m';
+  const durationLabel = durationInfo?.label || (isShort ? 'Dưới 1 phút' : 'Video dài');
 
   if (isVietnamese) {
     return `═══════════════════════════════════════════════════════
 TIÊU CHUẨN KỊCH BẢN: ĐẬM ĐẶC TRI THỨC & GIẢI MÃ KHOA HỌC (BẮT BUỘC)
 ═══════════════════════════════════════════════════════
 ĐÂY LÀ VIDEO PHỔ BIẾN KIẾN THỨC, KHOA HỌC & LỊCH SỬ THỰC THỤ (phong cách Kurzgesagt, Mack, TED-Ed, MinutePhysics):
-Mục tiêu tối thượng: Người xem xem xong video 1 phút PHẢI HỌC ĐƯỢC KIẾN THỨC THẬT, số liệu chuẩn xác, hiểu thấu bản chất cơ chế — TUYỆT ĐỐI KHÔNG NÓI THUYÊN THUYÊN, KHÔNG CẢM THÁN CÂU GIỜ, KHÔNG DÙNG VĂN SÁO RỖNG!
+Mục tiêu tối thượng: Người xem xem xong video ${durationLabel} PHẢI HỌC ĐƯỢC KIẾN THỨC THẬT, số liệu chuẩn xác, hiểu thấu bản chất cơ chế — TUYỆT ĐỐI KHÔNG NÓI THUYÊN THUYÊN, KHÔNG CẢM THÁN CÂU GIỜ, KHÔNG DÙNG VĂN SÁO RỖNG!
 
 1. NGUYÊN TẮC "MẬT ĐỘ KIẾN THỨC CAO" (HIGH INFORMATION DENSITY):
    • MỖI PHÂN ĐOẠN (SLIDE) PHẢI MANG 1 THÔNG TIN CÓ GIÁ TRỊ:
@@ -38,7 +40,7 @@ Mục tiêu tối thượng: Người xem xem xong video 1 phút PHẢI HỌC Đ
        * Về Tâm lý / Thói quen / Não bộ: Nêu tên vùng não (hạch hạnh nhân amygdala, vỏ não trước trán prefrontal cortex), chất dẫn truyền thần kinh (dopamine, cortisol, adenosine), cơ chế phản xạ sinh tồn.
        * Về Lịch sử / Sinh tồn / Tiến hóa: Nêu bằng chứng giải phẫu (xương ngón chân, men răng), niên đại năm, công cụ phát minh cụ thể, phân tích ADN.
 
-2. CẤU TRÚC PHÂN PHỐI KIẾN THỨC THEO NHỊP 20 - 25 PHÂN ĐOẠN (1 PHÚT):
+${isShort ? `2. CẤU TRÚC PHÂN PHỐI KIẾN THỨC THEO NHỊP ${targetSlides} PHÂN ĐOẠN (${durationLabel}):
    • BƯỚC 1: HOOK NGHỊCH LÝ & GỌI ĐÍCH DANH TÊN CHỦ THỂ (Slide 1 đến 3, ~6-8 giây):
      - 🚨 BẮT BUỘC GỌI ĐÍCH DANH TÊN CHỦ THỂ / ĐỊA DANH / HIỆN TƯỢNG NGAY TỪ SLIDE 1 HOẶC 2:
        Khán giả nghe câu đầu tiên PHẢI BIẾT NGAY ĐANG NÓI VỀ CÁI GÌ!
@@ -52,8 +54,24 @@ Mục tiêu tối thượng: Người xem xem xong video 1 phút PHẢI HỌC Đ
        + Mắt xích 2: Bằng chứng khoa học hoặc thí nghiệm đo đạc thực tế chứng minh điều đó.
        + Mắt xích 3: Sự thật bất ngờ mà người bình thường luôn hiểu sai.
      - Dùng các phép so sánh hình tượng dễ nhớ (ví dụ: áp suất đáy biển = 50 máy bay đè lên đầu; trì hoãn = não bộ bấm còi báo cháy giả).
-   • BƯỚC 3: ĐÚC KẾT TRI THỨC & GIÁ TRỊ THỰC TIỄN (Slide 19 đến 22-25, ~8-10 giây):
-     - Kết lại bằng 1 chân lý khoa học hoặc quy luật sâu sắc. Người xem cảm thấy được mở mang tầm mắt thực sự sau 1 phút.
+   • BƯỚC 3: ĐÚC KẾT TRI THỨC & GIÁ TRỊ THỰC TIỄN (Slide 19 đến ${targetSlides}, ~8-10 giây):
+     - Kết lại bằng 1 chân lý khoa học hoặc quy luật sâu sắc. Người xem cảm thấy được mở mang tầm mắt thực sự.` : `2. CẤU TRÚC PHÂN PHỐI KIẾN THỨC VIDEO DÀI ${durationLabel.toUpperCase()} (${targetSlides.toUpperCase()} PHÂN ĐOẠN LIÊN TỤC):
+   • 🚨 YÊU CẦU ĐỘ DÀI: BẮT BUỘC tạo đủ ${targetSlides} phân đoạn (slides). KHÔNG được dừng sớm ở 20-25 slide của video ngắn!
+   • BƯỚC 1: MỞ ĐẦU ĐẶT VẤN ĐỀ & HOOK NGHỊCH LÝ (Slide 1 đến 5):
+     - 🚨 BẮT BUỘC GỌI ĐÍCH DANH TÊN CHỦ THỂ / ĐỊA DANH / HIỆN TƯỢNG NGAY TỪ SLIDE 1 HOẶC 2:
+       Khán giả nghe câu đầu tiên PHẢI BIẾT NGAY ĐANG NÓI VỀ CÁI GÌ!
+       * Đang nói về chủ đề "${topic || 'kiến thức'}": Slide 1 hoặc 2 PHẢI PHÁT ÂM RÕ TỪ KHÓA TÊN CHỦ THỂ NÀY.
+     - Nêu ngay nghịch lý khoa học / câu đố tiến hóa lớn nhất để cuốn hút người xem xuyên suốt video dài.
+   • BƯỚC 2: BÓC TÁCH TOÀN DIỆN QUA 4 ĐẾN 6   CHƯƠNG CHUYÊN SÂU (Từ Slide 6 đến gần cuối):
+     - Chia chủ đề thành 4 - 6 chương/mắt xích kiến thức lớn liên hoàn (mỗi chương dài 15 đến 25 slide phân tích cặn kẽ):
+       + Chương 1: Bối cảnh khởi nguồn / Điều kiện môi trường sinh tồn khắc nghiệt buộc phải thay đổi.
+       + Chương 2: Cơ chế sinh học, giải phẫu hoặc vật lý then chốt (các tuyến cơ thể, mô, xương, enzyme, tế bào...).
+       + Chương 3: Thí nghiệm thực chứng, khảo cổ hoặc phân tích di truyền ADN chứng minh điều đó.
+       + Chương 4: Nghịch lý phụ hoặc câu hỏi bí ẩn tiếp theo (ví dụ: mất lông toàn thân nhưng vì sao vẫn giữ lại tóc?).
+       + Chương 5: So sánh với các loài lân cận và các trường phái giả thuyết khoa học đối nghịch.
+     - Mỗi slide đi sâu vào một chi tiết, con số, lập luận hoặc bằng chứng cụ thể.
+   • BƯỚC 3: ĐÚC KẾT TRI THỨC VÀ TẦM NHÌN TIẾN HÓA / KHOA HỌC (8-12 slide cuối):
+     - Kết nối toàn bộ các mắt xích ở trên thành một bức tranh chân lý khoa học hoàn chỉnh, mang lại giá trị nhận thức sâu sắc cho khán giả.`}
 
 3. BIÊN ĐẠO HÌNH ẢNH & ĐẠO CỤ THÔNG MINH:${isPreHuman ? `
    🚨 CẢNH BÁO ĐẶC BIỆT — KỶ NGUYÊN NÀY CHƯA CÓ CON NGƯỜI (PRE-HUMAN ERA):
@@ -92,7 +110,7 @@ The viewer MUST LEARN REAL KNOWLEDGE, accurate numbers, and scientific mechanism
        * For Psychology / Habits: state brain areas (amygdala, prefrontal cortex), neurotransmitters (dopamine, cortisol), cognitive feedback loops.
        * For History / Evolution: state anatomical fossil proof, precise archaeological dates, survival adaptations.
 
-2. FAST-PACED KNOWLEDGE PROGRESSION (20 - 25 SLIDES / 1 MINUTE):
+${isShort ? `2. FAST-PACED KNOWLEDGE PROGRESSION (${targetSlides} SLIDES / ${durationLabel}):
    • PHASE 1: HOOK PARADOX & EXPLICIT TOPIC NAMING (Slides 1 to 3, ~6-8s):
      - 🚨 MANDATORY: EXPLICITLY NAME THE TOPIC IN SLIDE 1 OR 2!
        The listener must know immediately what place or subject is being discussed.
@@ -101,8 +119,21 @@ The viewer MUST LEARN REAL KNOWLEDGE, accurate numbers, and scientific mechanism
      - Open directly with the most astonishing hard metric or counter-intuitive paradox of "${topic || 'the topic'}".
    • PHASE 2: SCIENTIFIC MECHANISM BREAKDOWN (Slides 4 to 18, ~35-40s):
      - Unpack 2 to 3 distinct evidence-backed scientific clues. Explain WHY and HOW it works using vivid analogies.
-   • PHASE 3: PROFOUND TAKEAWAY (Slides 19 to 25, ~8-10s):
-     - Conclude with a deep factual insight bridging the phenomenon to modern human understanding.
+   • PHASE 3: PROFOUND TAKEAWAY (Slides 19 to ${targetSlides}, ~8-10s):
+     - Conclude with a deep factual insight bridging the phenomenon to modern human understanding.` : `2. EXTENDED DOCUMENTARY KNOWLEDGE PROGRESSION (${durationLabel.toUpperCase()} — ${targetSlides.toUpperCase()} CONTINUOUS SLIDES):
+   • 🚨 MANDATORY LENGTH: You MUST deliver full ${targetSlides} slides! Do NOT stop early at 20-25 slides!
+   • PHASE 1: HOOK & PARADOX (Slides 1 to 5):
+     - 🚨 MANDATORY: Name the topic explicitly in Slide 1 or 2.
+     - Establish the central evolutionary/scientific mystery.
+   • PHASE 2: IN-DEPTH MULTI-CHAPTER BREAKDOWN (Slides 6 through ~85% of script):
+     - Structure the script across 4 to 6 continuous chapters (each 15-25 slides):
+       + Chapter 1: Environmental catalyst / ancestral survival pressures.
+       + Chapter 2: Key physiological, anatomical, or physical mechanisms.
+       + Chapter 3: Empirical scientific tests, fossil record, or DNA genetic evidence.
+       + Chapter 4: Secondary paradoxes and specialized adaptations.
+       + Chapter 5: Counter-arguments, alternative hypotheses, and comparative analysis.
+   • PHASE 3: SYNTHESIS & PROFOUND TAKEAWAY (Final 8-12 slides):
+     - Unify the clues into a coherent scientific truth and broad perspective.`}
 
 3. SMART VISUAL CHOREOGRAPHY:${isPreHuman ? `
    🚨 SPECIAL ERA RESTRICTION — PRE-HUMAN ERA (NO HUMANS EVER EXISTED):
@@ -139,12 +170,16 @@ export function buildImageSlideshowScriptPrompt(input, durationInfo, durationRan
   // theo tỉ lệ thì nó đặt cảnh trí đè lên nhân vật (đúng lỗi đã gặp: nhân vật lọt trong toà nhà).
   const isLandscape = (input.aspectRatio || '9:16') === '16:9';
   const G = isLandscape
-    ? { frame: '16:9 landscape (1920×1080 px)', ground: 82, charScale: 1.35, charRange: '1.30 – 1.40',
-        laneFarL: 8, laneL: 22, laneR: 78, laneFarR: 92, centerLo: 36, centerHi: 64,
-        skyLo: 8, skyHi: 30, groundOK: true }
-    : { frame: '9:16 portrait (1080×1920 px)', ground: 76, charScale: 1.05, charRange: '1.00 – 1.10',
-        laneFarL: 12, laneL: 25, laneR: 75, laneFarR: 88, centerLo: 20, centerHi: 80,
-        skyLo: 12, skyHi: 32, groundOK: false };
+    ? {
+      frame: '16:9 landscape (1920×1080 px)', ground: 82, charScale: 1.35, charRange: '1.30 – 1.40',
+      laneFarL: 8, laneL: 22, laneR: 78, laneFarR: 92, centerLo: 36, centerHi: 64,
+      skyLo: 8, skyHi: 30, groundOK: true
+    }
+    : {
+      frame: '9:16 portrait (1080×1920 px)', ground: 76, charScale: 1.05, charRange: '1.00 – 1.10',
+      laneFarL: 12, laneL: 25, laneR: 75, laneFarR: 88, centerLo: 20, centerHi: 80,
+      skyLo: 12, skyHi: 32, groundOK: false
+    };
 
   const detectedEra = detectTimeEra({
     explicitEra: input.timeEra,
@@ -174,7 +209,16 @@ SIMPLE HAND-DRAWN 2D EXPLAINER STYLE (APPLIES TO EVERY visualDescription):
 ${buildHumanVoiceGuidance({ isVietnamese })}
 ${!isVietnamese ? '- Vocabulary constraint: simple A2/B1 English. Short, clear sentences. No advanced expressions.' : '- Ngôn ngữ: tự nhiên, gần gũi, khẩu ngữ. Câu ngắn rõ. Tránh văn viết hàn lâm.'}
 
-${buildMackStickFigureStorytellingGuidance({ isVietnamese, topic: input.scenario, G, detectedEra })}
+${buildMackStickFigureStorytellingGuidance({
+    isVietnamese,
+    topic: input.scenario,
+    G,
+    detectedEra,
+    durationRange,
+    durationInfo,
+    targetSlides,
+    slideSecondsHint,
+  })}
 
 ═══════════════════════════════════════════════════════
 GHIM MỐC THỜI GIAN & ĐỒNG BỘ KỶ NGUYÊN (TIME ERA PINNING — BẮT BUỘC):
@@ -367,7 +411,10 @@ NARRATIVE & VISUAL COHESION
 DURATION & PACING (NHỊP DỒN DẬP - NHIỀU ẢNH):
 - Target total video duration: ${durationInfo.label} (~${durationInfo.targetSeconds} seconds total).
 - BẮT BUỘC: chia kịch bản thành ${targetSlides} phân đoạn (tương ứng ${targetSlides} ảnh/slide) liên tục.
-- Với video 1 phút (under_1m): BẮT BUỘC tạo 20 đến 25 ảnh/phân đoạn, nhịp chuyển cảnh dồn dập, trung bình mỗi ảnh hiển thị ${slideSecondsHint}.
+${durationRange === 'under_1m'
+      ? `- Với video 1 phút (under_1m): BẮT BUỘC tạo 20 đến 25 ảnh/phân đoạn, nhịp chuyển cảnh dồn dập, trung bình mỗi ảnh hiển thị ${slideSecondsHint}.`
+      : `- Với video dài ${durationInfo.label}: BẮT BUỘC tạo đủ ${targetSlides} phân đoạn (tương ứng ${targetSlides} ảnh/slide) liên tục phân bố đều qua các chương chuyên sâu, trung bình mỗi ảnh hiển thị ${slideSecondsHint}. KHÔNG ĐƯỢC dừng sớm ở 20-25 slide!`
+    }
 - Thời lượng đọc mỗi segment: ${slideSecondsHint}.
 - QUY TẮC ĐỘ DÀI LỜI NÓI (CỰC KỲ QUAN TRỌNG): Để đảm bảo mỗi ảnh lướt nhanh từ ${slideSecondsHint}, câu thoại/thuyết minh (dialogueOrNarration) của mỗi phân đoạn PHẢI rất ngắn gọn, cô đọng (chỉ khoảng 6 đến 12 từ mỗi segment), nói dứt khoát chuyển cảnh liên tục. Tuyệt đối không viết câu dài dòng làm chậm nhịp video.
 - QUY TẮC NÓI LIỀN MẠCH, KHÔNG PHẨY VỤN: Mỗi phân đoạn vốn đã rất ngắn gọn (6 đến 12 từ), do đó câu văn PHẢI nói liền mạch trong một hơi, tự nhiên trôi chảy. TUYỆT ĐỐI KHÔNG chèn dấu phẩy vụn vặt cắt đôi câu ngắn (ví dụ SAI: "Sau một tuần, mức nhiệt trung bình, giảm xuống âm 17 độ C." -> ĐÚNG: "Sau một tuần, mức nhiệt trung bình giảm xuống âm 17 độ C."). Chỉ dùng dấu phẩy khi câu thực sự dài hoặc có 2 vế rõ ràng; tuyệt đối không ngắt giữa chủ ngữ và vị ngữ làm giọng đọc giật cục khó chịu.
@@ -392,11 +439,11 @@ NARRATION GUIDELINES (BẮT BUỘC ĐẬM ĐẶC TRI THỨC & GỌI ĐÍCH DANH 
    - Mỗi phân đoạn PHẢI chứa: con số đo đạc, thuật ngữ khoa học/y học/lịch sử, cơ chế sinh học/vật lý/tâm lý cụ thể, hoặc bằng chứng thực nghiệm giải thích vì sao hiện tượng xảy ra.
    - Bỏ toàn bộ các câu dạo đầu dẫn chuyện lan man; mỗi slide đưa ra MỘT sự thật/chi tiết kiến thức mới mẻ.
 3. ${isVietnamese
-    ? 'Lời thuyết minh (dialogueOrNarration) PHẢI bằng tiếng Việt tự nhiên, súc tích, gãy gọn — như một chuyên gia khoa học thông minh đang giải thích ngắn gọn, cuốn hút.'
-    : 'Content MUST be in simple, basic English (A2/B1). Short, impactful, highly factual sentences.'}
+      ? 'Lời thuyết minh (dialogueOrNarration) PHẢI bằng tiếng Việt tự nhiên, súc tích, gãy gọn — như một chuyên gia khoa học thông minh đang giải thích ngắn gọn, cuốn hút.'
+      : 'Content MUST be in simple, basic English (A2/B1). Short, impactful, highly factual sentences.'}
 4. ${isVietnamese
-    ? 'Phụ đề (subtitle): CHỈ viết ĐƠN NGỮ TIẾNG VIỆT (1 dòng duy nhất, khớp với lời thuyết minh). TUYỆT ĐỐI KHÔNG thêm dòng dịch tiếng Anh, KHÔNG có ký tự "\\n" xuống dòng dịch phụ đề.'
-    : 'Subtitle (subtitle): ENGLISH ONLY (single line matching narration). Strictly DO NOT include any Vietnamese translation line, DO NOT include "\\n".'}
+      ? 'Phụ đề (subtitle): CHỈ viết ĐƠN NGỮ TIẾNG VIỆT (1 dòng duy nhất, khớp với lời thuyết minh). TUYỆT ĐỐI KHÔNG thêm dòng dịch tiếng Anh, KHÔNG có ký tự "\\n" xuống dòng dịch phụ đề.'
+      : 'Subtitle (subtitle): ENGLISH ONLY (single line matching narration). Strictly DO NOT include any Vietnamese translation line, DO NOT include "\\n".'}
 5. Do NOT include emotion tags like [sighs], [softly], [pause] — they have no effect and just clutter the text.
 6. ${buildPunctuationRhythmGuidance()}
 7. CRITICAL RULE FOR "visualDescription" (MINH HOẠ CHUẨN XÁC NỘI DUNG KHOA HỌC & ĐÚNG KỶ NGUYÊN):

@@ -1,6 +1,7 @@
 import { getDurationInfo } from '../../../domain/narration/duration-info.js';
 import { getSkill } from '../skills/index.js';
 import { buildEnglishQuizScriptPrompt } from '../../../domain/prompt-templates/gemini/englishQuiz.js';
+import { ensureEarlyBookReveal, isBookPitchInput } from '../../../domain/content/bookPitchOutput.js';
 
 /**
  * Hạn giờ riêng cho khâu VIẾT KỊCH BẢN — rộng hơn hẳn mặc định của engine (45s/90s) vì đây là lượt
@@ -37,11 +38,15 @@ export async function generateSegmentedScript({ category, durationRange, input, 
 
   // Viết kịch bản là khâu sáng tạo quan trọng nhất -> tier "quality" (model thông minh nhất), và
   // nới hạn chót vì prompt dài, model hay cần nhiều thời gian suy nghĩ hơn các tác vụ khác.
-  return generateText(promptText, keys, {
+  const result = await generateText(promptText, keys, {
     tier: 'quality',
     timeoutMs: SCRIPT_REQUEST_TIMEOUT_MS,
     deadlineMs: SCRIPT_DEADLINE_MS,
     label: 'Viết kịch bản',
     maxOutputTokens,
   });
+
+  return category === 'moral_talk_slideshow' && isBookPitchInput(input)
+    ? ensureEarlyBookReveal(result, input.scenario)
+    : result;
 }

@@ -63,8 +63,8 @@ export const SlideshowVideo: React.FC<SlideshowVideoProps> = (props) => {
   let cursor = 0;
 
   return (
-    <AbsoluteFill>
-      <Background color={bgColor} />
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000" }}>
+      <Background color={bgColor || "#000000"} />
 
       {scenes.map((scene, i) => {
         const from = cursor;

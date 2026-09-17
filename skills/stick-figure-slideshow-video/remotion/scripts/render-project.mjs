@@ -70,7 +70,7 @@ const CSS_COLOR_RE = /^[a-zA-Z0-9#(),.\s%-]+$/;
 
 const captionStyle = CAPTION_STYLES.includes(flags.captionStyle) ? flags.captionStyle : "box";
 const transitionStyle = TRANSITION_STYLES.includes(flags.transitionStyle) ? flags.transitionStyle : "crossfade";
-const showBilingual = flags.bilingual === undefined ? true : flags.bilingual !== "false";
+const showBilingual = flags.bilingual === "true" || flags.bilingual === true;
 // "page" only makes sense as a whole-scene, centered block — see the usage note above.
 const isPageStyle = captionStyle === "page";
 // "hook" ignores captionPosition/captionMode entirely (Caption.tsx hardcodes its own
@@ -308,27 +308,10 @@ const remotionConfig = {
   kenBurns: !isPageStyle,
   transitionSeconds: 0.5,
   transitionStyle,
-  // Nền video của skill người que là TRẮNG. Ảnh của skill này là whiteboard — mực đen trên nền
-  // trắng — nên nền lót phải cùng tông trắng đó. Trước đây để #0E0F13 (xám xanh rất tối, kế thừa
-  // từ hồi dùng chung skill với moral_talk_slideshow): mỗi khi nền lộ ra (ảnh thiếu/hỏng, ảnh
-  // không phủ kín khung do lệch tỉ lệ, mép ảnh lúc Ken Burns pan/zoom, hay lúc chuyển cảnh) thì
-  // hiện ra mảng ĐEN chói mắt giữa một video toàn trắng.
-  //
-  // "hook" (pictogram trắng phát sáng trên nền ĐEN TUYỆT ĐỐI) vẫn giữ #000000: style đó cố tình
-  // dùng ảnh nền đen, nền video phải khớp CHÍNH XÁC #000000 nếu không sẽ lộ viền lệch tông ở mép.
-  bgColor: bgColor || (isHookStyle ? "#000000" : "#FFFFFF"),
-
-  // Nền + màu chữ cho 3 bố cục mới theo TỪNG SLIDE ("bullets"/"split"/"caption-left", xem
-  // SceneLayouts.tsx). PHẢI ghi tường minh ở đây chứ không dựa vào giá trị mặc định của zod:
-  // giá trị mặc định trong schema chỉ áp cho defaultProps của Remotion Studio, còn config truyền
-  // qua --props thì thiếu khoá nào là undefined khoá đó — nền slide sẽ trong suốt và lòi màu tối
-  // toàn cục ra sau lưng (đã gặp đúng lỗi này khi render thử).
-  //
-  // Hai tông đối lập nhau theo phong cách của skill:
-  //   - "hook" = Nói Chuyện Đạo Lý: pictogram trắng trên nền ĐEN -> nền đen, chữ trắng.
-  //   - còn lại = Người Que whiteboard: mực đen trên nền TRẮNG -> nền giấy sáng, chữ đen.
-  slideBgColor: flags.slideBgColor || bgColor || (isHookStyle ? "#000000" : "#F4F4F4"),
-  slideTextColor: flags.slideTextColor || (isHookStyle ? "#FFFFFF" : "#1A1A1A"),
+  // Mặc định nền video là #000000 (đen tuyền) giúp video render đồng nhất, không bị trong suốt khi xem trên thiết bị di động
+  bgColor: bgColor || "#000000",
+  slideBgColor: flags.slideBgColor || bgColor || "#000000",
+  slideTextColor: flags.slideTextColor || "#FFFFFF",
   fontFamily: "'Be Vietnam Pro','Noto Sans',Arial,sans-serif",
   captionMode: flags.captionMode
     ? flags.captionMode

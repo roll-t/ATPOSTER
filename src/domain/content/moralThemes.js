@@ -260,8 +260,8 @@ export const MORAL_THEMES = [
   // NHÓM CHỦ ĐỀ GIỚI THIỆU SÁCH (BOOK PITCH / AFFILIATE BÁN SÁCH)
   //
   // Giọng văn: 'book_pitch' — cấu trúc kịch bản bán sách chuyển đổi cao:
-  // Hook nỗi đau / vấn đề nhức nhối ➔ Nguyên nhân gốc rễ ➔ Giới thiệu sách giải pháp ➔
-  // Trích 2-3 bài học đắt giá sách dạy ("Một. Hai. Ba.") ➔ Kêu gọi mua sách (CTA ở giỏ hàng góc trái).
+  // Hook nêu ngay số cách + kết quả người xem muốn ➔ tease ý mạnh nhất / dẫn nguồn sách ngắn gọn ➔
+  // vào ngay các bài học ("Một. Hai. Ba.") ➔ payoff ➔ CTA ở giỏ hàng góc trái.
   // -----------------------------------------------------------------------------------------------
   {
     key: 'book_tiktok_trending',

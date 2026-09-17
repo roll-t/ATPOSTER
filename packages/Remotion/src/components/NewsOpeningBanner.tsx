@@ -1,5 +1,23 @@
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { loadFont as loadMontserrat } from "@remotion/google-fonts/Montserrat";
+import { loadFont as loadBeVietnamPro } from "@remotion/google-fonts/BeVietnamPro";
+
+let cachedBannerFont: string | null = null;
+export function getNewsBannerFontFamily(): string {
+  if (!cachedBannerFont) {
+    const montserrat = loadMontserrat("normal", {
+      weights: ["700", "900"],
+      subsets: ["latin", "vietnamese"],
+    }).fontFamily;
+    const beVietnam = loadBeVietnamPro("normal", {
+      weights: ["700", "800", "900"],
+      subsets: ["latin", "vietnamese"],
+    }).fontFamily;
+    cachedBannerFont = `'${montserrat}', '${beVietnam}', Arial, sans-serif`;
+  }
+  return cachedBannerFont;
+}
 
 export function getNewsTagConfig(brandText: string) {
   const text = (brandText || "TIN TỨC").trim();
@@ -39,6 +57,7 @@ export const NewsOpeningBanner: React.FC<{
   titleColor?: string;
   titleFontSize?: number;
   headlineWidth?: number;
+  fontFamily?: string;
 }> = ({
   brand = "TIN TỨC",
   headline,
@@ -50,9 +69,16 @@ export const NewsOpeningBanner: React.FC<{
   titleColor = "#FFE24A",
   titleFontSize,
   headlineWidth = 82,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
+
+  // Preload và dùng font hỗ trợ 100% tiếng Việt chuẩn (Montserrat + Be Vietnam Pro)
+  const defaultFont = getNewsBannerFontFamily();
+  const bannerFontFamily = fontFamily && !fontFamily.includes("Paytone One")
+    ? `${fontFamily}, ${defaultFont}`
+    : defaultFont;
 
   // Hiệu ứng trượt lên và nảy nhẹ chuẩn phong cách đồ hoạ tin tức mạng xã hội
   const slideSpring = spring({
@@ -210,7 +236,7 @@ export const NewsOpeningBanner: React.FC<{
               <span
                 style={{
                   color: "#FFFFFF",
-                  fontFamily: "'Paytone One', 'Be Vietnam Pro', sans-serif",
+                  fontFamily: bannerFontFamily,
                   fontSize: 26,
                   fontWeight: 900,
                   letterSpacing: "0.05em",
@@ -250,7 +276,7 @@ export const NewsOpeningBanner: React.FC<{
               {/* Chữ tiêu đề lớn nổi bật */}
               <div
                 style={{
-                  fontFamily: "'Paytone One', 'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
+                  fontFamily: bannerFontFamily,
                   fontSize: effectiveTitleFontSize,
                   fontWeight: 900,
                   lineHeight: 1.25,

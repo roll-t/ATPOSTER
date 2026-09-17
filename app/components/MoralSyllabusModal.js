@@ -558,7 +558,9 @@ export default function MoralSyllabusModal({
                     <div
                       key={topic.id}
                       onClick={() => {
-                        onSelectTopic(topic.text);
+                        // Chủ đề sách cần chuyển cả object để ContentForm giữ được angle, painPoint
+                        // và đặc biệt là desc chứa công thức thực dụng; topic thường vẫn dùng text.
+                        onSelectTopic(topic);
                         onClose();
                       }}
                       style={{

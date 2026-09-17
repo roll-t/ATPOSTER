@@ -80,7 +80,7 @@ export function normalizeVideoRenderConfig(source = {}, context = {}) {
   put(config, 'logoScale', numberInRange(source.logoScale, 0.1, 4));
   put(config, 'imageScale', numberInRange(source.imageScale, 0.2, 2));
   put(config, 'imageTranslateY', numberInRange(source.imageTranslateY, -100, 100));
-  put(config, 'videoBgColor', source.videoBgColor);
+  put(config, 'videoBgColor', (typeof source.videoBgColor === 'string' && source.videoBgColor.trim()) ? source.videoBgColor.trim() : '#000000');
 
   config.showOpeningComment = source.showOpeningComment !== false;
   put(config, 'openingCommentAuthor', source.openingCommentAuthor);

@@ -249,8 +249,8 @@ export const Scene: React.FC<{
   // Composed scene: Remotion draws assets directly — no image file needed
   if (Array.isArray(scene.elements) && scene.elements.length > 0) {
     return (
-      <AbsoluteFill style={{ opacity, transform }}>
-        <SceneCanvas elements={scene.elements} bgColor={bgColor} />
+      <AbsoluteFill style={{ opacity, transform, backgroundColor: bgColor || "#000000" }}>
+        <SceneCanvas elements={scene.elements} bgColor={bgColor || "#000000"} />
         <Audio src={resolveSrc(scene.audio)} volume={audioVolume} />
         <Sfx cues={scene.sfx} />
         <Arrows cues={scene.arrows} />
@@ -265,7 +265,7 @@ export const Scene: React.FC<{
             highlightColor={layoutHighlightColor}
             showBilingual={showBilingual}
           />
-        ) : layout === "image-only" ? null : (
+        ) : layout === "image-only" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
           <Caption
             text={scene.caption}
             sceneIndex={sceneIndex}
@@ -296,7 +296,7 @@ export const Scene: React.FC<{
   }
 
   return (
-    <AbsoluteFill style={{ opacity, transform }}>
+    <AbsoluteFill style={{ opacity, transform, backgroundColor: bgColor || "#000000" }}>
       <SceneImage
         src={scene.image}
         fit={scene.imageFit ?? globalImageFit}
@@ -383,11 +383,12 @@ export const Scene: React.FC<{
           titleColor={openingNewsTitleColor}
           titleFontSize={openingNewsTitleSize}
           headlineWidth={openingNewsHeadlineWidth}
+          fontFamily={fontFamily}
         />
       )}
 
       {/* Logo kênh mờ ở đáy khung */}
-      {channelLogo && !(sceneIndex === 0 && showOpeningNewsBanner) ? (
+      {channelLogo ? (
       <div
         style={{
           position: "absolute",
@@ -399,7 +400,7 @@ export const Scene: React.FC<{
           alignItems: "center",
           pointerEvents: "none",
           zIndex: 4,
-          opacity: 0.45,
+          opacity: 0.85,
           transform: `translate(${logoTranslateX}px, ${logoTranslateY}px) scale(${logoScale})`,
         }}
       >
@@ -409,8 +410,7 @@ export const Scene: React.FC<{
             width: 220,
             height: "auto",
             objectFit: "contain",
-            mixBlendMode: "screen",
-            filter: "brightness(0.98)",
+            filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.6))",
           }}
         />
       </div>

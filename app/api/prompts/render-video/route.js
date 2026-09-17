@@ -254,7 +254,7 @@ export async function POST(req) {
     if (typeof captionTextColor === 'string' && captionTextColor.trim() && CSS_COLOR_RE.test(captionTextColor)) extraArgs.push(`--captionTextColor=${captionTextColor.trim()}`);
     if (typeof captionBgColor === 'string' && captionBgColor.trim() && CSS_COLOR_RE.test(captionBgColor)) extraArgs.push(`--captionBgColor=${captionBgColor.trim()}`);
     if (typeof highlightColor === 'string' && highlightColor.trim() && CSS_COLOR_RE.test(highlightColor)) extraArgs.push(`--highlightColor=${highlightColor.trim()}`);
-    const effectiveBgColor = (typeof bgColor === 'string' && bgColor.trim()) ? bgColor.trim() : ((typeof videoBgColor === 'string' && videoBgColor.trim()) ? videoBgColor.trim() : null);
+    const effectiveBgColor = (typeof bgColor === 'string' && bgColor.trim()) ? bgColor.trim() : ((typeof videoBgColor === 'string' && videoBgColor.trim()) ? videoBgColor.trim() : '#000000');
     if (effectiveBgColor && CSS_COLOR_RE.test(effectiveBgColor)) extraArgs.push(`--bgColor=${effectiveBgColor}`);
 
     // Tuỳ chỉnh layout (chỉ có ý nghĩa với skill reading-page-video, nhưng vô hại nếu

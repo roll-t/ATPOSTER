@@ -44,6 +44,7 @@ coverage/
 /TTS/
 /packages/VieNue/data/
 /packages/remotion-shared/
+/packages/GPT-SoVITS/
 
 # Generated video/image/audio project outputs (keep source assets & README)
 /skills/moral_talk_slideshow/remotion/public/*

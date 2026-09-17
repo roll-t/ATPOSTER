@@ -50,31 +50,36 @@ NUMBERING CONVENTION FOR THE POINTS (MANDATORY, IDENTICAL FOR EVERY VOICE IN THI
 - Correct: "Ba. Kính rượu người lớn hơn thì cụng ly thấp hơn." — Wrong: "Ba là, kính rượu người lớn hơn..." / "Thứ ba, kính rượu người lớn hơn..." / "Ba, kính rượu người lớn hơn...".`;
 
 /**
- * Hook riêng cho video bán sách. Không dùng buildHookGuidance() chung vì tên sách thường nằm ngay
- * trong scenario; TOPIC LOCK chung sẽ ép tên sách vào câu đầu, trong khi book pitch cần mở đúng
- * nỗi đau của người xem rồi mới reveal sách. ENUMERATED_OPENING_RULE cũng không phù hợp ở đây:
- * các bài học có đánh số nằm trong thân bài, không có nghĩa video phải mở bằng "3 bài học...".
+ * Hook riêng cho video bán sách. Book pitch trước đây mở bằng cảnh nỗi đau, reframe, reveal sách
+ * rồi mới công bố số bài học. Cấu trúc đó giữ phần có giá trị nhất quá lâu. Vì mọi book pitch đều
+ * trích ra một số ý áp dụng cụ thể, hook mới đưa chính số ý + kết quả người xem muốn lên câu đầu;
+ * sách là nguồn của lời giải, không còn là một đoạn dẫn phải nghe xong trước khi vào nội dung.
  */
 export function buildBookPitchHookGuidance({ isVietnamese = true, topic = '' } = {}) {
   const topicClean = String(topic || '').replace(/\s+/g, ' ').trim().slice(0, 240);
   const examples = isVietnamese
-    ? `- SAI: "Có bao giờ bạn tự hỏi tại sao mình mãi chưa thành công?" — chung chung, dùng cho sách nào cũng được.
-- ĐÚNG: "Lương vừa về ba ngày, tài khoản của bạn lại gần về không." — một cảnh cụ thể, đúng nỗi đau tiền bạc.
-- ĐÚNG: "Bạn không thiếu quyết tâm. Bạn đang bắt đầu quá lớn." — phản trực giác và mở ra lời giải về thói quen.`
-    : `- BAD: "Have you ever wondered why you are still not successful?" — generic enough for any book.
-- GOOD: "Three days after payday, your account is nearly empty again." — a concrete money pain.
-- GOOD: "You don't lack motivation. You're starting too big." — a useful reframe that opens the loop.`;
+    ? `- SAI: "Bạn có bao giờ mất tự tin khi đứng trước đám đông không?" — chỉ mô tả nỗi đau, chưa hứa giá trị.
+- SAI: "Cuốn sách này sẽ giúp bạn giao tiếp tốt hơn." — dẫn sản phẩm trước lợi ích.
+- ĐÚNG: "4 cách giúp bạn tự tin hơn trước đám đông." — số lượng và kết quả xuất hiện ngay.
+- ĐÚNG: "5 cách giúp bạn giao tiếp giỏi hơn, theo tâm lý học." — chỉ dùng cụm nguồn này khi đề bài thực sự cung cấp căn cứ tâm lý học.
+- ĐÚNG: "3 cách bỏ trì hoãn từ Atomic Habits." — nguồn sách nằm gọn trong lời hứa, không thành đoạn quảng cáo.`
+    : `- BAD: "Have you ever lost confidence in front of a crowd?" — pain without a value promise.
+- BAD: "This book will help you communicate better." — product before benefit.
+- GOOD: "4 ways to feel more confident in front of a crowd." — count and outcome land immediately.
+- GOOD: "3 ways to stop procrastinating from Atomic Habits." — the book is compact provenance, not a sales preamble.`;
 
-  return `BOOK-PITCH OPENING — EARN ATTENTION BEFORE YOU SELL:
+  return `BOOK-PITCH OPENING — LEAD WITH THE PAYOFF, THEN CREDIT THE SOURCE:
 - SOURCE TOPIC: "${topicClean || 'Use the supplied book title and reader pain point.'}"
-- Extract TWO separate anchors from the topic: (A) the exact BOOK TITLE/AUTHOR and (B) the READER'S SPECIFIC PAIN or desired change. Preserve A exactly for the reveal, but open on B.
-- SEGMENT 1: one concrete mirror line, at most ${isVietnamese ? '12 Vietnamese words' : '12 spoken words'}. Show a moment the target reader recognises from their own day. No greeting, no introduction, no book title, no vague life philosophy.
-- SEGMENT 2: deepen the cost OR deliver a counter-intuitive reframe. It must add new information, not restate segment 1.
-- SEGMENT 3: promise a specific payoff/open loop that the video will close. The viewer must know what useful answer they will get by staying.
-- Reveal the book no later than the first 20–25% of the video; for a video under 60 seconds, the title should be heard by roughly second 8–10. Do not make viewers endure 7–8 slides before learning what the solution is.
-- The opening is about the VIEWER, not praise for the product. Never start with "Cuốn sách này rất hay", bestseller rankings, the author biography, or "Hôm nay mình giới thiệu...".
-- Do not default to "Có bao giờ bạn tự hỏi...". Prefer a direct observation, a familiar micro-scene, a costly mistake, or a counter-intuitive correction.
-- SWAP TEST: if segment 1 could sell five unrelated books without changing a word, it is generic filler. Rewrite it around the exact pain in this topic.
+- Extract TWO anchors from the topic: (A) the exact BOOK TITLE/AUTHOR or supplied authority and (B) the READER'S desired practical result. Preserve A exactly, but make B the grammatical focus of the hook.
+- SEGMENT 1 MUST be a COUNTED PAYOFF HEADLINE. Start on the digit/number itself, then state the concrete result: "4 cách giúp bạn tự tin hơn trước đám đông." No scene-setting, rhetorical question, greeting, context, or product praise before it. If the user supplied a count, preserve it; otherwise choose a credible count supported by the distinct actions the script will actually deliver.
+- CONVERT A CONCEPT INTO A COUNTABLE PROMISE: a short topic label is source material, never the finished hook. "Thao túng tâm lý" becomes "5 dấu hiệu bạn đang bị thao túng tâm lý." "EQ thấp" becomes "4 biểu hiện của người có EQ thấp." "Người EQ cao" becomes "5 cách người EQ cao xử lý xung đột." A how-to angle becomes "3 cách..."; a diagnostic angle becomes "5 dấu hiệu/biểu hiện..."; a comparison becomes a counted set of differences. Choose the noun that honestly matches the material.
+- The opening count MUST exactly equal the number of numbered value points later. Do not announce five ways and deliver three.
+- SEGMENT 2 is the MANDATORY BOOK REVEAL. Say the exact BOOK TITLE and AUTHOR verbatim, then preserve curiosity by teasing the strongest/later point in the same short beat. Both jobs are required; teasing without naming the book is invalid. Example shape: "Trong Khéo Ăn Nói của Trác Nhã, cách thứ ba là điều ít người làm được." Do not praise or summarize the product here.
+- SEGMENT 3 MUST already begin the first useful point with "Một." / "One." No third setup beat is allowed. A pain scene or reframe may appear only as the concrete example INSIDE a useful point, never as an opening ramp.
+- The exact book title and author MUST be spoken by the end of segment 2, even if the title already appeared in segment 1. Never postpone the book reveal until the body or CTA. The source supports the advice; it is not a long product introduction.
+- Never write "theo tâm lý học", "nghiên cứu cho thấy", or similar authority language unless that basis is explicitly present in the supplied topic/material. For a book-based source, prefer "từ [exact title]" and never invent scientific backing.
+- The opening is about the VIEWER'S result, not praise for the product. Never start with "Cuốn sách này rất hay", bestseller rankings, the author biography, or "Hôm nay mình giới thiệu...".
+- SWAP TEST: if segment 1 could be placed on five unrelated self-help videos without changing the promised result, it is generic filler. Rewrite it around this topic's exact transformation.
 ${examples}`;
 }
 
@@ -153,15 +158,9 @@ ${ENUMERATED_OPENING_RULE}
   if (getMoralThemeVoice(theme) === 'book_pitch') {
     const narrationModeLine = `- Speak like a trusted friend who has read the book and is handing the listener one useful idea at the right moment — empathetic, concise and credible. Help first, sell second. Address the listener as "bạn"; never sound like an advertisement, a lecturer, or a book-summary robot.`;
 
-    const bookPitchSample = `Bạn đặt báo thức lúc sáu giờ, rồi tắt nó lần thứ ba.
+    const bookPitchSample = `3 cách bỏ trì hoãn mà không cần chờ có động lực.
 
-Không phải bạn lười. Bạn đang đòi ý chí làm việc của một hệ thống.
-
-Muốn giữ một thói quen, hãy làm nó dễ đến mức khó từ chối.
-
-Đó là ý cốt lõi trong **Atomic Habits** của James Clear.
-
-Có ba cách trong sách bạn có thể thử ngay hôm nay.
+Trong **Atomic Habits**, James Clear chỉ ra cách cuối ít ai làm đúng.
 
 Một. Bắt đầu bằng hai phút: mở sách, đọc đúng một trang.
 
@@ -175,13 +174,12 @@ Nếu bạn đang muốn xây lại kỷ luật, **Atomic Habits** ở giỏ hà
 
     const styleReferenceBlock = `VOICE & STYLE — BOOK PITCH & AFFILIATE SELLING:
 
-RETENTION-FIRST 6-BEAT ARC (keep this order; scale the number of slides to the requested duration):
-1. MIRROR (about 5%): show one painfully specific moment from the viewer's real day.
-2. REFRAME + OPEN LOOP (about 10%): correct what they blame themselves for and promise the useful answer coming next.
-3. EARLY BOOK REVEAL (by 20–25%): name the exact book and author naturally as the source of the idea — not as a miracle cure. The title must appear by about second 8–10 in an under-60-second video.
-4. VALUE DELIVERY (about 50–60%): first announce exactly how many lessons are coming, then explain 2 or 3 genuinely distinct ideas from the book. For each idea use this mini-arc: RULE -> one concrete everyday ACTION -> the RESULT or mistake avoided. Every slide must move the thought forward.
-5. EMOTIONAL CALLBACK (about 10%): return to the opening pain and show what changes after applying the ideas. Close the open loop; do not add a new lesson here.
-6. LOW-FRICTION CTA (final 5–10%, normally 1 slide and never more than 2): recommend the book to the specific person who has the opening pain, then state where to find it. Example shape: "Nếu bạn đang muốn xây lại kỷ luật, **Atomic Habits** ở giỏ hàng." No shouting, fake urgency, guilt, or vague promise to "change your life".
+RETENTION-FIRST 5-BEAT ARC (keep this order; scale the number of slides to the requested duration):
+1. COUNTED PAYOFF HOOK (segment 1): lead with the number of useful actions and the exact result the viewer wants. The strongest content is the opening, not a reward hidden after the setup.
+2. MANDATORY BOOK REVEAL + CURIOSITY (segment 2): speak the exact book title AND author, while teasing the most surprising point. This is compulsory for a book-selling video; do not merely cite a vague "source" and do not postpone the title to the CTA.
+3. IMMEDIATE VALUE DELIVERY (segment 3 onward, about 65–75%): begin "Một." immediately, then deliver exactly the number of genuinely distinct points promised in the hook. For each point use this mini-arc: RULE -> one concrete everyday ACTION -> the RESULT or mistake avoided. Pain scenes, reframes and examples belong inside these points.
+4. PAYOFF CALLBACK (about 10%): return to the result promised in the first line and show what changes after applying the ideas. Close the open loop; do not add a new lesson here.
+5. LOW-FRICTION CTA (final 5–10%, normally 1 slide and never more than 2): recommend the book to the specific person who wants the opening result, then state where to find it. Example shape: "Nếu bạn đang muốn xây lại kỷ luật, **Atomic Habits** ở giỏ hàng." No shouting, fake urgency, guilt, or vague promise to "change your life".
 
 VALUE AND TRUST RULES:
 - Give useful value BEFORE asking for a purchase. At least 70% of the narration must be insight, example, or action — not praise, credibility claims, or CTA.
@@ -191,12 +189,11 @@ VALUE AND TRUST RULES:
 - Do not repeat "cuốn sách này" in consecutive slides. Vary naturally between the idea, the author, the title, or omit the subject.
 - Use one curiosity thread from the opening and explicitly close it before the CTA. Do not manufacture several unanswered questions.
 
-BODY NUMBERING ONLY:
-- If the value section contains 2–3 lessons, lead them with "Một. Hai. Ba." (English: "One. Two. Three."). Never say "Một là", "Thứ nhất", or put these number prefixes in subtitle text.
-- COUNT SIGNPOST IS MANDATORY: immediately BEFORE "Một.", tell the listener exactly how many lessons/actions are coming in one natural standalone sentence. Examples: "Có ba cách trong sách bạn có thể thử ngay hôm nay." / "Mình chọn ra ba ý dễ áp dụng nhất." The announced number MUST exactly match the numbered lessons that follow.
-- Prefer giving this count signpost its own short transition segment. When rewriting a fixed set of existing slides and there is no suitable spare transition slide, place the signpost as the final short sentence of the book-reveal segment — never omit it and never let "Một." appear without warning.
-- After the count signpost, the VERY NEXT narration beat must begin "Một." Do not insert praise, author biography, credibility claims, or another transition between the promised count and point one.
-- These numbers belong ONLY to the value section. Their presence must NEVER force the opening hook to begin with a count.
+OPENING AND VALUE NUMBERING:
+- The count signpost IS the opening headline; never announce it again later with filler such as "Có ba cách..." or "Mình chọn ra ba ý...".
+- Lead value points with "Một. Hai. Ba." (English: "One. Two. Three."). Never say "Một là", "Thứ nhất", or put these number prefixes in subtitle text.
+- After the single segment-2 retention line, the VERY NEXT narration beat must begin "Một." Do not insert praise, author biography, a pain montage, or another transition.
+- The hook count and the actual numbered points must match exactly.
 
 SAMPLE REFERENCE SCRIPT:
 """

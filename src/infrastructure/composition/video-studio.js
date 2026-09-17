@@ -16,7 +16,7 @@ export const regenerateNarrationScript = (input) =>
   regenerateNarrationScriptUseCase({ ...input, generateText: callGeminiApi });
 
 export const generatePublishMeta = (input) =>
-  generatePublishMetaUseCase({ ...input, generateText: callGeminiApi });
+  generatePublishMetaUseCase({ ...input, generateText: callGeminiWithKeyRotation });
 
 export const translateAndExpandInputs = (input) =>
   translateAndExpandInputsUseCase({ ...input, generateText: callGeminiWithKeyRotation });

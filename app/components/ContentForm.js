@@ -11,6 +11,7 @@ import StickFigureLongFormModal from './StickFigureLongFormModal.js';
 import { STICK_FIGURE_LONGFORM_GROUPS } from '@/src/domain/content/stickFigureLongFormTopics.js';
 import { MORAL_SYLLABUS } from '@/src/domain/content/moralSyllabus.js';
 import { isBookMoralTheme } from '@/src/domain/content/moralThemes.js';
+import { buildBookPitchScenario } from '@/src/domain/content/moralTopicInput.js';
 import { BUDDHIST_SYLLABUS } from '@/src/domain/content/buddhistSyllabus.js';
 import { getBuddhistDurationOptions } from '@/src/domain/prompt-templates/gemini/buddhistWisdom.js';
 import LevelPicker from './LevelPicker.js';
@@ -533,12 +534,12 @@ export default function ContentForm({
               ) : activeCategory === 'stick_figure_slideshow' ? (
                 <>
                   <option value="under_1m">Dưới 1 phút (20 - 25 ảnh, 2-3s/ảnh)</option>
-                  <option value="1_2m">Từ 1 - 2 phút (35 - 48 ảnh)</option>
-                  <option value="2_3m">Từ 2 - 3 phút (50 - 70 ảnh)</option>
-                  <option value="3_4m">Từ 3 - 4 phút (70 - 95 ảnh)</option>
-                  <option value="4_6m">Từ 4 - 6 phút (100 - 140 ảnh)</option>
-                  <option value="6_8m">Từ 6 - 8 phút (140 - 190 ảnh)</option>
-                  <option value="8_10m">Từ 8 - 10 phút (190 - 250 ảnh)</option>
+                  <option value="1_2m">Từ 1 - 2 phút (30 - 42 ảnh)</option>
+                  <option value="2_3m">Từ 2 - 3 phút (45 - 60 ảnh)</option>
+                  <option value="3_4m">Từ 3 - 4 phút (60 - 80 ảnh)</option>
+                  <option value="4_6m">Từ 4 - 6 phút (75 - 100 ảnh)</option>
+                  <option value="6_8m">Từ 6 - 8 phút (90 - 120 ảnh)</option>
+                  <option value="8_10m">Từ 8 - 10 phút (100 - 140 ảnh)</option>
                 </>
               ) : (
                 <>
@@ -913,10 +914,15 @@ export default function ContentForm({
           isOpen={isSyllabusModalOpen}
           onClose={() => setIsSyllabusModalOpen(false)}
           currentTheme={moralModalTheme || activeMoralTheme || 'self_help'}
-          onSelectTopic={(topicText) => {
-            onFieldChange('scenario', topicText);
+          onSelectTopic={(topic) => {
+            const topicText = typeof topic === 'string' ? topic : topic.text;
+            const selectedTheme = moralModalTheme || 'self_help';
+            onFieldChange(
+              'scenario',
+              isBookMoralTheme(selectedTheme) ? buildBookPitchScenario(topic) : topicText
+            );
             onFieldChange('syllabusTopic', topicText);
-            onFieldChange('moralTheme', moralModalTheme || 'self_help');
+            onFieldChange('moralTheme', selectedTheme);
           }}
           history={history}
         />

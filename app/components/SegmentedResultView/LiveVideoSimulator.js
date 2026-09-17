@@ -131,6 +131,7 @@ export default function LiveVideoSimulator({
   resyncVoiceForSegments,
   checkAssets,
   bgMusicVersion,
+  logoVersion,
   onUpdateRenderConfig
 }) {
   const segments = useMemo(() => result?.segments || [], [result?.segments]);
@@ -153,8 +154,7 @@ export default function LiveVideoSimulator({
 
   const textColor = rc.textColor || rc.captionTextColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
-  const bgColor = rc.captionBgColor || rc.bgColor || '#000000';
-  const videoBgColor = rc.videoBgColor || (category === 'stick_figure_slideshow_video' ? '#FFFFFF' : '#000000');
+  const videoBgColor = rc.videoBgColor || '#000000';
   const bgOpacity = Number(rc.captionBgOpacity !== undefined ? rc.captionBgOpacity : (rc.bgOpacity !== undefined ? rc.bgOpacity : 65)) / 100;
   const isBgTransparent = Boolean(rc.captionBgTransparent || rc.isBgTransparent || rc.captionBgColor === 'transparent');
   const captionStyle = rc.captionStyle || 'classic';
@@ -584,7 +584,7 @@ export default function LiveVideoSimulator({
     const nextY = Math.round(dragStartValuesRef.current.logoTranslateY + deltaRemotionY);
     onUpdateRenderConfig({
       logoTranslateX: Math.max(-800, Math.min(800, nextX)),
-      logoTranslateY: Math.max(-1600, Math.min(300, nextY))
+      logoTranslateY: Math.max(-1600, Math.min(600, nextY))
     });
   }, [effectiveIsPortrait, onUpdateRenderConfig]);
 
@@ -1894,7 +1894,7 @@ export default function LiveVideoSimulator({
                         <span
                           style={{
                             color: '#FFFFFF',
-                            fontFamily: "'Paytone One', 'Be Vietnam Pro', sans-serif",
+                            fontFamily: "'Montserrat', 'Be Vietnam Pro', sans-serif",
                             fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
                             fontWeight: 900,
                             letterSpacing: '0.05em',
@@ -1976,7 +1976,7 @@ export default function LiveVideoSimulator({
                     {/* Big Headline */}
                     <div
                       style={{
-                        fontFamily: "'Paytone One', 'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
+                        fontFamily: "'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
                         fontSize: openingNewsTitleSize > 0
                           ? `${Math.max(12, Math.round(openingNewsTitleSize * remotionScale))}px`
                           : `${Math.max(14, Math.round((openingNewsHeadline.length > 70 ? 44 : 54) * remotionScale))}px`,
@@ -2000,7 +2000,7 @@ export default function LiveVideoSimulator({
           )}
 
           {/* LỚP 4: LOGO KÊNH THƯƠNG HIỆU */}
-          {showChannelLogo && !(currentSlideIndex === 0 && showOpeningNewsBanner) && (
+          {showChannelLogo && (
             <div
               style={{
                 position: 'absolute',
@@ -2050,14 +2050,13 @@ export default function LiveVideoSimulator({
                 }}
               >
                 <img
-                  src="/images/watermark/nexora-video-logo.png?v=1"
+                  src={`/images/watermark/nexora-video-logo.png?v=${logoVersion || 1}`}
                   alt="Logo thương hiệu"
                   style={{
                     width: effectiveIsPortrait ? (isFullscreen ? '96px' : '76px') : '62px',
                     height: 'auto',
                     objectFit: 'contain',
-                    mixBlendMode: 'screen',
-                    filter: 'brightness(1.15) drop-shadow(0 2px 8px rgba(0,0,0,0.7))',
+                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.75))',
                     display: 'block',
                     margin: 0,
                     padding: 0,

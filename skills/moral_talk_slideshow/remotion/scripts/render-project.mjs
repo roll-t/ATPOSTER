@@ -81,7 +81,7 @@ const kenBurnsMode = KEN_BURNS_MODES.includes(flags.kenBurnsMode) ? flags.kenBur
 const imageCornerPatch = flags.cornerPatch !== "false";
 // Mặc định BẬT, giống hành vi cũ khi logo còn gắn cứng trong Scene.tsx.
 const channelLogo = flags.channelLogo !== "false";
-const showBilingual = flags.bilingual === undefined ? true : flags.bilingual !== "false";
+const showBilingual = flags.bilingual === "true" || flags.bilingual === true;
 // "page" only makes sense as a whole-scene, centered block — see the usage note above.
 const isPageStyle = captionStyle === "page";
 // "hook" ignores captionPosition/captionMode entirely (Caption.tsx hardcodes its own

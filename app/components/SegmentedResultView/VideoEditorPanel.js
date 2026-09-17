@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import ColorPickerPopover from './ColorPickerPopover';
+import { showToast } from '../Toast.js';
 
 function hexToRgba(hex, alpha = 0.2) {
   if (!hex || typeof hex !== 'string') return `rgba(254, 44, 85, ${alpha})`;
@@ -692,12 +693,16 @@ export default function VideoEditorPanel({
   setRenderCaptionMarginY,
   renderCaptionWidth = '92',
   setRenderCaptionWidth,
+  renderBilingual = false,
+  setRenderBilingual,
   renderTransitionStyle = 'crossfade',
   setRenderTransitionStyle,
   renderVideoBgColor = '#000000',
   setRenderVideoBgColor,
   renderChannelLogo = true,
   setRenderChannelLogo,
+  logoVersion = 1,
+  setLogoVersion,
   renderShowOpeningComment = true,
   setRenderShowOpeningComment,
   renderOpeningCommentAuthor = 'Trả lời bình luận',
@@ -770,6 +775,77 @@ export default function VideoEditorPanel({
   const segments = result?.segments || [];
   const totalScenes = segments.length;
   const currentSegment = segments[activeSceneIndex] || segments[0] || {};
+
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [uploadLogoMsg, setUploadLogoMsg] = useState('');
+
+  const handleLogoFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingLogo(true);
+    setUploadLogoMsg('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/prompts/upload-logo', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const newVer = data.version || Date.now();
+        setLogoVersion && setLogoVersion(newVer);
+        setUploadLogoMsg('✓ Đã cập nhật ảnh Logo thương hiệu mới!');
+        showToast.success('✓ Đã cập nhật ảnh Logo mới!');
+        setTimeout(() => setUploadLogoMsg(''), 4000);
+      } else {
+        setUploadLogoMsg('Lỗi: ' + (data.error || 'Không thể tải ảnh lên.'));
+        showToast.error(data.error || 'Lỗi tải ảnh logo.');
+      }
+    } catch (err) {
+      setUploadLogoMsg('Lỗi kết nối khi tải ảnh logo.');
+      showToast.error('Lỗi kết nối khi tải ảnh logo.');
+    } finally {
+      setIsUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRestoreDefaultLogo = async () => {
+    if (!confirm('Bạn có chắc muốn khôi phục Logo thương hiệu về ảnh mặc định ban đầu?')) return;
+
+    setIsUploadingLogo(true);
+    setUploadLogoMsg('');
+
+    try {
+      const res = await fetch('/api/prompts/upload-logo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const newVer = data.version || Date.now();
+        setLogoVersion && setLogoVersion(newVer);
+        setUploadLogoMsg('✓ Đã khôi phục Logo mặc định!');
+        showToast.success('✓ Đã khôi phục Logo mặc định!');
+        setTimeout(() => setUploadLogoMsg(''), 4000);
+      } else {
+        setUploadLogoMsg('Lỗi: ' + (data.error || 'Không thể khôi phục logo.'));
+        showToast.error(data.error || 'Lỗi khôi phục logo.');
+      }
+    } catch (err) {
+      setUploadLogoMsg('Lỗi kết nối khi khôi phục logo.');
+      showToast.error('Lỗi kết nối khi khôi phục logo.');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   // Form chỉnh sửa cảnh hiện tại
   const [currentSubtitleDraft, setCurrentSubtitleDraft] = useState(currentSegment?.subtitle || '');
@@ -1162,6 +1238,18 @@ export default function VideoEditorPanel({
             </div>
 
 
+            {/* Tiêu đề song ngữ */}
+            <div style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+              <CapCutSwitchRow
+                label="Tiêu đề song ngữ (Bilingual)"
+                checked={Boolean(renderBilingual)}
+                onChange={(val) => {
+                  setRenderBilingual && setRenderBilingual(val);
+                  onUpdateRenderConfig?.({ bilingual: val });
+                }}
+              />
+            </div>
+
             {/* Nút lưu style */}
             <button
               type="button"
@@ -1510,12 +1598,131 @@ export default function VideoEditorPanel({
               <CapCutSwitchRow
                 label=""
                 checked={renderChannelLogo}
-                onChange={setRenderChannelLogo}
+                onChange={(val) => {
+                  setRenderChannelLogo && setRenderChannelLogo(val);
+                  onUpdateRenderConfig?.({ channelLogo: val });
+                }}
               />
             </div>
             <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
               Kéo di chuyển hoặc thu phóng trực tiếp Logo trên khung video, hoặc tinh chỉnh bằng thanh trượt bên dưới.
             </p>
+          </div>
+
+          {/* Card Hình ảnh Logo & Upload */}
+          <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
+            <CapCutSectionHeader
+              title="Hình ảnh Logo"
+              hasReset={false}
+              hasKeyframe={false}
+            />
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              background: 'rgba(0,0,0,0.3)',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <div style={{
+                width: '72px',
+                height: '52px',
+                borderRadius: '6px',
+                background: 'repeating-conic-gradient(#1e1e24 0% 25%, #2a2a35 0% 50%) 50% / 12px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.12)',
+                position: 'relative',
+                flexShrink: 0
+              }}>
+                <img
+                  src={`/images/watermark/nexora-video-logo.png?v=${logoVersion || 1}`}
+                  alt="Logo hiện tại"
+                  style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                  onError={(e) => {
+                    e.currentTarget.style.opacity = '0.3';
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.74rem', color: '#fff', fontWeight: 600 }}>
+                  Logo đang áp dụng
+                </div>
+                <div style={{ fontSize: '0.64rem', color: '#888', lineHeight: 1.3 }}>
+                  Khuyên dùng file PNG nền trong suốt để khi lồng vào video có tính thẩm mỹ cao nhất.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+              <label
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  background: 'rgba(37, 244, 238, 0.15)',
+                  border: '1px solid rgba(37, 244, 238, 0.35)',
+                  borderRadius: '6px',
+                  color: 'var(--secondary)',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: isUploadingLogo ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  textAlign: 'center',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {isUploadingLogo ? '⏳ Đang tải ảnh lên...' : '📁 Tải lên ảnh Logo mới'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  style={{ display: 'none' }}
+                  disabled={isUploadingLogo}
+                  onChange={handleLogoFileChange}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={handleRestoreDefaultLogo}
+                disabled={isUploadingLogo}
+                style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '6px',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: '0.74rem',
+                  cursor: isUploadingLogo ? 'wait' : 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+                title="Khôi phục lại logo mặc định ban đầu"
+              >
+                ↺ Mặc định
+              </button>
+            </div>
+
+            {uploadLogoMsg && (
+              <div style={{
+                fontSize: '0.72rem',
+                color: uploadLogoMsg.startsWith('Lỗi') ? 'var(--danger)' : '#4ade80',
+                fontWeight: 600,
+                marginTop: '4px'
+              }}>
+                {uploadLogoMsg}
+              </div>
+            )}
           </div>
 
           <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
@@ -1557,15 +1764,30 @@ export default function VideoEditorPanel({
                 setRenderLogoTranslateY && setRenderLogoTranslateY(String(val));
                 onUpdateRenderConfig?.({ logoTranslateY: val });
               }}
-              minX={-300}
-              maxX={300}
-              minY={-600}
+              minX={-800}
+              maxX={800}
+              minY={-1600}
               maxY={600}
               unitX="px"
               unitY="px"
               stepX={5}
               stepY={10}
             />
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenderLogoTranslateX && setRenderLogoTranslateX('0');
+                  setRenderLogoTranslateY && setRenderLogoTranslateY('0');
+                  onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0 });
+                }}
+                className="capcut-btn-secondary"
+                style={{ flex: 1, padding: '6px 10px', fontSize: '0.72rem' }}
+              >
+                ↺ Đặt lại vị trí trung tâm (X: 0, Y: 0)
+              </button>
+            </div>
 
             <button
               type="button"
@@ -2095,7 +2317,18 @@ export default function VideoEditorPanel({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="capcut-label">Màu nền video:</span>
-                <ColorPickerPopover color={renderVideoBgColor || '#000000'} onChange={setRenderVideoBgColor} label="Nền video" align="right" />
+                <ColorPickerPopover
+                  color={renderVideoBgColor || '#000000'}
+                  onChange={(val) => {
+                    setRenderVideoBgColor && setRenderVideoBgColor(val);
+                    if (result) {
+                      if (!result.remotionConfig) result.remotionConfig = {};
+                      result.remotionConfig.videoBgColor = val;
+                    }
+                  }}
+                  label="Nền video"
+                  align="right"
+                />
               </div>
             </div>
 

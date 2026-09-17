@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import StepProgressBar from './StepProgressBar.js';
 import LiveVideoSimulator from './LiveVideoSimulator.js';
 
@@ -26,9 +26,21 @@ export default function VideoResultPanel({
   resyncVoiceForSegments,
   checkAssets,
   bgMusicVersion,
+  logoVersion,
   onUpdateRenderConfig
 }) {
   const [viewMode, setViewMode] = useState('auto'); // 'auto' | 'rendered' | 'simulator'
+  const videoRef = useRef(null);
+  const [isCapturingThumbnail, setIsCapturingThumbnail] = useState(false);
+  const [capturedThumbnail, setCapturedThumbnail] = useState(null);
+  const [shutterFlash, setShutterFlash] = useState(false);
+
+  // Tự động chuyển sang xem mô phỏng trực tiếp khi người dùng chọn một thành phần (như Logo, Phụ đề)
+  useEffect(() => {
+    if (selectedElement && selectedElement !== 'none') {
+      setViewMode('simulator');
+    }
+  }, [selectedElement]);
 
   const isPortrait =
     result?.remotionConfig?.aspectRatio
@@ -52,6 +64,80 @@ export default function VideoResultPanel({
   const category = result?.category || '';
   const videoSrc = `/api/prompts/video-stream?folderPath=${encodeURIComponent(folderPath)}&category=${encodeURIComponent(category)}&v=${videoVersion}`;
   const downloadSrc = `/api/prompts/video-stream?folderPath=${encodeURIComponent(folderPath)}&category=${encodeURIComponent(category)}&download=1`;
+
+  const handleCaptureThumbnail = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    try {
+      setIsCapturingThumbnail(true);
+
+      // Hiệu ứng chớp nháy màn trập máy ảnh
+      setShutterFlash(true);
+      setTimeout(() => setShutterFlash(false), 240);
+
+      const currentTime = video.currentTime || 0;
+      const mins = Math.floor(currentTime / 60);
+      const secs = Math.floor(currentTime % 60);
+      const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      // Chụp frame qua canvas với độ phân giải gốc của video
+      let dataUrl = null;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || (isPortrait ? 1080 : 1920);
+        canvas.height = video.videoHeight || (isPortrait ? 1920 : 1080);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      } catch (canvasErr) {
+        console.warn('[VideoResultPanel] Lỗi canvas drawImage (sẽ dùng server trích xuất frame):', canvasErr);
+      }
+
+      // Tự động tải ảnh về máy người dùng ngay lập tức
+      if (dataUrl) {
+        const safeTitle = (result?.title || folderPath || 'video')
+          .trim()
+          .replace(/[\\/:*?"<>|]/g, '')
+          .replace(/\s+/g, '_')
+          .slice(0, 45);
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${safeTitle}_thumbnail_${timeStr.replace(':', 'm')}s.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      // Đồng thời gửi lên server để lưu vào thư mục dự án (images/cover.jpg và final/thumbnail.jpg)
+      const res = await fetch('/api/prompts/capture-thumbnail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderPath,
+          category,
+          dataUrl,
+          timestamp: currentTime
+        })
+      });
+
+      const resData = await res.json();
+      if (resData.success) {
+        setCapturedThumbnail({
+          url: resData.thumbnailUrl || dataUrl,
+          dataUrl,
+          timeStr
+        });
+      } else {
+        throw new Error(resData.error || 'Không thể lưu thumbnail');
+      }
+    } catch (err) {
+      console.error('[VideoResultPanel] Lỗi chụp thumbnail:', err);
+      alert('Không thể chụp thumbnail: ' + (err.message || 'Lỗi không xác định'));
+    } finally {
+      setIsCapturingThumbnail(false);
+    }
+  }, [folderPath, category, isPortrait, result?.title]);
 
   return (
     <div
@@ -216,6 +302,7 @@ export default function VideoResultPanel({
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
+              logoVersion={logoVersion}
               onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (
@@ -234,11 +321,62 @@ export default function VideoResultPanel({
                 padding: isPortrait ? '14px 10px' : 0
               }}
             >
+              {/* Nút chụp nhanh thumbnail nổi góc trên video */}
+              <button
+                type="button"
+                onClick={handleCaptureThumbnail}
+                disabled={isCapturingThumbnail}
+                style={{
+                  position: 'absolute',
+                  top: isPortrait ? '24px' : '14px',
+                  right: isPortrait ? '20px' : '14px',
+                  zIndex: 10,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  background: 'rgba(15, 12, 29, 0.82)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(236, 72, 153, 0.45)',
+                  color: '#fff',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: isCapturingThumbnail ? 'wait' : 'pointer',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5), 0 0 10px rgba(236, 72, 153, 0.25)',
+                  transition: 'all 0.2s ease',
+                  opacity: 0.95
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.95'; e.currentTarget.style.transform = 'scale(1)'; }}
+                title="Chụp frame đang dừng làm ảnh bìa Thumbnail và tự động tải về máy"
+              >
+                <span>{isCapturingThumbnail ? '⏳' : '📸'}</span>
+                <span>{isCapturingThumbnail ? 'Đang chụp...' : 'Chụp Thumbnail'}</span>
+              </button>
+
+              {/* Hiệu ứng chớp nháy màn trập máy ảnh khi chụp */}
+              {shutterFlash && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                    transition: 'opacity 0.2s ease-out'
+                  }}
+                />
+              )}
+
               <video
+                ref={videoRef}
                 key={`${folderPath}-${videoVersion}`}
                 src={videoSrc}
                 controls
                 playsInline
+                crossOrigin="anonymous"
                 style={{
                   height: isPortrait ? 'min(620px, calc(100vh - 240px))' : 'auto',
                   maxHeight: isPortrait ? '620px' : '400px',
@@ -262,7 +400,7 @@ export default function VideoResultPanel({
               className="btn btn-secondary"
               style={{
                 flex: 1,
-                padding: '6px 12px',
+                padding: '7px 12px',
                 fontSize: '0.76rem',
                 borderRadius: '7px',
                 fontWeight: 700,
@@ -279,12 +417,39 @@ export default function VideoResultPanel({
               <span>{isOpeningFolder ? 'Đang mở...' : 'Mở thư mục'}</span>
             </button>
 
+            <button
+              type="button"
+              className="btn"
+              style={{
+                padding: '7px 14px',
+                fontSize: '0.76rem',
+                borderRadius: '7px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
+                color: '#fff',
+                border: 'none',
+                boxShadow: '0 4px 14px rgba(236, 72, 153, 0.3)',
+                cursor: isCapturingThumbnail ? 'wait' : 'pointer'
+              }}
+              onClick={handleCaptureThumbnail}
+              disabled={isCapturingThumbnail}
+              title="Chụp frame hiện tại làm ảnh bìa Thumbnail cho video và tải về máy"
+            >
+              <span>{isCapturingThumbnail ? '⏳' : '📸'}</span>
+              <span>{isCapturingThumbnail ? 'Đang chụp...' : 'Chụp Thumbnail'}</span>
+            </button>
+
             <a
               href={downloadSrc}
               download
               className="btn btn-secondary"
               style={{
-                padding: '6px 12px',
+                padding: '7px 12px',
                 fontSize: '0.76rem',
                 borderRadius: '7px',
                 fontWeight: 700,
@@ -298,9 +463,89 @@ export default function VideoResultPanel({
               title="Tải video về máy tính"
             >
               <span>⬇️</span>
-              <span>Tải về</span>
+              <span>Tải video</span>
             </a>
           </div>
+
+          {/* Hộp thông báo và xem trước thumbnail vừa chụp */}
+          {capturedThumbnail && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.32)',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+                animation: 'fadeIn 0.2s ease-out'
+              }}
+            >
+              {capturedThumbnail.dataUrl && (
+                <img
+                  src={capturedThumbnail.dataUrl}
+                  alt="Thumbnail Preview"
+                  style={{
+                    width: isPortrait ? '36px' : '64px',
+                    height: isPortrait ? '64px' : '36px',
+                    objectFit: 'cover',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    flexShrink: 0
+                  }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#34d399' }}>
+                  ✅ Đã chụp Thumbnail tại {capturedThumbnail.timeStr}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.65)', marginTop: '2px', wordBreak: 'break-word' }}>
+                  Đã lưu làm bìa video (images/cover.jpg) & tải ảnh về máy.
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                {capturedThumbnail.dataUrl && (
+                  <a
+                    href={capturedThumbnail.dataUrl}
+                    download={`${(result?.title || folderPath || 'video').trim().replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9-]/g, '_')}_thumbnail.jpg`}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.7rem',
+                      borderRadius: '5px',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      color: '#fff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Tải lại file ảnh thumbnail về máy"
+                  >
+                    <span>⬇️</span>
+                    <span>Tải lại</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCapturedThumbnail(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    padding: '2px 4px',
+                    lineHeight: 1
+                  }}
+                  title="Đóng thông báo"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
 
           {openFolderError && (
             <div style={{ fontSize: '0.74rem', color: 'var(--danger)', background: 'rgba(255, 71, 87, 0.08)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(255, 71, 87, 0.2)' }}>
@@ -379,6 +624,7 @@ export default function VideoResultPanel({
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
+              logoVersion={logoVersion}
               onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (

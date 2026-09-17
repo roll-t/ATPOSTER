@@ -1,4 +1,6 @@
 
+import { isBookMoralTheme } from '../../../domain/content/moralThemes.js';
+
 /**
  * Gọi API Gemini để dịch các trường nhập từ tiếng Việt sang tiếng Anh và tối ưu hóa chi tiết prompt.
  */
@@ -19,7 +21,21 @@ export async function translateAndExpandInputs({ category, input, apiKey, genera
   // đúng lúc chọn — 'scenario' vẫn bị viết lại thành "English // Vietnamese diễn giải" như trước
   // (cần cho pipeline sinh ảnh/kịch bản), nhưng như vậy thì không còn cách nào so khớp lại đúng
   // topic gốc để đánh dấu "đã làm ✓". Xem MoralSyllabusModal.js / StickFigureLongFormModal.js.
-  const SKIP_KEYS = ['imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category', 'ageGroup', 'height', 'hairLength', 'hairColor', 'personality', 'level', 'readingSpeed', 'syllabusTopic'];
+  const SKIP_KEYS = [
+    'imageStyle', 'shotType', 'aspectRatio', 'characterIds', 'durationRange', 'category',
+    'ageGroup', 'height', 'hairLength', 'hairColor', 'personality', 'level', 'readingSpeed',
+    'syllabusTopic',
+    // Đây là các KHÓA registry dùng để chọn prompt/voice, không phải nội dung ngôn ngữ. Nếu dịch
+    // `book_psychology` thành "Psychology of books // Tâm lý học sách", getMoralThemeVoice()
+    // không còn nhận ra book_pitch và toàn bộ luật giới thiệu sách + hậu kiểm bị bỏ qua.
+    'moralTheme', 'buddhistTheme', 'historyTheme', 'stickFigureTheme', 'narrationLanguage',
+  ];
+  // Book pitch cần giữ nguyên brief có cấu trúc (TRỌNG TÂM / NGUỒN / CHẤT LIỆU). Nếu đưa scenario
+  // qua lệnh "rich, detailed descriptive prompt", model thường biến nó thành premise kể chuyện và
+  // làm mất lời hứa danh sách trước cả khi prompt viết kịch bản được chạy.
+  if (category === 'moral_talk_slideshow' && isBookMoralTheme(input.moralTheme)) {
+    SKIP_KEYS.push('scenario');
+  }
   const fieldsToTranslate = {};
   for (const [key, val] of Object.entries(input)) {
     if (SKIP_KEYS.includes(key)) continue;

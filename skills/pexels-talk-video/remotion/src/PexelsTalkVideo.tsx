@@ -31,7 +31,7 @@ export const PexelsTalkVideo: React.FC<PexelsTalkVideoProps> = ({
   });
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ backgroundColor: '#000000' }}>
       {/* Lớp nền NỀN TẢNG: playlist chung, chạy suốt cả video. Đoạn nào có nền riêng sẽ vẽ đè lên
           lớp này; giữ nó lại để phần chờ đầu video, phần lặng cuối và các đoạn chưa gán nền riêng
           luôn có hình, không bao giờ lọt ra khung đen. */}

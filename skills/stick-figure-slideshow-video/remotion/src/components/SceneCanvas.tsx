@@ -15,13 +15,13 @@ export const SceneCanvas: React.FC<{
   elements: AssetElementConfig[];
   bgColor?: string;
   baseSizeFraction?: number;
-}> = ({ elements, bgColor = "#FFFFFF", baseSizeFraction = 0.32 }) => {
+}> = ({ elements, bgColor = "#000000", baseSizeFraction = 0.32 }) => {
   const frame = useCurrentFrame();
   const { width, height, fps } = useVideoConfig();
   const baseSize = height * baseSizeFraction;
 
   return (
-    <AbsoluteFill style={{ background: bgColor }}>
+    <AbsoluteFill style={{ background: bgColor || "#000000" }}>
       {[...elements]
         .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
         .map((el, i) => {

@@ -58,8 +58,8 @@ export const ReadingPageVideo: React.FC<ReadingPageVideoProps> = (props) => {
   const restPercent = 100 - heroPercent;
 
   return (
-    <AbsoluteFill>
-      <Background color={bgColor} />
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000" }}>
+      <Background color={bgColor || "#000000"} />
       <Audio src={resolveSrc(audio)} volume={audioVolume} />
       {/* Nhạc nền nhẹ (tuỳ chọn) — lặp xuyên suốt video, cùng đường bao fade-in/out ở đầu/cuối
           như giọng đọc (tái dùng audioVolume) nhưng nhân thêm bgMusicVolume để luôn nhỏ hơn

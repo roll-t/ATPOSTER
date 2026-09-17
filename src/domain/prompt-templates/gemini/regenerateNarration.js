@@ -31,11 +31,11 @@ export function buildRegenerateNarrationPrompt(category, input, segments) {
   const languageAndToneBlock = isMoralTalk
     ? (isVietnamesePrimary
       ? `- The narration (dialogueOrNarration) MUST be written in natural, warm, spoken VIETNAMESE — it will be sent directly to a Vietnamese voice narrator. Use simple, everyday Vietnamese.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate simple-English translation of that same line.
-- On-screen emphasis markup: in the "subtitle" field's PRIMARY (Vietnamese) line only, wrap 1 to 3 short key words/phrases in double asterisks so they render in a highlight color on screen — e.g. "Tôn trọng **ranh giới**, không phải **điều tra gia cảnh**." Never mark the translation line or "dialogueOrNarration". Keep it sparse. (Note the example carries NO "Một."/"Hai." prefix — the counting word belongs to the spoken narration only, never to the on-screen subtitle.)
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the Vietnamese line (single line matching narration, strictly NO "\\n", NO English translation, NO bilingual text).
+- On-screen emphasis markup: in the "subtitle" field, wrap 1 to 3 short key words/phrases in double asterisks so they render in a highlight color on screen — e.g. "Tôn trọng **ranh giới**, không phải **điều tra gia cảnh**." Keep it sparse. (Note the example carries NO "Một."/"Hai." prefix — the counting word belongs to the spoken narration only, never to the on-screen subtitle.)
 - ${buildVietnamesePronunciationNote()}`
       : `- The narration (dialogueOrNarration) MUST be written in simple, natural, spoken ENGLISH (CEFR A2-B1 level) — it will be sent directly to an English voice narrator.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line.`)
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the English line (single line matching narration, strictly NO "\\n", NO Vietnamese translation, NO bilingual text).`)
     : (isVietnamesePrimary
       ? `- The narration (dialogueOrNarration) MUST be written in natural, spoken VIETNAMESE — it will be sent directly to a Vietnamese voice narrator. Short, clear sentences, everyday conversational storytelling language.
 - Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the Vietnamese line (single line matching narration, strictly NO "\\n", NO English translation).
@@ -86,6 +86,7 @@ ${moralVoice === 'book_pitch'
     ? buildBookPitchHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })
     : buildHookGuidance({ isVietnamese: isVietnamesePrimary, topic: input.scenario })}
 - Applied to this rewrite: slide 1's new narration must open with that hook sentence. If the current slide-1 narration warms up before naming the topic, that warm-up is exactly what you must delete — slide 1 keeps its image, but its words start on the subject.
+${moralVoice === 'book_pitch' ? `- BOOK REWRITE VALIDATION: slide 1 dialogue AND subtitle must announce the total number of ways/signs/steps plus the concrete viewer payoff. Slide 2 MUST speak the exact book title AND author while teasing the strongest point. Slide 3 starts "Một.". Never let the listener hear "Một." before they have heard the total count and the book has been introduced, even if the old narration made that mistake. The announced count must equal the actual numbered points in this fixed slide set.` : ''}
 ${styleReferenceBlock}${listCountNote}
 EXISTING SLIDES (in order — write new narration for each, keep the same segmentNumber, same count, same order):
 ${segmentsList}
@@ -93,7 +94,7 @@ ${segmentsList}
 Return the result as a JSON object matching exactly this schema, with EXACTLY ${segments.length} items in "segments", one per slide above, in the same order:
 {
   "segments": [
-    { "segmentNumber": ${segments[0]?.segmentNumber ?? 1}, "dialogueOrNarration": "New full narration line for this slide, in the primary language specified above.", "subtitle": "Bilingual subtitle for this slide following the convention above." }
+    { "segmentNumber": ${segments[0]?.segmentNumber ?? 1}, "dialogueOrNarration": "New full narration line for this slide, in the primary language specified above.", "subtitle": "Single-line subtitle for this slide following the convention above." }
   ]
 }
 `;

@@ -1,4 +1,5 @@
 import { buildRegenerateNarrationPrompt } from '../../../domain/prompt-templates/gemini/regenerateNarration.js';
+import { ensureEarlyBookReveal, isBookPitchInput } from '../../../domain/content/bookPitchOutput.js';
 
 /**
  * Gọi Gemini để viết lại RIÊNG phần lời kể (dialogueOrNarration/subtitle) của các segment đã
@@ -20,5 +21,8 @@ export async function regenerateNarrationScript({ category, input, segments, api
   // Cùng hạng nặng với khâu viết kịch bản (sinh lại lời kể cho TOÀN BỘ slide) nên dùng chung mức
   // hạn giờ rộng — xem lý do ở SCRIPT_REQUEST_TIMEOUT_MS trong generateSegmentedScript.js. Để 90s
   // như cũ thì lượt gọi bị CHÍNH MÌNH bỏ ngang trước khi Gemini kịp trả lời.
-  return generateText(promptText, keys, { tier: 'quality', timeoutMs: 210_000, deadlineMs: 480_000, label: 'Viết lại lời kể' });
+  const result = await generateText(promptText, keys, { tier: 'quality', timeoutMs: 210_000, deadlineMs: 480_000, label: 'Viết lại lời kể' });
+  return category === 'moral_talk_slideshow' && isBookPitchInput(input)
+    ? ensureEarlyBookReveal(result, input.scenario)
+    : result;
 }

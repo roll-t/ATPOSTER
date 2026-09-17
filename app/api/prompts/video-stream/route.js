@@ -28,7 +28,8 @@ export async function GET(request) {
       headers: {
         'Content-Type': 'video/mp4',
         'Content-Length': stat.size.toString(),
-        'Accept-Ranges': 'bytes'
+        'Accept-Ranges': 'bytes',
+        'Access-Control-Allow-Origin': '*'
       }
     });
 

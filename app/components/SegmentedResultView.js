@@ -20,6 +20,7 @@ import VoiceGenerationStep from './SegmentedResultView/VoiceGenerationStep.js';
 import ProductionAssetsSteps from './SegmentedResultView/ProductionAssetsSteps.js';
 import RemotionConfigDetails from './SegmentedResultView/RemotionConfigDetails.js';
 import FullScriptViewer, { renderNarrationWithHighlights } from './SegmentedResultView/FullScriptViewer.js';
+import PublishMetaCard from './SegmentedResultView/PublishMetaCard.js';
 import {
   BG_MUSIC_TRACKS, CUSTOM_BG_MUSIC_ID, DEFAULT_BG_MUSIC_VOLUME_PERCENT, LEGACY_DEFAULT_BG_MUSIC_VOLUME_PERCENT, bgMusicTrackLabel,
   CAPTION_STYLE_DEFAULTS, CAPTION_STYLE_OPTIONS, TRANSITION_STYLE_OPTIONS,
@@ -403,6 +404,13 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Màu pill tô sáng từ đang đọc (chỉ có tác dụng thấy được với kiểu "karaoke"/"page") — trước
   // đây bị hardcode cứng trong Caption.tsx, giờ có thể tuỳ chỉnh qua highlightColor (schema.ts).
   const [renderHighlightColor, setRenderHighlightColor] = useState(initialDefaults.highlightColor || '#FE2C55');
+  const [renderVideoBgColor, setRenderVideoBgColor] = useState(() => {
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_video_bg_color_${result.category}`) || localStorage.getItem('default_video_bg_color'))
+      : null;
+    if (result.remotionConfig?.videoBgColor) return result.remotionConfig.videoBgColor;
+    return savedLocal !== null ? savedLocal : '#000000';
+  });
   const [showCustomCapCut, setShowCustomCapCut] = useState(false);
   const [settings, setSettings] = useState({ voiceMappings: {}, ttsProvider: 'edge', edgeVoiceMappings: {}, vieneuServerUrl: 'http://127.0.0.1:8001', vieneuVoiceMappings: {}, favoriteEdgeVoiceIds: [], favoriteVieneuVoiceIds: [] });
   const [capcutPreviewRatio, setCapcutPreviewRatio] = useState('9:16');
@@ -546,6 +554,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   });
   const [heroImageVersion, setHeroImageVersion] = useState(0); // bump để bust cache ảnh preview sau khi đổi ảnh
   const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
+  const [logoVersion, setLogoVersion] = useState(() => Date.now());
 
   // Nhạc nền nhẹ (tuỳ chọn) — ngoài kho 3 bản nhạc nhẹ của hệ thống, người dùng có thể tự tải
   // file của mình lên. renderBgMusicEnabled chỉ quyết định có DÙNG file đã tải hay không lúc
@@ -914,7 +923,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
     const activeBilingual = rc.bilingual !== undefined
       ? rc.bilingual
-      : (rc.showBilingual !== undefined ? rc.showBilingual : (defaultCfg.bilingual !== undefined ? defaultCfg.bilingual : ((catKey && s?.[`defaultBilingual__${catKey}`] !== undefined) ? s[`defaultBilingual__${catKey}`] : (s?.[settingsKey('defaultBilingual')] !== undefined ? s[settingsKey('defaultBilingual')] : (s?.defaultBilingual !== undefined ? s.defaultBilingual : true)))));
+      : (rc.showBilingual !== undefined ? rc.showBilingual : (defaultCfg.bilingual !== undefined ? defaultCfg.bilingual : ((catKey && s?.[`defaultBilingual__${catKey}`] !== undefined) ? s[`defaultBilingual__${catKey}`] : (s?.[settingsKey('defaultBilingual')] !== undefined ? s[settingsKey('defaultBilingual')] : (s?.defaultBilingual !== undefined ? s.defaultBilingual : false)))));
     setRenderBilingual(activeBilingual);
 
     const activeChannelLogo = rc.channelLogo !== undefined
@@ -1448,29 +1457,93 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [isStartingVieneuServer, setIsStartingVieneuServer] = useState(false);
   const [startVieneuServerMsg, setStartVieneuServerMsg] = useState('');
 
-  const handleStartVieneuServer = async () => {
+  const handleConnectOrStartVieneuServer = async () => {
+    const targetUrl = settings.vieneuServerUrl || 'http://127.0.0.1:8001';
     setIsStartingVieneuServer(true);
-    setStartVieneuServerMsg('');
+    setLoadingVieneuVoices(true);
+    setStartVieneuServerMsg('🔍 Đang kiểm tra kết nối VieNeu-TTS...');
+
+    // 1. Kiểm tra xem server đã hoạt động sẵn chưa
+    let isConnected = false;
     try {
-      const res = await fetch('/api/prompts/start-vieneu-server', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${targetUrl}/voices`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.voices)) {
+          setVieneuVoices(data.voices);
+          setVieneuConnectionStatus('connected');
+          setStartVieneuServerMsg('✓ Đã kết nối thành công tới VieNeu-TTS Server!');
+          isConnected = true;
+        }
+      }
+    } catch (_) {
+      isConnected = false;
+    }
+
+    if (isConnected) {
+      setIsStartingVieneuServer(false);
+      setLoadingVieneuVoices(false);
+      return;
+    }
+
+    // 2. Chưa kết nối được -> Tự động khởi chạy server
+    setVieneuConnectionStatus('error');
+    setStartVieneuServerMsg('🚀 Server chưa bật. Đang tự động khởi chạy và đợi kết nối...');
+    try {
+      const startRes = await fetch('/api/prompts/start-vieneu-server', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serverUrl: settings.vieneuServerUrl || 'http://127.0.0.1:8001' })
+        body: JSON.stringify({ serverUrl: targetUrl })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStartVieneuServerMsg(data.message || '🚀 Đã gửi lệnh khởi chạy VieNeu-TTS Server!');
-        setTimeout(() => {
-          fetchVieneuVoices(settings.vieneuServerUrl);
-        }, 3500);
-      } else {
-        setStartVieneuServerMsg('Lỗi: ' + (data.error || 'Không thể chạy server.'));
+      const startData = await startRes.json();
+      if (!startRes.ok || !startData.success) {
+        setStartVieneuServerMsg('Lỗi khởi chạy: ' + (startData?.error || 'Không thể chạy server.'));
+        setIsStartingVieneuServer(false);
+        setLoadingVieneuVoices(false);
+        return;
       }
     } catch (err) {
-      setStartVieneuServerMsg('Lỗi kết nối máy chủ.');
-    } finally {
+      setStartVieneuServerMsg('Lỗi gửi lệnh khởi chạy server.');
       setIsStartingVieneuServer(false);
+      setLoadingVieneuVoices(false);
+      return;
     }
+
+    // 3. Tự động kiểm tra lại (polling) định kỳ cho đến khi server online
+    const maxRetries = 10;
+    for (let i = 1; i <= maxRetries; i++) {
+      setStartVieneuServerMsg(`⏳ Đang khởi động VieNeu-TTS Server... Đang thử kết nối (${i}/${maxRetries})`);
+      await new Promise(r => setTimeout(r, 2500));
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${targetUrl}/voices`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.voices)) {
+            setVieneuVoices(data.voices);
+            setVieneuConnectionStatus('connected');
+            setStartVieneuServerMsg('✓ Đã khởi chạy và kết nối thành công tới VieNeu-TTS!');
+            isConnected = true;
+            break;
+          }
+        }
+      } catch (_) {
+        // Tiếp tục thử lần kế tiếp
+      }
+    }
+
+    if (!isConnected) {
+      setVieneuConnectionStatus('error');
+      setStartVieneuServerMsg('⚠️ Đã gửi lệnh bật nhưng server chưa kịp phản hồi. Bạn có thể kiểm tra console hoặc mở file start-vieneu-server.bat.');
+    }
+
+    setIsStartingVieneuServer(false);
+    setLoadingVieneuVoices(false);
   };
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [activePreviewState, setActivePreviewState] = useState({ key: '', status: 'idle' }); // 'idle' | 'generating' | 'playing'
@@ -2282,6 +2355,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     logoScale: renderLogoScale,
     imageScale: Number(renderImageScale) / 100,
     imageTranslateY: renderImageTranslateY,
+    videoBgColor: renderVideoBgColor || '#000000',
     showOpeningComment: renderShowOpeningComment,
     openingCommentAuthor: renderOpeningCommentAuthor,
     openingCommentText: renderOpeningCommentText,
@@ -2755,6 +2829,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             [settingsKey('defaultLogoTranslateX')]: renderLogoTranslateX,
             [settingsKey('defaultLogoTranslateY')]: renderLogoTranslateY,
             [settingsKey('defaultLogoScale')]: renderLogoScale,
+            [settingsKey('defaultVideoBgColor')]: renderVideoBgColor,
             [settingsKey('defaultStyleConfig')]: configObj,
             defaultSkillStyles: {
               ...(settings.defaultSkillStyles || {}),
@@ -2788,7 +2863,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             localStorage.setItem(`default_logo_translate_x_${result.category}`, renderLogoTranslateX);
             localStorage.setItem(`default_logo_translate_y_${result.category}`, renderLogoTranslateY);
             localStorage.setItem(`default_logo_scale_${result.category}`, renderLogoScale);
+            localStorage.setItem(`default_video_bg_color_${result.category}`, renderVideoBgColor);
           }
+          localStorage.setItem('default_video_bg_color', renderVideoBgColor);
           localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
           localStorage.setItem('default_caption_margin_y', renderCaptionMarginY);
           localStorage.setItem('default_caption_width', renderCaptionWidth);
@@ -3829,6 +3906,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 );
               })()}
 
+              {/* KHỐI TIÊU ĐỀ, HASHTAG & MÔ TẢ ĐĂNG BÀI (TikTok, YouTube, Reels) */}
+              <PublishMetaCard
+                result={result}
+                onResult={onResult}
+                folderPath={result?.input?.folderPath || (typeof result?.id === 'string' ? result.id : '')}
+                category={result?.category}
+                isLandscape={isLandscape}
+                copiedKey={copiedKey}
+                onCopy={onCopy}
+              />
+
             </div>
           )}
 
@@ -4629,6 +4717,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               assetCounts={assetCounts}
               videoVersion={videoVersion}
               bgMusicVersion={bgMusicVersion}
+              logoVersion={logoVersion}
               isRenderingVideo={isRenderingVideo}
               renderProgress={renderProgress}
               handleOpenVideoFolder={handleOpenVideoFolder}
@@ -4642,6 +4731,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
               onUpdateRenderConfig={(updates) => {
+                if (updates?.channelLogo !== undefined) setRenderChannelLogo(Boolean(updates.channelLogo));
                 if (updates?.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
                 if (updates?.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
                 if (updates?.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
@@ -4715,8 +4805,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 if (updates?.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
                 if (updates?.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
                 if (updates?.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
+                if (updates?.videoBgColor !== undefined) setRenderVideoBgColor(String(updates.videoBgColor));
+                if (updates?.bilingual !== undefined) setRenderBilingual(Boolean(updates.bilingual));
               }}
               assetCounts={assetCounts}
+              renderBilingual={renderBilingual}
+              setRenderBilingual={setRenderBilingual}
               renderCaptionEnabled={renderCaptionEnabled}
               setRenderCaptionEnabled={(val) => {
                 setRenderCaptionEnabled(val);
@@ -4761,8 +4855,12 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               setRenderCaptionWidth={setRenderCaptionWidth}
               renderTransitionStyle={renderTransitionStyle}
               setRenderTransitionStyle={setRenderTransitionStyle}
+              renderVideoBgColor={renderVideoBgColor}
+              setRenderVideoBgColor={setRenderVideoBgColor}
               renderChannelLogo={renderChannelLogo}
               setRenderChannelLogo={setRenderChannelLogo}
+              logoVersion={logoVersion}
+              setLogoVersion={setLogoVersion}
               renderShowOpeningComment={renderShowOpeningComment}
               setRenderShowOpeningComment={setRenderShowOpeningComment}
               renderOpeningCommentAuthor={renderOpeningCommentAuthor}
@@ -4935,52 +5033,45 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                     />
                     <button
                       type="button"
-                      onClick={() => fetchVieneuVoices(settings.vieneuServerUrl)}
-                      disabled={loadingVieneuVoices}
+                      onClick={handleConnectOrStartVieneuServer}
+                      disabled={isStartingVieneuServer || loadingVieneuVoices}
                       style={{
-                        padding: '8px 14px',
-                        background: 'rgba(37, 244, 238, 0.15)',
-                        border: '1px solid rgba(37, 244, 238, 0.3)',
+                        padding: '8px 16px',
+                        background: vieneuConnectionStatus === 'connected'
+                          ? 'rgba(46, 213, 115, 0.16)'
+                          : 'rgba(37, 244, 238, 0.16)',
+                        border: vieneuConnectionStatus === 'connected'
+                          ? '1px solid rgba(46, 213, 115, 0.4)'
+                          : '1px solid rgba(37, 244, 238, 0.4)',
                         borderRadius: '6px',
-                        color: 'var(--secondary)',
+                        color: vieneuConnectionStatus === 'connected' ? '#2ed573' : 'var(--secondary)',
                         fontSize: '0.74rem',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {loadingVieneuVoices ? '⏳ Checking...' : 'Thử kết nối'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleStartVieneuServer}
-                      disabled={isStartingVieneuServer}
-                      style={{
-                        padding: '8px 14px',
-                        background: 'rgba(46, 213, 115, 0.16)',
-                        border: '1px solid rgba(46, 213, 115, 0.35)',
-                        borderRadius: '6px',
-                        color: '#2ed573',
-                        fontSize: '0.74rem',
-                        cursor: isStartingVieneuServer ? 'wait' : 'pointer',
+                        cursor: (isStartingVieneuServer || loadingVieneuVoices) ? 'wait' : 'pointer',
                         fontWeight: 700,
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '6px',
+                        whiteSpace: 'nowrap'
                       }}
                     >
-                      {isStartingVieneuServer ? '⏳ Đang bật...' : '🚀 Khởi chạy Server (start-vieneu-server.bat)'}
+                      {isStartingVieneuServer || loadingVieneuVoices ? (
+                        <>⏳ Đang kết nối / Khởi chạy...</>
+                      ) : vieneuConnectionStatus === 'connected' ? (
+                        <>🟢 Đã kết nối (Kiểm tra lại)</>
+                      ) : (
+                        <>⚡ Kết nối & Khởi chạy Server</>
+                      )}
                     </button>
                   </div>
                 </div>
                 {startVieneuServerMsg && (
-                  <div style={{ fontSize: '0.72rem', color: startVieneuServerMsg.startsWith('Lỗi') ? 'var(--danger)' : '#4ade80', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.72rem', color: startVieneuServerMsg.startsWith('Lỗi') ? 'var(--danger)' : startVieneuServerMsg.startsWith('⚠️') ? '#fbbf24' : '#4ade80', fontWeight: 600 }}>
                     {startVieneuServerMsg}
                   </div>
                 )}
                 <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.45)' }}>
-                  Bấm nút trên hoặc mở thủ công file <code style={{ color: 'var(--secondary)', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>start-vieneu-server.bat</code> tại thư mục dự án để khởi chạy VieNeu-TTS.
+                  Bấm nút trên để tự động kết nối và khởi chạy VieNeu-TTS (hoặc mở thủ công file <code style={{ color: 'var(--secondary)', background: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '4px' }}>start-vieneu-server.bat</code> tại thư mục dự án).
                 </span>
 
                 {/* Nhân bản giọng đọc mới từ 1 file audio mẫu (voice cloning) — VieNeu-TTS hỗ trợ
@@ -7378,6 +7469,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
                       {/* Tùy chọn Switch Phụ đề song ngữ & Nền trong suốt */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div
+                          onClick={() => setRenderBilingual(!renderBilingual)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            background: renderBilingual ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                            border: renderBilingual ? '1px solid rgba(37, 244, 238, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>
+                            🌐 Tiêu đề song ngữ (hiển thị dòng tiếng Anh phụ dưới câu chính)
+                          </span>
+                          <label className="custom-switch" onClick={(e) => e.stopPropagation()} style={{ margin: 0, transform: 'scale(0.85)' }}>
+                            <input
+                              type="checkbox"
+                              checked={renderBilingual}
+                              onChange={(e) => setRenderBilingual(e.target.checked)}
+                            />
+                            <span className="switch-slider" style={{ backgroundColor: renderBilingual ? 'var(--secondary)' : 'rgba(255, 255, 255, 0.1)' }}></span>
+                          </label>
+                        </div>
+
                         <div
                           onClick={() => setRenderCaptionBgTransparent(!renderCaptionBgTransparent)}
                           style={{

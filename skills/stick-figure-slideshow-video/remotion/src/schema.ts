@@ -164,14 +164,8 @@ export const slideshowVideoSchema = z.object({
   // Màu nền cho các slide KHÔNG có ảnh phủ kín (layout "bullets" và "split") — bgColor toàn cục
   // vốn chỉ là màu lót phía sau ảnh nên gần như không bao giờ lộ ra, thường để tối; còn 2 bố cục
   // này phơi nền ra cả khung nên cần màu riêng, mặc định lấy tông giấy trắng khớp phong cách
-  // whiteboard (hình mực đen trên nền trắng).
-  slideBgColor: z.string().default("#F4F4F4"),
-
-  // Màu CHỮ cho 3 bố cục mới ("bullets", "split", "caption-left"). Tách riêng khỏi
-  // captionTextColor một cách có chủ đích: captionTextColor là chữ nằm TRONG khung nền phụ đề
-  // (nên thường để trắng vì khung nền tối), còn 3 bố cục này vẽ chữ TRỰC TIẾP lên nền slide —
-  // dùng chung một giá trị sẽ cho chữ trắng trên nền giấy trắng, mất hút hoàn toàn.
-  slideTextColor: z.string().default("#1A1A1A"),
+  slideBgColor: z.string().default("#000000"),
+  slideTextColor: z.string().default("#FFFFFF"),
 
   captionPosition: z.enum(["top", "bottom", "center"]).default("bottom"),
   imageFit: z.enum(["cover", "contain"]).default("cover"),
@@ -219,9 +213,8 @@ export const slideshowVideoSchema = z.object({
   transitionStyle: z
     .enum(["crossfade", "slide-left", "slide-right", "slide-up", "zoom"])
     .default("crossfade"),
-  // Trắng, khớp nền whiteboard của ảnh skill này — xem giải thích đầy đủ ở render-project.mjs.
-  // Nền chỉ lộ ra khi ảnh thiếu/không phủ kín khung, và lúc đó phải trắng chứ không được đen.
-  bgColor: z.string().default("#FFFFFF"),
+  // Mặc định nền đen #000000 để video render ra luôn có nền đồng nhất, không bị trong suốt trên điện thoại
+  bgColor: z.string().default("#000000"),
   fontFamily: z
     .string()
     .default("'Be Vietnam Pro','Noto Sans',Arial,sans-serif"),

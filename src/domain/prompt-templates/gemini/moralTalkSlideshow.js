@@ -104,10 +104,10 @@ export function buildMoralTalkSlideshowScriptPrompt(input, durationInfo, duratio
 
   const narrationLanguageBlock = isVietnamesePrimary
     ? `- The narration (dialogueOrNarration) MUST be written in natural, warm, spoken VIETNAMESE — this is the primary spoken language of the video (it will be sent directly to a Vietnamese voice narrator). Use simple, everyday Vietnamese, short sentences, a calm and heartfelt storytelling tone — NOT preachy or lecturing.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the Vietnamese line FIRST, then a literal "\\n", then a natural, accurate simple-English translation of that same line (e.g. "Một hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời.\\nA small act of kindness can change an entire life."). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the Vietnamese line (single line matching narration, strictly NO "\\n", NO English translation line, NO bilingual text). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).
 - ${buildVietnamesePronunciationNote()}`
     : `- The narration (dialogueOrNarration) MUST be written in simple, natural, spoken ENGLISH (CEFR A2-B1 level) — this is the primary spoken language of the video (it will be sent directly to an English voice narrator). Short sentences, calm and heartfelt storytelling tone — NOT preachy or lecturing.
-- Subtitle language: for EVERY segment, the "subtitle" field must contain the English line FIRST, then a literal "\\n", then a natural, accurate Vietnamese translation of that same line (e.g. "A small act of kindness can change an entire life.\\nMột hành động tử tế nhỏ bé có thể thay đổi cả một cuộc đời."). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).`;
+- Subtitle language: for EVERY segment, the "subtitle" field must contain ONLY the English line (single line matching narration, strictly NO "\\n", NO Vietnamese translation line, NO bilingual text). IMPORTANT: "subtitle" must NEVER contain a bracketed emotion tag like "[warmly]" — those belong ONLY inside "dialogueOrNarration" (they are voice-engine instructions, not on-screen text).`;
 
   return `
 You are a professional scriptwriter specialized in short "moral lesson / life wisdom" spoken-word videos (the Vietnamese "nói chuyện đạo lý" genre).
@@ -149,8 +149,11 @@ ${pacingGuidance}
 
 USER'S TOPIC / LIFE LESSON:
 "${input.scenario || 'No specific topic given'}"
-Draft story suggestion (if any):
-"${input.script || 'Freely write a natural, heartfelt short story illustrating this life lesson'}"
+${voice === 'book_pitch'
+    ? `SOURCE NOTES (if any — extract useful facts/actions only; NEVER inherit a storytelling structure from these notes):
+"${input.script || 'No extra source notes. Build the practical list from the supplied topic/book material.'}"`
+    : `Draft story suggestion (if any):
+"${input.script || 'Freely write a natural, heartfelt short story illustrating this life lesson'}"`}
 
 NARRATION SCRIPT GUIDELINES:
 1. The script must speak about the stated life lesson/topic, following the VOICE & STYLE REFERENCE above — not a third-person story about someone else, and not an abstract lecture.
@@ -161,6 +164,13 @@ NARRATION SCRIPT GUIDELINES:
    - In the "subtitle" field, keep the primary text EXTREMELY concise and punchy (about 8 to 14 words at most, designed to fit cleanly in at most 2 lines on a mobile phone screen). NEVER write long, wordy paragraphs in "subtitle".
    - Do NOT include numbering prefixes like "Một.", "Hai.", "Ba.", "1.", "2." inside the "subtitle" field — start directly on the core statement (e.g. "Có **mượn** thì phải **trả**, đừng để nhắc.").
    - Wrap 1 to 2 key phrases in double asterisks **...** so they render with a bold gold highlight on screen. Write single-language subtitle in the primary language only (strictly NO translation, NO second language line, NO bilingual text).
+${voice === 'book_pitch' ? `6. BOOK-PITCH OUTPUT CONTRACT (VALIDATE BEFORE RETURNING JSON):
+   - The JSON "title" MUST itself be the counted practical promise, e.g. "3 cách từ chối khéo mà không mất lòng". An abstract title such as "Nghệ thuật từ chối để tự bảo vệ mình" is forbidden because it hides how much value is coming.
+   - Segment 1 dialogueOrNarration MUST state that same total count before any numbered point. Its subtitle must also show the count + promised result; highlighting markup must never hide or replace the number.
+   - Segment 2 MUST explicitly speak the exact book title AND author supplied in the topic, while teasing one valuable point. A segment that only says "the book", "this source", or teases a later point without naming the book is invalid. Segment 3 begins "Một.".
+   - If any "Một." appears before the audience has heard the total count AND the exact book has been introduced, the output is invalid and must be rewritten.
+   - Count the actual point openings ("Một.", "Hai.", "Ba."...). Their total MUST equal the number in the title and segment 1.
+   - Do not output a story title, a pain-only title, or a vague conceptual label such as "Thao túng tâm lý" by itself. Turn the concept into a counted viewer promise: signs, ways, mistakes, steps, or traits.` : ''}
 
 Return the result as a JSON object matching exactly this schema:
 {
