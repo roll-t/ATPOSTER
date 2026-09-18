@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { EDGE_TTS_VOICES, DEFAULT_EDGE_MALE_VOICE, DEFAULT_EDGE_FEMALE_VOICE } from '@/src/infrastructure/tts/edgeVoices.js';
 import { GEMINI_TTS_VOICES, DEFAULT_GEMINI_MALE_VOICE, DEFAULT_GEMINI_FEMALE_VOICE } from '@/src/infrastructure/tts/geminiVoices.js';
@@ -490,7 +490,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (result.remotionConfig?.showOpeningComment !== undefined && result.remotionConfig?.showOpeningComment !== null) {
       return Boolean(result.remotionConfig.showOpeningComment);
     }
-    return true;
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_show_opening_comment_${result.category}`) || localStorage.getItem('default_show_opening_comment'))
+      : null;
+    return savedLocal !== null ? savedLocal === 'true' : true;
   });
   const [renderOpeningCommentAuthor, setRenderOpeningCommentAuthor] = useState(() => {
     return result.remotionConfig?.openingCommentAuthor || 'Trả lời bình luận';
@@ -514,7 +517,10 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     if (result.remotionConfig?.showOpeningNewsBanner !== undefined && result.remotionConfig?.showOpeningNewsBanner !== null) {
       return Boolean(result.remotionConfig.showOpeningNewsBanner);
     }
-    return false;
+    const savedLocal = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_show_opening_news_banner_${result.category}`) || localStorage.getItem('default_show_opening_news_banner'))
+      : null;
+    return savedLocal !== null ? savedLocal === 'true' : false;
   });
   const [renderOpeningNewsHeadline, setRenderOpeningNewsHeadline] = useState(() => {
     return result.remotionConfig?.openingNewsHeadline || result?.title || (result.segments?.[0]?.dialogueOrNarration || result.segments?.[0]?.subtitle || '');
@@ -674,6 +680,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   const [assetCounts, setAssetCounts] = useState({
     imageCount: 0,
     existingImageNumbers: [],
+    existingVideoNumbers: [],
+    mediaTypes: {},
     audioCount: 0,
     videoCreated: false,
     hasBgMusic: false,
@@ -1047,6 +1055,52 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     setRenderContentPaddingPercent(rc.contentPaddingPercent !== undefined ? String(rc.contentPaddingPercent) : (rc.paddingPercent !== undefined ? String(rc.paddingPercent) : (defaultCfg.paddingPercent !== undefined ? String(defaultCfg.paddingPercent) : '10')));
     setRenderBodyAlign(rc.bodyAlign || defaultCfg.bodyAlign || 'left');
     setRenderImageMode(rc.imageMode || defaultCfg.imageMode || 'hero');
+
+    // Opening / Mở đầu cảnh 1
+    const savedLocalShowOpeningComment = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_show_opening_comment_${result?.category}`) || localStorage.getItem('default_show_opening_comment'))
+      : null;
+    const savedLocalShowOpeningNewsBanner = typeof window !== 'undefined'
+      ? (localStorage.getItem(`default_show_opening_news_banner_${result?.category}`) || localStorage.getItem('default_show_opening_news_banner'))
+      : null;
+
+    let activeShowOpeningComment = true;
+    if (rc.showOpeningComment !== undefined && rc.showOpeningComment !== null) {
+      activeShowOpeningComment = Boolean(rc.showOpeningComment);
+    } else if (defaultCfg.showOpeningComment !== undefined && defaultCfg.showOpeningComment !== null) {
+      activeShowOpeningComment = Boolean(defaultCfg.showOpeningComment);
+    } else if (catKey && s?.[`defaultShowOpeningComment__${catKey}`] !== undefined) {
+      activeShowOpeningComment = Boolean(s[`defaultShowOpeningComment__${catKey}`]);
+    } else if (s?.[settingsKey('defaultShowOpeningComment')] !== undefined) {
+      activeShowOpeningComment = Boolean(s[settingsKey('defaultShowOpeningComment')]);
+    } else if (savedLocalShowOpeningComment !== null) {
+      activeShowOpeningComment = savedLocalShowOpeningComment === 'true';
+    }
+    setRenderShowOpeningComment(activeShowOpeningComment);
+
+    let activeShowOpeningNewsBanner = false;
+    if (rc.showOpeningNewsBanner !== undefined && rc.showOpeningNewsBanner !== null) {
+      activeShowOpeningNewsBanner = Boolean(rc.showOpeningNewsBanner);
+    } else if (defaultCfg.showOpeningNewsBanner !== undefined && defaultCfg.showOpeningNewsBanner !== null) {
+      activeShowOpeningNewsBanner = Boolean(defaultCfg.showOpeningNewsBanner);
+    } else if (catKey && s?.[`defaultShowOpeningNewsBanner__${catKey}`] !== undefined) {
+      activeShowOpeningNewsBanner = Boolean(s[`defaultShowOpeningNewsBanner__${catKey}`]);
+    } else if (s?.[settingsKey('defaultShowOpeningNewsBanner')] !== undefined) {
+      activeShowOpeningNewsBanner = Boolean(s[settingsKey('defaultShowOpeningNewsBanner')]);
+    } else if (savedLocalShowOpeningNewsBanner !== null) {
+      activeShowOpeningNewsBanner = savedLocalShowOpeningNewsBanner === 'true';
+    }
+    setRenderShowOpeningNewsBanner(activeShowOpeningNewsBanner);
+
+    if (rc.openingNewsTitleColor || defaultCfg.openingNewsTitleColor) {
+      setRenderOpeningNewsTitleColor(rc.openingNewsTitleColor || defaultCfg.openingNewsTitleColor);
+    }
+    if (rc.openingNewsTitleSize !== undefined || defaultCfg.openingNewsTitleSize !== undefined) {
+      setRenderOpeningNewsTitleSize(Number(rc.openingNewsTitleSize !== undefined ? rc.openingNewsTitleSize : defaultCfg.openingNewsTitleSize));
+    }
+    if (rc.openingNewsHeadlineWidth !== undefined || defaultCfg.openingNewsHeadlineWidth !== undefined) {
+      setRenderOpeningNewsHeadlineWidth(Number(rc.openingNewsHeadlineWidth !== undefined ? rc.openingNewsHeadlineWidth : defaultCfg.openingNewsHeadlineWidth));
+    }
   };
 
   useEffect(() => {
@@ -1407,6 +1461,341 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
 
   const activePreset = userPresets.find(p => isPresetActive(p));
 
+  // ==================== HỆ THỐNG HOÀN TÁC / LÀM LẠI (UNDO / REDO - PHOTOSHOP / CAPCUT STYLE) ====================
+  const historyRef = useRef([]);
+  const historyIndexRef = useRef(-1);
+  const isUndoingRedoingRef = useRef(false);
+  const interactionStartSnapshotRef = useRef(null);
+  const pendingHistoryTimeoutRef = useRef(null);
+
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [historyToast, setHistoryToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showHistoryToast = useCallback((message, icon = '↩') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setHistoryToast({ message, icon, id: Date.now() });
+    toastTimeoutRef.current = setTimeout(() => {
+      setHistoryToast(null);
+    }, 1500);
+  }, []);
+
+  const getEditorSnapshot = useCallback(() => ({
+    captionStyle: renderCaptionStyle,
+    captionEnabled: renderCaptionEnabled,
+    captionTextAlign: renderCaptionTextAlign,
+    captionAnimation: renderCaptionAnimation,
+    captionFont: renderCaptionFont,
+    captionFontSize: renderCaptionFontSize,
+    captionSecondaryFontSize: renderCaptionSecondaryFontSize,
+    captionTextColor: renderCaptionTextColor,
+    captionBgColor: renderCaptionBgColor,
+    captionBgOpacity: renderCaptionBgOpacity,
+    captionBgTransparent: renderCaptionBgTransparent,
+    highlightColor: renderHighlightColor,
+    captionMarginY: renderCaptionMarginY,
+    captionWidth: renderCaptionWidth,
+    transitionStyle: renderTransitionStyle,
+    channelLogo: renderChannelLogo,
+    logoTranslateX: renderLogoTranslateX,
+    logoTranslateY: renderLogoTranslateY,
+    logoScale: renderLogoScale,
+    imageScale: renderImageScale,
+    imageTranslateY: renderImageTranslateY,
+    videoBgColor: renderVideoBgColor,
+    showOpeningComment: renderShowOpeningComment,
+    openingCommentAuthor: renderOpeningCommentAuthor,
+    openingCommentText: renderOpeningCommentText,
+    openingCommentTranslateY: renderOpeningCommentTranslateY,
+    openingCommentScale: renderOpeningCommentScale,
+    showOpeningNewsBanner: renderShowOpeningNewsBanner,
+    openingNewsHeadline: renderOpeningNewsHeadline,
+    openingNewsBrand: renderOpeningNewsBrand,
+    openingNewsLikes: renderOpeningNewsLikes,
+    openingNewsBannerTranslateY: renderOpeningNewsBannerTranslateY,
+    openingNewsBannerScale: renderOpeningNewsBannerScale,
+    openingNewsTitleColor: renderOpeningNewsTitleColor,
+    openingNewsTitleSize: renderOpeningNewsTitleSize,
+    openingNewsHeadlineWidth: renderOpeningNewsHeadlineWidth,
+    bilingual: renderBilingual,
+    bgMusicEnabled: renderBgMusicEnabled,
+    bgMusicVolume: renderBgMusicVolume,
+    heroHeightPercent: renderHeroHeightPercent,
+    titleHeightPercent: renderTitleHeightPercent,
+    bodyHeightPercent: renderBodyHeightPercent,
+    titleFontSize: renderTitleFontSize,
+    titleBodyGap: renderTitleBodyGap,
+    contentPaddingPercent: renderContentPaddingPercent,
+    bodyAlign: renderBodyAlign,
+    imageMode: renderImageMode,
+  }), [
+    renderCaptionStyle, renderCaptionEnabled, renderCaptionTextAlign, renderCaptionAnimation,
+    renderCaptionFont, renderCaptionFontSize, renderCaptionSecondaryFontSize, renderCaptionTextColor,
+    renderCaptionBgColor, renderCaptionBgOpacity, renderCaptionBgTransparent, renderHighlightColor,
+    renderCaptionMarginY, renderCaptionWidth, renderTransitionStyle, renderChannelLogo,
+    renderLogoTranslateX, renderLogoTranslateY, renderLogoScale, renderImageScale, renderImageTranslateY,
+    renderVideoBgColor, renderShowOpeningComment, renderOpeningCommentAuthor, renderOpeningCommentText,
+    renderOpeningCommentTranslateY, renderOpeningCommentScale, renderShowOpeningNewsBanner,
+    renderOpeningNewsHeadline, renderOpeningNewsBrand, renderOpeningNewsLikes,
+    renderOpeningNewsBannerTranslateY, renderOpeningNewsBannerScale, renderOpeningNewsTitleColor,
+    renderOpeningNewsTitleSize, renderOpeningNewsHeadlineWidth, renderBilingual, renderBgMusicEnabled,
+    renderBgMusicVolume, renderHeroHeightPercent, renderTitleHeightPercent, renderBodyHeightPercent,
+    renderTitleFontSize, renderTitleBodyGap, renderContentPaddingPercent, renderBodyAlign, renderImageMode
+  ]);
+
+  const areSnapshotsEqual = (a, b) => {
+    if (!a || !b) return false;
+    const keys = Object.keys(a);
+    for (const k of keys) {
+      if (String(a[k] ?? '') !== String(b[k] ?? '')) return false;
+    }
+    return true;
+  };
+
+  const applyRenderConfigSnapshot = useCallback((c) => {
+    if (!c) return;
+    if (c.captionStyle !== undefined && !isReadingPractice) setRenderCaptionStyle(c.captionStyle);
+    if (c.captionEnabled !== undefined) setRenderCaptionEnabled(Boolean(c.captionEnabled));
+    if (c.captionTextAlign !== undefined) setRenderCaptionTextAlign(c.captionTextAlign);
+    if (c.captionAnimation !== undefined) setRenderCaptionAnimation(c.captionAnimation);
+    if (c.captionFont !== undefined) setRenderCaptionFont(c.captionFont);
+    if (c.captionFontSize !== undefined) setRenderCaptionFontSize(String(c.captionFontSize));
+    if (c.captionSecondaryFontSize !== undefined) setRenderCaptionSecondaryFontSize(String(c.captionSecondaryFontSize));
+    if (c.captionTextColor !== undefined) setRenderCaptionTextColor(c.captionTextColor);
+    if (c.captionBgColor !== undefined) setRenderCaptionBgColor(c.captionBgColor);
+    if (c.captionBgOpacity !== undefined) setRenderCaptionBgOpacity(String(c.captionBgOpacity));
+    if (c.captionBgTransparent !== undefined) setRenderCaptionBgTransparent(Boolean(c.captionBgTransparent));
+    if (c.highlightColor !== undefined) setRenderHighlightColor(c.highlightColor);
+    if (c.captionMarginY !== undefined) setRenderCaptionMarginY(String(c.captionMarginY));
+    if (c.captionWidth !== undefined) setRenderCaptionWidth(String(c.captionWidth));
+    if (c.transitionStyle !== undefined) setRenderTransitionStyle(c.transitionStyle);
+    if (c.channelLogo !== undefined) setRenderChannelLogo(Boolean(c.channelLogo));
+    if (c.logoTranslateX !== undefined) setRenderLogoTranslateX(String(c.logoTranslateX));
+    if (c.logoTranslateY !== undefined) setRenderLogoTranslateY(String(c.logoTranslateY));
+    if (c.logoScale !== undefined) setRenderLogoScale(String(c.logoScale));
+    if (c.imageScale !== undefined) setRenderImageScale(String(c.imageScale));
+    if (c.imageTranslateY !== undefined) setRenderImageTranslateY(String(c.imageTranslateY));
+    if (c.videoBgColor !== undefined) setRenderVideoBgColor(String(c.videoBgColor));
+    if (c.showOpeningComment !== undefined) setRenderShowOpeningComment(Boolean(c.showOpeningComment));
+    if (c.openingCommentAuthor !== undefined) setRenderOpeningCommentAuthor(String(c.openingCommentAuthor));
+    if (c.openingCommentText !== undefined) setRenderOpeningCommentText(String(c.openingCommentText));
+    if (c.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(c.openingCommentTranslateY));
+    if (c.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(c.openingCommentScale));
+    if (c.showOpeningNewsBanner !== undefined) setRenderShowOpeningNewsBanner(Boolean(c.showOpeningNewsBanner));
+    if (c.openingNewsHeadline !== undefined) setRenderOpeningNewsHeadline(String(c.openingNewsHeadline));
+    if (c.openingNewsBrand !== undefined) setRenderOpeningNewsBrand(String(c.openingNewsBrand));
+    if (c.openingNewsLikes !== undefined) setRenderOpeningNewsLikes(String(c.openingNewsLikes));
+    if (c.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(c.openingNewsBannerTranslateY));
+    if (c.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(c.openingNewsBannerScale));
+    if (c.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(c.openingNewsTitleColor));
+    if (c.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(c.openingNewsTitleSize));
+    if (c.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(c.openingNewsHeadlineWidth));
+    if (c.bilingual !== undefined) setRenderBilingual(Boolean(c.bilingual));
+    if (c.bgMusicEnabled !== undefined) setRenderBgMusicEnabled(Boolean(c.bgMusicEnabled));
+    if (c.bgMusicVolume !== undefined) setRenderBgMusicVolume(Number(c.bgMusicVolume));
+    if (c.heroHeightPercent !== undefined) setRenderHeroHeightPercent(String(c.heroHeightPercent));
+    if (c.titleHeightPercent !== undefined) setRenderTitleHeightPercent(String(c.titleHeightPercent));
+    if (c.bodyHeightPercent !== undefined) setRenderBodyHeightPercent(String(c.bodyHeightPercent));
+    if (c.titleFontSize !== undefined) setRenderTitleFontSize(String(c.titleFontSize));
+    if (c.titleBodyGap !== undefined) setRenderTitleBodyGap(String(c.titleBodyGap));
+    if (c.contentPaddingPercent !== undefined) setRenderContentPaddingPercent(String(c.contentPaddingPercent));
+    if (c.bodyAlign !== undefined) setRenderBodyAlign(c.bodyAlign);
+    if (c.imageMode !== undefined) setRenderImageMode(c.imageMode);
+
+    if (result) {
+      if (!result.remotionConfig) result.remotionConfig = {};
+      Object.assign(result.remotionConfig, c);
+    }
+  }, [isReadingPractice, result]);
+
+  const pushSnapshot = useCallback((snapshot) => {
+    if (!snapshot || isUndoingRedoingRef.current) return;
+    const history = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+    const currentSnap = history[currentIndex];
+
+    if (currentSnap && areSnapshotsEqual(currentSnap, snapshot)) {
+      return;
+    }
+
+    const nextHistory = history.slice(0, currentIndex + 1);
+    nextHistory.push(snapshot);
+
+    const MAX_HISTORY = 50;
+    if (nextHistory.length > MAX_HISTORY) {
+      nextHistory.shift();
+    }
+
+    historyRef.current = nextHistory;
+    historyIndexRef.current = nextHistory.length - 1;
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(false);
+  }, []);
+
+  // Khởi tạo snapshot đầu tiên khi mở dự án
+  useEffect(() => {
+    const snap = getEditorSnapshot();
+    historyRef.current = [snap];
+    historyIndexRef.current = 0;
+    setCanUndo(false);
+    setCanRedo(false);
+  }, [result?.id]);
+
+  // Tự động ghi nhận lịch sử với debounce khi có thay đổi từ panel cài đặt
+  useEffect(() => {
+    if (isUndoingRedoingRef.current || interactionStartSnapshotRef.current) return;
+    if (pendingHistoryTimeoutRef.current) clearTimeout(pendingHistoryTimeoutRef.current);
+
+    pendingHistoryTimeoutRef.current = setTimeout(() => {
+      pushSnapshot(getEditorSnapshot());
+      pendingHistoryTimeoutRef.current = null;
+    }, 350);
+
+    return () => {
+      if (pendingHistoryTimeoutRef.current) clearTimeout(pendingHistoryTimeoutRef.current);
+    };
+  }, [getEditorSnapshot, pushSnapshot]);
+
+  // Xử lý khi bắt đầu & kết thúc thao tác kéo thả/thu phóng trong LiveVideoSimulator
+  const handleInteractionStart = useCallback(() => {
+    if (isUndoingRedoingRef.current) return;
+    interactionStartSnapshotRef.current = getEditorSnapshot();
+  }, [getEditorSnapshot]);
+
+  const handleInteractionEnd = useCallback(() => {
+    if (isUndoingRedoingRef.current) return;
+    const currentSnap = getEditorSnapshot();
+    if (interactionStartSnapshotRef.current && !areSnapshotsEqual(interactionStartSnapshotRef.current, currentSnap)) {
+      pushSnapshot(currentSnap);
+    }
+    interactionStartSnapshotRef.current = null;
+  }, [getEditorSnapshot, pushSnapshot]);
+
+  // Hàm Hoàn tác (Undo - Ctrl+Z)
+  const handleUndo = useCallback(() => {
+    if (pendingHistoryTimeoutRef.current) {
+      clearTimeout(pendingHistoryTimeoutRef.current);
+      pendingHistoryTimeoutRef.current = null;
+      const currentSnap = getEditorSnapshot();
+      const history = historyRef.current;
+      const curIdx = historyIndexRef.current;
+      if (!areSnapshotsEqual(history[curIdx], currentSnap)) {
+        history.push(currentSnap);
+        historyIndexRef.current = history.length - 1;
+      }
+    }
+
+    if (historyIndexRef.current <= 0) return;
+
+    const prevIndex = historyIndexRef.current - 1;
+    const targetSnapshot = historyRef.current[prevIndex];
+    if (!targetSnapshot) return;
+
+    isUndoingRedoingRef.current = true;
+    historyIndexRef.current = prevIndex;
+    applyRenderConfigSnapshot(targetSnapshot);
+    setCanUndo(prevIndex > 0);
+    setCanRedo(true);
+    showHistoryToast('Đã hoàn tác', '↩');
+
+    setTimeout(() => {
+      isUndoingRedoingRef.current = false;
+    }, 60);
+  }, [getEditorSnapshot, applyRenderConfigSnapshot, showHistoryToast]);
+
+  // Hàm Làm lại (Redo - Ctrl+Y / Ctrl+Shift+Z)
+  const handleRedo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+
+    const nextIndex = historyIndexRef.current + 1;
+    const targetSnapshot = historyRef.current[nextIndex];
+    if (!targetSnapshot) return;
+
+    isUndoingRedoingRef.current = true;
+    historyIndexRef.current = nextIndex;
+    applyRenderConfigSnapshot(targetSnapshot);
+    setCanUndo(true);
+    setCanRedo(nextIndex < historyRef.current.length - 1);
+    showHistoryToast('Đã làm lại', '↪');
+
+    setTimeout(() => {
+      isUndoingRedoingRef.current = false;
+    }, 60);
+  }, [applyRenderConfigSnapshot, showHistoryToast]);
+
+  // Phím tắt bàn phím toàn cục (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const target = e.target;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'TEXTAREA') return;
+        if (tag === 'INPUT' && !['range', 'checkbox', 'radio', 'button', 'submit'].includes(target.type)) return;
+        if (target.isContentEditable) return;
+      }
+
+      const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (!modifier) return;
+
+      if (e.key === 'z' || e.key === 'Z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      } else if ((e.key === 'y' || e.key === 'Y') && !e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
+  const handleUpdateRenderConfig = useCallback((updates) => {
+    if (!updates || typeof updates !== 'object') return;
+    if (updates.channelLogo !== undefined) setRenderChannelLogo(Boolean(updates.channelLogo));
+    if (updates.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
+    if (updates.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
+    if (updates.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
+    if (updates.imageScale !== undefined) setRenderImageScale(String(Math.round(updates.imageScale * 100)));
+    if (updates.imageTranslateY !== undefined) setRenderImageTranslateY(String(Math.round(updates.imageTranslateY)));
+    if (updates.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
+    if (updates.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
+    if (updates.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
+    if (updates.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(Math.round(updates.openingCommentTranslateY)));
+    if (updates.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
+    if (updates.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
+    if (updates.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
+    if (updates.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
+    if (updates.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
+    if (updates.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
+    if (updates.videoBgColor !== undefined) setRenderVideoBgColor(String(updates.videoBgColor));
+    if (updates.bilingual !== undefined) setRenderBilingual(Boolean(updates.bilingual));
+    if (updates.captionTextColor !== undefined) setRenderCaptionTextColor(String(updates.captionTextColor));
+    if (updates.textColor !== undefined) setRenderCaptionTextColor(String(updates.textColor));
+    if (updates.showOpeningComment !== undefined) {
+      setRenderShowOpeningComment(Boolean(updates.showOpeningComment));
+      if (result) {
+        if (!result.remotionConfig) result.remotionConfig = {};
+        result.remotionConfig.showOpeningComment = Boolean(updates.showOpeningComment);
+      }
+    }
+    if (updates.showOpeningNewsBanner !== undefined) {
+      setRenderShowOpeningNewsBanner(Boolean(updates.showOpeningNewsBanner));
+      if (result) {
+        if (!result.remotionConfig) result.remotionConfig = {};
+        result.remotionConfig.showOpeningNewsBanner = Boolean(updates.showOpeningNewsBanner);
+      }
+    }
+  }, [result]);
+
   // Hàm chọn kiểu phụ đề — Tự động cập nhật toàn bộ thông số mặc định của type đó vào form tùy chỉnh
   const handleSelectCaptionStyle = (styleType) => {
     setRenderCaptionStyle(styleType);
@@ -1640,6 +2029,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         setAssetCounts({
           imageCount: data.imageCount,
           existingImageNumbers: data.existingImageNumbers || [],
+          existingVideoNumbers: data.existingVideoNumbers || [],
+          mediaTypes: data.mediaTypes || {},
           audioCount: data.audioCount,
           videoCreated: data.videoCreated,
           hasBgMusic: data.hasBgMusic || false,
@@ -2339,6 +2730,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     captionFontSize: renderCaptionFontSize,
     captionSecondaryFontSize: renderCaptionSecondaryFontSize,
     captionTextColor: renderCaptionTextColor,
+    textColor: renderCaptionTextColor,
     captionBgColor: renderCaptionBgTransparent ? 'transparent' : renderCaptionBgColor,
     captionBgOpacity: renderCaptionBgOpacity,
     captionBgTransparent: renderCaptionBgTransparent,
@@ -2830,6 +3222,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             [settingsKey('defaultLogoTranslateY')]: renderLogoTranslateY,
             [settingsKey('defaultLogoScale')]: renderLogoScale,
             [settingsKey('defaultVideoBgColor')]: renderVideoBgColor,
+            [settingsKey('defaultShowOpeningComment')]: renderShowOpeningComment,
+            [settingsKey('defaultShowOpeningNewsBanner')]: renderShowOpeningNewsBanner,
+            [settingsKey('defaultOpeningNewsTitleColor')]: renderOpeningNewsTitleColor,
+            [settingsKey('defaultOpeningNewsTitleSize')]: renderOpeningNewsTitleSize,
+            [settingsKey('defaultOpeningNewsHeadlineWidth')]: renderOpeningNewsHeadlineWidth,
             [settingsKey('defaultStyleConfig')]: configObj,
             defaultSkillStyles: {
               ...(settings.defaultSkillStyles || {}),
@@ -2864,6 +3261,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             localStorage.setItem(`default_logo_translate_y_${result.category}`, renderLogoTranslateY);
             localStorage.setItem(`default_logo_scale_${result.category}`, renderLogoScale);
             localStorage.setItem(`default_video_bg_color_${result.category}`, renderVideoBgColor);
+            localStorage.setItem(`default_show_opening_comment_${result.category}`, String(renderShowOpeningComment));
+            localStorage.setItem(`default_show_opening_news_banner_${result.category}`, String(renderShowOpeningNewsBanner));
+            localStorage.setItem(`default_opening_news_title_color_${result.category}`, renderOpeningNewsTitleColor);
+            localStorage.setItem(`default_opening_news_title_size_${result.category}`, String(renderOpeningNewsTitleSize));
+            localStorage.setItem(`default_opening_news_headline_width_${result.category}`, String(renderOpeningNewsHeadlineWidth));
           }
           localStorage.setItem('default_video_bg_color', renderVideoBgColor);
           localStorage.setItem('default_caption_font_size', renderCaptionFontSize);
@@ -2872,6 +3274,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           localStorage.setItem('default_image_scale', renderImageScale);
           localStorage.setItem('default_image_translate_y', renderImageTranslateY);
           localStorage.setItem('default_bg_music_volume', renderBgMusicVolume);
+          localStorage.setItem('default_show_opening_comment', String(renderShowOpeningComment));
+          localStorage.setItem('default_show_opening_news_banner', String(renderShowOpeningNewsBanner));
         }
         await fetchSettings();
         setSaveStyleMsg('✓ Đã lưu style và đặt làm mặc định cho skill này!');
@@ -4730,24 +5134,14 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               onResult={onResult}
               resyncVoiceForSegments={resyncVoiceForSegments}
               checkAssets={checkAssets}
-              onUpdateRenderConfig={(updates) => {
-                if (updates?.channelLogo !== undefined) setRenderChannelLogo(Boolean(updates.channelLogo));
-                if (updates?.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
-                if (updates?.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
-                if (updates?.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
-                if (updates?.imageScale !== undefined) setRenderImageScale(String(Math.round(updates.imageScale * 100)));
-                if (updates?.imageTranslateY !== undefined) setRenderImageTranslateY(String(Math.round(updates.imageTranslateY)));
-                if (updates?.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
-                if (updates?.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
-                if (updates?.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
-                if (updates?.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(Math.round(updates.openingCommentTranslateY)));
-                if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
-                if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
-                if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
-                if (updates?.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
-                if (updates?.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
-                if (updates?.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
-              }}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onInteractionStart={handleInteractionStart}
+              onInteractionEnd={handleInteractionEnd}
+              historyToast={historyToast}
+              onUpdateRenderConfig={handleUpdateRenderConfig}
             />
           </div>
         )}
@@ -4789,25 +5183,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               setRenderOpeningNewsBannerTranslateY={setRenderOpeningNewsBannerTranslateY}
               renderOpeningNewsBannerScale={renderOpeningNewsBannerScale}
               setRenderOpeningNewsBannerScale={setRenderOpeningNewsBannerScale}
-              onUpdateRenderConfig={(updates) => {
-                if (updates?.captionMarginY !== undefined) setRenderCaptionMarginY(String(updates.captionMarginY));
-                if (updates?.captionWidth !== undefined) setRenderCaptionWidth(String(updates.captionWidth));
-                if (updates?.captionFontSize !== undefined) setRenderCaptionFontSize(String(updates.captionFontSize));
-                if (updates?.imageScale !== undefined) setRenderImageScale(String(Math.round(updates.imageScale * 100)));
-                if (updates?.imageTranslateY !== undefined) setRenderImageTranslateY(String(Math.round(updates.imageTranslateY)));
-                if (updates?.logoTranslateX !== undefined) setRenderLogoTranslateX(String(Math.round(updates.logoTranslateX)));
-                if (updates?.logoTranslateY !== undefined) setRenderLogoTranslateY(String(Math.round(updates.logoTranslateY)));
-                if (updates?.logoScale !== undefined) setRenderLogoScale(String(Number(updates.logoScale.toFixed(2))));
-                if (updates?.openingCommentTranslateY !== undefined) setRenderOpeningCommentTranslateY(String(Math.round(updates.openingCommentTranslateY)));
-                if (updates?.openingCommentScale !== undefined) setRenderOpeningCommentScale(String(Number(updates.openingCommentScale.toFixed(2))));
-                if (updates?.openingNewsBannerTranslateY !== undefined) setRenderOpeningNewsBannerTranslateY(String(Math.round(updates.openingNewsBannerTranslateY)));
-                if (updates?.openingNewsBannerScale !== undefined) setRenderOpeningNewsBannerScale(String(Number(updates.openingNewsBannerScale.toFixed(2))));
-                if (updates?.openingNewsHeadlineWidth !== undefined) setRenderOpeningNewsHeadlineWidth(Number(updates.openingNewsHeadlineWidth));
-                if (updates?.openingNewsTitleSize !== undefined) setRenderOpeningNewsTitleSize(Number(updates.openingNewsTitleSize));
-                if (updates?.openingNewsTitleColor !== undefined) setRenderOpeningNewsTitleColor(String(updates.openingNewsTitleColor));
-                if (updates?.videoBgColor !== undefined) setRenderVideoBgColor(String(updates.videoBgColor));
-                if (updates?.bilingual !== undefined) setRenderBilingual(Boolean(updates.bilingual));
-              }}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onUpdateRenderConfig={handleUpdateRenderConfig}
               assetCounts={assetCounts}
               renderBilingual={renderBilingual}
               setRenderBilingual={setRenderBilingual}

@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, Video, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame } from "remotion";
 import { resolveSrc } from "../utils";
 import type { KenBurnsDirection } from "../types";
 
@@ -46,11 +46,15 @@ export const SceneImage: React.FC<{
 }) => {
   const frame = useCurrentFrame();
   const progress = durationInFrames > 1 ? frame / (durationInFrames - 1) : 0;
+  const isVideo = src.toLowerCase().endsWith(".mp4") || src.toLowerCase().endsWith(".webm");
 
   let scale = 1;
   let translateX = 0;
 
-  switch (kenBurns) {
+  // Video vốn đã có chuyển động tự nhiên (camera/người di chuyển); tắt Ken Burns nhân tạo để tránh xung đột giật hình
+  const effectiveKenBurns: KenBurnsDirection = isVideo ? "none" : kenBurns;
+
+  switch (effectiveKenBurns) {
     case "in":
       scale = interpolate(progress, [0, 1], [1, 1.12]);
       break;
@@ -72,7 +76,6 @@ export const SceneImage: React.FC<{
   }
 
   const offsetScale = topOffsetPercent > 0 ? 1 + (topOffsetPercent / 100) * 2 : 1;
-  const isVideo = src.toLowerCase().endsWith(".mp4") || src.toLowerCase().endsWith(".webm");
 
   // Phép biến đổi được nâng lên LỚP BỌC thay vì đặt trên chính thẻ ảnh/video. Nhờ vậy ô che góc
   // nằm cùng một hệ toạ độ với ảnh và tự động đi theo mọi chuyển động Ken Burns (phóng to, lia
@@ -94,7 +97,7 @@ export const SceneImage: React.FC<{
         }}
       >
         {isVideo ? (
-          <Video src={resolveSrc(src)} style={mediaStyle} startFrom={0} muted loop />
+          <OffthreadVideo src={resolveSrc(src)} style={mediaStyle} startFrom={0} muted />
         ) : (
           <Img src={resolveSrc(src)} style={mediaStyle} />
         )}

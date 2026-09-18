@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import ColorPickerPopover from './ColorPickerPopover';
+import PexelsMediaPickerModal from './PexelsMediaPickerModal';
 import { showToast } from '../Toast.js';
 
 function hexToRgba(hex, alpha = 0.2) {
@@ -670,6 +671,10 @@ export default function VideoEditorPanel({
   setRenderOpeningNewsBannerTranslateY,
   renderOpeningNewsBannerScale = '1',
   setRenderOpeningNewsBannerScale,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
   assetCounts = {},
   renderCaptionEnabled = true,
   setRenderCaptionEnabled,
@@ -736,7 +741,7 @@ export default function VideoEditorPanel({
     if (selectedElement === 'caption') return 'caption';
     if (selectedElement === 'image') return 'image';
     if (selectedElement === 'logo') return 'logo';
-    if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline') return 'opening';
+    if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline' || selectedElement === 'news_tag') return 'opening';
     return 'caption';
   });
 
@@ -748,7 +753,7 @@ export default function VideoEditorPanel({
       setCurrentTab('image');
     } else if (selectedElement === 'logo') {
       setCurrentTab('logo');
-    } else if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline') {
+    } else if (selectedElement === 'comment' || selectedElement === 'news_banner' || selectedElement === 'news_headline' || selectedElement === 'news_tag') {
       setCurrentTab('opening');
     }
   }, [selectedElement]);
@@ -764,8 +769,10 @@ export default function VideoEditorPanel({
     } else if (tabId === 'opening') {
       if (renderShowOpeningNewsBanner) {
         onSelectedElementChange?.('news_headline');
-      } else {
+      } else if (renderShowOpeningComment) {
         onSelectedElementChange?.('comment');
+      } else {
+        onSelectedElementChange?.('none');
       }
     } else {
       onSelectedElementChange?.('none');
@@ -847,28 +854,52 @@ export default function VideoEditorPanel({
     }
   };
 
+  const getSceneDefaultPrompt = (seg) => {
+    return seg?.visualDescription || seg?.textPrompt || seg?.prompt || seg?.imagePrompt || seg?.dialogueOrNarration || seg?.subtitle || '';
+  };
+
   // Form chỉnh sửa cảnh hiện tại
   const [currentSubtitleDraft, setCurrentSubtitleDraft] = useState(currentSegment?.subtitle || '');
   const [currentNarrationDraft, setCurrentNarrationDraft] = useState(currentSegment?.dialogueOrNarration || '');
-  const [currentVisualPromptDraft, setCurrentVisualPromptDraft] = useState(currentSegment?.visualDescription || '');
+  const [scenePromptDrafts, setScenePromptDrafts] = useState({});
+  const [currentVisualPromptDraft, setCurrentVisualPromptDraft] = useState(() => {
+    return currentSegment?.visualDescription || currentSegment?.textPrompt || currentSegment?.prompt || currentSegment?.imagePrompt || currentSegment?.dialogueOrNarration || currentSegment?.subtitle || '';
+  });
   const [isSavingScene, setIsSavingScene] = useState(false);
   const [sceneSaveMsg, setSceneSaveMsg] = useState('');
   const [isSavingVisualPrompt, setIsSavingVisualPrompt] = useState(false);
   const [visualPromptSaveMsg, setVisualPromptSaveMsg] = useState('');
   const [isPlayingSceneAudio, setIsPlayingSceneAudio] = useState(false);
   const [isResyncingVoice, setIsResyncingVoice] = useState(false);
+  const [expandedSceneIndex, setExpandedSceneIndex] = useState(null);
 
-  // Upload ảnh mới trực tiếp cho cảnh
+  const getScenePrompt = (seg, idx) => {
+    if (scenePromptDrafts[idx] !== undefined) {
+      return scenePromptDrafts[idx];
+    }
+    if (idx === activeSceneIndex && currentVisualPromptDraft) {
+      return currentVisualPromptDraft;
+    }
+    return getSceneDefaultPrompt(seg);
+  };
+
+  // Upload ảnh/video mới trực tiếp cho cảnh
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadMsg, setImageUploadMsg] = useState('');
   const [imageVersion, setImageVersion] = useState(0);
+  const [uploadTargetSceneIndex, setUploadTargetSceneIndex] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Modal Pexels Picker
+  const [pexelsPickerOpen, setPexelsPickerOpen] = useState(false);
+  const [pexelsTargetSceneIndex, setPexelsTargetSceneIndex] = useState(null);
 
   // Đồng bộ form khi đổi cảnh
   useEffect(() => {
     setCurrentSubtitleDraft(currentSegment?.subtitle || '');
     setCurrentNarrationDraft(currentSegment?.dialogueOrNarration || '');
-    setCurrentVisualPromptDraft(currentSegment?.visualDescription || '');
+    const defaultPrompt = getSceneDefaultPrompt(currentSegment);
+    setCurrentVisualPromptDraft(scenePromptDrafts[activeSceneIndex] !== undefined ? scenePromptDrafts[activeSceneIndex] : defaultPrompt);
     setSceneSaveMsg('');
     setVisualPromptSaveMsg('');
     setImageUploadMsg('');
@@ -886,9 +917,18 @@ export default function VideoEditorPanel({
     return true;
   };
 
+  const isSceneVideo = (sceneNum, seg) => {
+    if (seg?.mediaType === 'video') return true;
+    if (assetCounts?.mediaTypes?.[sceneNum] === 'video') return true;
+    if (Array.isArray(assetCounts?.existingVideoNumbers) && assetCounts.existingVideoNumbers.includes(sceneNum)) return true;
+    return false;
+  };
+
   const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}`;
+  const isCurrentVideo = isSceneVideo(currentSceneNumber, currentSegment);
+  const currentMediaFile = isCurrentVideo ? `images/scene-${currentPaddedNum}.mp4` : `images/scene-${currentPaddedNum}.jpg`;
   const currentImgSrc = hasSceneImage(currentSceneNumber)
-    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${activeSceneIndex}-${imageVersion}`
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${currentMediaFile}&category=${encodeURIComponent(category)}&v=${activeSceneIndex}-${imageVersion}`
     : null;
 
   const handlePlaySceneAudio = () => {
@@ -953,11 +993,13 @@ export default function VideoEditorPanel({
     }
   };
 
-  const handleSaveVisualPrompt = async () => {
+  const handleSaveVisualPrompt = async (targetIdx = activeSceneIndex) => {
     if (!result?.id) return;
     setIsSavingVisualPrompt(true);
     setVisualPromptSaveMsg('');
-    const segNum = currentSegment.segmentNumber || activeSceneIndex + 1;
+    const seg = segments[targetIdx] || currentSegment;
+    const segNum = seg?.segmentNumber || targetIdx + 1;
+    const promptValue = getScenePrompt(seg, targetIdx)?.trim() || '';
 
     try {
       const res = await fetch('/api/prompts/update-segments', {
@@ -970,20 +1012,26 @@ export default function VideoEditorPanel({
           segments: [
             {
               segmentNumber: segNum,
-              visualDescription: currentVisualPromptDraft.trim()
+              visualDescription: promptValue,
+              textPrompt: promptValue
             }
           ]
         })
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && data.success && Array.isArray(data.segments)) {
+        const mergedSegs = data.segments.length >= (segments.length || 0)
+          ? data.segments
+          : segments.map((s) => (s.segmentNumber === segNum ? { ...s, visualDescription: promptValue, textPrompt: promptValue } : s));
         onResult?.({
           ...result,
-          segments: data.segments,
+          segments: mergedSegs,
           remotionConfig: data.remotionConfig ?? result.remotionConfig
         });
         onHistoryRefresh?.();
-        setVisualPromptSaveMsg('✓ Đã lưu mô tả ảnh!');
+        setVisualPromptSaveMsg(`✓ Đã lưu mô tả ảnh Cảnh ${segNum}!`);
+        showToast?.success?.(`✓ Đã lưu prompt Cảnh ${segNum}!`);
+        setTimeout(() => setVisualPromptSaveMsg(''), 4000);
       } else {
         setVisualPromptSaveMsg(`Lỗi: ${data.error || 'Không thể lưu'}`);
       }
@@ -994,17 +1042,32 @@ export default function VideoEditorPanel({
     }
   };
 
+  const handleTriggerUploadImage = (targetIdx) => {
+    setUploadTargetSceneIndex(targetIdx);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
   const handleImageFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const targetIdx = uploadTargetSceneIndex !== null ? uploadTargetSceneIndex : activeSceneIndex;
+    const targetSeg = segments[targetIdx] || currentSegment;
+    const padNum = String(targetSeg?.segmentNumber || targetIdx + 1).padStart(2, '0');
+
     setIsUploadingImage(true);
-    setImageUploadMsg('⏳ Đang lưu ảnh...');
+    const isVid = file.type?.startsWith('video/') || file.name?.endsWith('.mp4') || file.name?.endsWith('.webm');
+    const targetExt = isVid ? (file.name?.endsWith('.webm') ? 'webm' : 'mp4') : 'jpg';
+    const targetFilename = `images/scene-${padNum}.${targetExt}`;
+
+    setImageUploadMsg(`⏳ Đang lưu ${isVid ? 'video' : 'ảnh'} Cảnh ${targetIdx + 1}...`);
     try {
       const reader = new FileReader();
       reader.onload = async () => {
         try {
           const dataUrl = reader.result;
-          const targetFilename = `images/scene-${currentPaddedNum}.jpg`;
           const res = await fetch('/api/prompts/save-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1017,1305 +1080,1998 @@ export default function VideoEditorPanel({
           });
           const json = await res.json();
           if (res.ok && json.success) {
-            setImageUploadMsg(`✓ Đã thay ảnh Cảnh ${activeSceneIndex + 1} thành công!`);
+            const successMsg = `✓ Đã cập nhật ${isVid ? 'video' : 'ảnh'} Cảnh ${targetIdx + 1} thành công!`;
+            setImageUploadMsg(successMsg);
+            showToast?.success?.(successMsg);
             setImageVersion(Date.now());
             if (checkAssets) checkAssets();
             onHistoryRefresh?.();
+            const updated = segments.map((s, i) => i === targetIdx ? { ...s, mediaType: isVid ? 'video' : 'image', mediaFile: targetFilename } : s);
+            onResult?.({
+              ...result,
+              segments: updated
+            });
+            setTimeout(() => setImageUploadMsg(''), 4000);
           } else {
-            setImageUploadMsg(`Lỗi: ${json.error || 'Không thể lưu ảnh'}`);
+            const err = `Lỗi: ${json.error || 'Không thể lưu media'}`;
+            setImageUploadMsg(err);
+            showToast?.error?.(err);
           }
         } catch {
-          setImageUploadMsg('Lỗi khi tải ảnh lên server');
+          const err = 'Lỗi khi tải file lên server';
+          setImageUploadMsg(err);
+          showToast?.error?.(err);
         } finally {
           setIsUploadingImage(false);
+          setUploadTargetSceneIndex(null);
         }
       };
       reader.readAsDataURL(file);
     } catch {
-      setImageUploadMsg('Lỗi đọc file từ máy tính');
+      const err = 'Lỗi đọc file từ máy tính';
+      setImageUploadMsg(err);
+      showToast?.error?.(err);
       setIsUploadingImage(false);
+      setUploadTargetSceneIndex(null);
+    }
+  };
+
+  const handleOpenPexelsForScene = (targetIdx) => {
+    setPexelsTargetSceneIndex(targetIdx);
+    setPexelsPickerOpen(true);
+  };
+
+  const handlePexelsApplied = ({ sceneNumber, mediaType, filename }) => {
+    setImageVersion(Date.now());
+    if (checkAssets) checkAssets();
+    onHistoryRefresh?.();
+    const updated = segments.map(s => {
+      if (Number(s.segmentNumber) === Number(sceneNumber)) {
+        return { ...s, mediaType, mediaFile: filename };
+      }
+      return s;
+    });
+    onResult?.({
+      ...result,
+      segments: updated
+    });
+  };
+
+  const handleGenerateFlowForScene = (targetIdx) => {
+    const targetSeg = segments[targetIdx] || currentSegment;
+    const promptText = getScenePrompt(targetSeg, targetIdx)?.trim();
+
+    if (!promptText) {
+      showToast?.error?.('Vui lòng nhập prompt mô tả hình ảnh trước khi tạo!');
+      return;
+    }
+
+    const segNum = targetSeg?.segmentNumber || targetIdx + 1;
+
+    // Tự động lưu prompt mới vào segments database để không bị mất khi reload
+    if (result?.id) {
+      fetch('/api/prompts/update-segments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: result.id,
+          folderPath: result.input?.folderPath || '',
+          category: result.category,
+          segments: [
+            {
+              segmentNumber: segNum,
+              visualDescription: promptText,
+              textPrompt: promptText
+            }
+          ]
+        })
+      }).then(res => res.json()).then(data => {
+        if (data?.success && Array.isArray(data.segments)) {
+          const mergedSegs = data.segments.length >= (segments.length || 0)
+            ? data.segments
+            : segments.map((s) => (s.segmentNumber === segNum ? { ...s, visualDescription: promptText, textPrompt: promptText } : s));
+          onResult?.({
+            ...result,
+            segments: mergedSegs,
+            remotionConfig: data.remotionConfig ?? result.remotionConfig
+          });
+          onHistoryRefresh?.();
+        }
+      }).catch(() => { });
+    }
+
+    const singleSegment = {
+      ...targetSeg,
+      segmentNumber: segNum,
+      visualDescription: promptText,
+      textPrompt: promptText
+    };
+
+    window.postMessage({
+      type: 'START_FLOW_GENERATION',
+      segments: [singleSegment],
+      title: result?.title || 'Single Scene Flow',
+      isImage: true,
+      folderPath: result?.input?.folderPath || 'example',
+      imageExt: result?.input?.imageExt || 'jpg',
+      category: result?.category || '',
+      aspectRatio: result?.input?.aspectRatio || '9:16',
+      orientation: 'portrait'
+    }, '*');
+
+    // Tự động copy prompt hiện tại trong input vào clipboard
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(promptText).catch(() => { });
+    }
+
+    const notifyMsg = `🚀 Đã gửi Cảnh ${segNum} sang Google Flow với prompt hiện tại!`;
+    showToast?.success?.(notifyMsg);
+    setImageUploadMsg(notifyMsg);
+    setTimeout(() => setImageUploadMsg(''), 6000);
+  };
+
+  const handleCopyPrompt = (targetIdx) => {
+    const targetSeg = segments[targetIdx] || currentSegment;
+    const promptText = getScenePrompt(targetSeg, targetIdx)?.trim();
+
+    if (!promptText) {
+      showToast?.error?.('Chưa có prompt để copy!');
+      return;
+    }
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(promptText);
+      showToast?.success?.(`📋 Đã copy Prompt Cảnh ${targetIdx + 1}!`);
     }
   };
 
   return (
-    <div
-      data-video-editor-panel="true"
-      className="video-editor-panel capcut-panel"
-      style={{
-        padding: '10px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        height: '100%',
-        maxHeight: '100%',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-        background: '#181818',
-        borderLeft: '1px solid #282828',
-        color: '#e0e0e0',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}
-    >
-      {/* THANH TAB TRÊN CÙNG: CHUẨN CAPCUT DESKTOP */}
       <div
+        data-video-editor-panel="true"
+        className="video-editor-panel capcut-panel"
         style={{
+          padding: '10px 12px',
           display: 'flex',
-          alignItems: 'center',
-          gap: '2px',
-          borderBottom: '1px solid #282828',
-          paddingBottom: '2px',
-          flexShrink: 0,
-          overflowX: 'auto',
-          scrollbarWidth: 'none'
+          flexDirection: 'column',
+          gap: '8px',
+          height: '100%',
+          maxHeight: '100%',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
+          background: '#181818',
+          borderLeft: '1px solid #282828',
+          color: '#e0e0e0',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
         }}
       >
-        {[
-          { id: 'caption', label: 'Văn bản' },
-          { id: 'image', label: 'Hình ảnh' },
-          { id: 'animation', label: 'Animation' },
-          { id: 'logo', label: 'Logo' },
-          { id: 'opening', label: 'Mở đầu' },
-          { id: 'scenes', label: `Cảnh (${totalScenes})` },
-          { id: 'style', label: 'Cài đặt' }
-        ].map((tab) => {
-          const isActive = currentTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleSelectTab(tab.id)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActive ? '2px solid #00e5ff' : '2px solid transparent',
-                padding: '6px 10px 8px 10px',
-                fontSize: '0.8rem',
-                fontWeight: isActive ? 700 : 500,
-                color: isActive ? '#00e5ff' : '#888888',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'color 0.15s ease, border-color 0.15s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.color = '#ffffff';
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.color = '#888888';
-              }}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+        {/* Hidden file input for uploading/replacing scene image */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageFileChange}
+        />
+        {/* THANH TAB TRÊN CÙNG: CHUẨN CAPCUT DESKTOP */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            borderBottom: '1px solid #282828',
+            paddingBottom: '2px',
+            flexShrink: 0,
+            overflowX: 'auto',
+            scrollbarWidth: 'none'
+          }}
+        >
+          {[
+            { id: 'caption', label: 'Phụ đề' },
+            { id: 'image', label: 'Hình ảnh' },
+            { id: 'animation', label: 'Animation' },
+            { id: 'logo', label: 'Logo' },
+            { id: 'opening', label: 'Mở đầu' },
+            { id: 'scenes', label: `Cảnh (${totalScenes})` },
+            { id: 'style', label: 'Cài đặt chung' }
+          ].map((tab) => {
+            const isActive = currentTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleSelectTab(tab.id)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: isActive ? '2px solid #00e5ff' : '2px solid transparent',
+                  padding: '6px 10px 8px 10px',
+                  fontSize: '0.8rem',
+                  fontWeight: isActive ? 700 : 500,
+                  color: isActive ? '#00e5ff' : '#888888',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'color 0.15s ease, border-color 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = '#888888';
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* ========================================================
+        {/* ========================================================
           1. TAB VĂN BẢN (TYPOGRAPHY & SUBTITLE STYLES)
           ======================================================== */}
-      {currentTab === 'caption' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Section: Định dạng chữ & Typography */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Định dạng chữ (Typography)"
-              checked={renderCaptionEnabled}
-              onCheckChange={(v) => setRenderCaptionEnabled && setRenderCaptionEnabled(v)}
-              onReset={() => {
-                setRenderCaptionFontSize && setRenderCaptionFontSize('50');
-                setRenderCaptionTextAlign && setRenderCaptionTextAlign('center');
-                onUpdateRenderConfig?.({ captionFontSize: 50, captionTextAlign: 'center' });
-              }}
-            />
+        {currentTab === 'caption' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Section: Định dạng chữ & Typography */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Định dạng chữ (Typography)"
+                checked={renderCaptionEnabled}
+                onCheckChange={(v) => setRenderCaptionEnabled && setRenderCaptionEnabled(v)}
+                onReset={() => {
+                  setRenderCaptionFontSize && setRenderCaptionFontSize('50');
+                  setRenderCaptionTextAlign && setRenderCaptionTextAlign('center');
+                  onUpdateRenderConfig?.({ captionFontSize: 50, captionTextAlign: 'center' });
+                }}
+              />
 
-            {/* Mẫu kiểu chữ (CapCut Presets) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              {CAPTION_STYLES.map((st) => {
-                const isActive = renderCaptionStyle === st.id;
-                return (
-                  <button
-                    key={st.id}
-                    type="button"
-                    title={`${st.label} - ${st.desc}`}
-                    onClick={() => {
-                      setRenderCaptionStyle && setRenderCaptionStyle(st.id);
-                      if (st.id === 'news') {
-                        if (setRenderCaptionAnimation) setRenderCaptionAnimation('none');
-                        if (setRenderCaptionBgTransparent) setRenderCaptionBgTransparent(false);
-                      } else if (st.id === 'minimal' && setRenderCaptionBgTransparent) {
-                        setRenderCaptionBgTransparent(true);
-                      }
-                    }}
-                    style={{
-                      position: 'relative',
-                      padding: '5px 3px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
-                      background: isActive ? '#282828' : '#1c1c1c',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      height: '60px',
-                      boxSizing: 'border-box',
-                      transition: 'all 0.15s ease',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
-                      {renderStyleVisualPreview(st.id, renderHighlightColor, renderCaptionTextColor)}
-                    </div>
-                    <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
-                      {st.shortLabel || st.label}
-                    </div>
-                    {isActive && (
-                      <div style={{ position: 'absolute', top: '3px', right: '3px', width: '11px', height: '11px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', fontWeight: 900 }}>
-                        ✓
+              {/* Mẫu kiểu chữ (CapCut Presets) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                {CAPTION_STYLES.map((st) => {
+                  const isActive = renderCaptionStyle === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      title={`${st.label} - ${st.desc}`}
+                      onClick={() => {
+                        setRenderCaptionStyle && setRenderCaptionStyle(st.id);
+                        if (st.id === 'news') {
+                          if (setRenderCaptionAnimation) setRenderCaptionAnimation('none');
+                          if (setRenderCaptionBgTransparent) setRenderCaptionBgTransparent(false);
+                        } else if (st.id === 'minimal' && setRenderCaptionBgTransparent) {
+                          setRenderCaptionBgTransparent(true);
+                        }
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '5px 3px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: isActive ? '#282828' : '#1c1c1c',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '60px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                        {renderStyleVisualPreview(st.id, renderHighlightColor, renderCaptionTextColor)}
                       </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Căn lề chữ (Alignment toolbar chuẩn CapCut Image 2) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <span className="capcut-label">Căn lề:</span>
-              <CapCutAlignToolbar
-                currentAlignH={renderCaptionTextAlign}
-                onAlignLeft={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('left')}
-                onAlignCenter={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('center')}
-                onAlignRight={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('right')}
-                onAlignTop={() => {}}
-                onAlignMiddle={() => {}}
-                onAlignBottom={() => {}}
-              />
-            </div>
-
-            {/* Font chữ */}
-            <div className="capcut-control-row" style={{ minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <span className="capcut-label">Font chữ</span>
-              <select
-                value={renderCaptionFont}
-                onChange={(e) => setRenderCaptionFont && setRenderCaptionFont(e.target.value)}
-                className="capcut-input"
-                style={{ flex: 1, padding: '5px 8px', fontSize: '0.74rem', cursor: 'pointer' }}
-              >
-                {FONTS.map((f) => (
-                  <option key={f.id} value={f.id} style={{ background: '#222', color: '#fff' }}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cỡ chữ với CapCut Slider Row */}
-            <div style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <CapCutSliderRow
-                label="Cỡ chữ"
-                value={Number(renderCaptionFontSize) || 50}
-                min={24}
-                max={72}
-                unit="px"
-                onChange={(val) => {
-                  setRenderCaptionFontSize && setRenderCaptionFontSize(String(val));
-                  onUpdateRenderConfig?.({ captionFontSize: val });
-                }}
-              />
-            </div>
-
-            {/* Màu sắc */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="capcut-label">Highlight:</span>
-                <ColorPickerPopover color={renderHighlightColor} onChange={setRenderHighlightColor} label="Highlight" align="left" />
+                      <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
+                        {st.shortLabel || st.label}
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '11px', height: '11px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', fontWeight: 900 }}>
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="capcut-label">Màu chữ:</span>
-                <ColorPickerPopover color={renderCaptionTextColor || '#ffffff'} onChange={setRenderCaptionTextColor} label="Màu chữ" align="right" />
-              </div>
-            </div>
-
-
-            {/* Tiêu đề song ngữ */}
-            <div style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
-              <CapCutSwitchRow
-                label="Tiêu đề song ngữ (Bilingual)"
-                checked={Boolean(renderBilingual)}
-                onChange={(val) => {
-                  setRenderBilingual && setRenderBilingual(val);
-                  onUpdateRenderConfig?.({ bilingual: val });
-                }}
-              />
-            </div>
-
-            {/* Nút lưu style */}
-            <button
-              type="button"
-              onClick={handleSaveAndApply}
-              disabled={isSavingStyle}
-              className="capcut-btn-secondary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.74rem', marginTop: '4px' }}
-            >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Style Tiêu Đề'}
-            </button>
-            {saveStyleMsg && (
-              <span style={{ fontSize: '0.7rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
-                {saveStyleMsg}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          2. TAB HÌNH ẢNH (MEDIA & TRANSFORM - CHUẨN CAPCUT DESKTOP)
-          ======================================================== */}
-      {currentTab === 'image' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Section: Transform (Chuẩn CapCut Image 2) */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Transform"
-              onReset={() => {
-                setRenderImageScale && setRenderImageScale('100');
-                setRenderImageTranslateY && setRenderImageTranslateY('0');
-                onUpdateRenderConfig?.({ imageScale: 1, imageTranslateY: 0 });
-              }}
-            />
-
-            {/* Scale */}
-            <CapCutSliderRow
-              label="Scale"
-              value={Number(renderImageScale) || 100}
-              min={50}
-              max={250}
-              unit="%"
-              presets={[
-                { value: 75, label: '75%' },
-                { value: 100, label: '100%' },
-                { value: 125, label: '125%' },
-                { value: 150, label: '150%' }
-              ]}
-              onChange={(val) => {
-                setRenderImageScale && setRenderImageScale(String(val));
-                onUpdateRenderConfig?.({ imageScale: val / 100 });
-              }}
-            />
-
-            {/* Uniform scale toggle */}
-            <CapCutSwitchRow
-              label="Uniform scale"
-              checked={true}
-              onChange={() => {}}
-            />
-
-            {/* Position Y */}
-            <CapCutSliderRow
-              label="Position Y"
-              value={Number(renderImageTranslateY) || 0}
-              min={-100}
-              max={100}
-              unit="%"
-              presets={[
-                { value: -20, label: '-20%' },
-                { value: 0, label: '0%' },
-                { value: 20, label: '+20%' }
-              ]}
-              onChange={(val) => {
-                setRenderImageTranslateY && setRenderImageTranslateY(String(val));
-                onUpdateRenderConfig?.({ imageTranslateY: val });
-              }}
-            />
-
-            {/* Rotate row */}
-            <div className="capcut-control-row" style={{ minHeight: '28px' }}>
-              <span className="capcut-label">Rotate</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
-                <CapCutStepperBox
-                  value={0}
-                  onChange={() => {}}
-                  unit="°"
-                  precision={2}
+              {/* Căn lề chữ (Alignment toolbar chuẩn CapCut Image 2) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                <span className="capcut-label">Căn lề:</span>
+                <CapCutAlignToolbar
+                  currentAlignH={renderCaptionTextAlign}
+                  onAlignLeft={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('left')}
+                  onAlignCenter={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('center')}
+                  onAlignRight={() => setRenderCaptionTextAlign && setRenderCaptionTextAlign('right')}
+                  onAlignTop={() => { }}
+                  onAlignMiddle={() => { }}
+                  onAlignBottom={() => { }}
                 />
-                <button
-                  type="button"
-                  className="capcut-align-btn"
-                  title="Rotation Dial"
-                  style={{ width: '22px', height: '22px' }}
+              </div>
+
+              {/* Font chữ */}
+              <div className="capcut-control-row" style={{ minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                <span className="capcut-label">Font chữ</span>
+                <select
+                  value={renderCaptionFont}
+                  onChange={(e) => setRenderCaptionFont && setRenderCaptionFont(e.target.value)}
+                  className="capcut-input"
+                  style={{ flex: 1, padding: '5px 8px', fontSize: '0.74rem', cursor: 'pointer' }}
                 >
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid #777', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '4px', height: '1px', background: '#fff' }} />
-                  </div>
-                </button>
-                <button type="button" className="capcut-keyframe-btn" title="Keyframe">
-                  ◇
-                </button>
+                  {FONTS.map((f) => (
+                    <option key={f.id} value={f.id} style={{ background: '#222', color: '#fff' }}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            {/* Alignment Toolbar chuẩn CapCut Desktop */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
-              <span className="capcut-label">Align</span>
-              <CapCutAlignToolbar
-                onAlignLeft={() => {}}
-                onAlignCenter={() => {
-                  setRenderImageTranslateY && setRenderImageTranslateY('0');
-                  onUpdateRenderConfig?.({ imageTranslateY: 0 });
-                }}
-                onAlignRight={() => {}}
-                onAlignTop={() => {
-                  setRenderImageTranslateY && setRenderImageTranslateY('-25');
-                  onUpdateRenderConfig?.({ imageTranslateY: -25 });
-                }}
-                onAlignMiddle={() => {
-                  setRenderImageTranslateY && setRenderImageTranslateY('0');
-                  onUpdateRenderConfig?.({ imageTranslateY: 0 });
-                }}
-                onAlignBottom={() => {
-                  setRenderImageTranslateY && setRenderImageTranslateY('25');
-                  onUpdateRenderConfig?.({ imageTranslateY: 25 });
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Section: Màu nền video */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Cài đặt nền video (Background)"
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
-              <span className="capcut-label">Màu nền video:</span>
-              <ColorPickerPopover
-                color={renderVideoBgColor || '#000000'}
-                onChange={(val) => {
-                  setRenderVideoBgColor && setRenderVideoBgColor(val);
-                  if (result) {
-                    if (!result.remotionConfig) result.remotionConfig = {};
-                    result.remotionConfig.videoBgColor = val;
-                  }
-                }}
-                label="Màu nền"
-                align="right"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveAndApply}
-              disabled={isSavingStyle}
-              className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
-            >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Media'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          3. TAB HOẠT ẢNH (ANIMATION & TRANSITION - CHUẨN CAPCUT)
-          ======================================================== */}
-      {currentTab === 'animation' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Card 1: Hoạt ảnh phụ đề / chữ */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Hoạt ảnh phụ đề (Caption Animation)"
-              hasReset={true}
-              onReset={() => {
-                setRenderCaptionAnimation && setRenderCaptionAnimation('none');
-                if (result) {
-                  if (!result.remotionConfig) result.remotionConfig = {};
-                  result.remotionConfig.captionAnimation = 'none';
-                }
-              }}
-              hasKeyframe={false}
-            />
-            <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
-              Hiệu ứng xuất hiện cho từng câu phụ đề và tiêu đề khi người thuyết minh bắt đầu nói.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-              {CAPTION_ANIMATIONS.map((anim) => {
-                const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
-                const isActive = currentAnim === anim.id;
-                return (
-                  <button
-                    key={anim.id}
-                    type="button"
-                    title={`${anim.label} - ${anim.desc}`}
-                    onClick={() => {
-                      setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id);
-                      if (result) {
-                        if (!result.remotionConfig) result.remotionConfig = {};
-                        result.remotionConfig.captionAnimation = anim.id;
-                      }
-                    }}
-                    style={{
-                      position: 'relative',
-                      padding: '6px 3px 5px 3px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
-                      background: isActive ? '#282828' : '#1c1c1c',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      height: '58px',
-                      boxSizing: 'border-box',
-                      transition: 'all 0.15s ease',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
-                      {renderAnimationVisualPreview(anim.id, isActive)}
-                    </div>
-                    <div style={{ fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
-                      {anim.label}
-                    </div>
-                    {isActive && (
-                      <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card 2: Hiệu ứng chuyển cảnh giữa các slide */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Chuyển cảnh slide (Scene Transitions)"
-              hasReset={true}
-              onReset={() => {
-                setRenderTransitionStyle && setRenderTransitionStyle('crossfade');
-                if (result) {
-                  if (!result.remotionConfig) result.remotionConfig = {};
-                  result.remotionConfig.transitionStyle = 'crossfade';
-                }
-              }}
-              hasKeyframe={false}
-            />
-            <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
-              Hiệu ứng chuyển tiếp chuyển động giữa các phân cảnh trong video.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-              {TRANSITION_STYLES.map((t) => {
-                const isActive = renderTransitionStyle === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    title={`${t.label} - ${t.desc || ''}`}
-                    onClick={() => {
-                      setRenderTransitionStyle && setRenderTransitionStyle(t.id);
-                      if (result) {
-                        if (!result.remotionConfig) result.remotionConfig = {};
-                        result.remotionConfig.transitionStyle = t.id;
-                      }
-                    }}
-                    style={{
-                      position: 'relative',
-                      padding: '6px 2px 5px 2px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
-                      background: isActive ? '#282828' : '#1c1c1c',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      height: '58px',
-                      boxSizing: 'border-box',
-                      transition: 'all 0.15s ease',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
-                      {renderTransitionVisualPreview(t.id, isActive)}
-                    </div>
-                    <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {t.label}
-                    </div>
-                    {isActive && (
-                      <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Action Button: Lưu Cài Đặt Hoạt Ảnh */}
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <button
-              type="button"
-              onClick={handleSaveAndApply}
-              disabled={isSavingStyle}
-              className="capcut-btn-primary"
-              style={{ width: '100%', padding: '9px 14px', fontSize: '0.78rem', fontWeight: 600 }}
-            >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Animation'}
-            </button>
-            {saveStyleMsg && (
-              <span style={{ fontSize: '0.72rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
-                {saveStyleMsg}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          4. TAB LOGO (BRAND LOGO)
-          ======================================================== */}
-      {currentTab === 'logo' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <img
-                  src="/icons/logo-mark.png"
-                  alt=""
-                  style={{ width: '24px', height: '16px', objectFit: 'contain' }}
-                />
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff' }}>
-                  Logo thương hiệu
-                </span>
-              </div>
-              <CapCutSwitchRow
-                label=""
-                checked={renderChannelLogo}
-                onChange={(val) => {
-                  setRenderChannelLogo && setRenderChannelLogo(val);
-                  onUpdateRenderConfig?.({ channelLogo: val });
-                }}
-              />
-            </div>
-            <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
-              Kéo di chuyển hoặc thu phóng trực tiếp Logo trên khung video, hoặc tinh chỉnh bằng thanh trượt bên dưới.
-            </p>
-          </div>
-
-          {/* Card Hình ảnh Logo & Upload */}
-          <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
-            <CapCutSectionHeader
-              title="Hình ảnh Logo"
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              background: 'rgba(0,0,0,0.3)',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.08)'
-            }}>
-              <div style={{
-                width: '72px',
-                height: '52px',
-                borderRadius: '6px',
-                background: 'repeating-conic-gradient(#1e1e24 0% 25%, #2a2a35 0% 50%) 50% / 12px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.12)',
-                position: 'relative',
-                flexShrink: 0
-              }}>
-                <img
-                  src={`/images/watermark/nexora-video-logo.png?v=${logoVersion || 1}`}
-                  alt="Logo hiện tại"
-                  style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
-                  onError={(e) => {
-                    e.currentTarget.style.opacity = '0.3';
+              {/* Cỡ chữ với CapCut Slider Row */}
+              <div style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                <CapCutSliderRow
+                  label="Cỡ chữ"
+                  value={Number(renderCaptionFontSize) || 50}
+                  min={24}
+                  max={72}
+                  unit="px"
+                  onChange={(val) => {
+                    setRenderCaptionFontSize && setRenderCaptionFontSize(String(val));
+                    onUpdateRenderConfig?.({ captionFontSize: val });
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.74rem', color: '#fff', fontWeight: 600 }}>
-                  Logo đang áp dụng
+              {/* Màu sắc */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', minHeight: '28px', opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="capcut-label">Highlight:</span>
+                  <ColorPickerPopover color={renderHighlightColor} onChange={setRenderHighlightColor} label="Highlight" align="left" />
                 </div>
-                <div style={{ fontSize: '0.64rem', color: '#888', lineHeight: 1.3 }}>
-                  Khuyên dùng file PNG nền trong suốt để khi lồng vào video có tính thẩm mỹ cao nhất.
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="capcut-label">Màu chữ:</span>
+                  <ColorPickerPopover color={renderCaptionTextColor || '#ffffff'} onChange={setRenderCaptionTextColor} label="Màu chữ" align="right" />
                 </div>
+              </div>
+
+
+              {/* Tiêu đề song ngữ */}
+              <div style={{ opacity: renderCaptionEnabled ? 1 : 0.4, pointerEvents: renderCaptionEnabled ? 'auto' : 'none' }}>
+                <CapCutSwitchRow
+                  label="Tiêu đề song ngữ (Bilingual)"
+                  checked={Boolean(renderBilingual)}
+                  onChange={(val) => {
+                    setRenderBilingual && setRenderBilingual(val);
+                    onUpdateRenderConfig?.({ bilingual: val });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+          2. TAB HÌNH ẢNH (MEDIA & TRANSFORM - CHUẨN CAPCUT DESKTOP)
+          ======================================================== */}
+        {currentTab === 'image' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Section: Thay thế ảnh & Google Flow của cảnh hiện tại */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>🖼️</span> <span>Ảnh Cảnh {activeSceneIndex + 1}</span>
+                </span>
+                {isUploadingImage && (uploadTargetSceneIndex === null || uploadTargetSceneIndex === activeSceneIndex) && (
+                  <span style={{ fontSize: '0.66rem', color: '#ffb300', fontWeight: 600 }}>
+                    ⏳ Đang lưu...
+                  </span>
+                )}
+              </div>
+
+              {/* Thumbnail preview + action buttons */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                <div
+                  style={{
+                    width: '56px',
+                    height: '80px',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    background: '#151515',
+                    border: '1px solid #383838',
+                    flexShrink: 0,
+                    position: 'relative'
+                  }}
+                >
+                  {currentImgSrc ? (
+                    <img src={currentImgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#555' }}>
+                      🎬
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleTriggerUploadImage(activeSceneIndex)}
+                    disabled={isUploadingImage}
+                    className="capcut-btn-secondary"
+                    style={{ width: '100%', padding: '6px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                  >
+                    <span>📁</span>
+                    <span>Thay thế ảnh từ máy</span>
+                  </button>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateFlowForScene(activeSceneIndex)}
+                      style={{
+                        padding: '5px 8px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        borderRadius: '5px',
+                        border: '1px solid rgba(0, 229, 255, 0.4)',
+                        background: 'linear-gradient(135deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 150, 255, 0.25) 100%)',
+                        color: '#00e5ff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px'
+                      }}
+                      title="Tạo lại ảnh cảnh này với Google Flow"
+                    >
+                      <span>🚀</span>
+                      <span>Tạo với Flow</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPrompt(activeSceneIndex)}
+                      className="capcut-btn-secondary"
+                      style={{ padding: '5px 8px', fontSize: '0.68rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                      title="Sao chép prompt mô tả hình ảnh"
+                    >
+                      <span>📋</span>
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prompt mô tả ảnh cảnh này */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.66rem', color: '#888' }}>
+                    Prompt mô tả hình ảnh:
+                  </span>
+                  {getScenePrompt(currentSegment, activeSceneIndex) !== getSceneDefaultPrompt(currentSegment) && (
+                    <button
+                      type="button"
+                      onClick={() => handleSaveVisualPrompt(activeSceneIndex)}
+                      disabled={isSavingVisualPrompt}
+                      style={{ background: 'none', border: 'none', color: '#00e5ff', fontSize: '0.65rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                    >
+                      {isSavingVisualPrompt ? 'Đang lưu...' : 'Lưu prompt'}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  rows={2}
+                  value={getScenePrompt(currentSegment, activeSceneIndex)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCurrentVisualPromptDraft(val);
+                    setScenePromptDrafts(prev => ({ ...prev, [activeSceneIndex]: val }));
+                  }}
+                  placeholder="Mô tả hình ảnh cho cảnh này..."
+                  className="capcut-input"
+                  style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', lineHeight: 1.35, resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {imageUploadMsg && (
+                <div style={{ marginTop: '6px', fontSize: '0.68rem', color: imageUploadMsg.startsWith('✓') ? '#00e5ff' : imageUploadMsg.startsWith('🚀') ? '#69f0ae' : '#ffb300', textAlign: 'center', fontWeight: 600 }}>
+                  {imageUploadMsg}
+                </div>
+              )}
+            </div>
+
+            {/* Section: Transform (Chuẩn CapCut Image 2) */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Transform"
+                onReset={() => {
+                  setRenderImageScale && setRenderImageScale('100');
+                  setRenderImageTranslateY && setRenderImageTranslateY('0');
+                  onUpdateRenderConfig?.({ imageScale: 1, imageTranslateY: 0 });
+                }}
+              />
+
+              {/* Scale */}
+              <CapCutSliderRow
+                label="Scale"
+                value={Number(renderImageScale) || 100}
+                min={50}
+                max={250}
+                unit="%"
+                presets={[
+                  { value: 75, label: '75%' },
+                  { value: 100, label: '100%' },
+                  { value: 125, label: '125%' },
+                  { value: 150, label: '150%' }
+                ]}
+                onChange={(val) => {
+                  setRenderImageScale && setRenderImageScale(String(val));
+                  onUpdateRenderConfig?.({ imageScale: val / 100 });
+                }}
+              />
+
+              {/* Uniform scale toggle */}
+              <CapCutSwitchRow
+                label="Uniform scale"
+                checked={true}
+                onChange={() => { }}
+              />
+
+              {/* Position Y */}
+              <CapCutSliderRow
+                label="Position Y"
+                value={Number(renderImageTranslateY) || 0}
+                min={-100}
+                max={100}
+                unit="%"
+                presets={[
+                  { value: -20, label: '-20%' },
+                  { value: 0, label: '0%' },
+                  { value: 20, label: '+20%' }
+                ]}
+                onChange={(val) => {
+                  setRenderImageTranslateY && setRenderImageTranslateY(String(val));
+                  onUpdateRenderConfig?.({ imageTranslateY: val });
+                }}
+              />
+
+              {/* Rotate row */}
+              <div className="capcut-control-row" style={{ minHeight: '28px' }}>
+                <span className="capcut-label">Rotate</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                  <CapCutStepperBox
+                    value={0}
+                    onChange={() => { }}
+                    unit="°"
+                    precision={2}
+                  />
+                  <button
+                    type="button"
+                    className="capcut-align-btn"
+                    title="Rotation Dial"
+                    style={{ width: '22px', height: '22px' }}
+                  >
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid #777', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '4px', height: '1px', background: '#fff' }} />
+                    </div>
+                  </button>
+                  <button type="button" className="capcut-keyframe-btn" title="Keyframe">
+                    ◇
+                  </button>
+                </div>
+              </div>
+
+              {/* Alignment Toolbar chuẩn CapCut Desktop */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
+                <span className="capcut-label">Align</span>
+                <CapCutAlignToolbar
+                  onAlignLeft={() => { }}
+                  onAlignCenter={() => {
+                    setRenderImageTranslateY && setRenderImageTranslateY('0');
+                    onUpdateRenderConfig?.({ imageTranslateY: 0 });
+                  }}
+                  onAlignRight={() => { }}
+                  onAlignTop={() => {
+                    setRenderImageTranslateY && setRenderImageTranslateY('-25');
+                    onUpdateRenderConfig?.({ imageTranslateY: -25 });
+                  }}
+                  onAlignMiddle={() => {
+                    setRenderImageTranslateY && setRenderImageTranslateY('0');
+                    onUpdateRenderConfig?.({ imageTranslateY: 0 });
+                  }}
+                  onAlignBottom={() => {
+                    setRenderImageTranslateY && setRenderImageTranslateY('25');
+                    onUpdateRenderConfig?.({ imageTranslateY: 25 });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+          3. TAB HOẠT ẢNH (ANIMATION & TRANSITION - CHUẨN CAPCUT)
+          ======================================================== */}
+        {currentTab === 'animation' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Card 1: Hoạt ảnh phụ đề / chữ */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Hoạt ảnh phụ đề (Caption Animation)"
+                hasReset={true}
+                onReset={() => {
+                  setRenderCaptionAnimation && setRenderCaptionAnimation('none');
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.captionAnimation = 'none';
+                  }
+                }}
+                hasKeyframe={false}
+              />
+              <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+                Hiệu ứng xuất hiện cho từng câu phụ đề và tiêu đề khi người thuyết minh bắt đầu nói.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {CAPTION_ANIMATIONS.map((anim) => {
+                  const currentAnim = renderCaptionAnimation || (renderCaptionStyle === 'news' ? 'none' : 'zoom');
+                  const isActive = currentAnim === anim.id;
+                  return (
+                    <button
+                      key={anim.id}
+                      type="button"
+                      title={`${anim.label} - ${anim.desc}`}
+                      onClick={() => {
+                        setRenderCaptionAnimation && setRenderCaptionAnimation(anim.id);
+                        if (result) {
+                          if (!result.remotionConfig) result.remotionConfig = {};
+                          result.remotionConfig.captionAnimation = anim.id;
+                        }
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '6px 3px 5px 3px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: isActive ? '#282828' : '#1c1c1c',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '58px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                        {renderAnimationVisualPreview(anim.id, isActive)}
+                      </div>
+                      <div style={{ fontSize: '0.64rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1 }}>
+                        {anim.label}
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-              <label
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  background: 'rgba(37, 244, 238, 0.15)',
-                  border: '1px solid rgba(37, 244, 238, 0.35)',
+            {/* Card 2: Hiệu ứng chuyển cảnh giữa các slide */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Chuyển cảnh slide (Scene Transitions)"
+                hasReset={true}
+                onReset={() => {
+                  setRenderTransitionStyle && setRenderTransitionStyle('crossfade');
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.transitionStyle = 'crossfade';
+                  }
+                }}
+                hasKeyframe={false}
+              />
+              <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+                Hiệu ứng chuyển tiếp chuyển động giữa các phân cảnh trong video.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                {TRANSITION_STYLES.map((t) => {
+                  const isActive = renderTransitionStyle === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      title={`${t.label} - ${t.desc || ''}`}
+                      onClick={() => {
+                        setRenderTransitionStyle && setRenderTransitionStyle(t.id);
+                        if (result) {
+                          if (!result.remotionConfig) result.remotionConfig = {};
+                          result.remotionConfig.transitionStyle = t.id;
+                        }
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '6px 2px 5px 2px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: isActive ? '#282828' : '#1c1c1c',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '58px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                        {renderTransitionVisualPreview(t.id, isActive)}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {t.label}
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+          4. TAB LOGO (BRAND LOGO)
+          ======================================================== */}
+        {currentTab === 'logo' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img
+                    src="/icons/logo-mark.png"
+                    alt=""
+                    style={{ width: '24px', height: '16px', objectFit: 'contain' }}
+                  />
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff' }}>
+                    Logo thương hiệu
+                  </span>
+                </div>
+                <CapCutSwitchRow
+                  label=""
+                  checked={renderChannelLogo}
+                  onChange={(val) => {
+                    setRenderChannelLogo && setRenderChannelLogo(val);
+                    onUpdateRenderConfig?.({ channelLogo: val });
+                  }}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+                Kéo di chuyển hoặc thu phóng trực tiếp Logo trên khung video, hoặc tinh chỉnh bằng thanh trượt bên dưới.
+              </p>
+            </div>
+
+            {/* Card Hình ảnh Logo & Upload */}
+            <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
+              <CapCutSectionHeader
+                title="Hình ảnh Logo"
+                hasReset={false}
+                hasKeyframe={false}
+              />
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
+                <div style={{
+                  width: '72px',
+                  height: '52px',
                   borderRadius: '6px',
-                  color: 'var(--secondary)',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  cursor: isUploadingLogo ? 'wait' : 'pointer',
+                  background: 'repeating-conic-gradient(#1e1e24 0% 25%, #2a2a35 0% 50%) 50% / 12px 12px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  textAlign: 'center',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {isUploadingLogo ? '⏳ Đang tải ảnh lên...' : '📁 Tải lên ảnh Logo mới'}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  style={{ display: 'none' }}
-                  disabled={isUploadingLogo}
-                  onChange={handleLogoFileChange}
-                />
-              </label>
+                  overflow: 'hidden',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  position: 'relative',
+                  flexShrink: 0
+                }}>
+                  <img
+                    src={`/images/watermark/nexora-video-logo.png?v=${logoVersion || 1}`}
+                    alt="Logo hiện tại"
+                    style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                    onError={(e) => {
+                      e.currentTarget.style.opacity = '0.3';
+                    }}
+                  />
+                </div>
 
-              <button
-                type="button"
-                onClick={handleRestoreDefaultLogo}
-                disabled={isUploadingLogo}
-                style={{
-                  padding: '8px 12px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  borderRadius: '6px',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '0.74rem',
-                  cursor: isUploadingLogo ? 'wait' : 'pointer',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap'
-                }}
-                title="Khôi phục lại logo mặc định ban đầu"
-              >
-                ↺ Mặc định
-              </button>
-            </div>
-
-            {uploadLogoMsg && (
-              <div style={{
-                fontSize: '0.72rem',
-                color: uploadLogoMsg.startsWith('Lỗi') ? 'var(--danger)' : '#4ade80',
-                fontWeight: 600,
-                marginTop: '4px'
-              }}>
-                {uploadLogoMsg}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.74rem', color: '#fff', fontWeight: 600 }}>
+                    Logo đang áp dụng
+                  </div>
+                  <div style={{ fontSize: '0.64rem', color: '#888', lineHeight: 1.3 }}>
+                    Khuyên dùng file PNG nền trong suốt để khi lồng vào video có tính thẩm mỹ cao nhất.
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
-            <CapCutSectionHeader
-              title="Transform"
-              onReset={() => {
-                setRenderLogoScale && setRenderLogoScale('1');
-                setRenderLogoTranslateX && setRenderLogoTranslateX('0');
-                setRenderLogoTranslateY && setRenderLogoTranslateY('0');
-                onUpdateRenderConfig?.({ logoScale: 1, logoTranslateX: 0, logoTranslateY: 0 });
-              }}
-            />
-
-            {/* Scale */}
-            <CapCutSliderRow
-              label="Scale"
-              value={Number(renderLogoScale) || 1}
-              min={0.4}
-              max={2.5}
-              step={0.05}
-              precision={2}
-              unit="x"
-              onChange={(val) => {
-                setRenderLogoScale && setRenderLogoScale(String(val));
-                onUpdateRenderConfig?.({ logoScale: val });
-              }}
-            />
-
-            {/* Position X & Y */}
-            <CapCutPositionRow
-              label="Position"
-              x={Number(renderLogoTranslateX) || 0}
-              y={Number(renderLogoTranslateY) || 0}
-              onXChange={(val) => {
-                setRenderLogoTranslateX && setRenderLogoTranslateX(String(val));
-                onUpdateRenderConfig?.({ logoTranslateX: val });
-              }}
-              onYChange={(val) => {
-                setRenderLogoTranslateY && setRenderLogoTranslateY(String(val));
-                onUpdateRenderConfig?.({ logoTranslateY: val });
-              }}
-              minX={-800}
-              maxX={800}
-              minY={-1600}
-              maxY={600}
-              unitX="px"
-              unitY="px"
-              stepX={5}
-              stepY={10}
-            />
-
-            <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setRenderLogoTranslateX && setRenderLogoTranslateX('0');
-                  setRenderLogoTranslateY && setRenderLogoTranslateY('0');
-                  onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0 });
-                }}
-                className="capcut-btn-secondary"
-                style={{ flex: 1, padding: '6px 10px', fontSize: '0.72rem' }}
-              >
-                ↺ Đặt lại vị trí trung tâm (X: 0, Y: 0)
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveAndApply}
-              disabled={isSavingStyle}
-              className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
-            >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Logo'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          4. TAB MỞ ĐẦU (INTRO CẢNH 1)
-          ======================================================== */}
-      {currentTab === 'opening' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Mở đầu video (Cảnh 1)"
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-              {[
-                { id: 'none', label: 'Bình thường', desc: 'Không sticker/banner', active: !renderShowOpeningComment && !renderShowOpeningNewsBanner },
-                { id: 'comment', label: 'Hộp bình luận', desc: 'Sticker hỏi ở trên', active: renderShowOpeningComment && !renderShowOpeningNewsBanner },
-                { id: 'news', label: 'Banner tin tức', desc: '50% mờ dần mép trên', active: !renderShowOpeningComment && renderShowOpeningNewsBanner },
-                { id: 'both', label: 'Cả hai', desc: 'Bình luận + Banner', active: renderShowOpeningComment && renderShowOpeningNewsBanner }
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    if (m.id === 'none') {
-                      setRenderShowOpeningComment && setRenderShowOpeningComment(false);
-                      setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
-                      onSelectedElementChange?.('none');
-                    } else if (m.id === 'comment') {
-                      setRenderShowOpeningComment && setRenderShowOpeningComment(true);
-                      setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
-                      onSelectedElementChange?.('comment');
-                    } else if (m.id === 'news') {
-                      setRenderShowOpeningComment && setRenderShowOpeningComment(false);
-                      setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
-                      onSelectedElementChange?.('news_headline');
-                    } else if (m.id === 'both') {
-                      setRenderShowOpeningComment && setRenderShowOpeningComment(true);
-                      setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
-                      onSelectedElementChange?.('news_headline');
-                    }
-                  }}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                <label
                   style={{
-                    padding: '8px 6px',
+                    flex: 1,
+                    padding: '8px 12px',
+                    background: 'rgba(37, 244, 238, 0.15)',
+                    border: '1px solid rgba(37, 244, 238, 0.35)',
                     borderRadius: '6px',
-                    fontSize: '0.72rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: m.active ? '1.5px solid #00e5ff' : '1px solid #303030',
-                    background: m.active ? '#282828' : '#1c1c1c',
-                    color: m.active ? '#00e5ff' : '#888',
+                    color: 'var(--secondary)',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: isUploadingLogo ? 'wait' : 'pointer',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '3px'
+                    justifyContent: 'center',
+                    gap: '6px',
+                    textAlign: 'center',
+                    transition: 'all 0.2s'
                   }}
                 >
-                  <span>{m.label}</span>
-                  <span style={{ fontSize: '0.62rem', color: '#666', fontWeight: 400 }}>{m.desc}</span>
+                  {isUploadingLogo ? '⏳ Đang tải ảnh lên...' : '📁 Tải lên ảnh Logo mới'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    style={{ display: 'none' }}
+                    disabled={isUploadingLogo}
+                    onChange={handleLogoFileChange}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleRestoreDefaultLogo}
+                  disabled={isUploadingLogo}
+                  style={{
+                    padding: '8px 12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '6px',
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: '0.74rem',
+                    cursor: isUploadingLogo ? 'wait' : 'pointer',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Khôi phục lại logo mặc định ban đầu"
+                >
+                  ↺ Mặc định
                 </button>
-              ))}
-            </div>
-
-            {renderShowOpeningComment && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Hộp bình luận:</span>
-                <input
-                  type="text"
-                  value={renderOpeningCommentAuthor || ''}
-                  placeholder="Người hỏi (VD: Trả lời bình luận)"
-                  onChange={(e) => setRenderOpeningCommentAuthor && setRenderOpeningCommentAuthor(e.target.value)}
-                  className="capcut-input"
-                  style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
-                />
-                <textarea
-                  rows={2}
-                  value={renderOpeningCommentText || ''}
-                  placeholder="Nội dung câu hỏi..."
-                  onChange={(e) => setRenderOpeningCommentText && setRenderOpeningCommentText(e.target.value)}
-                  className="capcut-input"
-                  style={{ width: '100%', padding: '6px 8px', resize: 'none', boxSizing: 'border-box' }}
-                />
               </div>
-            )}
 
-            {renderShowOpeningNewsBanner && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Banner & Tag thể loại:</span>
-
-                {/* Danh sách các Type Tag mẫu */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                  {[
-                    { label: 'Tin tức', icon: '🔴', val: 'Tin tức' },
-                    { label: 'Kiến thức', icon: '💡', val: 'Kiến thức' },
-                    { label: 'Sự thật thú vị', icon: '✨', val: 'Sự thật thú vị' },
-                    { label: 'Bí ẩn', icon: '🔮', val: 'Bí ẩn' },
-                    { label: 'Có thể bạn chưa biết', icon: '🧠', val: 'Có thể bạn chưa biết' }
-                  ].map((t) => {
-                    const currentVal = (renderOpeningNewsBrand || 'Tin tức').trim().toLowerCase();
-                    const isSelected = currentVal === t.val.toLowerCase();
-                    return (
-                      <button
-                        key={t.val}
-                        type="button"
-                        onClick={() => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(t.val)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.68rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          border: isSelected ? '1.5px solid #ef4444' : '1px solid #333',
-                          background: isSelected ? 'rgba(239, 68, 68, 0.2)' : '#1c1c1c',
-                          color: isSelected ? '#fca5a5' : '#bbb',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <span>{t.icon}</span>
-                        <span>{t.label}</span>
-                      </button>
-                    );
-                  })}
+              {uploadLogoMsg && (
+                <div style={{
+                  fontSize: '0.72rem',
+                  color: uploadLogoMsg.startsWith('Lỗi') ? 'var(--danger)' : '#4ade80',
+                  fontWeight: 600,
+                  marginTop: '4px'
+                }}>
+                  {uploadLogoMsg}
                 </div>
-
-                <input
-                  type="text"
-                  value={renderOpeningNewsBrand || ''}
-                  placeholder="Hoặc tự nhập Tag thể loại (VD: Lịch sử, Vũ trụ...)"
-                  onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
-                  className="capcut-input"
-                  style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
-                />
-
-                <textarea
-                  rows={3}
-                  value={renderOpeningNewsHeadline || ''}
-                  placeholder="TIÊU ĐỀ NỔI BẬT..."
-                  onChange={(e) => setRenderOpeningNewsHeadline && setRenderOpeningNewsHeadline(e.target.value)}
-                  className="capcut-input"
-                  style={{ width: '100%', padding: '6px 8px', color: renderOpeningNewsTitleColor || '#FFE24A', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
-                />
-
-                {/* Điều chỉnh màu sắc & cỡ chữ tiêu đề */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#1c1c1c', padding: '8px 10px', borderRadius: '8px', border: '1px solid #2d2d2d' }}>
-                  {/* Màu chữ tiêu đề */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa' }}>Màu tiêu đề:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {[
-                        { label: 'Vàng Neon', color: '#FFE24A' },
-                        { label: 'Trắng Sáng', color: '#FFFFFF' },
-                        { label: 'Đỏ Cam', color: '#FF4D4F' },
-                        { label: 'Xanh Neon', color: '#00E5FF' },
-                        { label: 'Xanh Lá', color: '#52C41A' },
-                      ].map((preset) => {
-                        const isMatch = (renderOpeningNewsTitleColor || '#FFE24A').toUpperCase() === preset.color.toUpperCase();
-                        return (
-                          <button
-                            key={preset.color}
-                            type="button"
-                            title={preset.label}
-                            onClick={() => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(preset.color)}
-                            style={{
-                              width: '18px',
-                              height: '18px',
-                              borderRadius: '50%',
-                              backgroundColor: preset.color,
-                              border: isMatch ? '2px solid #fff' : '1px solid rgba(255,255,255,0.25)',
-                              cursor: 'pointer',
-                              outline: 'none',
-                              padding: 0,
-                              boxShadow: isMatch ? `0 0 8px ${preset.color}` : 'none',
-                              transform: isMatch ? 'scale(1.15)' : 'scale(1)',
-                              transition: 'all 0.15s ease'
-                            }}
-                          />
-                        );
-                      })}
-                      <input
-                        type="color"
-                        value={renderOpeningNewsTitleColor || '#FFE24A'}
-                        onChange={(e) => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(e.target.value)}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          padding: 0,
-                          border: '1px solid #444',
-                          borderRadius: '4px',
-                          background: 'none',
-                          cursor: 'pointer'
-                        }}
-                        title="Tự chọn màu tùy ý"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Cỡ chữ tiêu đề */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>Cỡ chữ tiêu đề:</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
-                      <input
-                        type="range"
-                        min="30"
-                        max="80"
-                        step="2"
-                        value={Number(renderOpeningNewsTitleSize) || 54}
-                        onChange={(e) => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(Number(e.target.value))}
-                        style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
-                      />
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '32px', textAlign: 'right' }}>
-                        {Number(renderOpeningNewsTitleSize) > 0 ? `${renderOpeningNewsTitleSize}px` : 'Auto'}
-                      </span>
-                      {Number(renderOpeningNewsTitleSize) > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(0)}
-                          style={{
-                            background: '#2c2c2c',
-                            border: '1px solid #444',
-                            color: '#aaa',
-                            borderRadius: '4px',
-                            fontSize: '0.62rem',
-                            padding: '2px 5px',
-                            cursor: 'pointer'
-                          }}
-                          title="Tự động theo độ dài tiêu đề"
-                        >
-                          Auto
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Giới hạn độ rộng tiêu đề (Width Boundary Limit) */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>
-                      Giới hạn độ rộng:
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
-                      <input
-                        type="range"
-                        min="40"
-                        max="100"
-                        step="2"
-                        value={Number(renderOpeningNewsHeadlineWidth) || 82}
-                        onChange={(e) => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(Number(e.target.value))}
-                        style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
-                        title="Thu hẹp để chữ tự xuống dòng, tránh đè icon bên phải"
-                      />
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '36px', textAlign: 'right' }}>
-                        {Number(renderOpeningNewsHeadlineWidth) || 82}%
-                      </span>
-                      {Number(renderOpeningNewsHeadlineWidth) !== 82 && (
-                        <button
-                          type="button"
-                          onClick={() => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(82)}
-                          style={{
-                            background: '#2c2c2c',
-                            border: '1px solid #444',
-                            color: '#aaa',
-                            borderRadius: '4px',
-                            fontSize: '0.62rem',
-                            padding: '2px 5px',
-                            cursor: 'pointer'
-                          }}
-                          title="Đặt lại mặc định 82%"
-                        >
-                          Mặc định
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSaveAndApply}
-              disabled={isSavingStyle}
-              className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
-            >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Mở Đầu'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          5. TAB CẢNH (SCENES SPLIT VIEW)
-          ======================================================== */}
-      {currentTab === 'scenes' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
-          {/* PHẦN TRÊN: CẢNH ĐANG ACTIVE HIỆN TẠI (Ôm sát nội dung) */}
-          <div
-            style={{
-              flex: '0 0 auto',
-              height: 'auto',
-              maxHeight: '55%',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px',
-              background: '#202020',
-              border: '1px solid #2e2e2e',
-              borderRadius: '8px',
-              padding: '12px 14px',
-              boxSizing: 'border-box'
-            }}
-          >
-            {/* Header cảnh đang active: Thumbnail + Stepper */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#191919', padding: '6px 8px', borderRadius: '4px', border: '1px solid #2c2c2c' }}>
-              {currentImgSrc ? (
-                <img
-                  src={currentImgSrc}
-                  alt=""
-                  style={{ width: '38px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #333', flexShrink: 0 }}
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-                />
-              ) : (
-                <div style={{ width: '38px', height: '50px', borderRadius: '4px', background: '#252525', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0, color: '#666' }}>🎬</div>
               )}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>
-                    Cảnh {activeSceneIndex + 1} / {totalScenes}
-                  </span>
-                  <span style={{ fontSize: '0.62rem', background: 'rgba(0, 229, 255, 0.15)', color: '#00e5ff', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>
-                    Đang chọn
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => onSceneIndexChange && onSceneIndexChange(Math.max(0, activeSceneIndex - 1))}
-                    disabled={activeSceneIndex === 0}
-                    className="capcut-btn-secondary"
-                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.7rem' }}
-                  >
-                    ◀ Trước
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSceneIndexChange && onSceneIndexChange(Math.min(totalScenes - 1, activeSceneIndex + 1))}
-                    disabled={activeSceneIndex >= totalScenes - 1}
-                    className="capcut-btn-secondary"
-                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.7rem' }}
-                  >
-                    Tiếp ▶
-                  </button>
-                </div>
+            </div>
+
+            <div className="capcut-card" style={{ ...CAPCUT_CARD_STYLE, opacity: renderChannelLogo ? 1 : 0.4, pointerEvents: renderChannelLogo ? 'auto' : 'none' }}>
+              <CapCutSectionHeader
+                title="Transform"
+                onReset={() => {
+                  setRenderLogoScale && setRenderLogoScale('1');
+                  setRenderLogoTranslateX && setRenderLogoTranslateX('0');
+                  setRenderLogoTranslateY && setRenderLogoTranslateY('0');
+                  onUpdateRenderConfig?.({ logoScale: 1, logoTranslateX: 0, logoTranslateY: 0 });
+                }}
+              />
+
+              {/* Scale */}
+              <CapCutSliderRow
+                label="Scale"
+                value={Number(renderLogoScale) || 1}
+                min={0.4}
+                max={2.5}
+                step={0.05}
+                precision={2}
+                unit="x"
+                onChange={(val) => {
+                  setRenderLogoScale && setRenderLogoScale(String(val));
+                  onUpdateRenderConfig?.({ logoScale: val });
+                }}
+              />
+
+              {/* Position X & Y */}
+              <CapCutPositionRow
+                label="Position"
+                x={Number(renderLogoTranslateX) || 0}
+                y={Number(renderLogoTranslateY) || 0}
+                onXChange={(val) => {
+                  setRenderLogoTranslateX && setRenderLogoTranslateX(String(val));
+                  onUpdateRenderConfig?.({ logoTranslateX: val });
+                }}
+                onYChange={(val) => {
+                  setRenderLogoTranslateY && setRenderLogoTranslateY(String(val));
+                  onUpdateRenderConfig?.({ logoTranslateY: val });
+                }}
+                minX={-800}
+                maxX={800}
+                minY={-1600}
+                maxY={600}
+                unitX="px"
+                unitY="px"
+                stepX={5}
+                stepY={10}
+              />
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenderLogoTranslateX && setRenderLogoTranslateX('0');
+                    setRenderLogoTranslateY && setRenderLogoTranslateY('0');
+                    onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0 });
+                  }}
+                  className="capcut-btn-secondary"
+                  style={{ flex: 1, padding: '6px 10px', fontSize: '0.72rem' }}
+                >
+                  ↺ Đặt lại vị trí trung tâm (X: 0, Y: 0)
+                </button>
               </div>
             </div>
-
-            {/* Phụ đề trên video */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
-                Phụ đề hiển thị:
-              </span>
-              <textarea
-                rows={2}
-                value={currentSubtitleDraft}
-                onChange={(e) => setCurrentSubtitleDraft(e.target.value)}
-                className="capcut-input"
-                style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Lời kể lồng tiếng */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              <span style={{ fontSize: '0.72rem', color: '#9a9a9a', fontWeight: 600 }}>
-                Lời kể / Thuyết minh:
-              </span>
-              <textarea
-                rows={2}
-                value={currentNarrationDraft}
-                onChange={(e) => setCurrentNarrationDraft(e.target.value)}
-                className="capcut-input"
-                style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Nghe thử & Nút lưu */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handlePlaySceneAudio}
-                className="capcut-btn-secondary"
-                style={{ flex: 1, padding: '7px 10px', fontSize: '0.72rem' }}
-              >
-                {isPlayingSceneAudio ? '🔊 Đang phát...' : '▶ Nghe thử voice'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveCurrentScene}
-                disabled={isSavingScene || isResyncingVoice}
-                className="capcut-btn-primary"
-                style={{ flex: 1.3, padding: '7px 12px', fontSize: '0.74rem' }}
-              >
-                {isSavingScene ? '⏳ Đang lưu...' : isResyncingVoice ? '🎙️ Tạo voice...' : '💾 Lưu Cảnh Này'}
-              </button>
-            </div>
-            {sceneSaveMsg && (
-              <span style={{ fontSize: '0.71rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
-                {sceneSaveMsg}
-              </span>
-            )}
           </div>
+        )}
 
-          {/* PHẦN DƯỚI: DANH SÁCH TOÀN BỘ CÁC CẢNH */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              background: '#202020',
-              border: '1px solid #2e2e2e',
-              borderRadius: '8px',
-              padding: '10px 12px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 6px 4px', borderBottom: '1px solid #2a2a2a', flexShrink: 0 }}>
-              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ffffff' }}>
-                Danh sách cảnh ({totalScenes})
-              </span>
-              <span style={{ fontSize: '0.65rem', color: '#888' }}>
-                Nhấn để chọn
-              </span>
-            </div>
+        {/* ========================================================
+          4. TAB MỞ ĐẦU (INTRO CẢNH 1)
+          ======================================================== */}
+        {currentTab === 'opening' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Mở đầu video (Cảnh 1)"
+                hasReset={false}
+                hasKeyframe={false}
+              />
 
-            <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px', paddingRight: '2px' }}>
-              {segments.map((seg, idx) => {
-                const isCurrent = idx === activeSceneIndex;
-                const padNum = String(seg.segmentNumber || idx + 1).padStart(2, '0');
-                const segNum = Number(seg.segmentNumber || idx + 1);
-                const hasThumb = hasSceneImage(segNum);
-                const thumb = hasThumb
-                  ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${padNum}.jpg&category=${encodeURIComponent(category)}&v=${idx}-${imageVersion}`
-                  : null;
-                const sub = (seg.subtitle || seg.dialogueOrNarration || '').split('\n')[0];
+              {/* Công tắc Bật / Tắt màn hình mở đầu (Cảnh 1) */}
+              <CapCutSwitchRow
+                label="Bật màn hình mở đầu (Cảnh 1)"
+                checked={Boolean(renderShowOpeningComment || renderShowOpeningNewsBanner)}
+                onChange={(checked) => {
+                  if (!checked) {
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(false);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(false);
+                    onSelectedElementChange?.('none');
+                    onUpdateRenderConfig?.({ showOpeningComment: false, showOpeningNewsBanner: false });
+                    if (result) {
+                      if (!result.remotionConfig) result.remotionConfig = {};
+                      result.remotionConfig.showOpeningComment = false;
+                      result.remotionConfig.showOpeningNewsBanner = false;
+                    }
+                  } else {
+                    // Mặc định bật Banner tin tức khi kích hoạt
+                    setRenderShowOpeningComment && setRenderShowOpeningComment(false);
+                    setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(true);
+                    onSelectedElementChange?.('news_headline');
+                    onUpdateRenderConfig?.({ showOpeningComment: false, showOpeningNewsBanner: true });
+                    if (result) {
+                      if (!result.remotionConfig) result.remotionConfig = {};
+                      result.remotionConfig.showOpeningComment = false;
+                      result.remotionConfig.showOpeningNewsBanner = true;
+                    }
+                  }
+                }}
+              />
 
-                return (
+              {!(renderShowOpeningComment || renderShowOpeningNewsBanner) ? (
+                <div style={{ padding: '14px 10px', background: '#181818', borderRadius: '6px', border: '1px dashed #333', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600 }}>Màn hình mở đầu đang tắt</span>
+                  <span style={{ fontSize: '0.62rem', color: '#666' }}>Bật công tắc phía trên để hiển thị sticker hộp bình luận hoặc banner tin tức cho Cảnh 1.</span>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginTop: '4px' }}>
+                  {[
+                    { id: 'news', label: 'Banner tin tức', desc: '50% mờ dần mép trên', active: !renderShowOpeningComment && renderShowOpeningNewsBanner },
+                    { id: 'comment', label: 'Hộp bình luận', desc: 'Sticker hỏi ở trên', active: renderShowOpeningComment && !renderShowOpeningNewsBanner },
+                    { id: 'both', label: 'Cả hai', desc: 'Bình luận + Banner', active: renderShowOpeningComment && renderShowOpeningNewsBanner }
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        let showComment = false;
+                        let showNews = false;
+                        let selectedEl = 'none';
+                        if (m.id === 'comment') {
+                          showComment = true;
+                          showNews = false;
+                          selectedEl = 'comment';
+                        } else if (m.id === 'news') {
+                          showComment = false;
+                          showNews = true;
+                          selectedEl = 'news_headline';
+                        } else if (m.id === 'both') {
+                          showComment = true;
+                          showNews = true;
+                          selectedEl = 'news_headline';
+                        }
+                        setRenderShowOpeningComment && setRenderShowOpeningComment(showComment);
+                        setRenderShowOpeningNewsBanner && setRenderShowOpeningNewsBanner(showNews);
+                        onSelectedElementChange?.(selectedEl);
+                        onUpdateRenderConfig?.({ showOpeningComment: showComment, showOpeningNewsBanner: showNews });
+                        if (result) {
+                          if (!result.remotionConfig) result.remotionConfig = {};
+                          result.remotionConfig.showOpeningComment = showComment;
+                          result.remotionConfig.showOpeningNewsBanner = showNews;
+                        }
+                      }}
+                      style={{
+                        padding: '8px 4px',
+                        borderRadius: '6px',
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: m.active ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: m.active ? '#282828' : '#1c1c1c',
+                        color: m.active ? '#00e5ff' : '#888',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '3px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <span>{m.label}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#666', fontWeight: 400 }}>{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {renderShowOpeningComment && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#00e5ff' }}>Cài đặt Hộp bình luận:</span>
+                  <input
+                    type="text"
+                    value={renderOpeningCommentAuthor || ''}
+                    placeholder="Người hỏi (VD: Trả lời bình luận)"
+                    onChange={(e) => setRenderOpeningCommentAuthor && setRenderOpeningCommentAuthor(e.target.value)}
+                    className="capcut-input"
+                    style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
+                  />
+                  <textarea
+                    rows={2}
+                    value={renderOpeningCommentText || ''}
+                    placeholder="Nội dung câu hỏi..."
+                    onChange={(e) => setRenderOpeningCommentText && setRenderOpeningCommentText(e.target.value)}
+                    className="capcut-input"
+                    style={{ width: '100%', padding: '6px 8px', resize: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              )}
+
+              {renderShowOpeningNewsBanner && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid #2a2a2a' }}>
+
+
+                  {/* 1. SECTION CHỮ TIÊU ĐỀ */}
                   <div
-                    key={idx}
-                    onClick={() => onSceneIndexChange && onSceneIndexChange(idx)}
                     style={{
                       display: 'flex',
-                      alignItems: 'center',
+                      flexDirection: 'column',
                       gap: '8px',
-                      padding: '6px 8px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      border: isCurrent ? '1.5px solid #00e5ff' : '1px solid #2a2a2a',
-                      background: isCurrent ? '#282828' : '#191919',
-                      transition: 'all 0.15s ease'
+                      padding: '10px',
+                      borderRadius: '8px',
+                      background: selectedElement === 'news_headline' ? 'rgba(254, 226, 74, 0.04)' : '#191919',
+                      border: selectedElement === 'news_headline' ? '1.5px solid rgba(254, 226, 74, 0.65)' : '1px solid #282828',
+                      transition: 'border 0.2s ease, background 0.2s ease'
                     }}
+                    onClick={() => onSelectedElementChange?.('news_headline')}
                   >
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt=""
-                        style={{ width: '36px', height: '48px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0, border: '1px solid #333' }}
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    ) : (
-                      <div style={{ width: '36px', height: '48px', borderRadius: '4px', border: '1px solid #333', background: '#252525', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', color: '#666', flexShrink: 0 }}>🎬</div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: isCurrent ? '#00e5ff' : '#ffffff' }}>
-                          Cảnh {idx + 1}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: selectedElement === 'news_headline' ? '#FFE24A' : '#ddd', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>📰</span> Chữ tiêu đề banner
+                      </span>
+                      {selectedElement === 'news_headline' && (
+                        <span style={{ fontSize: '0.58rem', color: '#FFE24A', background: 'rgba(254, 226, 74, 0.15)', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                          Đang chọn
                         </span>
-                        {isCurrent && (
-                          <span style={{ fontSize: '0.62rem', color: '#00e5ff', fontWeight: 600 }}>
-                            Đang chọn
-                          </span>
+                      )}
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={renderOpeningNewsHeadline || ''}
+                      placeholder="TIÊU ĐỀ NỔI BẬT..."
+                      onChange={(e) => setRenderOpeningNewsHeadline && setRenderOpeningNewsHeadline(e.target.value)}
+                      className="capcut-input"
+                      style={{ width: '100%', padding: '6px 8px', color: renderOpeningNewsTitleColor || '#FFE24A', fontWeight: 700, resize: 'none', boxSizing: 'border-box' }}
+                    />
+
+                    {/* Màu sắc tiêu đề */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa' }}>Màu tiêu đề:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {[
+                          { label: 'Vàng Neon', color: '#FFE24A' },
+                          { label: 'Trắng Sáng', color: '#FFFFFF' },
+                          { label: 'Đỏ Cam', color: '#FF4D4F' },
+                          { label: 'Xanh Neon', color: '#00E5FF' },
+                          { label: 'Xanh Lá', color: '#52C41A' },
+                        ].map((preset) => {
+                          const isMatch = (renderOpeningNewsTitleColor || '#FFE24A').toUpperCase() === preset.color.toUpperCase();
+                          return (
+                            <button
+                              key={preset.color}
+                              type="button"
+                              title={preset.label}
+                              onClick={() => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(preset.color)}
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                backgroundColor: preset.color,
+                                border: isMatch ? '2px solid #fff' : '1px solid rgba(255,255,255,0.25)',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                padding: 0,
+                                boxShadow: isMatch ? `0 0 8px ${preset.color}` : 'none',
+                                transform: isMatch ? 'scale(1.15)' : 'scale(1)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            />
+                          );
+                        })}
+                        <input
+                          type="color"
+                          value={renderOpeningNewsTitleColor || '#FFE24A'}
+                          onChange={(e) => setRenderOpeningNewsTitleColor && setRenderOpeningNewsTitleColor(e.target.value)}
+                          style={{
+                            width: '22px',
+                            height: '22px',
+                            padding: 0,
+                            border: '1px solid #444',
+                            borderRadius: '4px',
+                            background: 'none',
+                            cursor: 'pointer'
+                          }}
+                          title="Tự chọn màu tùy ý"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cỡ chữ tiêu đề */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>Cỡ chữ:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                        <input
+                          type="range"
+                          min="30"
+                          max="80"
+                          step="2"
+                          value={Number(renderOpeningNewsTitleSize) || 54}
+                          onChange={(e) => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(Number(e.target.value))}
+                          style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#FFE24A' }}
+                        />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '32px', textAlign: 'right' }}>
+                          {Number(renderOpeningNewsTitleSize) > 0 ? `${renderOpeningNewsTitleSize}px` : 'Auto'}
+                        </span>
+                        {Number(renderOpeningNewsTitleSize) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setRenderOpeningNewsTitleSize && setRenderOpeningNewsTitleSize(0)}
+                            style={{
+                              background: '#2c2c2c',
+                              border: '1px solid #444',
+                              color: '#aaa',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              padding: '2px 5px',
+                              cursor: 'pointer'
+                            }}
+                            title="Tự động theo độ dài tiêu đề"
+                          >
+                            Auto
+                          </button>
                         )}
                       </div>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: isCurrent ? '#ffffff' : '#888888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {sub || 'Chưa có nội dung'}
-                      </p>
+                    </div>
+
+                    {/* Giới hạn độ rộng tiêu đề */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>
+                        Giới hạn độ rộng:
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                        <input
+                          type="range"
+                          min="40"
+                          max="100"
+                          step="2"
+                          value={Number(renderOpeningNewsHeadlineWidth) || 82}
+                          onChange={(e) => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(Number(e.target.value))}
+                          style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#FFE24A' }}
+                          title="Thu hẹp để chữ tự xuống dòng, tránh đè icon bên phải"
+                        />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '36px', textAlign: 'right' }}>
+                          {Number(renderOpeningNewsHeadlineWidth) || 82}%
+                        </span>
+                        {Number(renderOpeningNewsHeadlineWidth) !== 82 && (
+                          <button
+                            type="button"
+                            onClick={() => setRenderOpeningNewsHeadlineWidth && setRenderOpeningNewsHeadlineWidth(82)}
+                            style={{
+                              background: '#2c2c2c',
+                              border: '1px solid #444',
+                              color: '#aaa',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              padding: '2px 5px',
+                              cursor: 'pointer'
+                            }}
+                            title="Đặt lại mặc định 82%"
+                          >
+                            82%
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* 2. SECTION TAG THỂ LOẠI */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      background: selectedElement === 'news_tag' ? 'rgba(0, 229, 255, 0.04)' : '#191919',
+                      border: selectedElement === 'news_tag' ? '1.5px solid rgba(0, 229, 255, 0.65)' : '1px solid #282828',
+                      transition: 'border 0.2s ease, background 0.2s ease'
+                    }}
+                    onClick={() => onSelectedElementChange?.('news_tag')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: selectedElement === 'news_tag' ? '#00e5ff' : '#ddd', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>🏷️</span> Tag thể loại chuyên mục
+                      </span>
+                      {selectedElement === 'news_tag' && (
+                        <span style={{ fontSize: '0.58rem', color: '#00e5ff', background: 'rgba(0, 229, 255, 0.15)', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                          Đang chọn
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Danh sách các Type Tag mẫu */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      {[
+                        { label: 'Tin tức', icon: '🔴', val: 'Tin tức' },
+                        { label: 'Kiến thức', icon: '💡', val: 'Kiến thức' },
+                        { label: 'Sự thật thú vị', icon: '✨', val: 'Sự thật thú vị' },
+                        { label: 'Bí ẩn', icon: '🔮', val: 'Bí ẩn' },
+                        { label: 'Có thể bạn chưa biết', icon: '🧠', val: 'Có thể bạn chưa biết' }
+                      ].map((t) => {
+                        const currentVal = (renderOpeningNewsBrand || 'Tin tức').trim().toLowerCase();
+                        const isSelected = currentVal === t.val.toLowerCase();
+                        return (
+                          <button
+                            key={t.val}
+                            type="button"
+                            onClick={() => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(t.val)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              border: isSelected ? '1.5px solid #00e5ff' : '1px solid #333',
+                              background: isSelected ? 'rgba(0, 229, 255, 0.18)' : '#222',
+                              color: isSelected ? '#00e5ff' : '#bbb',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span>{t.icon}</span>
+                            <span>{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={renderOpeningNewsBrand || ''}
+                      placeholder="Hoặc tự nhập Tag thể loại (VD: Lịch sử, Vũ trụ...)"
+                      onChange={(e) => setRenderOpeningNewsBrand && setRenderOpeningNewsBrand(e.target.value)}
+                      className="capcut-input"
+                      style={{ width: '100%', padding: '6px 8px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  {/* 3. SECTION NỀN BANNER */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      background: selectedElement === 'news_banner' ? 'rgba(239, 68, 68, 0.04)' : '#191919',
+                      border: selectedElement === 'news_banner' ? '1.5px solid rgba(239, 68, 68, 0.65)' : '1px solid #282828',
+                      transition: 'border 0.2s ease, background 0.2s ease'
+                    }}
+                    onClick={() => onSelectedElementChange?.('news_banner')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: selectedElement === 'news_banner' ? '#fca5a5' : '#ddd', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span>🟥</span> Nền gradient banner
+                      </span>
+                      {selectedElement === 'news_banner' && (
+                        <span style={{ fontSize: '0.58rem', color: '#fca5a5', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                          Đang chọn
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Vị trí Y nền banner */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>Vị trí dọc (Y):</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                        <input
+                          type="range"
+                          min="-300"
+                          max="300"
+                          step="5"
+                          value={Number(renderOpeningNewsBannerTranslateY) || 0}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setRenderOpeningNewsBannerTranslateY && setRenderOpeningNewsBannerTranslateY(String(val));
+                            onUpdateRenderConfig?.({ openingNewsBannerTranslateY: val });
+                          }}
+                          style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
+                        />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '36px', textAlign: 'right' }}>
+                          {Number(renderOpeningNewsBannerTranslateY) || 0}px
+                        </span>
+                        {Number(renderOpeningNewsBannerTranslateY) !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRenderOpeningNewsBannerTranslateY && setRenderOpeningNewsBannerTranslateY('0');
+                              onUpdateRenderConfig?.({ openingNewsBannerTranslateY: 0 });
+                            }}
+                            style={{
+                              background: '#2c2c2c',
+                              border: '1px solid #444',
+                              color: '#aaa',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              padding: '2px 5px',
+                              cursor: 'pointer'
+                            }}
+                            title="Đặt lại vị trí 0px"
+                          >
+                            0
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Thu phóng nền banner */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#aaa', flexShrink: 0 }}>Thu phóng (Scale):</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+                        <input
+                          type="range"
+                          min="50"
+                          max="200"
+                          step="5"
+                          value={Math.round((Number(renderOpeningNewsBannerScale) || 1) * 100)}
+                          onChange={(e) => {
+                            const scaleVal = Number((Number(e.target.value) / 100).toFixed(2));
+                            setRenderOpeningNewsBannerScale && setRenderOpeningNewsBannerScale(String(scaleVal));
+                            onUpdateRenderConfig?.({ openingNewsBannerScale: scaleVal });
+                          }}
+                          style={{ flex: 1, maxWidth: '120px', cursor: 'pointer', accentColor: '#ef4444' }}
+                        />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fff', minWidth: '36px', textAlign: 'right' }}>
+                          {Math.round((Number(renderOpeningNewsBannerScale) || 1) * 100)}%
+                        </span>
+                        {Number(renderOpeningNewsBannerScale) !== 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRenderOpeningNewsBannerScale && setRenderOpeningNewsBannerScale('1');
+                              onUpdateRenderConfig?.({ openingNewsBannerScale: 1 });
+                            }}
+                            style={{
+                              background: '#2c2c2c',
+                              border: '1px solid #444',
+                              color: '#aaa',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              padding: '2px 5px',
+                              cursor: 'pointer'
+                            }}
+                            title="Đặt lại 100%"
+                          >
+                            100%
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ========================================================
-          6. TAB CÀI ĐẶT (STYLE / SETTINGS)
+        {/* ========================================================
+          5. TAB CẢNH (MẶC ĐỊNH CHỈ HIỆN ẢNH VÀ VIDEO, BẤM "CHI TIẾT" MỚI SỔ THÊM TEXT & AUDIO)
           ======================================================== */}
-      {currentTab === 'style' && (
-        <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-            <CapCutSectionHeader
-              title="Cài đặt video &amp; Hiệu ứng chung"
-              hasReset={false}
-              hasKeyframe={false}
-            />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', minHeight: '28px' }}>
+        {currentTab === 'scenes' && (
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+            {/* THANH ĐIỀU HƯỚNG CẢNH (COMPACT STEPPER) */}
+            <div
+              style={{
+                flex: '0 0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: '#181818',
+                border: '1px solid #282828',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                boxSizing: 'border-box'
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="capcut-label">Màu Primary:</span>
-                <ColorPickerPopover color={renderHighlightColor} onChange={setRenderHighlightColor} label="Primary" align="left" />
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#00e5ff' }}>
+                  🎬 Cảnh {activeSceneIndex + 1} / {totalScenes}
+                </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prevIdx = Math.max(0, activeSceneIndex - 1);
+                    onSceneIndexChange && onSceneIndexChange(prevIdx);
+                    if (expandedSceneIndex !== null) setExpandedSceneIndex(prevIdx);
+                  }}
+                  disabled={activeSceneIndex === 0}
+                  className="capcut-btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.68rem', cursor: activeSceneIndex === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                  ◀ Trước
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = Math.min(totalScenes - 1, activeSceneIndex + 1);
+                    onSceneIndexChange && onSceneIndexChange(nextIdx);
+                    if (expandedSceneIndex !== null) setExpandedSceneIndex(nextIdx);
+                  }}
+                  disabled={activeSceneIndex >= totalScenes - 1}
+                  className="capcut-btn-secondary"
+                  style={{ padding: '3px 8px', fontSize: '0.68rem', cursor: activeSceneIndex >= totalScenes - 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Tiếp ▶
+                </button>
+              </div>
+            </div>
+
+            {/* DANH SÁCH CẢNH - MẶC ĐỊNH CHỈ HIỆN ẢNH VÀ VIDEO, BẤM "CHI TIẾT" MỚI SỔ THÊM TEXT & AUDIO */}
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                background: '#202020',
+                border: '1px solid #2e2e2e',
+                borderRadius: '8px',
+                padding: '10px 12px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 6px 4px', borderBottom: '1px solid #2a2a2a', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#ffffff' }}>
+                  Danh sách cảnh ({totalScenes})
+                </span>
+                <span style={{ fontSize: '0.65rem', color: '#888' }}>
+                  Nhấn để xem • Bấm Chi tiết để sửa
+                </span>
+              </div>
+
+              <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '2px' }}>
+                {segments.map((seg, idx) => {
+                  const isCurrent = idx === activeSceneIndex;
+                  const isExpanded = expandedSceneIndex === idx;
+                  const padNum = String(seg.segmentNumber || idx + 1).padStart(2, '0');
+                  const segNum = Number(seg.segmentNumber || idx + 1);
+                  const isVideo = isSceneVideo(segNum, seg);
+                  const mediaFile = isVideo ? `images/scene-${padNum}.mp4` : `images/scene-${padNum}.jpg`;
+                  const hasThumb = hasSceneImage(segNum);
+                  const thumb = hasThumb
+                    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${mediaFile}&category=${encodeURIComponent(category)}&v=${idx}-${imageVersion}`
+                    : null;
+
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        if (onSceneIndexChange) onSceneIndexChange(idx);
+                      }}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: isExpanded ? '10px' : '0px',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isCurrent ? '1.5px solid #00e5ff' : '1px solid #2a2a2a',
+                        background: isCurrent ? '#252525' : '#191919',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {/* Header item: Ảnh / Video của cảnh lớn + Tên cảnh + Nút Chi tiết */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        {/* Thumbnail ảnh/video 9:16 lớn, rõ nét */}
+                        <div
+                          style={{
+                            position: 'relative',
+                            width: '92px',
+                            height: '130px',
+                            flexShrink: 0,
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: isCurrent ? '2px solid #00e5ff' : '1px solid #383838',
+                            boxShadow: isCurrent ? '0 0 12px rgba(0, 229, 255, 0.35)' : '0 2px 8px rgba(0,0,0,0.5)',
+                            background: '#151515'
+                          }}
+                        >
+                          {/* Badge loại media ở góc trên trái */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              left: '4px',
+                              background: isVideo ? 'rgba(0, 119, 255, 0.85)' : 'rgba(0, 0, 0, 0.72)',
+                              backdropFilter: 'blur(4px)',
+                              border: isVideo ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.2)',
+                              borderRadius: '4px',
+                              padding: '1px 5px',
+                              fontSize: '0.58rem',
+                              fontWeight: 800,
+                              color: isVideo ? '#00e5ff' : '#eee',
+                              zIndex: 2,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                          >
+                            <span>{isVideo ? '🎥' : '🖼️'}</span>
+                            <span>{isVideo ? 'Video' : 'Ảnh'}</span>
+                          </div>
+
+                          {thumb ? (
+                            isVideo ? (
+                              <video
+                                src={thumb}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                            ) : (
+                              <img
+                                src={thumb}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                            )
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#666' }}>
+                              <span style={{ fontSize: '1.4rem' }}>{isVideo ? '🎥' : '🎬'}</span>
+                              <span style={{ fontSize: '0.62rem', color: '#888' }}>{isVideo ? 'Chưa có video' : 'Chưa có ảnh'}</span>
+                            </div>
+                          )}
+                          {/* Nút Đổi ảnh nhanh trên Thumbnail */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTriggerUploadImage(idx);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              background: 'rgba(0, 0, 0, 0.72)',
+                              backdropFilter: 'blur(4px)',
+                              border: '1px solid rgba(255, 255, 255, 0.25)',
+                              borderRadius: '4px',
+                              padding: '2px 5px',
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              color: '#fff',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="Thay thế ảnh cảnh này (Upload từ máy)"
+                          >
+                            <span>📷</span>
+                            <span>Đổi</span>
+                          </button>
+                          {/* Huy hiệu số cảnh góc dưới */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              bottom: '4px',
+                              left: '4px',
+                              background: 'rgba(0, 0, 0, 0.75)',
+                              backdropFilter: 'blur(4px)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.62rem',
+                              fontWeight: 800,
+                              color: isCurrent ? '#00e5ff' : '#fff'
+                            }}
+                          >
+                            #{idx + 1}
+                          </div>
+                        </div>
+
+                        {/* Thông tin bên phải thumbnail */}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.84rem', fontWeight: 800, color: isCurrent ? '#00e5ff' : '#ffffff' }}>
+                                Cảnh {idx + 1}
+                              </span>
+                              {isCurrent && (
+                                <span style={{ fontSize: '0.62rem', color: '#00e5ff', fontWeight: 700, background: 'rgba(0, 229, 255, 0.15)', border: '1px solid rgba(0, 229, 255, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                                  Đang chọn
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Nút Chi tiết */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isExpanded) {
+                                  setExpandedSceneIndex(null);
+                                } else {
+                                  setExpandedSceneIndex(idx);
+                                  if (onSceneIndexChange) onSceneIndexChange(idx);
+                                }
+                              }}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                borderRadius: '5px',
+                                border: isExpanded ? '1px solid #00e5ff' : '1px solid #3a3a3a',
+                                background: isExpanded ? 'rgba(0, 229, 255, 0.2)' : '#252525',
+                                color: isExpanded ? '#00e5ff' : '#ccc',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                flexShrink: 0,
+                                transition: 'all 0.15s ease'
+                              }}
+                              title={isExpanded ? 'Thu gọn chi tiết' : 'Xem & chỉnh sửa chi tiết text, audio'}
+                            >
+                              <span>{isExpanded ? '▴' : '▾'}</span>
+                              <span>{isExpanded ? 'Thu gọn' : 'Chi tiết'}</span>
+                            </button>
+                          </div>
+
+                          {/* Đoạn text tóm tắt nội dung cảnh (chỉ 2 dòng gọn gàng khi chưa mở chi tiết) */}
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: '0.72rem',
+                              color: isCurrent ? 'rgba(255,255,255,0.85)' : '#8e8e8e',
+                              lineHeight: 1.45,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
+                            {seg.subtitle || seg.dialogueOrNarration || 'Chưa có nội dung'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* SỔ THÊM THÔNG TIN TEXT HOẶC AUDIO KHI BẤM "CHI TIẾT" */}
+                      {isExpanded && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid #333',
+                            animation: 'fadeIn 0.15s ease-out'
+                          }}
+                        >
+                          {/* Khối quản lý Ảnh & Tạo lại với Google Flow */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              padding: '8px',
+                              background: '#202020',
+                              borderRadius: '6px',
+                              border: '1px solid #333'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#00e5ff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>{isVideo ? '🎥' : '🖼️'}</span> <span>{isVideo ? 'Video clip & Đổi Media' : 'Hình ảnh & Đổi Media'}</span>
+                              </span>
+                              {isUploadingImage && (uploadTargetSceneIndex === idx || (uploadTargetSceneIndex === null && isCurrent)) && (
+                                <span style={{ fontSize: '0.65rem', color: '#ffb300', fontWeight: 600 }}>
+                                  ⏳ Đang tải file...
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Prompt mô tả ảnh */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.65rem', color: '#888' }}>
+                                  Prompt mô tả hình ảnh:
+                                </span>
+                                {getScenePrompt(seg, idx) !== getSceneDefaultPrompt(seg) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveVisualPrompt(idx)}
+                                    disabled={isSavingVisualPrompt}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#00e5ff',
+                                      fontSize: '0.65rem',
+                                      cursor: 'pointer',
+                                      padding: 0,
+                                      textDecoration: 'underline'
+                                    }}
+                                  >
+                                    {isSavingVisualPrompt ? 'Đang lưu...' : 'Lưu prompt'}
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                rows={2}
+                                value={getScenePrompt(seg, idx)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setScenePromptDrafts(prev => ({ ...prev, [idx]: val }));
+                                  if (idx === activeSceneIndex) {
+                                    setCurrentVisualPromptDraft(val);
+                                  }
+                                }}
+                                placeholder="Mô tả hình ảnh cho cảnh này..."
+                                className="capcut-input"
+                                style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', lineHeight: 1.35, resize: 'vertical', boxSizing: 'border-box' }}
+                              />
+                            </div>
+
+                            {/* 4 Nút hành động cho media cảnh */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 0.95fr 0.7fr', gap: '5px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleTriggerUploadImage(idx)}
+                                disabled={isUploadingImage}
+                                className="capcut-btn-secondary"
+                                style={{ padding: '6px 4px', fontSize: '0.67rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                                title="Tải ảnh hoặc video từ máy tính để thay thế cảnh này"
+                              >
+                                <span>📁</span>
+                                <span>Tải lên</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPexelsForScene(idx)}
+                                style={{
+                                  padding: '6px 4px',
+                                  fontSize: '0.67rem',
+                                  fontWeight: 700,
+                                  borderRadius: '5px',
+                                  border: '1px solid rgba(0, 229, 255, 0.4)',
+                                  background: 'linear-gradient(135deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 119, 255, 0.25) 100%)',
+                                  color: '#00e5ff',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px'
+                                }}
+                                title="Tìm kiếm ảnh/video từ kho Pexels, xem trước, cắt cảnh và ghép vào cảnh này"
+                              >
+                                <span>🍀</span>
+                                <span>Pexels</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleGenerateFlowForScene(idx)}
+                                style={{
+                                  padding: '6px 4px',
+                                  fontSize: '0.67rem',
+                                  fontWeight: 700,
+                                  borderRadius: '5px',
+                                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(236, 72, 153, 0.25) 100%)',
+                                  color: '#c084fc',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px'
+                                }}
+                                title="Đẩy prompt cảnh này sang Google Flow để tự động tạo lại ảnh"
+                              >
+                                <span>🚀</span>
+                                <span>Flow</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPrompt(idx)}
+                                className="capcut-btn-secondary"
+                                style={{ padding: '6px 4px', fontSize: '0.67rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                                title="Sao chép prompt để dán vào Flow/Midjourney"
+                              >
+                                <span>📋</span>
+                                <span>Copy</span>
+                              </button>
+                            </div>
+
+                            {/* Thông báo trạng thái ảnh */}
+                            {(uploadTargetSceneIndex === idx || (uploadTargetSceneIndex === null && isCurrent)) && imageUploadMsg && (
+                              <span style={{ fontSize: '0.68rem', color: imageUploadMsg.startsWith('✓') ? '#00e5ff' : imageUploadMsg.startsWith('🚀') ? '#69f0ae' : '#ffb300', textAlign: 'center', fontWeight: 600 }}>
+                                {imageUploadMsg}
+                              </span>
+                            )}
+                            {isCurrent && visualPromptSaveMsg && (
+                              <span style={{ fontSize: '0.68rem', color: '#69f0ae', textAlign: 'center', fontWeight: 600 }}>
+                                {visualPromptSaveMsg}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Phụ đề hiển thị (Text) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>
+                              📝 Phụ đề hiển thị:
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={isCurrent ? currentSubtitleDraft : (seg.subtitle || '')}
+                              onChange={(e) => {
+                                if (isCurrent) setCurrentSubtitleDraft(e.target.value);
+                              }}
+                              className="capcut-input"
+                              style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          {/* Lời kể / Thuyết minh (Text) */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#9a9a9a', fontWeight: 600 }}>
+                              🎙️ Lời kể / Thuyết minh:
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={isCurrent ? currentNarrationDraft : (seg.dialogueOrNarration || '')}
+                              onChange={(e) => {
+                                if (isCurrent) setCurrentNarrationDraft(e.target.value);
+                              }}
+                              className="capcut-input"
+                              style={{ width: '100%', padding: '6px 8px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }}
+                            />
+                          </div>
+
+                          {/* Audio & Lưu Cảnh Này */}
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={handlePlaySceneAudio}
+                              className="capcut-btn-secondary"
+                              style={{ flex: 1, padding: '6px 8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            >
+                              <span>{isPlayingSceneAudio ? '🔊' : '▶'}</span>
+                              <span>{isPlayingSceneAudio ? 'Đang phát...' : 'Nghe thử voice'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleSaveCurrentScene}
+                              disabled={isSavingScene || isResyncingVoice}
+                              className="capcut-btn-primary"
+                              style={{ flex: 1.3, padding: '6px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            >
+                              <span>{isSavingScene ? '⏳' : isResyncingVoice ? '🎙️' : '💾'}</span>
+                              <span>{isSavingScene ? 'Đang lưu...' : isResyncingVoice ? 'Tạo voice...' : 'Lưu Cảnh Này'}</span>
+                            </button>
+                          </div>
+                          {isCurrent && sceneSaveMsg && (
+                            <span style={{ fontSize: '0.7rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
+                              {sceneSaveMsg}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+          6. TAB CÀI ĐẶT CHUNG (GENERAL SETTINGS)
+          ======================================================== */}
+        {currentTab === 'style' && (
+          <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Card 1: Màu sắc & Nền video */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Màu sắc &amp; Nền video"
+                hasReset={false}
+                hasKeyframe={false}
+              />
+              <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+                Cài đặt màu nền canvas và màu sắc điểm nhấn (Primary Highlight) áp dụng xuyên suốt video.
+              </p>
+
+              {/* Màu nền video */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
                 <span className="capcut-label">Màu nền video:</span>
                 <ColorPickerPopover
                   color={renderVideoBgColor || '#000000'}
@@ -2325,26 +3081,269 @@ export default function VideoEditorPanel({
                       if (!result.remotionConfig) result.remotionConfig = {};
                       result.remotionConfig.videoBgColor = val;
                     }
+                    onUpdateRenderConfig?.({ videoBgColor: val });
                   }}
                   label="Nền video"
                   align="right"
                 />
               </div>
+
+              {/* Màu Primary / Highlight */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '28px' }}>
+                <span className="capcut-label">Màu chủ đạo (Highlight):</span>
+                <ColorPickerPopover
+                  color={renderHighlightColor || '#FE2C55'}
+                  onChange={(val) => {
+                    setRenderHighlightColor && setRenderHighlightColor(val);
+                    if (result) {
+                      if (!result.remotionConfig) result.remotionConfig = {};
+                      result.remotionConfig.highlightColor = val;
+                    }
+                    onUpdateRenderConfig?.({ highlightColor: val });
+                  }}
+                  label="Highlight"
+                  align="right"
+                />
+              </div>
             </div>
 
+            {/* Card 2: Chuyển cảnh slide (Scene Transitions) */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Chuyển cảnh slide (Scene Transitions)"
+                hasReset={true}
+                onReset={() => {
+                  setRenderTransitionStyle && setRenderTransitionStyle('crossfade');
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.transitionStyle = 'crossfade';
+                  }
+                  onUpdateRenderConfig?.({ transitionStyle: 'crossfade' });
+                }}
+                hasKeyframe={false}
+              />
+              <p style={{ margin: 0, fontSize: '0.68rem', color: '#888', lineHeight: 1.4 }}>
+                Hiệu ứng chuyển tiếp chuyển động giữa các phân cảnh trong video.
+              </p>
 
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                {TRANSITION_STYLES.map((t) => {
+                  const isActive = renderTransitionStyle === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      title={`${t.label} - ${t.desc || ''}`}
+                      onClick={() => {
+                        setRenderTransitionStyle && setRenderTransitionStyle(t.id);
+                        if (result) {
+                          if (!result.remotionConfig) result.remotionConfig = {};
+                          result.remotionConfig.transitionStyle = t.id;
+                        }
+                        onUpdateRenderConfig?.({ transitionStyle: t.id });
+                      }}
+                      style={{
+                        position: 'relative',
+                        padding: '6px 2px 5px 2px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        border: isActive ? '1.5px solid #00e5ff' : '1px solid #303030',
+                        background: isActive ? '#282828' : '#1c1c1c',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        height: '58px',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none', pointerEvents: 'none' }}>
+                        {renderTransitionVisualPreview(t.id, isActive)}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 600, color: isActive ? '#00e5ff' : '#9a9a9a', textAlign: 'center', width: '100%', lineHeight: 1.1, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {t.label}
+                      </div>
+                      {isActive && (
+                        <div style={{ position: 'absolute', top: '3px', right: '3px', width: '10px', height: '10px', borderRadius: '50%', background: '#00e5ff', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6.5px', fontWeight: 900 }}>
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Card 3: Tùy chọn hiển thị dùng chung */}
+            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
+              <CapCutSectionHeader
+                title="Tùy chọn hiển thị dùng chung"
+                hasReset={false}
+                hasKeyframe={false}
+              />
+
+              {/* Bật/tắt phụ đề */}
+              <CapCutSwitchRow
+                label="Bật hiển thị phụ đề (Captions)"
+                checked={Boolean(renderCaptionEnabled)}
+                onChange={(val) => {
+                  setRenderCaptionEnabled && setRenderCaptionEnabled(val);
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.captionEnabled = val;
+                    result.remotionConfig.showCaption = val;
+                  }
+                  onUpdateRenderConfig?.({ captionEnabled: val, showCaption: val });
+                }}
+              />
+
+              {/* Tiêu đề song ngữ */}
+              <CapCutSwitchRow
+                label="Tiêu đề song ngữ (Bilingual)"
+                checked={Boolean(renderBilingual)}
+                onChange={(val) => {
+                  setRenderBilingual && setRenderBilingual(val);
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.bilingual = val;
+                  }
+                  onUpdateRenderConfig?.({ bilingual: val });
+                }}
+              />
+
+              {/* Bật/tắt Logo thương hiệu */}
+              <CapCutSwitchRow
+                label="Hiển thị Logo thương hiệu"
+                checked={Boolean(renderChannelLogo)}
+                onChange={(val) => {
+                  setRenderChannelLogo && setRenderChannelLogo(val);
+                  if (result) {
+                    if (!result.remotionConfig) result.remotionConfig = {};
+                    result.remotionConfig.channelLogo = val;
+                  }
+                  onUpdateRenderConfig?.({ channelLogo: val });
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Nút lưu style chung cho tất cả các tab ở bottom */}
+        <div
+          style={{
+            flexShrink: 0,
+            padding: '10px 12px',
+            borderTop: '1px solid #282828',
+            background: '#181818',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}
+        >
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {(onUndo || onRedo) && (
+              <>
+                <button
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title="Hoàn tác bước trước (Ctrl + Z)"
+                  style={{
+                    padding: '9px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    background: canUndo ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    color: canUndo ? '#fff' : 'rgba(255, 255, 255, 0.25)',
+                    cursor: canUndo ? 'pointer' : 'not-allowed',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>↩</span>
+                  <span>Undo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title="Làm lại bước vừa hoàn tác (Ctrl + Y hoặc Ctrl + Shift + Z)"
+                  style={{
+                    padding: '9px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    background: canRedo ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    color: canRedo ? '#fff' : 'rgba(255, 255, 255, 0.25)',
+                    cursor: canRedo ? 'pointer' : 'not-allowed',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>↪</span>
+                  <span>Redo</span>
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={handleSaveAndApply}
               disabled={isSavingStyle}
               className="capcut-btn-primary"
-              style={{ width: '100%', padding: '8px 12px', fontSize: '0.76rem', marginTop: '4px' }}
+              style={{
+                flex: 1,
+                padding: '9px 14px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
             >
-              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu Cài Đặt Video'}
+              {isSavingStyle ? '⏳ Đang lưu...' : '💾 Lưu style'}
             </button>
           </div>
+          {saveStyleMsg && (
+            <span style={{ fontSize: '0.72rem', color: '#00e5ff', textAlign: 'center', fontWeight: 600 }}>
+              {saveStyleMsg}
+            </span>
+          )}
         </div>
-      )}
-    </div>
-  );
-}
+
+        {/* Hidden File Input để upload ảnh hoặc video từ máy tính */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageFileChange}
+          accept="image/*,video/mp4,video/webm"
+          style={{ display: 'none' }}
+        />
+
+        {/* Modal Tìm kiếm Kho Pexels (Ảnh & Video) kèm Trimming */}
+        <PexelsMediaPickerModal
+          isOpen={pexelsPickerOpen}
+          onClose={() => {
+            setPexelsPickerOpen(false);
+            setPexelsTargetSceneIndex(null);
+          }}
+          folderPath={folderPath}
+          category={category}
+          sceneNumber={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.segmentNumber || pexelsTargetSceneIndex + 1) : (activeSceneIndex + 1)}
+          scenePrompt={pexelsTargetSceneIndex !== null ? getScenePrompt(segments[pexelsTargetSceneIndex], pexelsTargetSceneIndex) : currentVisualPromptDraft}
+          sceneNarration={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.dialogueOrNarration || segments[pexelsTargetSceneIndex]?.subtitle || '') : (currentSegment?.dialogueOrNarration || '')}
+          sceneDuration={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.durationSeconds || 5) : (currentSegment?.durationSeconds || 5)}
+          onApplied={handlePexelsApplied}
+          showToast={showToast}
+        />
+      </div>
+    );
+  }

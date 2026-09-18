@@ -83,7 +83,7 @@ export async function POST(request) {
     }
 
     let record = null;
-    const localRes = getLocalPromptHistory({ id });
+    const localRes = getLocalPromptHistory({ id, full: true });
     if (localRes?.item) {
       record = localRes.item;
     } else {
@@ -98,11 +98,29 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Không tìm thấy kịch bản này trong lịch sử (có thể đã bị xoá).' }, { status: 404 });
     }
 
+    const cleanFolder = (folderPath || record.input?.folderPath || '').trim();
+    const cat = category || record.category;
+    let diskManifest = null;
+    let manifestPath = null;
+    if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder)) {
+      manifestPath = path.join(resolveProjectDir(cleanFolder, cat), 'manifest.json');
+      if (fs.existsSync(manifestPath)) {
+        try {
+          diskManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        } catch { }
+      }
+    }
+
     const editByNumber = new Map((edits || []).map((e) => [e.segmentNumber, e]));
     let changedCount = 0;
     const titleChanged = hasTitleEdit && cleanTitle !== (record.title || '');
 
-    const updatedSegments = (record.segments || []).map((seg) => {
+    // Nguồn segments ưu tiên lấy đầy đủ từ manifest.json trên đĩa (nếu có nhiều segments hơn record)
+    const baseSegments = (Array.isArray(diskManifest?.segments) && diskManifest.segments.length >= (record.segments?.length || 0))
+      ? diskManifest.segments
+      : (record.segments || []);
+
+    const updatedSegments = baseSegments.map((seg) => {
       const edit = editByNumber.get(seg.segmentNumber);
       if (!edit) return seg;
       const next = applyEdits(seg, edit);
@@ -145,40 +163,35 @@ export async function POST(request) {
       db.collection('promptHistory').updateOne({ id }, { $set: update }).catch(err => {
         console.warn('[update-segments] Mongo update background warning:', err.message);
       });
-    }).catch(() => {});
+    }).catch(() => { });
 
     // manifest.json trên đĩa — khâu Tạo Giọng Đọc và render-project.mjs đọc file này chứ không đọc
     // DB, nên bỏ qua bước này là bản sửa sẽ không vào được video cuối cùng.
     let manifestUpdated = false;
-    const cleanFolder = (folderPath || record.input?.folderPath || '').trim();
-    const cat = category || record.category;
-    if (cleanFolder && SAFE_FOLDER_NAME.test(cleanFolder)) {
-      const manifestPath = path.join(resolveProjectDir(cleanFolder, cat), 'manifest.json');
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const freshByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s]));
-        manifest.segments = (manifest.segments || []).map((seg) => {
-          const fresh = freshByNumber.get(seg.segmentNumber);
-          if (!fresh) return seg;
-          const patched = {
-            ...seg,
-            dialogueOrNarration: fresh.dialogueOrNarration,
-            subtitle: fresh.subtitle,
-            visualDescription: fresh.visualDescription,
-          };
-          // Ghi đè elements[], layout, bullets vào manifest để render-project.mjs dùng bố cục mới
-          if (Array.isArray(fresh.elements)) patched.elements = fresh.elements;
-          if (fresh.layout) patched.layout = fresh.layout;
-          if (Array.isArray(fresh.bullets)) patched.bullets = fresh.bullets;
-          return patched;
-        });
-        // render-project.mjs và khâu lồng tiếng đọc manifest.json chứ không đọc DB — không ghi
-        // tiêu đề vào đây thì video render ra vẫn mang tiêu đề cũ dù giao diện đã hiện tên mới.
-        if (titleChanged) manifest.title = cleanTitle;
-        manifest.updatedAt = Date.now();
-        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-        manifestUpdated = true;
-      }
+    if (manifestPath && fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      const freshByNumber = new Map(updatedSegments.map((s) => [s.segmentNumber, s]));
+      manifest.segments = (manifest.segments || []).map((seg) => {
+        const fresh = freshByNumber.get(seg.segmentNumber);
+        if (!fresh) return seg;
+        const patched = {
+          ...seg,
+          dialogueOrNarration: fresh.dialogueOrNarration,
+          subtitle: fresh.subtitle,
+          visualDescription: fresh.visualDescription,
+        };
+        // Ghi đè elements[], layout, bullets vào manifest để render-project.mjs dùng bố cục mới
+        if (Array.isArray(fresh.elements)) patched.elements = fresh.elements;
+        if (fresh.layout) patched.layout = fresh.layout;
+        if (Array.isArray(fresh.bullets)) patched.bullets = fresh.bullets;
+        return patched;
+      });
+      // render-project.mjs và khâu lồng tiếng đọc manifest.json chứ không đọc DB — không ghi
+      // tiêu đề vào đây thì video render ra vẫn mang tiêu đề cũ dù giao diện đã hiện tên mới.
+      if (titleChanged) manifest.title = cleanTitle;
+      manifest.updatedAt = Date.now();
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      manifestUpdated = true;
     }
 
     return NextResponse.json({

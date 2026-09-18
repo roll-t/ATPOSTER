@@ -165,11 +165,18 @@ const audioDir = path.join(projectPath, "audio");
 // Map segments to Remotion scenes
 const scenes = manifest.segments.map((seg) => {
   const paddedNum = String(seg.segmentNumber).padStart(2, "0");
-  
-  // Detect image extension and file path (supports multiple images per scene like scene-03_1.jpg)
+
+  // Detect image or video file path (supports images and video clips per scene)
   let imagePath = `${projectFolder}/images/scene-${paddedNum}.jpg`;
 
-  if (Array.isArray(seg.files) && seg.files.length > 0) {
+  if (seg.mediaFile) {
+    const cleanMedia = seg.mediaFile.startsWith(projectFolder)
+      ? seg.mediaFile
+      : `${projectFolder}/${seg.mediaFile.replace(/^\/+/, '')}`;
+    if (fs.existsSync(path.join(root, "public", cleanMedia))) {
+      imagePath = cleanMedia;
+    }
+  } else if (Array.isArray(seg.files) && seg.files.length > 0) {
     const firstFile = seg.files[0];
     const relPath = firstFile.startsWith(projectFolder)
       ? firstFile
@@ -179,11 +186,17 @@ const scenes = manifest.segments.map((seg) => {
     }
   }
 
-  if (!fs.existsSync(path.join(root, "public", imagePath)) && fs.existsSync(imageDir)) {
+  if (fs.existsSync(imageDir)) {
     const files = fs.readdirSync(imageDir);
-    const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`) || f.startsWith(`scene-${paddedNum}_`));
-    if (match) {
-      imagePath = `${projectFolder}/images/${match}`;
+    const isVideoSeg = seg.mediaType === 'video';
+    const vidMatch = files.find((f) => f.startsWith(`scene-${paddedNum}.`) && (f.endsWith('.mp4') || f.endsWith('.webm')));
+    if (isVideoSeg && vidMatch) {
+      imagePath = `${projectFolder}/images/${vidMatch}`;
+    } else if (!fs.existsSync(path.join(root, "public", imagePath))) {
+      const match = files.find((f) => f.startsWith(`scene-${paddedNum}.`) || f.startsWith(`scene-${paddedNum}_`));
+      if (match) {
+        imagePath = `${projectFolder}/images/${match}`;
+      }
     }
   }
 
@@ -347,8 +360,8 @@ console.log(`Generated Remotion config: ${configOutPath}`);
 // Tìm @remotion/cli: local trước, fallback workspace root (RENDER/node_modules).
 const isWindows = process.platform === "win32";
 const workspaceRoot = path.resolve(root, "..", "..", ".."); // RENDER/
-const localCliDir  = path.join(root, "node_modules", "@remotion", "cli");
-const wsCliDir     = path.join(workspaceRoot, "node_modules", "@remotion", "cli");
+const localCliDir = path.join(root, "node_modules", "@remotion", "cli");
+const wsCliDir = path.join(workspaceRoot, "node_modules", "@remotion", "cli");
 if (!fs.existsSync(localCliDir) && !fs.existsSync(wsCliDir)) {
   console.log("Remotion not installed yet — running npm install...");
   execFileSync("npm", ["install"], { cwd: workspaceRoot, stdio: "inherit", shell: isWindows });

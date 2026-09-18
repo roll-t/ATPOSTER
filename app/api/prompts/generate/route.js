@@ -185,6 +185,11 @@ export async function POST(request) {
           ...(savedConfig.imageScale !== undefined ? { imageScale: Number(savedConfig.imageScale) } : {}),
           ...(savedConfig.imageTranslateY !== undefined ? { imageTranslateY: Number(savedConfig.imageTranslateY) } : {}),
           ...(savedConfig.bilingual !== undefined ? { bilingual: savedConfig.bilingual } : {}),
+          ...(savedConfig.showOpeningComment !== undefined ? { showOpeningComment: Boolean(savedConfig.showOpeningComment) } : {}),
+          ...(savedConfig.showOpeningNewsBanner !== undefined ? { showOpeningNewsBanner: Boolean(savedConfig.showOpeningNewsBanner) } : {}),
+          ...(savedConfig.openingNewsTitleColor ? { openingNewsTitleColor: savedConfig.openingNewsTitleColor } : {}),
+          ...(savedConfig.openingNewsTitleSize !== undefined ? { openingNewsTitleSize: Number(savedConfig.openingNewsTitleSize) } : {}),
+          ...(savedConfig.openingNewsHeadlineWidth !== undefined ? { openingNewsHeadlineWidth: Number(savedConfig.openingNewsHeadlineWidth) } : {}),
         };
       } else {
         // Fallback kiểm tra các khoá phẳng đã lưu theo skill
@@ -199,6 +204,11 @@ export async function POST(request) {
         const scopedImageScale = settingsRecord[`defaultImageScale__${catKey}`];
         const scopedImageTranslateY = settingsRecord[`defaultImageTranslateY__${catKey}`];
         const scopedTransition = settingsRecord[`defaultTransitionStyle__${catKey}`];
+        const scopedShowOpeningComment = settingsRecord[`defaultShowOpeningComment__${catKey}`];
+        const scopedShowOpeningNewsBanner = settingsRecord[`defaultShowOpeningNewsBanner__${catKey}`];
+        const scopedOpeningNewsTitleColor = settingsRecord[`defaultOpeningNewsTitleColor__${catKey}`];
+        const scopedOpeningNewsTitleSize = settingsRecord[`defaultOpeningNewsTitleSize__${catKey}`];
+        const scopedOpeningNewsHeadlineWidth = settingsRecord[`defaultOpeningNewsHeadlineWidth__${catKey}`];
 
         if (scopedCaptionStyle) record.remotionConfig.captionStyle = scopedCaptionStyle;
         if (scopedFont) {
@@ -217,6 +227,11 @@ export async function POST(request) {
         if (scopedImageScale !== undefined) record.remotionConfig.imageScale = Number(scopedImageScale) / 100;
         if (scopedImageTranslateY !== undefined) record.remotionConfig.imageTranslateY = Number(scopedImageTranslateY);
         if (scopedTransition) record.remotionConfig.transitionStyle = scopedTransition;
+        if (scopedShowOpeningComment !== undefined) record.remotionConfig.showOpeningComment = Boolean(scopedShowOpeningComment);
+        if (scopedShowOpeningNewsBanner !== undefined) record.remotionConfig.showOpeningNewsBanner = Boolean(scopedShowOpeningNewsBanner);
+        if (scopedOpeningNewsTitleColor) record.remotionConfig.openingNewsTitleColor = scopedOpeningNewsTitleColor;
+        if (scopedOpeningNewsTitleSize !== undefined) record.remotionConfig.openingNewsTitleSize = Number(scopedOpeningNewsTitleSize);
+        if (scopedOpeningNewsHeadlineWidth !== undefined) record.remotionConfig.openingNewsHeadlineWidth = Number(scopedOpeningNewsHeadlineWidth);
       }
     }
 

@@ -27,6 +27,13 @@ export default function VideoResultPanel({
   checkAssets,
   bgMusicVersion,
   logoVersion,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
+  onInteractionStart,
+  onInteractionEnd,
+  historyToast,
   onUpdateRenderConfig
 }) {
   const [viewMode, setViewMode] = useState('auto'); // 'auto' | 'rendered' | 'simulator'
@@ -222,6 +229,7 @@ export default function VideoResultPanel({
           )}
 
 
+
           {/* Nút Tạo Video thay cho chỗ xem trước mô phỏng */}
           {isRenderingVideo ? (
             <button
@@ -303,6 +311,9 @@ export default function VideoResultPanel({
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
               logoVersion={logoVersion}
+              onInteractionStart={onInteractionStart}
+              onInteractionEnd={onInteractionEnd}
+              historyToast={historyToast}
               onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (
@@ -417,44 +428,19 @@ export default function VideoResultPanel({
               <span>{isOpeningFolder ? 'Đang mở...' : 'Mở thư mục'}</span>
             </button>
 
-            <button
-              type="button"
-              className="btn"
-              style={{
-                padding: '7px 14px',
-                fontSize: '0.76rem',
-                borderRadius: '7px',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                whiteSpace: 'nowrap',
-                background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
-                color: '#fff',
-                border: 'none',
-                boxShadow: '0 4px 14px rgba(236, 72, 153, 0.3)',
-                cursor: isCapturingThumbnail ? 'wait' : 'pointer'
-              }}
-              onClick={handleCaptureThumbnail}
-              disabled={isCapturingThumbnail}
-              title="Chụp frame hiện tại làm ảnh bìa Thumbnail cho video và tải về máy"
-            >
-              <span>{isCapturingThumbnail ? '⏳' : '📸'}</span>
-              <span>{isCapturingThumbnail ? 'Đang chụp...' : 'Chụp Thumbnail'}</span>
-            </button>
-
             <a
               href={downloadSrc}
               download
               className="btn btn-secondary"
               style={{
+                flex: 1,
                 padding: '7px 12px',
                 fontSize: '0.76rem',
                 borderRadius: '7px',
                 fontWeight: 700,
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
                 textDecoration: 'none',
                 color: 'inherit',
@@ -625,6 +611,9 @@ export default function VideoResultPanel({
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
               logoVersion={logoVersion}
+              onInteractionStart={onInteractionStart}
+              onInteractionEnd={onInteractionEnd}
+              historyToast={historyToast}
               onUpdateRenderConfig={onUpdateRenderConfig}
             />
           ) : (

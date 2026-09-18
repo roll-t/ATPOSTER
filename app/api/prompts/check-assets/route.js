@@ -18,14 +18,36 @@ export async function POST(req) {
 
     let imageCount = 0;
     const existingImageNumbers = [];
+    const existingVideoNumbers = [];
+    const mediaTypes = {};
+
     if (fs.existsSync(imagesDir)) {
-      const imgFiles = fs.readdirSync(imagesDir).filter(f => f.startsWith('scene-') && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp')));
-      imageCount = imgFiles.length;
-      for (const f of imgFiles) {
-        const m = f.match(/^scene-(\d+)/);
-        if (m) existingImageNumbers.push(Number(m[1]));
+      const allMediaFiles = fs.readdirSync(imagesDir).filter(f =>
+        f.startsWith('scene-') && (
+          f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp') ||
+          f.endsWith('.mp4') || f.endsWith('.webm')
+        )
+      );
+      imageCount = allMediaFiles.length;
+      for (const f of allMediaFiles) {
+        const m = f.match(/^scene-(\d+)\.(jpg|png|webp|mp4|webm)$/i);
+        if (m) {
+          const num = Number(m[1]);
+          const ext = m[2].toLowerCase();
+          const isVid = ext === 'mp4' || ext === 'webm';
+          if (!existingImageNumbers.includes(num)) {
+            existingImageNumbers.push(num);
+          }
+          if (isVid) {
+            if (!existingVideoNumbers.includes(num)) existingVideoNumbers.push(num);
+            mediaTypes[num] = 'video';
+          } else if (!mediaTypes[num]) {
+            mediaTypes[num] = 'image';
+          }
+        }
       }
       existingImageNumbers.sort((a, b) => a - b);
+      existingVideoNumbers.sort((a, b) => a - b);
     }
 
     // Giọng đọc từng slide KHÔNG phải lúc nào cũng là .mp3. Giọng do app tự tạo (Edge/CapCut) ra
@@ -121,6 +143,8 @@ export async function POST(req) {
       success: true,
       imageCount,
       existingImageNumbers,
+      existingVideoNumbers,
+      mediaTypes,
       audioCount,
       audioExt,
       videoCreated,

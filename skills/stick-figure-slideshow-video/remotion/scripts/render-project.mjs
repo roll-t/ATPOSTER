@@ -192,7 +192,14 @@ const scenes = manifest.segments.map((seg) => {
   // Detect image extension and file path (supports multiple images per scene like scene-03_1.jpg)
   let imagePath = `${projectFolder}/images/scene-${imagePaddedNum}.jpg`;
 
-  if (Array.isArray(imageOwner.files) && imageOwner.files.length > 0) {
+  if (imageOwner.mediaFile) {
+    const cleanMedia = imageOwner.mediaFile.startsWith(projectFolder)
+      ? imageOwner.mediaFile
+      : `${projectFolder}/${imageOwner.mediaFile.replace(/^\/+/, '')}`;
+    if (fs.existsSync(path.join(root, "public", cleanMedia))) {
+      imagePath = cleanMedia;
+    }
+  } else if (Array.isArray(imageOwner.files) && imageOwner.files.length > 0) {
     const firstFile = imageOwner.files[0];
     const relPath = firstFile.startsWith(projectFolder)
       ? firstFile
@@ -202,11 +209,17 @@ const scenes = manifest.segments.map((seg) => {
     }
   }
 
-  if (!fs.existsSync(path.join(root, "public", imagePath)) && fs.existsSync(imageDir)) {
+  if (fs.existsSync(imageDir)) {
     const files = fs.readdirSync(imageDir);
-    const match = files.find((f) => f.startsWith(`scene-${imagePaddedNum}.`) || f.startsWith(`scene-${imagePaddedNum}_`));
-    if (match) {
-      imagePath = `${projectFolder}/images/${match}`;
+    const isVideoSeg = imageOwner.mediaType === 'video';
+    const vidMatch = files.find((f) => f.startsWith(`scene-${imagePaddedNum}.`) && (f.endsWith('.mp4') || f.endsWith('.webm')));
+    if (isVideoSeg && vidMatch) {
+      imagePath = `${projectFolder}/images/${vidMatch}`;
+    } else if (!fs.existsSync(path.join(root, "public", imagePath))) {
+      const match = files.find((f) => f.startsWith(`scene-${imagePaddedNum}.`) || f.startsWith(`scene-${imagePaddedNum}_`));
+      if (match) {
+        imagePath = `${projectFolder}/images/${match}`;
+      }
     }
   }
 

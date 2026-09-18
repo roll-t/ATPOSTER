@@ -357,18 +357,25 @@ export const Scene: React.FC<{
           pointerEvents: "none",
           zIndex: 4,
           opacity: 0.85,
-          transform: `translate(${logoTranslateX}px, ${logoTranslateY}px) scale(${logoScale})`,
         }}
       >
-        <Img
-          src={staticFile("logo/nexora-video-logo.png")}
+        <div
           style={{
-            width: 220,
-            height: "auto",
-            objectFit: "contain",
-            filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.6))",
+            display: "inline-flex",
+            transform: `translate(${logoTranslateX}px, ${logoTranslateY}px) scale(${logoScale})`,
+            transformOrigin: "center center",
           }}
-        />
+        >
+          <Img
+            src={staticFile("logo/nexora-video-logo.png")}
+            style={{
+              width: 220,
+              height: "auto",
+              objectFit: "contain",
+              filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.6))",
+            }}
+          />
+        </div>
       </div>
       ) : null}
     </AbsoluteFill>

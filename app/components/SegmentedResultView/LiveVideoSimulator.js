@@ -80,6 +80,7 @@ function renderCaptionContent(text, highlightColor, captionTextAlign = "center")
 
 function hexToRgba(hex, alpha = 0.15) {
   if (!hex || typeof hex !== 'string') return `rgba(254, 44, 85, ${alpha})`;
+  if (hex.startsWith('rgb')) return hex;
   let c = hex.replace('#', '');
   if (c.length === 3) c = c.split('').map(x => x + x).join('');
   const num = parseInt(c, 16);
@@ -132,6 +133,9 @@ export default function LiveVideoSimulator({
   checkAssets,
   bgMusicVersion,
   logoVersion,
+  onInteractionStart,
+  onInteractionEnd,
+  historyToast,
   onUpdateRenderConfig
 }) {
   const segments = useMemo(() => result?.segments || [], [result?.segments]);
@@ -152,7 +156,7 @@ export default function LiveVideoSimulator({
   const fontScale = effectiveIsPortrait ? 0.52 : 0.48;
   const scaledFontSize = Math.max(14, Math.round(baseFontSize * fontScale));
 
-  const textColor = rc.textColor || rc.captionTextColor || '#ffffff';
+  const textColor = rc.captionTextColor || rc.textColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
   const videoBgColor = rc.videoBgColor || '#000000';
   const bgOpacity = Number(rc.captionBgOpacity !== undefined ? rc.captionBgOpacity : (rc.bgOpacity !== undefined ? rc.bgOpacity : 65)) / 100;
@@ -321,8 +325,26 @@ export default function LiveVideoSimulator({
     }
   }, []);
 
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      if (el.clientWidth > 0) {
+        setContainerWidth(el.clientWidth);
+      }
+    };
+    updateSize();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, [effectiveIsPortrait, isFullscreen]);
+
   const remotionCanvasWidth = effectiveIsPortrait ? 1080 : 1920;
-  const currentContainerWidth = containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
+  const currentContainerWidth = containerWidth || containerRef.current?.clientWidth || (effectiveIsPortrait ? 360 : 640);
   const remotionScale = currentContainerWidth / remotionCanvasWidth;
   const visualLogoX = Math.round(logoTranslateX * remotionScale);
   const visualLogoY = Math.round(logoTranslateY * remotionScale);
@@ -354,8 +376,13 @@ export default function LiveVideoSimulator({
   const isImageFailed = failedImagesRef.current.has(currentSceneNumber);
   const showImage = hasSceneImage && !imageError && !isImageFailed;
 
+  const isSceneVideo = currentSegment?.mediaType === 'video' ||
+    assetCounts?.mediaTypes?.[currentSceneNumber] === 'video' ||
+    (Array.isArray(assetCounts?.existingVideoNumbers) && assetCounts.existingVideoNumbers.includes(currentSceneNumber));
+  const currentMediaFile = isSceneVideo ? `images/scene-${currentPaddedNum}.mp4` : `images/scene-${currentPaddedNum}.jpg`;
+
   const currentImageSrc = showImage
-    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=images/scene-${currentPaddedNum}.jpg&category=${encodeURIComponent(category)}&v=${currentSlideIndex}`
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${currentMediaFile}&category=${encodeURIComponent(category)}&v=${currentSlideIndex}`
     : null;
   const currentVideoSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=bg/bg-${currentPaddedNum}.mp4&category=${encodeURIComponent(category)}`;
   const [audioVersion, setAudioVersion] = useState(0);
@@ -449,7 +476,8 @@ export default function LiveVideoSimulator({
     commentScale: 1
   });
 
-  const handleCaptionDragStart = useCallback(() => {
+  const notifyInteractionStart = useCallback((extra = {}) => {
+    onInteractionStart?.();
     dragStartValuesRef.current = {
       captionMarginY,
       captionFontSize: baseFontSize,
@@ -458,9 +486,25 @@ export default function LiveVideoSimulator({
       imageTranslateY,
       logoTranslateX,
       logoTranslateY,
-      logoScale
+      logoScale,
+      commentTranslateY: openingCommentTranslateY,
+      commentScale: openingCommentScale,
+      newsBannerTranslateY: openingNewsBannerTranslateY,
+      newsBannerScale: openingNewsBannerScale,
+      newsHeadlineWidth: openingNewsHeadlineWidth,
+      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54),
+      ...extra
     };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+  }, [
+    onInteractionStart, captionMarginY, baseFontSize, captionWidth, imageScale,
+    imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY,
+    openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale,
+    openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline
+  ]);
+
+  const handleCaptionDragStart = useCallback(() => {
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo di chuyển phụ đề trực tiếp trên màn hình video (tính độ dịch chuyển từ startMarginY)
   const handleCaptionDrag = useCallback(({ deltaY }) => {
@@ -471,17 +515,8 @@ export default function LiveVideoSimulator({
   }, [effectiveIsPortrait, onUpdateRenderConfig]);
 
   const handleCaptionScaleStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo 4 góc neo để thu phóng cỡ chữ phụ đề trực tiếp (theo tỉ lệ ratio từ startFontSize)
   const handleCaptionScale = useCallback(({ ratio, deltaDistance }) => {
@@ -493,17 +528,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleCaptionResizeWidthStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo tay cầm trái/phải để co giãn độ rộng ngang của phụ đề trực tiếp
   const handleCaptionResizeWidth = useCallback(({ effectiveDeltaX }) => {
@@ -517,17 +543,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleImageDragStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo dịch chuyển ảnh nền trực tiếp (tính độ dịch chuyển từ startTranslateY)
   const handleImageDrag = useCallback(({ deltaY }) => {
@@ -539,17 +556,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleImageScaleStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo 4 góc neo để thu phóng kích thước ảnh nền (theo tỉ lệ ratio từ startScale)
   const handleImageScale = useCallback(({ ratio }) => {
@@ -560,17 +568,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleLogoDragStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo di chuyển Logo kênh thương hiệu tự do (X, Y) trực tiếp trên màn hình video
   const handleLogoDrag = useCallback(({ deltaX, deltaY }) => {
@@ -589,17 +588,8 @@ export default function LiveVideoSimulator({
   }, [effectiveIsPortrait, onUpdateRenderConfig]);
 
   const handleLogoScaleStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo 4 góc neo để thu phóng kích thước Logo trực tiếp
   const handleLogoScale = useCallback(({ ratio }) => {
@@ -610,19 +600,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleCommentDragStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale,
-      commentTranslateY: openingCommentTranslateY,
-      commentScale: openingCommentScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo di chuyển Hộp bình luận mở đầu trên trục Y trực tiếp
   const handleCommentDrag = useCallback(({ deltaY }) => {
@@ -638,19 +617,8 @@ export default function LiveVideoSimulator({
   }, [effectiveIsPortrait, onUpdateRenderConfig]);
 
   const handleCommentScaleStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale,
-      commentTranslateY: openingCommentTranslateY,
-      commentScale: openingCommentScale
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   // Xử lý kéo 4 góc neo để thu phóng kích thước Hộp bình luận trực tiếp
   const handleCommentScale = useCallback(({ ratio }) => {
@@ -661,23 +629,8 @@ export default function LiveVideoSimulator({
   }, [onUpdateRenderConfig]);
 
   const handleHeadlineDragStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale,
-      commentTranslateY: openingCommentTranslateY,
-      commentScale: openingCommentScale,
-      newsBannerTranslateY: openingNewsBannerTranslateY,
-      newsBannerScale: openingNewsBannerScale,
-      newsHeadlineWidth: openingNewsHeadlineWidth,
-      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   const handleHeadlineDrag = useCallback(({ deltaY }) => {
     if (!onUpdateRenderConfig) return;
@@ -695,23 +648,8 @@ export default function LiveVideoSimulator({
   }, [effectiveIsPortrait, openingNewsBannerTranslateY, onUpdateRenderConfig]);
 
   const handleHeadlineScaleStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale,
-      commentTranslateY: openingCommentTranslateY,
-      commentScale: openingCommentScale,
-      newsBannerTranslateY: openingNewsBannerTranslateY,
-      newsBannerScale: openingNewsBannerScale,
-      newsHeadlineWidth: openingNewsHeadlineWidth,
-      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   const handleHeadlineScale = useCallback(({ ratio }) => {
     if (!onUpdateRenderConfig) return;
@@ -723,23 +661,8 @@ export default function LiveVideoSimulator({
   }, [openingNewsTitleSize, openingNewsHeadline, onUpdateRenderConfig]);
 
   const handleHeadlineResizeWidthStart = useCallback(() => {
-    dragStartValuesRef.current = {
-      captionMarginY,
-      captionFontSize: baseFontSize,
-      captionWidth,
-      imageScale,
-      imageTranslateY,
-      logoTranslateX,
-      logoTranslateY,
-      logoScale,
-      commentTranslateY: openingCommentTranslateY,
-      commentScale: openingCommentScale,
-      newsBannerTranslateY: openingNewsBannerTranslateY,
-      newsBannerScale: openingNewsBannerScale,
-      newsHeadlineWidth: openingNewsHeadlineWidth,
-      newsTitleSize: openingNewsTitleSize > 0 ? openingNewsTitleSize : (openingNewsHeadline.length > 70 ? 44 : 54)
-    };
-  }, [captionMarginY, baseFontSize, captionWidth, imageScale, imageTranslateY, logoTranslateX, logoTranslateY, logoScale, openingCommentTranslateY, openingCommentScale, openingNewsBannerTranslateY, openingNewsBannerScale, openingNewsHeadlineWidth, openingNewsTitleSize, openingNewsHeadline]);
+    notifyInteractionStart();
+  }, [notifyInteractionStart]);
 
   const handleHeadlineResizeWidth = useCallback(({ effectiveDeltaX }) => {
     if (!onUpdateRenderConfig) return;
@@ -755,7 +678,14 @@ export default function LiveVideoSimulator({
   const handleNewsBannerDragStart = handleHeadlineDragStart;
   const handleNewsBannerDrag = handleHeadlineDrag;
   const handleNewsBannerScaleStart = handleHeadlineScaleStart;
-  const handleNewsBannerScale = handleHeadlineScale;
+  const handleNewsBannerScale = useCallback(({ ratio }) => {
+    if (!onUpdateRenderConfig) return;
+    const startScale = dragStartValuesRef.current.newsBannerScale !== undefined
+      ? dragStartValuesRef.current.newsBannerScale
+      : openingNewsBannerScale;
+    const nextScale = Number(Math.max(0.4, Math.min(2.5, startScale * ratio)).toFixed(2));
+    onUpdateRenderConfig({ openingNewsBannerScale: nextScale });
+  }, [openingNewsBannerScale, onUpdateRenderConfig]);
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current) {
@@ -1410,15 +1340,17 @@ export default function LiveVideoSimulator({
             ) : showImage && currentImageSrc ? (
               <TransformGizmoOverlay
                 active={selectedElement === 'image' && !isPlaying}
-                label="Ảnh nền"
+                label={isSceneVideo ? "Video nền" : "Ảnh nền"}
                 detail={`${Math.round(imageScale * 100)}% • Y: ${Math.round(imageTranslateY)}%`}
                 boxInset="0px"
                 counterScale={kbScale * imageScale}
                 badgePosition={imageTranslateY < -20 ? 'inside-top' : 'outside-top'}
                 onDragStart={handleImageDragStart}
                 onDrag={handleImageDrag}
+                onDragEnd={onInteractionEnd}
                 onScaleStart={handleImageScaleStart}
                 onScale={handleImageScale}
+                onScaleEnd={onInteractionEnd}
                 onDeselect={() => setSelectedElement('none')}
                 onReset={() => onUpdateRenderConfig?.({ imageScale: 1, imageTranslateY: 0 })}
                 style={{
@@ -1439,27 +1371,48 @@ export default function LiveVideoSimulator({
                   setSelectedElement('image');
                 }}
               >
-                <div
-                  key={`img-${currentSlideIndex}`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundImage: `url(${currentImageSrc})`,
-                    backgroundSize: globalImageFit,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
-                  }}
-                >
-                  <img
+                {isSceneVideo ? (
+                  <video
+                    key={`vid-${currentSlideIndex}`}
                     src={currentImageSrc}
-                    alt=""
-                    style={{ display: 'none' }}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: globalImageFit,
+                      display: 'block'
+                    }}
                     onError={() => {
                       failedImagesRef.current.add(currentSceneNumber);
                       setImageError(true);
                     }}
                   />
-                </div>
+                ) : (
+                  <div
+                    key={`img-${currentSlideIndex}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundImage: `url(${currentImageSrc})`,
+                      backgroundSize: globalImageFit,
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat'
+                    }}
+                  >
+                    <img
+                      src={currentImageSrc}
+                      alt=""
+                      style={{ display: 'none' }}
+                      onError={() => {
+                        failedImagesRef.current.add(currentSceneNumber);
+                        setImageError(true);
+                      }}
+                    />
+                  </div>
+                )}
               </TransformGizmoOverlay>
             ) : (
               <div
@@ -1525,10 +1478,13 @@ export default function LiveVideoSimulator({
                 enableHorizontalResize={true}
                 onDragStart={handleCaptionDragStart}
                 onDrag={handleCaptionDrag}
+                onDragEnd={onInteractionEnd}
                 onScaleStart={handleCaptionScaleStart}
                 onScale={handleCaptionScale}
+                onScaleEnd={onInteractionEnd}
                 onResizeWidthStart={handleCaptionResizeWidthStart}
                 onResizeWidth={handleCaptionResizeWidth}
+                onResizeWidthEnd={onInteractionEnd}
                 onDeselect={() => setSelectedElement('none')}
                 onReset={() => onUpdateRenderConfig?.({
                   captionMarginY: ['moral_talk_slideshow', 'buddhist_wisdom', 'japanese_history'].includes(category) ? -215 : 0,
@@ -1583,7 +1539,7 @@ export default function LiveVideoSimulator({
                     {words.map((word, i) => {
                       const hasSpoken = i <= activeWordIdx;
                       return (
-                        <span key={i} style={{ color: hasSpoken ? highlightColor : 'rgba(255, 255, 255, 0.55)', textShadow: hasSpoken ? `0 0 12px ${highlightColor}88` : 'none', marginRight: '6px', letterSpacing: '0.02em', transition: 'color 0.15s ease', whiteSpace: 'nowrap' }}>
+                        <span key={i} style={{ color: hasSpoken ? highlightColor : textColor, opacity: hasSpoken ? 1 : 0.68, textShadow: hasSpoken ? `0 0 12px ${highlightColor}88` : 'none', marginRight: '6px', letterSpacing: '0.02em', transition: 'color 0.15s ease, opacity 0.15s ease', whiteSpace: 'nowrap' }}>
                           {word}
                         </span>
                       );
@@ -1656,8 +1612,10 @@ export default function LiveVideoSimulator({
                 badgePosition={openingCommentTranslateY < -200 ? 'inside-top' : 'outside-top'}
                 onDragStart={handleCommentDragStart}
                 onDrag={handleCommentDrag}
+                onDragEnd={onInteractionEnd}
                 onScaleStart={handleCommentScaleStart}
                 onScale={handleCommentScale}
+                onScaleEnd={onInteractionEnd}
                 onDeselect={() => setSelectedElement('none')}
                 onReset={() => onUpdateRenderConfig?.({ openingCommentTranslateY: 0, openingCommentScale: 1 })}
                 style={{
@@ -1774,228 +1732,286 @@ export default function LiveVideoSimulator({
                 justifyContent: 'center',
                 alignItems: 'flex-end',
                 pointerEvents: 'none',
-                zIndex: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 47 : 32,
+                zIndex: (selectedElement === 'news_headline' || selectedElement === 'news_banner' || selectedElement === 'news_tag') ? 47 : 32,
                 transform: `translateY(${visualNewsBannerY}px) scale(${openingNewsBannerScale})`,
                 transformOrigin: 'center bottom',
-                transition: (selectedElement === 'news_headline' || selectedElement === 'news_banner') || isPlaying ? 'none' : 'transform 0.2s ease'
+                transition: (selectedElement === 'news_headline' || selectedElement === 'news_banner' || selectedElement === 'news_tag') || isPlaying ? 'none' : 'transform 0.2s ease'
               }}
             >
-              <div
-                data-news-banner="body"
-                data-transform-gizmo="news_banner"
+              <TransformGizmoOverlay
+                active={selectedElement === 'news_banner'}
+                label="Nền banner mở đầu"
+                detail={`Vị trí: ${openingNewsBannerTranslateY}px • Tỉ lệ: ${Math.round(openingNewsBannerScale * 100)}%`}
+                counterScale={openingNewsBannerScale}
+                badgePosition="outside-top"
+                enableHorizontalResize={false}
+                onDragStart={handleNewsBannerDragStart}
+                onDrag={handleNewsBannerDrag}
+                onDragEnd={onInteractionEnd}
+                onScaleStart={handleNewsBannerScaleStart}
+                onScale={handleNewsBannerScale}
+                onScaleEnd={onInteractionEnd}
+                onDeselect={() => setSelectedElement('none')}
+                onReset={() => onUpdateRenderConfig?.({
+                  openingNewsBannerTranslateY: 0,
+                  openingNewsBannerScale: 1
+                })}
                 style={{
-                  position: 'relative',
                   width: '100%',
                   height: '100%',
-                  background: 'linear-gradient(180deg, rgba(185, 28, 28, 0) 0%, rgba(200, 30, 30, 0.45) 16%, rgba(220, 38, 38, 0.88) 34%, rgba(185, 28, 28, 0.96) 55%, rgba(127, 29, 29, 0.98) 80%, rgba(69, 10, 10, 1) 100%)',
-                  padding: `${Math.max(12, Math.round(38 * remotionScale))}px ${Math.round(18 * remotionScale)}px ${Math.round(18 * remotionScale)}px`,
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-start',
-                  gap: `${Math.max(15, Math.round(50 * remotionScale))}px`,
-                  userSelect: 'none',
-                  overflow: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'visible' : 'hidden',
                   pointerEvents: 'auto',
-                  cursor: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'default' : 'pointer'
+                  cursor: selectedElement === 'news_banner' ? 'move' : 'pointer',
+                  position: 'relative'
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   setIsPlaying(false);
-                  setSelectedElement('news_headline');
+                  setSelectedElement('news_banner');
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsPlaying(false);
-                  setSelectedElement('news_headline');
+                  setSelectedElement('news_banner');
                 }}
               >
-                {/* Vầng sáng radial vàng & đỏ nhẹ sau tiêu đề */}
                 <div
+                  data-news-banner="body"
+                  data-transform-gizmo="news_banner"
                   style={{
-                    position: 'absolute',
-                    left: '-10%',
-                    top: '25%',
-                    width: `${Math.round(280 * remotionScale)}px`,
-                    height: `${Math.round(280 * remotionScale)}px`,
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(254, 240, 138, 0.12) 0%, rgba(220, 38, 38, 0) 70%)',
-                    pointerEvents: 'none'
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(180deg, rgba(185, 28, 28, 0) 0%, rgba(200, 30, 30, 0.45) 16%, rgba(220, 38, 38, 0.88) 34%, rgba(185, 28, 28, 0.96) 55%, rgba(127, 29, 29, 0.98) 80%, rgba(69, 10, 10, 1) 100%)',
+                    padding: `${Math.max(12, Math.round(38 * remotionScale))}px ${Math.round(18 * remotionScale)}px ${Math.round(18 * remotionScale)}px`,
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-start',
+                    gap: `${Math.max(15, Math.round(50 * remotionScale))}px`,
+                    userSelect: 'none',
+                    overflow: (selectedElement === 'news_headline' || selectedElement === 'news_banner' || selectedElement === 'news_tag') ? 'visible' : 'hidden',
+                    pointerEvents: 'auto',
+                    cursor: selectedElement === 'news_banner' ? 'move' : 'pointer'
                   }}
-                />
+                >
+                  {/* Vầng sáng radial vàng & đỏ nhẹ sau tiêu đề */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '-10%',
+                      top: '25%',
+                      width: `${Math.round(280 * remotionScale)}px`,
+                      height: `${Math.round(280 * remotionScale)}px`,
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle, rgba(254, 240, 138, 0.12) 0%, rgba(220, 38, 38, 0) 70%)',
+                      pointerEvents: 'none'
+                    }}
+                  />
 
-                {/* Hoạ tiết sóng radar mờ góc dưới phải */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: `-${Math.round(10 * remotionScale)}px`,
-                    bottom: `${Math.round(10 * remotionScale)}px`,
-                    width: `${Math.round(140 * remotionScale)}px`,
-                    height: `${Math.round(140 * remotionScale)}px`,
-                    borderRadius: '50%',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    pointerEvents: 'none'
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: `${Math.round(10 * remotionScale)}px`,
-                    bottom: `${Math.round(20 * remotionScale)}px`,
-                    width: `${Math.round(90 * remotionScale)}px`,
-                    height: `${Math.round(90 * remotionScale)}px`,
-                    borderRadius: '50%',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                    pointerEvents: 'none'
-                  }}
-                />
+                  {/* Hoạ tiết sóng radar mờ góc dưới phải */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: `-${Math.round(10 * remotionScale)}px`,
+                      bottom: `${Math.round(10 * remotionScale)}px`,
+                      width: `${Math.round(140 * remotionScale)}px`,
+                      height: `${Math.round(140 * remotionScale)}px`,
+                      borderRadius: '50%',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: `${Math.round(10 * remotionScale)}px`,
+                      bottom: `${Math.round(20 * remotionScale)}px`,
+                      width: `${Math.round(90 * remotionScale)}px`,
+                      height: `${Math.round(90 * remotionScale)}px`,
+                      borderRadius: '50%',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      pointerEvents: 'none'
+                    }}
+                  />
 
-                {/* HÀNG 1: THƯƠNG HIỆU / CHUYÊN MỤC TAG */}
-                {(() => {
-                  const tagCfg = getNewsTagConfig(openingNewsBrand);
-                  return (
+                  {/* HÀNG 1: THƯƠNG HIỆU / CHUYÊN MỤC TAG */}
+                  {(() => {
+                    const tagCfg = getNewsTagConfig(openingNewsBrand);
+                    return (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-start',
+                          position: 'relative',
+                          zIndex: 15
+                        }}
+                      >
+                        <TransformGizmoOverlay
+                          active={selectedElement === 'news_tag'}
+                          label="Tag thể loại"
+                          detail={tagCfg.text}
+                          boxInset="-4px"
+                          counterScale={openingNewsBannerScale}
+                          badgePosition="outside-top"
+                          enableHorizontalResize={false}
+                          enableScale={false}
+                          enableDrag={false}
+                          onDeselect={() => setSelectedElement('none')}
+                          style={{
+                            display: 'inline-flex',
+                            pointerEvents: 'auto',
+                            cursor: 'pointer'
+                          }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            setIsPlaying(false);
+                            setSelectedElement('news_tag');
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPlaying(false);
+                            setSelectedElement('news_tag');
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: `${Math.round(10 * remotionScale)}px`,
+                              background: tagCfg.gradient,
+                              border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                              padding: `${Math.round(5 * remotionScale)}px ${Math.round(16 * remotionScale)}px ${Math.round(5 * remotionScale)}px ${Math.round(7 * remotionScale)}px`,
+                              borderRadius: `${Math.round(24 * remotionScale)}px`,
+                              boxShadow: '0 6px 20px rgba(185, 28, 28, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.45)'
+                            }}
+                          >
+                            {/* Vòng tròn cách điệu ôm icon */}
+                            <div
+                              style={{
+                                width: `${Math.max(22, Math.round(30 * remotionScale))}px`,
+                                height: `${Math.max(22, Math.round(30 * remotionScale))}px`,
+                                borderRadius: '50%',
+                                background: 'rgba(0, 0, 0, 0.32)',
+                                border: '1.2px solid rgba(255, 255, 255, 0.45)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: `${Math.max(12, Math.round(16 * remotionScale))}px`
+                              }}
+                            >
+                              {tagCfg.icon}
+                            </div>
+                            <span
+                              style={{
+                                color: '#FFFFFF',
+                                fontFamily: "'Montserrat', 'Be Vietnam Pro', sans-serif",
+                                fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
+                                fontWeight: 900,
+                                letterSpacing: '0.05em',
+                                textTransform: 'uppercase',
+                                textShadow: '0 2px 6px rgba(0,0,0,0.6)'
+                              }}
+                            >
+                              {tagCfg.text}
+                            </span>
+                          </div>
+                        </TransformGizmoOverlay>
+                      </div>
+                    );
+                  })()}
+
+                  {/* HÀNG 2: SHOW TIÊU ĐỀ KHỦNG VỚI GIZMO ĐIỀU CHỈNH GIỚI HẠN HIỂN THỊ */}
+                  <TransformGizmoOverlay
+                    active={selectedElement === 'news_headline'}
+                    label="Tiêu đề banner"
+                    detail={`Rộng: ${openingNewsHeadlineWidth}% • ${openingNewsTitleSize > 0 ? `${openingNewsTitleSize}px` : 'Auto'}`}
+                    boxInset="-6px"
+                    counterScale={openingNewsBannerScale}
+                    badgePosition="outside-bottom"
+                    enableHorizontalResize={true}
+                    onDragStart={handleHeadlineDragStart}
+                    onDrag={handleHeadlineDrag}
+                    onDragEnd={onInteractionEnd}
+                    onScaleStart={handleHeadlineScaleStart}
+                    onScale={handleHeadlineScale}
+                    onScaleEnd={onInteractionEnd}
+                    onResizeWidthStart={handleHeadlineResizeWidthStart}
+                    onResizeWidth={handleHeadlineResizeWidth}
+                    onResizeWidthEnd={onInteractionEnd}
+                    onDeselect={() => setSelectedElement('none')}
+                    onReset={() => onUpdateRenderConfig?.({
+                      openingNewsHeadlineWidth: 82,
+                      openingNewsTitleSize: 0,
+                      openingNewsBannerTranslateY: 0
+                    })}
+                    style={{
+                      width: `${openingNewsHeadlineWidth}%`,
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      pointerEvents: 'auto',
+                      cursor: selectedElement === 'news_headline' ? 'move' : 'pointer',
+                      position: 'relative',
+                      zIndex: 15,
+                      alignItems: 'flex-start'
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      setIsPlaying(false);
+                      setSelectedElement('news_headline');
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsPlaying(false);
+                      setSelectedElement('news_headline');
+                    }}
+                  >
                     <div
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        position: 'relative',
-                        zIndex: 2
+                        alignItems: 'stretch',
+                        gap: `${Math.max(12, Math.round(28 * remotionScale))}px`,
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
                       }}
                     >
+                      {/* Vertical Gold Neon Accent */}
                       <div
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: `${Math.round(10 * remotionScale)}px`,
-                          background: tagCfg.gradient,
-                          border: '1.5px solid rgba(255, 255, 255, 0.5)',
-                          padding: `${Math.round(5 * remotionScale)}px ${Math.round(16 * remotionScale)}px ${Math.round(5 * remotionScale)}px ${Math.round(7 * remotionScale)}px`,
-                          borderRadius: `${Math.round(24 * remotionScale)}px`,
-                          boxShadow: '0 6px 20px rgba(185, 28, 28, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.45)'
+                          width: `${Math.max(4, Math.round(6 * remotionScale))}px`,
+                          borderRadius: '3px',
+                          background: 'linear-gradient(180deg, #FDE047 0%, #F59E0B 70%, #EA580C 100%)',
+                          boxShadow: '0 0 12px rgba(250, 204, 21, 0.85)',
+                          flexShrink: 0
+                        }}
+                      />
+
+                      {/* Big Headline */}
+                      <div
+                        style={{
+                          fontFamily: "'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
+                          fontSize: openingNewsTitleSize > 0
+                            ? `${Math.max(12, Math.round(openingNewsTitleSize * remotionScale))}px`
+                            : `${Math.max(14, Math.round((openingNewsHeadline.length > 70 ? 44 : 54) * remotionScale))}px`,
+                          fontWeight: 900,
+                          lineHeight: 1.25,
+                          color: openingNewsTitleColor,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em',
+                          textShadow: 'none',
+                          wordBreak: 'break-word',
+                          flex: 1,
+                          minWidth: 0
                         }}
                       >
-                        {/* Vòng tròn cách điệu ôm icon */}
-                        <div
-                          style={{
-                            width: `${Math.max(22, Math.round(30 * remotionScale))}px`,
-                            height: `${Math.max(22, Math.round(30 * remotionScale))}px`,
-                            borderRadius: '50%',
-                            background: 'rgba(0, 0, 0, 0.32)',
-                            border: '1.2px solid rgba(255, 255, 255, 0.45)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: `${Math.max(12, Math.round(16 * remotionScale))}px`
-                          }}
-                        >
-                          {tagCfg.icon}
-                        </div>
-                        <span
-                          style={{
-                            color: '#FFFFFF',
-                            fontFamily: "'Montserrat', 'Be Vietnam Pro', sans-serif",
-                            fontSize: `${Math.max(12, Math.round(18 * remotionScale))}px`,
-                            fontWeight: 900,
-                            letterSpacing: '0.05em',
-                            textTransform: 'uppercase',
-                            textShadow: '0 2px 6px rgba(0,0,0,0.6)'
-                          }}
-                        >
-                          {tagCfg.text}
-                        </span>
+                        {openingNewsHeadline}
                       </div>
                     </div>
-                  );
-                })()}
-
-                {/* HÀNG 2: SHOW TIÊU ĐỀ KHỦNG VỚI GIZMO ĐIỀU CHỈNH GIỚI HẠN HIỂN THỊ */}
-                <TransformGizmoOverlay
-                  active={(selectedElement === 'news_headline' || selectedElement === 'news_banner')}
-                  label="Tiêu đề banner"
-                  detail={`Rộng: ${openingNewsHeadlineWidth}% • ${openingNewsTitleSize > 0 ? `${openingNewsTitleSize}px` : 'Auto'}`}
-                  boxInset="-6px"
-                  counterScale={openingNewsBannerScale}
-                  badgePosition="outside-bottom"
-                  enableHorizontalResize={true}
-                  onDragStart={handleHeadlineDragStart}
-                  onDrag={handleHeadlineDrag}
-                  onScaleStart={handleHeadlineScaleStart}
-                  onScale={handleHeadlineScale}
-                  onResizeWidthStart={handleHeadlineResizeWidthStart}
-                  onResizeWidth={handleHeadlineResizeWidth}
-                  onDeselect={() => setSelectedElement('none')}
-                  onReset={() => onUpdateRenderConfig?.({
-                    openingNewsHeadlineWidth: 82,
-                    openingNewsTitleSize: 0,
-                    openingNewsBannerTranslateY: 0
-                  })}
-                  style={{
-                    width: `${openingNewsHeadlineWidth}%`,
-                    maxWidth: '100%',
-                    boxSizing: 'border-box',
-                    pointerEvents: 'auto',
-                    cursor: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'move' : 'pointer',
-                    position: 'relative',
-                    zIndex: 2,
-                    alignItems: 'flex-start'
-                  }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    setIsPlaying(false);
-                    setSelectedElement('news_headline');
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsPlaying(false);
-                    setSelectedElement('news_headline');
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'stretch',
-                      gap: `${Math.max(12, Math.round(28 * remotionScale))}px`,
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      pointerEvents: 'none',
-                      userSelect: 'none'
-                    }}
-                  >
-                    {/* Vertical Gold Neon Accent */}
-                    <div
-                      style={{
-                        width: `${Math.max(4, Math.round(6 * remotionScale))}px`,
-                        borderRadius: '3px',
-                        background: 'linear-gradient(180deg, #FDE047 0%, #F59E0B 70%, #EA580C 100%)',
-                        boxShadow: '0 0 12px rgba(250, 204, 21, 0.85)',
-                        flexShrink: 0
-                      }}
-                    />
-
-                    {/* Big Headline */}
-                    <div
-                      style={{
-                        fontFamily: "'Montserrat', 'Be Vietnam Pro', Arial, sans-serif",
-                        fontSize: openingNewsTitleSize > 0
-                          ? `${Math.max(12, Math.round(openingNewsTitleSize * remotionScale))}px`
-                          : `${Math.max(14, Math.round((openingNewsHeadline.length > 70 ? 44 : 54) * remotionScale))}px`,
-                        fontWeight: 900,
-                        lineHeight: 1.25,
-                        color: openingNewsTitleColor,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        textShadow: 'none',
-                        wordBreak: 'break-word',
-                        flex: 1,
-                        minWidth: 0
-                      }}
-                    >
-                      {openingNewsHeadline}
-                    </div>
-                  </div>
-                </TransformGizmoOverlay>
-              </div>
+                  </TransformGizmoOverlay>
+                </div>
+              </TransformGizmoOverlay>
             </div>
           )}
 
@@ -2004,7 +2020,7 @@ export default function LiveVideoSimulator({
             <div
               style={{
                 position: 'absolute',
-                bottom: effectiveIsPortrait ? '8%' : '7%',
+                bottom: `${Math.round(130 * remotionScale)}px`,
                 left: 0,
                 right: 0,
                 display: 'flex',
@@ -2025,8 +2041,10 @@ export default function LiveVideoSimulator({
                 badgePosition={logoTranslateY < -1300 ? 'inside-top' : 'outside-top'}
                 onDragStart={handleLogoDragStart}
                 onDrag={handleLogoDrag}
+                onDragEnd={onInteractionEnd}
                 onScaleStart={handleLogoScaleStart}
                 onScale={handleLogoScale}
+                onScaleEnd={onInteractionEnd}
                 onDeselect={() => setSelectedElement('none')}
                 onReset={() => onUpdateRenderConfig?.({ logoTranslateX: 0, logoTranslateY: 0, logoScale: 1 })}
                 onMouseEnter={() => setIsLogoHovered(true)}
@@ -2053,10 +2071,10 @@ export default function LiveVideoSimulator({
                   src={`/images/watermark/nexora-video-logo.png?v=${logoVersion || 1}`}
                   alt="Logo thương hiệu"
                   style={{
-                    width: effectiveIsPortrait ? (isFullscreen ? '96px' : '76px') : '62px',
+                    width: `${Math.max(24, Math.round(220 * remotionScale))}px`,
                     height: 'auto',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.75))',
+                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
                     display: 'block',
                     margin: 0,
                     padding: 0,
@@ -2080,6 +2098,40 @@ export default function LiveVideoSimulator({
               title={result?.title}
               channelName={rc.channelName || 'Nexora Video'}
             />
+          )}
+
+          {/* TOAST THÔNG BÁO HOÀN TÁC / LÀM LẠI (PHOTOSHOP / CAPCUT STYLE) */}
+          {historyToast && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '14px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 999,
+                display: 'inline-flex',
+                alignItems: 'center',
+                whiteSpace: 'nowrap',
+                gap: '5px',
+                padding: '3px 10px',
+                borderRadius: '9999px',
+                background: 'rgba(11, 15, 25, 0.92)',
+                border: '1px solid rgba(37, 244, 238, 0.4)',
+                color: '#fff',
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.6), 0 0 10px rgba(37, 244, 238, 0.25)',
+                backdropFilter: 'blur(8px)',
+                pointerEvents: 'none',
+                animation: 'fadeIn 0.15s ease-out'
+              }}
+            >
+              <span style={{ color: '#25f4ee', fontSize: '0.75rem', lineHeight: 1 }}>{historyToast.icon}</span>
+              <span style={{ lineHeight: 1, whiteSpace: 'nowrap' }}>{historyToast.message}</span>
+              <span style={{ fontSize: '0.58rem', color: 'rgba(255, 255, 255, 0.65)', background: 'rgba(255, 255, 255, 0.1)', padding: '1px 5px', borderRadius: '4px', lineHeight: 1, whiteSpace: 'nowrap' }}>
+                {historyToast.icon === '↩' ? 'Ctrl+Z' : 'Ctrl+Y'}
+              </span>
+            </div>
           )}
 
         </div> {/* Đóng containerRef - khung video màn mô phỏng */}
@@ -2275,137 +2327,7 @@ export default function LiveVideoSimulator({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* CÔNG CỤ CHỌN THÀNH PHẦN ĐỂ KÉO / SCALE KIỂU PHOTOSHOP */}
-            {!isPlaying && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.06)', padding: '2px 4px', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, padding: '0 2px' }}>✥ Kéo:</span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedElement(selectedElement === 'caption' ? 'none' : 'caption')}
-                  style={{
-                    background: selectedElement === 'caption' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
-                    border: selectedElement === 'caption' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
-                    color: selectedElement === 'caption' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
-                    fontSize: '0.65rem',
-                    fontWeight: 600,
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px'
-                  }}
-                  title="Chọn Phụ đề để kéo di chuyển & scale trực tiếp"
-                >
-                  <span>📝</span> Phụ đề
-                </button>
-                {showImage && currentImageSrc && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedElement(selectedElement === 'image' ? 'none' : 'image')}
-                    style={{
-                      background: selectedElement === 'image' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
-                      border: selectedElement === 'image' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
-                      color: selectedElement === 'image' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px'
-                    }}
-                    title="Chọn Ảnh nền để kéo di chuyển & scale trực tiếp"
-                  >
-                    <span>🖼️</span> Ảnh nền
-                  </button>
-                )}
-                {showChannelLogo && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedElement(selectedElement === 'logo' ? 'none' : 'logo')}
-                    style={{
-                      background: selectedElement === 'logo' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
-                      border: selectedElement === 'logo' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
-                      color: selectedElement === 'logo' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px'
-                    }}
-                    title="Chọn Logo để kéo di chuyển & scale trực tiếp"
-                  >
-                    <span>🏷️</span> Logo
-                  </button>
-                )}
-                {currentSlideIndex === 0 && showOpeningComment && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedElement(selectedElement === 'comment' ? 'none' : 'comment')}
-                    style={{
-                      background: selectedElement === 'comment' ? 'rgba(37, 244, 238, 0.25)' : 'transparent',
-                      border: selectedElement === 'comment' ? '1px solid rgba(37, 244, 238, 0.6)' : '1px solid transparent',
-                      color: selectedElement === 'comment' ? '#25f4ee' : 'rgba(255,255,255,0.75)',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px'
-                    }}
-                    title="Chọn Hộp bình luận để kéo di chuyển & scale trực tiếp"
-                  >
-                    <span>💬</span> Hộp hỏi
-                  </button>
-                )}
-                {currentSlideIndex === 0 && showOpeningNewsBanner && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedElement((selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'none' : 'news_headline')}
-                    style={{
-                      background: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
-                      border: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? '1px solid rgba(239, 68, 68, 0.6)' : '1px solid transparent',
-                      color: (selectedElement === 'news_headline' || selectedElement === 'news_banner') ? '#f87171' : 'rgba(255,255,255,0.75)',
-                      fontSize: '0.65rem',
-                      fontWeight: 600,
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px'
-                    }}
-                    title="Chọn Tiêu đề banner tin tức để co giãn giới hạn độ rộng và cỡ chữ trực tiếp"
-                  >
-                    <span>📰</span> Tiêu đề tin
-                  </button>
-                )}
-                {selectedElement !== 'none' && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedElement('none')}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'rgba(255,255,255,0.45)',
-                      fontSize: '0.62rem',
-                      padding: '2px 4px',
-                      cursor: 'pointer'
-                    }}
-                    title="Bỏ chọn (hoặc phím Escape)"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            )}
+
             <button type="button" onClick={() => setIsMuted((m) => !m)} style={{ background: 'none', border: 'none', color: isMuted ? '#f87171' : 'rgba(255,255,255,0.85)', fontSize: '0.95rem', cursor: 'pointer', padding: '4px' }} title={isMuted ? 'Bật âm thanh' : 'Tắt tiếng'}>
               {isMuted ? '🔇' : '🔊'}
             </button>
