@@ -159,6 +159,10 @@ export default function LiveVideoSimulator({
   const textColor = rc.captionTextColor || rc.textColor || '#ffffff';
   const highlightColor = rc.highlightColor || '#FE2C55';
   const videoBgColor = rc.videoBgColor || '#000000';
+  const rawBgColor = rc.captionBgColor || rc.bgColor || '#000000';
+  const bgColor = (typeof rawBgColor === 'string' && rawBgColor.startsWith('#') && rawBgColor.length >= 7)
+    ? rawBgColor
+    : '#000000';
   const bgOpacity = Number(rc.captionBgOpacity !== undefined ? rc.captionBgOpacity : (rc.bgOpacity !== undefined ? rc.bgOpacity : 65)) / 100;
   const isBgTransparent = Boolean(rc.captionBgTransparent || rc.isBgTransparent || rc.captionBgColor === 'transparent');
   const captionStyle = rc.captionStyle || 'classic';
