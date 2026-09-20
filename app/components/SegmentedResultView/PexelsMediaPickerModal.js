@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import styles from './PexelsMediaPickerModal.module.css';
+import { usePexelsMediaSearch } from './usePexelsMediaSearch.js';
+import { pickPexelsVideoFile } from '@/src/domain/video/pexelsSceneMedia.js';
 
 export default function PexelsMediaPickerModal({
   isOpen,
@@ -14,13 +17,8 @@ export default function PexelsMediaPickerModal({
   onApplied,
   showToast
 }) {
-  const [query, setQuery] = useState('');
   const [mediaType, setMediaType] = useState('videos'); // 'videos' | 'photos'
   const [orientation, setOrientation] = useState('portrait'); // 'portrait' | 'landscape' | ''
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
 
   // Detail / Trim state
   const [selectedItem, setSelectedItem] = useState(null);
@@ -33,11 +31,59 @@ export default function PexelsMediaPickerModal({
   const dragInfoRef = useRef({ startX: 0, initialStart: 0, initialEnd: 5, totalDuration: 10 });
   const [isApplying, setIsApplying] = useState(false);
   const [applyMsg, setApplyMsg] = useState('');
-  const [aiKeywords, setAiKeywords] = useState([]);
-  const [isFetchingAiKeywords, setIsFetchingAiKeywords] = useState(false);
   const [probedVoiceDuration, setProbedVoiceDuration] = useState(null);
+  const [showAdvancedTrim, setShowAdvancedTrim] = useState(false);
+  const resultsScrollRef = useRef(null);
+  const resultsScrollTopRef = useRef(0);
+
+  const {
+    query, setQuery, results, loading, loadingMore, error, page, setPage, hasMore,
+    activeSearch, fetchPexelsData,
+    handleSearchSubmit, handleLoadMore
+  } = usePexelsMediaSearch({
+    isOpen,
+    sceneNumber,
+    scenePrompt,
+    sceneNarration,
+    mediaType,
+    orientation,
+    onSearchReset: () => {
+      resultsScrollTopRef.current = 0;
+      setSelectedItem(null);
+      setApplyMsg('');
+      setShowAdvancedTrim(false);
+    }
+  });
 
   const videoRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const isApplyingRef = useRef(isApplying);
+
+  const handleSelectItem = (item) => {
+    resultsScrollTopRef.current = resultsScrollRef.current?.scrollTop || 0;
+    setSelectedItem(item);
+  };
+
+  const handleReturnToResults = () => setSelectedItem(null);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    isApplyingRef.current = isApplying;
+  }, [isApplying]);
+
+  useEffect(() => {
+    if (!isOpen || selectedItem) return undefined;
+    const frame = requestAnimationFrame(() => {
+      if (resultsScrollRef.current) {
+        resultsScrollRef.current.scrollTop = resultsScrollTopRef.current;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, selectedItem]);
 
   // Probe thời lượng audio thực tế của cảnh từ file audio/scene-NN.mp3
   useEffect(() => {
@@ -121,7 +167,7 @@ export default function PexelsMediaPickerModal({
   const handleStartDrag = (e, mode) => {
     e.stopPropagation();
     e.preventDefault();
-    const totalDur = Math.max(videoDuration || selectedItem?.duration || 1, 0.5);
+    const totalDur = Math.max(videoDuration || selectedItem?.duration || 1, minRequiredDuration, 0.5);
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     dragInfoRef.current = {
       startX: clientX,
@@ -139,7 +185,7 @@ export default function PexelsMediaPickerModal({
     const rect = track.getBoundingClientRect();
     const clientX = e.clientX;
     const clickX = clientX - rect.left;
-    const totalDur = Math.max(videoDuration || selectedItem?.duration || 1, 0.5);
+    const totalDur = Math.max(videoDuration || selectedItem?.duration || 1, minRequiredDuration, 0.5);
     const clickedSec = (clickX / rect.width) * totalDur;
 
     const currentDur = Math.max(0.5, trimEnd - trimStart);
@@ -155,83 +201,29 @@ export default function PexelsMediaPickerModal({
     }
   };
 
-  // Danh mục dịch gợi ý tiếng Anh thông minh từ nội dung kịch bản
-  const deriveEnglishKeyword = (text) => {
-    if (!text) return 'peaceful nature';
-    const clean = String(text).toLowerCase();
-
-    // Đối chiếu các chủ đề thông dụng trong video ngắn
-    if (/lướt|mạng|điện thoại|smartphone|tiktok|facebook|màn hình|app|online/i.test(clean)) return 'scrolling phone screen';
-    if (/máy tính|laptop|bàn phím|văn phòng|gõ phím|code|làm việc/i.test(clean)) return 'typing laptop keyboard';
-    if (/áp lực|mệt mỏi|stress|suy nghĩ|buồn|cô đơn|thất vọng|bế tắc/i.test(clean)) return 'thoughtful person dark room';
-    if (/thành phố|đường phố|xe cộ|phố xá|tấp nập|dòng người/i.test(clean)) return 'busy city street night';
-    if (/thiên nhiên|rừng|cây|núi|phong cảnh|bình yên/i.test(clean)) return 'misty forest nature';
-    if (/biển|sóng|nước|bờ biển|hồ/i.test(clean)) return 'calm ocean waves water';
-    if (/mưa|cửa sổ|giọt nước|bão/i.test(clean)) return 'rain drops on window';
-    if (/hoàng hôn|bình minh|mặt trời|chiều tà/i.test(clean)) return 'sunset golden hour sky';
-    if (/cà phê|sách|đọc sách|quán cafe|thư giãn/i.test(clean)) return 'reading book coffee cup';
-    if (/tiền|tài chính|kinh doanh|đầu tư|thành công/i.test(clean)) return 'finance money stock market';
-    if (/chạy bộ|thể thao|tập luyện|sức khỏe|gym/i.test(clean)) return 'runner morning sunrise park';
-    if (/gia đình|bạn bè|nói chuyện|cười|ấm áp/i.test(clean)) return 'friends walking together outdoors';
-    if (/đêm|bóng tối|ngủ|giấc mơ|đèn/i.test(clean)) return 'neon lights night atmosphere';
-    if (/thời gian|đồng hồ|quá khứ|tương lai/i.test(clean)) return 'clock timelapse passing time';
-
-    // Nếu là tiếng Anh sẵn (không có dấu tiếng Việt)
-    const hasVietnamese = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(clean);
-    if (!hasVietnamese) {
-      const words = clean.replace(/[^a-z0-9\s]/gi, ' ').split(/\s+/).filter(w => w.length > 2).slice(0, 4).join(' ');
-      if (words) return words;
-    }
-
-    return 'atmospheric cinematic background';
-  };
-
   useEffect(() => {
-    if (isOpen) {
-      const initialKeyword = deriveEnglishKeyword(scenePrompt || sceneNarration);
-      setQuery(initialKeyword);
-      setSelectedItem(null);
-      setApplyMsg('');
-      setPage(1);
-      fetchPexelsData(initialKeyword, mediaType, orientation, 1);
-
-      // Gọi API AI để phân tích và đề xuất thêm từ khóa tiếng Anh chuyên sâu cho cảnh này
-      setIsFetchingAiKeywords(true);
-      fetch('/api/prompts/pexels/keywords', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `Scene ${sceneNumber}`,
-          segments: [{ segmentNumber: sceneNumber, text: scenePrompt || sceneNarration }]
-        })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data?.success && Array.isArray(data.segmentKeywords) && data.segmentKeywords[0]?.keyword) {
-            const aiKw = data.segmentKeywords[0].keyword;
-            setAiKeywords(prev => Array.from(new Set([aiKw, ...prev])));
-            // Nếu người dùng chưa gõ từ khóa khác thì tự động cập nhật sang từ khóa AI chính xác hơn
-            setQuery(prev => {
-              if (prev === initialKeyword) {
-                fetchPexelsData(aiKw, mediaType, orientation, 1);
-                return aiKw;
-              }
-              return prev;
-            });
-          }
-        })
-        .catch(() => { })
-        .finally(() => setIsFetchingAiKeywords(false));
-    }
-  }, [isOpen, sceneNumber]);
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = setTimeout(() => searchInputRef.current?.focus(), 120);
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !isApplyingRef.current) onCloseRef.current?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (selectedItem && mediaType === 'videos') {
-      const totalDur = Number(selectedItem.duration) || 15;
+      const sourceDuration = Number(selectedItem.duration) || 15;
       const targetDur = Math.max(minRequiredDuration, Number(sceneDuration) > 0 ? Number(sceneDuration) : 3.5);
-      setVideoDuration(totalDur);
+      setVideoDuration(sourceDuration);
       setTrimStart(0);
-      setTrimEnd(Math.min(Number(targetDur.toFixed(1)), totalDur));
+      setTrimEnd(Number(targetDur.toFixed(1)));
       setCurrentPlayTime(0);
     }
   }, [selectedItem, mediaType]);
@@ -239,7 +231,7 @@ export default function PexelsMediaPickerModal({
   // Khi đã probe được thời lượng audio thực tế của cảnh, tự động cập nhật trimEnd nếu đang bị ngắn hơn frame cần thiết
   useEffect(() => {
     if (selectedItem && mediaType === 'videos' && minRequiredDuration > 0) {
-      const totalDur = Math.max(videoDuration || selectedItem.duration || 1, 0.5);
+      const totalDur = Math.max(videoDuration || selectedItem.duration || 1, minRequiredDuration, 0.5);
       setTrimEnd(prevEnd => {
         const curLength = prevEnd - trimStart;
         if (curLength < minRequiredDuration) {
@@ -250,44 +242,6 @@ export default function PexelsMediaPickerModal({
     }
   }, [minRequiredDuration]);
 
-  const fetchPexelsData = async (q, type, orient, p = 1) => {
-    if (!q || !q.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      const orientParam = orient ? `&orientation=${orient}` : '';
-      const res = await fetch(`/api/prompts/pexels?query=${encodeURIComponent(q.trim())}&type=${type}&page=${p}${orientParam}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const list = type === 'videos' ? data.data?.videos : data.data?.photos;
-        if (p === 1) {
-          setResults(list || []);
-        } else {
-          setResults(prev => [...prev, ...(list || [])]);
-        }
-      } else {
-        setError(data.error || 'Lỗi tìm kiếm từ Pexels');
-      }
-    } catch {
-      setError('Lỗi kết nối máy chủ Pexels');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearchSubmit = (e) => {
-    e?.preventDefault();
-    setPage(1);
-    setSelectedItem(null);
-    fetchPexelsData(query, mediaType, orientation, 1);
-  };
-
-  const handleLoadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPexelsData(query, mediaType, orientation, nextPage);
-  };
-
   const handleApplyToScene = async (isFull = false) => {
     if (!selectedItem) return;
     setIsApplying(true);
@@ -296,12 +250,7 @@ export default function PexelsMediaPickerModal({
     try {
       let mediaUrl = '';
       if (mediaType === 'videos') {
-        const videoFiles = selectedItem.video_files || [];
-        // Ưu tiên độ phân giải HD / 1080p hoặc 720p phù hợp
-        const bestFile = videoFiles.find(f => (f.width === 1080 || f.height === 1080) && f.file_type === 'video/mp4') ||
-          videoFiles.find(f => f.quality === 'hd' && f.file_type === 'video/mp4') ||
-          videoFiles.find(f => f.quality === 'sd' && f.file_type === 'video/mp4') ||
-          videoFiles[0];
+        const bestFile = pickPexelsVideoFile(selectedItem, orientation);
         mediaUrl = bestFile?.link;
       } else {
         mediaUrl = selectedItem.src?.large2x || selectedItem.src?.large || selectedItem.src?.original;
@@ -314,7 +263,8 @@ export default function PexelsMediaPickerModal({
       const trimPayload = (!isFull && mediaType === 'videos') ? {
         start: Number(trimStart) || 0,
         end: Number(trimEnd) || (Number(trimStart) + Number(sceneDuration)),
-        duration: Math.max(0.5, (Number(trimEnd) - Number(trimStart)))
+        duration: Math.max(0.5, (Number(trimEnd) - Number(trimStart))),
+        sourceDuration: Number(videoDuration || selectedItem.duration) || 0
       } : null;
 
       const res = await fetch('/api/prompts/pexels/apply-scene', {
@@ -361,6 +311,11 @@ export default function PexelsMediaPickerModal({
 
   return (
     <div
+      className={styles.overlay}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isApplying) onClose();
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -375,11 +330,15 @@ export default function PexelsMediaPickerModal({
       }}
     >
       <div
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Kho Pexels cho cảnh ${sceneNumber}`}
         style={{
-          width: '95%',
-          maxWidth: '1000px',
-          height: '88vh',
-          maxHeight: '850px',
+          width: 'min(1180px, 96vw)',
+          maxWidth: '1180px',
+          height: selectedItem ? 'auto' : '88vh',
+          maxHeight: selectedItem ? 'calc(100dvh - 32px)' : '900px',
           background: '#161618',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '16px',
@@ -413,7 +372,7 @@ export default function PexelsMediaPickerModal({
                 </span>
               </h3>
               <p style={{ margin: 0, fontSize: '0.72rem', color: '#888' }}>
-                Tìm kiếm Video / Ảnh miễn phí từ Pexels, xem trước, cắt cảnh và ghép trực tiếp vào kịch bản.
+                {selectedItem ? 'Kiểm tra khung hình, chọn đoạn cần dùng rồi áp dụng vào cảnh.' : 'Tìm media phù hợp, xem trước rồi áp dụng trực tiếp vào cảnh.'}
               </p>
             </div>
           </div>
@@ -421,6 +380,8 @@ export default function PexelsMediaPickerModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={isApplying}
+            aria-label="Đóng kho Pexels"
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: 'none',
@@ -440,8 +401,46 @@ export default function PexelsMediaPickerModal({
           </button>
         </div>
 
+        <div className={styles.progress} aria-label="Tiến trình chọn media">
+          {(() => {
+            const currentStep = isApplying ? 3 : (selectedItem ? 2 : 1);
+            return [
+              {
+                number: 1,
+                label: 'Tìm kiếm',
+                onClick: currentStep > 1 && !isApplying ? handleReturnToResults : null
+              },
+              { number: 2, label: 'Xem trước', onClick: null },
+              { number: 3, label: 'Áp dụng', onClick: null }
+            ].map((step, index) => {
+              const active = step.number === currentStep;
+              const completed = step.number < currentStep;
+              const clickable = typeof step.onClick === 'function';
+              return (
+                <React.Fragment key={step.number}>
+                  {index > 0 && <span className={`${styles.progressLine} ${completed ? styles.progressLineComplete : ''}`} />}
+                  <button
+                    type="button"
+                    className={`${styles.progressStep} ${active ? styles.progressStepActive : ''} ${completed ? styles.progressStepComplete : ''} ${clickable ? styles.progressStepClickable : ''}`}
+                    onClick={step.onClick || undefined}
+                    disabled={!clickable}
+                    aria-current={active ? 'step' : undefined}
+                    title={clickable ? `Quay lại bước ${step.number}: ${step.label}` : undefined}
+                  >
+                    <strong>{completed ? '✓' : step.number}</strong>{step.label}
+                  </button>
+                </React.Fragment>
+              );
+            });
+          })()}
+          <span className={styles.sceneExcerpt} title={sceneNarration || scenePrompt}>
+            {sceneNarration || scenePrompt || `Cảnh ${sceneNumber}`}
+          </span>
+        </div>
+
         {/* SEARCH & FILTER BAR */}
-        <form
+        {!selectedItem && <form
+          className={styles.searchForm}
           onSubmit={handleSearchSubmit}
           style={{
             padding: '12px 20px',
@@ -457,10 +456,11 @@ export default function PexelsMediaPickerModal({
           {/* Keyword Input */}
           <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
             <input
+              ref={searchInputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Từ khóa tiếng Anh (vd: nature, business, rain, slow clouds)..."
+              placeholder="Chủ thể + hành động + bối cảnh (vd: friends using social media phone)..."
               style={{
                 width: '100%',
                 background: '#202024',
@@ -558,7 +558,7 @@ export default function PexelsMediaPickerModal({
           {/* Submit Search Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !query.trim()}
             style={{
               background: '#00e5ff',
               color: '#000',
@@ -575,96 +575,7 @@ export default function PexelsMediaPickerModal({
           >
             {loading ? '⏳ Đang tìm...' : '🔍 Tìm kiếm'}
           </button>
-        </form>
-
-        {/* ROW GỢI Ý TỪ KHÓA TIẾNG ANH (ENGLISH SUGGESTIONS) */}
-        <div
-          style={{
-            padding: '7px 20px',
-            background: '#111114',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            overflowX: 'auto',
-            flexShrink: 0
-          }}
-        >
-          <span style={{ fontSize: '0.68rem', color: '#888', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>💡</span> Gợi ý tiếng Anh:
-          </span>
-
-          {aiKeywords.map((kw, i) => (
-            <button
-              key={`ai-${i}`}
-              type="button"
-              onClick={() => {
-                setQuery(kw);
-                setPage(1);
-                setSelectedItem(null);
-                fetchPexelsData(kw, mediaType, orientation, 1);
-              }}
-              style={{
-                background: query === kw ? 'rgba(0, 229, 255, 0.25)' : 'rgba(0, 229, 255, 0.1)',
-                border: query === kw ? '1px solid #00e5ff' : '1px solid rgba(0, 229, 255, 0.25)',
-                color: '#00e5ff',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '0.67rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px'
-              }}
-              title="Gợi ý từ AI bám sát nội dung cảnh này"
-            >
-              <span>✨</span> {kw}
-            </button>
-          ))}
-
-          {[
-            { label: '📱 Lướt điện thoại', kw: 'scrolling phone screen' },
-            { label: '💻 Laptop / Gõ phím', kw: 'typing laptop keyboard' },
-            { label: '🌿 Thiên nhiên', kw: 'misty forest nature' },
-            { label: '🏙️ Thành phố', kw: 'city street night traffic' },
-            { label: '🌧️ Mưa cửa sổ', kw: 'rain on window' },
-            { label: '🌅 Hoàng hôn', kw: 'golden sunset sky' },
-            { label: '☕ Cafe & Đọc sách', kw: 'reading book coffee' },
-            { label: '🏃 Chạy bộ', kw: 'running sunrise' }
-          ].map((item, i) => (
-            <button
-              key={`pop-${i}`}
-              type="button"
-              onClick={() => {
-                setQuery(item.kw);
-                setPage(1);
-                setSelectedItem(null);
-                fetchPexelsData(item.kw, mediaType, orientation, 1);
-              }}
-              style={{
-                background: query === item.kw ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.05)',
-                border: query === item.kw ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.1)',
-                color: query === item.kw ? '#00e5ff' : '#aaa',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '0.67rem',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-
-          {isFetchingAiKeywords && (
-            <span style={{ fontSize: '0.65rem', color: '#ffb300', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span>⏳</span> Đang gợi ý...
-            </span>
-          )}
-        </div>
+        </form>}
 
         {/* ERROR / NOTIFICATION MESSAGE */}
         {error && (
@@ -680,12 +591,12 @@ export default function PexelsMediaPickerModal({
             /* ========================================================
                DETAIL VIEW & VIDEO TRIMMER
                ======================================================== */
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#0e0e10', overflowY: 'auto' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#0e0e10', overflow: 'hidden' }}>
               {/* Back Bar */}
               <div style={{ padding: '10px 20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button
                   type="button"
-                  onClick={() => setSelectedItem(null)}
+                  onClick={handleReturnToResults}
                   style={{
                     background: 'rgba(255, 255, 255, 0.08)',
                     border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -704,17 +615,26 @@ export default function PexelsMediaPickerModal({
                 </button>
 
                 <span style={{ fontSize: '0.75rem', color: '#aaa' }}>
-                  Tác giả: <strong style={{ color: '#fff' }}>{selectedItem.photographer || selectedItem.user?.name || 'Pexels Creator'}</strong>
+                  Nguồn:{' '}
+                  <a
+                    href={selectedItem.photographer_url || selectedItem.user?.url || selectedItem.url || 'https://www.pexels.com'}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#fff', fontWeight: 700, textDecorationColor: '#00e5ff' }}
+                  >
+                    {selectedItem.photographer || selectedItem.user?.name || 'Pexels Creator'} · Pexels
+                  </a>
                 </span>
               </div>
 
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: '20px', padding: '20px', flexWrap: 'wrap', overflowY: 'auto' }}>
+              <div className={styles.detailBody}>
                 {/* Media Preview Box */}
                 <div
+                  className={styles.previewPane}
                   style={{
                     flex: '1 1 360px',
-                    minHeight: '280px',
-                    maxHeight: '440px',
+                    minHeight: '260px',
+                    maxHeight: '420px',
                     background: '#000',
                     borderRadius: '12px',
                     overflow: 'hidden',
@@ -727,23 +647,21 @@ export default function PexelsMediaPickerModal({
                 >
                   {mediaType === 'videos' ? (
                     (() => {
-                      const videoFiles = selectedItem.video_files || [];
-                      const bestFile = videoFiles.find(f => f.quality === 'hd' && f.file_type === 'video/mp4') ||
-                        videoFiles.find(f => f.quality === 'sd' && f.file_type === 'video/mp4') ||
-                        videoFiles[0];
+                      const bestFile = pickPexelsVideoFile(selectedItem, orientation);
                       return (
                         <video
                           ref={videoRef}
                           src={bestFile?.link}
                           controls
+                          preload="metadata"
                           playsInline
                           onLoadedMetadata={(e) => {
                             const d = e.currentTarget.duration || 0;
                             if (d > 0) {
                               setVideoDuration(d);
                               const targetDur = Math.max(minRequiredDuration, Number(sceneDuration) > 0 ? Number(sceneDuration) : 3.5);
-                              if (trimEnd <= 0 || trimEnd > d || (trimEnd - trimStart) < minRequiredDuration) {
-                                setTrimEnd(Math.min(d, Math.round((trimStart + targetDur) * 10) / 10));
+                              if (trimEnd <= 0 || (trimEnd - trimStart) < minRequiredDuration) {
+                                setTrimEnd(Math.round((trimStart + targetDur) * 10) / 10);
                               }
                             }
                           }}
@@ -754,6 +672,9 @@ export default function PexelsMediaPickerModal({
                             if (trimEnd > trimStart && curr >= trimEnd) {
                               e.currentTarget.currentTime = trimStart;
                             }
+                          }}
+                          onEnded={(e) => {
+                            e.currentTarget.currentTime = Math.min(trimStart, Math.max(0, e.currentTarget.duration - 0.1));
                           }}
                           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         />
@@ -769,29 +690,29 @@ export default function PexelsMediaPickerModal({
                 </div>
 
                 {/* Trimmer & Apply Controls */}
-                <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className={styles.controlsPane}>
                   {mediaType === 'videos' ? (
                     (() => {
-                      const totalDur = Math.max(videoDuration || selectedItem.duration || 1, 0.5);
+                      const sourceDuration = Math.max(videoDuration || selectedItem.duration || 1, 0.5);
+                      const totalDur = Math.max(sourceDuration, minRequiredDuration);
                       const leftPercent = Math.max(0, Math.min(100, (trimStart / totalDur) * 100));
                       const widthPercent = Math.max(1, Math.min(100 - leftPercent, ((trimEnd - trimStart) / totalDur) * 100));
                       const playheadPercent = Math.max(0, Math.min(100, (currentPlayTime / totalDur) * 100));
 
                       return (
                         <div style={{ background: '#1c1c20', borderRadius: '12px', padding: '16px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span>✂️</span> <span>Cắt cảnh (Video Trimmer)</span>
                             </span>
                             <span style={{ fontSize: '0.7rem', color: '#aaa', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '4px' }}>
-                              Độ dài video gốc: {totalDur.toFixed(1)}s
+                              Video gốc: {sourceDuration.toFixed(1)}s{sourceDuration < minRequiredDuration ? ' · sẽ lặp để đủ cảnh' : ''}
                             </span>
                           </div>
 
                           <div style={{ fontSize: '0.72rem', color: '#aaa', lineHeight: 1.45 }}>
-                            Thời lượng frame cần: <strong style={{ color: '#00e5ff' }}>~{minRequiredDuration}s</strong> (Voice: <strong style={{ color: '#69f0ae' }}>~{realVoiceSec.toFixed(1)}s</strong> + 0.5s chuyển cảnh).
-                            <br />
-                            Kéo <strong style={{ color: '#00e5ff' }}>khung sáng</strong> hoặc <strong style={{ color: '#00e5ff' }}>mép phải</strong> để kéo dài video. Đoạn cắt luôn bằng hoặc dài hơn frame để video phát liên tục mượt mà, không bị dừng giữa chừng.
+                            Cảnh cần tối thiểu <strong style={{ color: '#00e5ff' }}>{minRequiredDuration}s</strong> để phủ voice <strong style={{ color: '#69f0ae' }}>{realVoiceSec.toFixed(1)}s</strong> và chuyển cảnh.
+                            Kéo khung sáng để đổi vị trí; kéo mép phải để tăng độ dài.
                           </div>
 
                           {/* INTERACTIVE TIMELINE SLIDER */}
@@ -1080,7 +1001,24 @@ export default function PexelsMediaPickerModal({
                           </div>
 
                           {/* Fine Tuning Inputs */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowAdvancedTrim(value => !value)}
+                            aria-expanded={showAdvancedTrim}
+                            style={{
+                              alignSelf: 'flex-start',
+                              padding: 0,
+                              border: 0,
+                              background: 'transparent',
+                              color: '#a1a1aa',
+                              cursor: 'pointer',
+                              fontSize: '0.68rem',
+                              fontWeight: 700
+                            }}
+                          >
+                            {showAdvancedTrim ? '▾ Ẩn tinh chỉnh thời gian' : '▸ Tinh chỉnh chính xác thời gian'}
+                          </button>
+                          {showAdvancedTrim && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(0,0,0,0.25)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                               <span style={{ fontSize: '0.66rem', color: '#aaa' }}>Bắt đầu từ (giây):</span>
                               <div style={{ display: 'flex', gap: '3px' }}>
@@ -1188,7 +1126,7 @@ export default function PexelsMediaPickerModal({
                                 </button>
                               </div>
                             </div>
-                          </div>
+                          </div>}
                         </div>
                       );
                     })()
@@ -1204,9 +1142,9 @@ export default function PexelsMediaPickerModal({
                   )}
 
                   {/* Actions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+                  <div className={`${styles.actionsPanel} ${mediaType === 'photos' ? styles.actionsPanelSingle : ''}`}>
                     {applyMsg && (
-                      <div style={{ padding: '8px 12px', borderRadius: '6px', background: applyMsg.startsWith('✓') ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255, 179, 0, 0.15)', color: applyMsg.startsWith('✓') ? '#00e5ff' : '#ffb300', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>
+                      <div className={styles.actionMessage} style={{ padding: '8px 12px', borderRadius: '6px', background: applyMsg.startsWith('✓') ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255, 179, 0, 0.15)', color: applyMsg.startsWith('✓') ? '#00e5ff' : '#ffb300', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>
                         {applyMsg}
                       </div>
                     )}
@@ -1286,7 +1224,7 @@ export default function PexelsMediaPickerModal({
             /* ========================================================
                RESULTS GRID VIEW
                ======================================================== */
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px' }}>
+            <div ref={resultsScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px' }}>
               {loading && results.length === 0 ? (
                 <div style={{ height: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#888' }}>
                   <span style={{ fontSize: '2rem' }}>⏳</span>
@@ -1299,11 +1237,16 @@ export default function PexelsMediaPickerModal({
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div className={styles.resultsHeader}>
+                    <span>
+                      <strong style={{ color: '#fff' }}>{results.length}</strong> {mediaType === 'videos' ? 'video' : 'ảnh'} cho “{activeSearch?.query || query}”
+                    </span>
+                    <span>Chọn một kết quả để xem trước</span>
+                  </div>
                   <div
+                    className={styles.resultGrid}
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                      gap: '8px'
+                      display: 'grid'
                     }}
                   >
                     {results.map((item) => {
@@ -1311,7 +1254,16 @@ export default function PexelsMediaPickerModal({
                       return (
                         <div
                           key={item.id}
-                          onClick={() => setSelectedItem(item)}
+                          onClick={() => handleSelectItem(item)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleSelectItem(item);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Xem trước ${mediaType === 'videos' ? 'video' : 'ảnh'} của ${item.photographer || item.user?.name || 'Pexels'}`}
                           style={{
                             position: 'relative',
                             width: '100%',
@@ -1336,7 +1288,7 @@ export default function PexelsMediaPickerModal({
                         >
                           <img
                             src={previewSrc}
-                            alt=""
+                            alt={`${mediaType === 'videos' ? 'Video' : 'Ảnh'} Pexels của ${item.photographer || item.user?.name || 'tác giả'}`}
                             loading="lazy"
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           />
@@ -1370,10 +1322,12 @@ export default function PexelsMediaPickerModal({
                   </div>
 
                   {/* Load More Button */}
-                  {!loading && (
+                  {!loading && hasMore && (
                     <button
+                      className={`${styles.loadMore}`}
                       type="button"
                       onClick={handleLoadMore}
+                      disabled={loadingMore}
                       style={{
                         alignSelf: 'center',
                         background: 'rgba(255, 255, 255, 0.08)',
@@ -1387,12 +1341,12 @@ export default function PexelsMediaPickerModal({
                         marginBottom: '16px'
                       }}
                     >
-                      Tải thêm kết quả
+                      {loadingMore ? '⏳ Đang tải thêm...' : 'Tải thêm kết quả'}
                     </button>
                   )}
-                  {loading && (
-                    <div style={{ textAlign: 'center', padding: '10px', color: '#888', fontSize: '0.78rem' }}>
-                      ⏳ Đang tải thêm kết quả...
+                  {!hasMore && results.length > 0 && (
+                    <div style={{ textAlign: 'center', padding: '4px 10px 14px', color: '#71717a', fontSize: '0.7rem' }}>
+                      Đã hiển thị hết kết quả của truy vấn này.
                     </div>
                   )}
                 </div>

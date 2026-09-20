@@ -1,0 +1,242 @@
+.overlay {
+  overscroll-behavior: contain;
+}
+
+.dialog {
+  isolation: isolate;
+}
+
+.progress {
+  min-height: 36px;
+  padding: 7px 20px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #17171a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #71717a;
+  font-size: 0.68rem;
+  flex-shrink: 0;
+}
+
+.progressStep {
+  padding: 3px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.progressStep:disabled {
+  opacity: 1;
+}
+
+.progressStep strong {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  color: #a1a1aa;
+  font-size: 0.62rem;
+}
+
+.progressStepActive {
+  color: #67e8f9;
+}
+
+.progressStepActive strong {
+  color: #071014;
+  background: #22d3ee;
+  border-color: #22d3ee;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.24);
+}
+
+.progressStepComplete {
+  color: #a1a1aa;
+}
+
+.progressStepComplete strong {
+  color: #67e8f9;
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.progressStepClickable {
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.progressStepClickable:hover,
+.progressStepClickable:focus-visible {
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.09);
+  outline: none;
+}
+
+.progressStepClickable:focus-visible {
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+}
+
+.progressLine {
+  width: 20px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.progressLineComplete {
+  background: rgba(34, 211, 238, 0.42);
+}
+
+.sceneExcerpt {
+  margin-left: auto;
+  max-width: 42%;
+  color: #a1a1aa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchForm {
+  container-type: inline-size;
+}
+
+.detailBody {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.12fr) minmax(360px, 0.88fr);
+  align-items: start;
+  align-content: start;
+  gap: 14px;
+  padding: 14px 20px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.previewPane {
+  position: sticky !important;
+  top: 0;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 16 / 11;
+}
+
+.controlsPane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-self: start;
+}
+
+.actionsPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.actionsPanel > :only-child {
+  grid-column: 1 / -1;
+}
+
+.actionsPanelSingle {
+  grid-template-columns: 1fr;
+}
+
+.actionMessage {
+  grid-column: 1 / -1;
+}
+
+.resultsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #a1a1aa;
+  font-size: 0.72rem;
+}
+
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 10px;
+}
+
+.loadMore {
+  min-width: 190px;
+  align-self: center;
+}
+
+@media (max-width: 820px) {
+  .dialog {
+    width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: none !important;
+    border-radius: 12px !important;
+  }
+
+  .progress {
+    padding-inline: 12px;
+  }
+
+  .progressLine,
+  .sceneExcerpt {
+    display: none;
+  }
+
+  .searchForm {
+    padding-inline: 12px !important;
+  }
+
+  .detailBody {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .previewPane {
+    position: relative !important;
+    top: auto;
+    min-height: 240px !important;
+    max-height: 48vh !important;
+  }
+
+  .controlsPane {
+    width: 100%;
+  }
+
+  .resultGrid {
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .progressStep {
+    font-size: 0;
+  }
+
+  .progressStep strong {
+    font-size: 0.62rem;
+  }
+
+  .resultGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .actionsPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .actionMessage {
+    grid-column: auto;
+  }
+}
