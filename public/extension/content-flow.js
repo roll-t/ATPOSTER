@@ -7,7 +7,10 @@ let currentRunId = null;
 let sidebarEl = null;
 let isCollapsed = false;
 let currentGenerationBaseline = null; // Ảnh có sẵn trước lần gửi gần nhất (dùng để nhận diện ảnh mới)
-let hasAutoCreatedProject = false;
+let lastProjectCreateAttemptAt = 0;
+let dashboardCheckInterval = null;
+let submissionInFlight = false;
+const PROMPT_TARGET_ATTRIBUTE = 'data-nexora-flow-prompt-target';
 
 // Timer của tab nền có thể bị Chrome dồn xuống một nhịp/phút. MutationObserver vẫn thức ngay khi
 // Flow chèn ảnh hoặc gỡ loader, nên dùng DOM làm tín hiệu chính và timer chỉ làm fallback.
@@ -161,7 +164,7 @@ function isDashboardPage() {
 // Tự động click tạo dự án mới nếu đang ở trang chủ dashboard của Google Flow
 function handleDashboardAutoCreate() {
   // Nếu đã có ô nhập prompt (đang ở trong dự án hoặc canvas) -> TUYỆT ĐỐI KHÔNG click tạo dự án mới / dấu cộng
-  if (findInputField() || hasAutoCreatedProject) {
+  if (findInputField() || Date.now() - lastProjectCreateAttemptAt < 10000) {
     return;
   }
 
@@ -205,7 +208,7 @@ function handleDashboardAutoCreate() {
     }
 
     console.log('[Flow Helper] Đã tìm thấy nút tạo Dự án mới. Đang tự động click...', clickTarget);
-    hasAutoCreatedProject = true;
+    lastProjectCreateAttemptAt = Date.now();
     simulateClick(clickTarget);
   }
 }
@@ -213,16 +216,22 @@ function handleDashboardAutoCreate() {
 // Giả lập sự kiện click hoàn chỉnh (bao gồm pointerdown/mousedown/pointerup/mouseup/click) hỗ trợ Shadow DOM & Web Components
 function simulateClick(el) {
   if (!el) return;
+  // HTMLElement.click() đã phát một click hoàn chỉnh. Bản cũ vừa dispatch `click` vừa gọi `.click()`
+  // nên một thao tác tạo dự án có thể chạy hai lần trên component không chặn debounce.
+  if (typeof el.click === 'function') {
+    try {
+      el.focus({ preventScroll: true });
+      el.click();
+      return;
+    } catch (_) {}
+  }
   const opts = { bubbles: true, cancelable: true, view: window, composed: true };
-  try { el.focus(); } catch (e) {}
+  try { el.focus({ preventScroll: true }); } catch (e) {}
   el.dispatchEvent(new PointerEvent('pointerdown', opts));
   el.dispatchEvent(new MouseEvent('mousedown', opts));
   el.dispatchEvent(new PointerEvent('pointerup', opts));
   el.dispatchEvent(new MouseEvent('mouseup', opts));
   el.dispatchEvent(new MouseEvent('click', opts));
-  if (typeof el.click === 'function') {
-    try { el.click(); } catch (e) {}
-  }
 }
 
 // Tải hàng đợi từ storage khi load trang
@@ -236,14 +245,17 @@ function init() {
     handleDashboardAutoCreate();
   }
 
-  const checkDashboardInterval = setInterval(() => {
+  if (dashboardCheckInterval) clearInterval(dashboardCheckInterval);
+  dashboardCheckInterval = setInterval(() => {
     if (!isExtensionAlive()) {
-      clearInterval(checkDashboardInterval);
+      clearInterval(dashboardCheckInterval);
+      dashboardCheckInterval = null;
       return;
     }
     // Ngay khi phát hiện ô nhập prompt hoặc không còn ở trang dashboard -> lập tức dừng kiểm tra
     if (findInputField() || !isDashboardPage()) {
-      clearInterval(checkDashboardInterval);
+      clearInterval(dashboardCheckInterval);
+      dashboardCheckInterval = null;
       return;
     }
     handleDashboardAutoCreate();
@@ -347,13 +359,20 @@ async function ensureRootPromptState() {
 }
 
 async function runSegmentViaDebugger(segment, callback) {
+  if (submissionInFlight) {
+    if (callback) callback({ success: false, error: 'submission_in_flight' });
+    return;
+  }
+  submissionInFlight = true;
+
   // Đảm bảo không bị kẹt trong detail view/tab của ảnh cũ và không bị ghim ảnh tham chiếu
   await ensureRootPromptState();
   await new Promise(r => setTimeout(r, 200));
 
-  const inputEl = findInputField();
+  const inputEl = await waitForStablePromptInput();
   if (!inputEl) {
     console.error('[Flow Helper] Không tìm thấy ô prompt.');
+    submissionInFlight = false;
     if (callback) callback({ success: false, error: 'no_input' });
     return;
   }
@@ -369,24 +388,10 @@ async function runSegmentViaDebugger(segment, callback) {
   // Giờ người dùng tự đặt chế độ + tỉ lệ MỘT LẦN trong Flow, extension chỉ làm đúng việc gõ prompt
   // và Enter. Đổi lại: đúng như Flow đang hiển thị là được, không còn cả một nhóm lỗi này nữa.
   {
-    // Tìm lại inputEl đề phòng DOM thay đổi sau khi chuyển chế độ
     const freshInput = findInputField() || inputEl;
-    freshInput.focus();
-
-    const r = freshInput.getBoundingClientRect();
-    const x = Math.round(r.left + r.width / 2);
-    const y = Math.round(r.top + r.height / 2);
-
-    let submitX = null;
-    let submitY = null;
-    const submitBtn = findSubmitButton(freshInput);
-    if (submitBtn) {
-      const sbRect = submitBtn.getBoundingClientRect();
-      if (sbRect.width > 0 && sbRect.height > 0) {
-        submitX = Math.round(sbRect.left + sbRect.width / 2);
-        submitY = Math.round(sbRect.top + sbRect.height / 2);
-      }
-    }
+    const targetToken = `nexora-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    clearPromptTargetMarkers();
+    freshInput.setAttribute(PROMPT_TARGET_ATTRIBUTE, targetToken);
 
     // Chụp lại các ảnh đang có TRƯỚC khi gửi, để sau này biết ảnh nào là ảnh MỚI Flow vừa vẽ ra
     const baselineSrcs = snapshotImageSrcs();
@@ -400,6 +405,8 @@ async function runSegmentViaDebugger(segment, callback) {
     const finish = (result) => {
       if (settled) return;
       settled = true;
+      submissionInFlight = false;
+      clearPromptTargetMarkers();
       if (callback) callback(result);
     };
     const watchdog = setTimeout(() => {
@@ -407,30 +414,32 @@ async function runSegmentViaDebugger(segment, callback) {
       finish({ success: false, error: 'background_timeout' });
     }, 20000);
 
-    chrome.runtime.sendMessage({
-      action: 'DEBUG_SUBMIT',
-      payload: {
-        x,
-        y,
-        prompt: segment.textPrompt,
-        submitX,
-        submitY
-      }
-    }, (res) => {
+    try {
+      chrome.runtime.sendMessage({
+        action: 'DEBUG_SUBMIT',
+        payload: {
+          prompt: segment.textPrompt,
+          targetToken
+        }
+      }, (res) => {
+        clearTimeout(watchdog);
+        if (chrome.runtime.lastError) {
+          console.error('[Flow Helper] Lỗi gửi tới background:', chrome.runtime.lastError);
+          finish({ success: false, error: chrome.runtime.lastError.message });
+        } else if (!res || res.success !== true) {
+          // Trước đây MỌI phản hồi đều bị coi là thành công, kể cả khi background báo lỗi attach
+          // debugger — vòng lặp đi tiếp và ngồi chờ một tấm ảnh không bao giờ được tạo.
+          console.error('[Flow Helper] Background báo gửi prompt thất bại:', res && res.error);
+          finish({ success: false, error: (res && res.error) || 'submit_failed' });
+        } else {
+          console.log('[Flow Helper] Gõ & gửi kịch bản thành công:', res);
+          finish({ ...res, baselineSrcs, baselineErrorCount });
+        }
+      });
+    } catch (error) {
       clearTimeout(watchdog);
-      if (chrome.runtime.lastError) {
-        console.error('[Flow Helper] Lỗi gửi tới background:', chrome.runtime.lastError);
-        finish({ success: false, error: chrome.runtime.lastError.message });
-      } else if (!res || res.success !== true) {
-        // Trước đây MỌI phản hồi đều bị coi là thành công, kể cả khi background báo lỗi attach
-        // debugger — vòng lặp đi tiếp và ngồi chờ một tấm ảnh không bao giờ được tạo.
-        console.error('[Flow Helper] Background báo gửi prompt thất bại:', res && res.error);
-        finish({ success: false, error: (res && res.error) || 'submit_failed' });
-      } else {
-        console.log('[Flow Helper] Gõ & gửi kịch bản thành công:', res);
-        finish({ ...res, baselineSrcs, baselineErrorCount });
-      }
-    });
+      finish({ success: false, error: String(error?.message || error) });
+    }
   }
 }
 
@@ -1009,114 +1018,91 @@ function saveManifest() {
   });
 }
 
-// Tìm ô nhập liệu của Google Flow
-function findInputField() {
-  // 1. Dò tìm các phần tử nhập liệu chuyên biệt có placeholder hoặc aria-label liên quan đến prompt trước
-  const target = findElementInShadows(document.body, (el) => {
-    const tagName = el.tagName;
-    const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
-    const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
-    const cls = (typeof el.className === 'string') ? el.className.toLowerCase() : '';
-    const id = (el.id || '').toLowerCase();
+const PROMPT_HINT_RE = /prompt|describe|imagine|write|create|generate|tạo|miêu tả|mô tả|nhập|gõ|muốn/i;
+const NON_PROMPT_HINT_RE = /search|tìm kiếm|project.?name|title|rename|tên dự án/i;
 
-    // Loại trừ ô tìm kiếm ở thanh công cụ / header
-    if (id.includes('search') || cls.includes('search') || placeholder.includes('tìm') || placeholder.includes('search') || ariaLabel.includes('search') || ariaLabel.includes('tìm')) {
-      return false;
-    }
+function promptInputScore(el) {
+  if (!el || !el.getAttribute) return -Infinity;
+  const tag = el.tagName;
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  const editable = tag === 'TEXTAREA'
+    || (tag === 'INPUT' && (type === '' || type === 'text'))
+    || el.isContentEditable === true
+    || el.getAttribute('contenteditable') === 'true';
+  if (!editable || el.disabled || el.readOnly || el.getAttribute('aria-disabled') === 'true') return -Infinity;
 
-    const isInput = tagName === 'TEXTAREA' ||
-      (tagName === 'INPUT' && el.type === 'text') ||
-      el.isContentEditable === true ||
-      (el.getAttribute && el.getAttribute('contenteditable') === 'true');
+  const rect = el.getBoundingClientRect();
+  const style = getComputedStyle(el);
+  if (rect.width < 120 || rect.height < 20 || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+    return -Infinity;
+  }
+  // Chỉ nhận editor đang thực sự nằm trong viewport. Không tự scroll tới một editor cũ/ẩn trong
+  // canvas vì việc đó làm tuyến tiến trình của người dùng nhảy loạn.
+  if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) return -Infinity;
 
-    if (!isInput) return false;
+  const metadata = [
+    el.id,
+    typeof el.className === 'string' ? el.className : '',
+    el.getAttribute('placeholder'),
+    el.getAttribute('data-placeholder'),
+    el.getAttribute('aria-label'),
+    el.getAttribute('role')
+  ].filter(Boolean).join(' ').toLowerCase();
+  if (NON_PROMPT_HINT_RE.test(metadata)) return -Infinity;
+  if (el.closest?.('header, nav, [role="navigation"], [role="search"]')) return -Infinity;
 
-    // Loại trừ ô nhập tên dự án (thường có class hoặc tên chứa title, name, header, topbar)
-    if (id.includes('title') || id.includes('name') || cls.includes('title') || cls.includes('project-name')) {
-      return false;
-    }
-
-    // Ưu tiên ô nhập có placeholder liên quan đến sinh video/hình ảnh
-    return placeholder.includes('tạo') || placeholder.includes('create') || placeholder.includes('muốn') ||
-      placeholder.includes('prompt') || placeholder.includes('write') || placeholder.includes('gõ') ||
-      placeholder.includes('nhập') || placeholder.includes('describe') || placeholder.includes('imagine') ||
-      ariaLabel.includes('tạo') || ariaLabel.includes('create') || ariaLabel.includes('prompt') ||
-      ariaLabel.includes('muốn') || ariaLabel.includes('describe');
-  });
-
-  if (target) return target;
-
-  // 2. Dự phòng: Dò tìm phần tử TEXTAREA hoặc DIV contenteditable nằm ở nửa dưới màn hình
-  // (Ô nhập prompt luôn nằm ở dưới cùng màn hình, còn ô tiêu đề nằm ở trên cùng)
-  let bestInput = null;
-  let maxRectTop = -1;
-
-  findElementInShadows(document.body, (el) => {
-    const tagName = el.tagName;
-    const isInput = tagName === 'TEXTAREA' ||
-      el.isContentEditable === true ||
-      (el.getAttribute && el.getAttribute('contenteditable') === 'true');
-
-    if (isInput) {
-      const rect = el.getBoundingClientRect();
-      const id = (el.id || '').toLowerCase();
-      const cls = (typeof el.className === 'string') ? el.className.toLowerCase() : '';
-      if (id.includes('search') || cls.includes('search')) return false;
-
-      // Chọn ô nhập liệu nằm thấp nhất màn hình (tọa độ top lớn nhất)
-      if (rect.top > maxRectTop && rect.height > 0) {
-        maxRectTop = rect.top;
-        bestInput = el;
-      }
-    }
-    return false; // Tiếp tục duyệt toàn bộ
-  });
-
-  return bestInput;
+  let score = 0;
+  if (PROMPT_HINT_RE.test(metadata)) score += 120;
+  if (tag === 'TEXTAREA') score += 45;
+  if (el.getAttribute('role') === 'textbox') score += 35;
+  if (el.getAttribute('aria-multiline') === 'true' || el.isContentEditable) score += 25;
+  if (rect.top >= window.innerHeight * 0.45) score += 30;
+  score += Math.min(25, Math.max(0, rect.top / Math.max(1, window.innerHeight) * 25));
+  return score;
 }
 
-// Tìm nút gửi/tạo (nút mũi tên -> hoặc nút Tạo/Submit) ở cụm ô nhập Google Flow
-function findSubmitButton(inputEl) {
-  if (!inputEl) return null;
-  const inputRect = inputEl.getBoundingClientRect();
-
-  // Dò trong các phần tử cha gần nhất (lên tối đa 6 cấp)
-  let parent = inputEl.parentElement;
-  let hops = 0;
-  while (parent && hops < 6) {
-    const all = collectAllElements(parent);
-    const buttons = all.filter(el => {
-      const tag = el.tagName;
-      const role = el.getAttribute ? el.getAttribute('role') : null;
-      return tag === 'BUTTON' || role === 'button';
-    });
-
-    // 1. Tìm nút có aria-label/title/text liên quan đến Tạo/Gửi/Submit/Generate/Arrow
-    for (const btn of buttons) {
-      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
-      const title = (btn.getAttribute('title') || '').toLowerCase();
-      const text = (btn.textContent || '').trim().toLowerCase();
-      if (aria.includes('tạo') || aria.includes('create') || aria.includes('gửi') || aria.includes('send') || aria.includes('submit') || aria.includes('generate') ||
-          title.includes('tạo') || title.includes('create') || title.includes('gửi') || title.includes('send') || title.includes('submit') ||
-          text === 'tạo' || text === 'create' || text === 'generate' || text === 'send') {
-        const r = btn.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) return btn;
-      }
+// Tìm đúng editor prompt theo điểm tin cậy thay vì lấy contenteditable thấp nhất một cách mù quáng.
+function findInputField() {
+  let best = null;
+  let bestScore = -Infinity;
+  for (const el of collectAllElements(document.body)) {
+    const score = promptInputScore(el);
+    if (score > bestScore) {
+      best = el;
+      bestScore = score;
     }
+  }
+  return bestScore >= 55 ? best : null;
+}
 
-    // 2. Tìm nút nằm ở rìa phải của thanh nhập liệu (chính là nút mũi tên -> ở góc phải)
-    const rightCandidates = buttons.filter(btn => {
-      const r = btn.getBoundingClientRect();
-      return r.width > 12 && r.height > 12 && r.left >= inputRect.left && r.bottom >= inputRect.top - 20;
-    });
-    if (rightCandidates.length > 0) {
-      // Chọn nút có toạ độ right lớn nhất (nằm ngoài cùng bên phải)
-      rightCandidates.sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right);
-      return rightCandidates[0];
+function clearPromptTargetMarkers() {
+  for (const el of collectAllElements(document.body)) {
+    if (el.hasAttribute?.(PROMPT_TARGET_ATTRIBUTE)) el.removeAttribute(PROMPT_TARGET_ATTRIBUTE);
+  }
+}
+
+// Composer của Flow render lại vài nhịp khi vừa tạo project. Chỉ bắt đầu sau khi cùng một editor
+// giữ nguyên vị trí/kích thước qua ba mẫu; nếu người dùng đang scroll, đồng hồ ổn định tự reset.
+async function waitForStablePromptInput(timeoutMs = 8000) {
+  const startedAt = Date.now();
+  let previous = null;
+  let stableSamples = 0;
+  while (Date.now() - startedAt < timeoutMs) {
+    const input = findInputField();
+    if (input) {
+      const rect = input.getBoundingClientRect();
+      const signature = [
+        Math.round(rect.left), Math.round(rect.top), Math.round(rect.width), Math.round(rect.height)
+      ].join(':');
+      if (previous?.input === input && previous.signature === signature) stableSamples += 1;
+      else stableSamples = 1;
+      previous = { input, signature };
+      if (stableSamples >= 3) return input;
+    } else {
+      previous = null;
+      stableSamples = 0;
     }
-
-    parent = parent.parentElement;
-    hops++;
+    await new Promise(resolve => setTimeout(resolve, 140));
   }
   return null;
 }
@@ -1343,10 +1329,17 @@ function renderSidebar() {
 
 // Lắng nghe thay đổi cấu hình từ side panel để Dừng/Chạy kịp thời
 chrome.storage.onChanged.addListener((changes) => {
+  if (changes.flowQueue) {
+    queue = changes.flowQueue.newValue || null;
+  }
   if (changes.autoRunActive) {
     autoRun = changes.autoRunActive.newValue === true;
     console.log('[Flow Helper] Cập nhật trạng thái AutoRun:', autoRun);
-    if (!autoRun) {
+    if (autoRun && queue && !currentRunId) {
+      currentRunId = Date.now();
+      if (autoRunTimeout) clearTimeout(autoRunTimeout);
+      autoRunTimeout = setTimeout(() => runAutoLoop(currentRunId), 600);
+    } else if (!autoRun) {
       currentRunId = null; // HỦY TẤT CẢ PHIÊN CHẠY ĐANG HOẠT ĐỘNG NGAY LẬP TỨC!
       if (autoRunTimeout) {
         clearTimeout(autoRunTimeout);
@@ -1354,9 +1347,6 @@ chrome.storage.onChanged.addListener((changes) => {
       }
       chrome.runtime.sendMessage({ action: 'DEBUG_DETACH' }, () => void chrome.runtime.lastError);
     }
-  }
-  if (changes.flowQueue) {
-    queue = changes.flowQueue.newValue || null;
   }
 });
 

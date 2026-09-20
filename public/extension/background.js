@@ -172,40 +172,94 @@ async function ensureAttached(tabId) {
   try { await chrome.tabs.update(tabId, { autoDiscardable: false }); } catch (_) {}
 }
 
-async function detach() {
-  if (attachedTab !== null) {
+async function detach(tabId = null) {
+  // Service worker MV3 có thể đã restart và mất biến attachedTab dù debugger vẫn còn gắn.
+  // Tab gửi DEBUG_DETACH là nguồn sự thật đáng tin cậy hơn bộ nhớ tạm của worker.
+  const targetTabId = tabId ?? attachedTab;
+  if (targetTabId !== null && targetTabId !== undefined) {
     try {
-      await chrome.debugger.detach({ tabId: attachedTab });
+      if (await isDebuggerAttached(targetTabId)) {
+        await chrome.debugger.detach({ tabId: targetTabId });
+      }
     } catch (_) {}
-    attachedTab = null;
+    if (attachedTab === targetTabId) attachedTab = null;
   }
 }
 
-async function debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY) {
+const PROMPT_TARGET_ATTRIBUTE = 'data-nexora-flow-prompt-target';
+
+function deepTargetExpression(attribute, token, action) {
+  const serializedAttribute = JSON.stringify(attribute);
+  const serializedToken = JSON.stringify(token);
+  return `(() => {
+    const attribute = ${serializedAttribute};
+    const token = ${serializedToken};
+    const stack = [document];
+    let target = null;
+    while (stack.length && !target) {
+      const root = stack.pop();
+      const elements = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      for (const element of elements) {
+        if (element.getAttribute && element.getAttribute(attribute) === token) {
+          target = element;
+          break;
+        }
+        if (element.shadowRoot) stack.push(element.shadowRoot);
+      }
+    }
+    if (!target || !target.isConnected) return { found: false };
+    const rect = target.getBoundingClientRect();
+    const style = getComputedStyle(target);
+    if (rect.width < 2 || rect.height < 2 || style.display === 'none' || style.visibility === 'hidden') {
+      return { found: false, reason: 'not_visible' };
+    }
+    ${action}
+  })()`;
+}
+
+async function focusMarkedPrompt(tabId, token) {
+  if (!token) throw new Error('missing_prompt_target');
+  const expression = deepTargetExpression(PROMPT_TARGET_ATTRIBUTE, token, `
+    target.focus({ preventScroll: true });
+    if (target.isContentEditable) {
+      const selection = target.ownerDocument.getSelection();
+      const range = target.ownerDocument.createRange();
+      range.selectNodeContents(target);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    const root = target.getRootNode();
+    const focused = document.activeElement === target || (root && root.activeElement === target);
+    return { found: true, focused, tag: target.tagName, x: rect.left, y: rect.top };
+  `);
+  const result = await sendCmd(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+  const value = result?.result?.value;
+  if (!value?.found || !value.focused) throw new Error('prompt_target_stale');
+}
+
+async function verifyMarkedPromptHasText(tabId, token) {
+  const expression = deepTargetExpression(PROMPT_TARGET_ATTRIBUTE, token, `
+    const text = typeof target.value === 'string'
+      ? target.value
+      : (target.innerText || target.textContent || '');
+    return { found: true, hasText: text.trim().length > 0, length: text.length };
+  `);
+  const result = await sendCmd(tabId, 'Runtime.evaluate', { expression, returnByValue: true });
+  const value = result?.result?.value;
+  if (!value?.found || !value.hasText) throw new Error('prompt_insert_failed');
+}
+
+async function debugTypeAndSubmit(tabId, payload) {
+  const { prompt, targetToken } = payload || {};
+  if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('empty_prompt');
   await ensureAttached(tabId);
 
-  // 0) Gửi phím Escape để hủy chọn bất kỳ ảnh/node nào đang active trên canvas Flow,
-  // tránh bị kẹt trong tab chi tiết hoặc tạo biến thể/nhánh con của ảnh đó (Image-to-Image).
-  try {
-    await sendCmd(tabId, "Input.dispatchKeyEvent", {
-      type: "rawKeyDown", key: "Escape", code: "Escape",
-      windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
-    });
-    await sendCmd(tabId, "Input.dispatchKeyEvent", {
-      type: "keyUp", key: "Escape", code: "Escape",
-      windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27,
-    });
-    await wait(120);
-  } catch (_) {}
-
-  // 1) Click để focus thật
-  await sendCmd(tabId, "Input.dispatchMouseEvent", {
-    type: "mousePressed", x, y, button: "left", clickCount: 1,
-  });
-  await sendCmd(tabId, "Input.dispatchMouseEvent", {
-    type: "mouseReleased", x, y, button: "left", clickCount: 1,
-  });
-  await wait(180);
+  // Focus đúng DOM node đã được content script đánh dấu. Không dùng tọa độ viewport: tọa độ cũ
+  // sẽ trượt sang nút "+" khi Flow vừa mở composer, đổi layout hoặc người dùng cuộn trang.
+  // preventScroll giữ nguyên vị trí người dùng đang xem.
+  await focusMarkedPrompt(tabId, targetToken);
+  await wait(80);
 
   // 2) Chọn tất cả để xoá cũ:
   // Hỗ trợ cả Windows/Linux (Ctrl+A: modifiers: 2) lẫn Mac (Cmd+A: modifiers: 4)
@@ -234,34 +288,25 @@ async function debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY) {
 
   // 3) Gõ chữ thật qua CDP
   await sendCmd(tabId, "Input.insertText", { text: prompt });
-  await wait(300);
+  await wait(180);
+  await verifyMarkedPromptHasText(tabId, targetToken);
 
-  // 4) Chỉ submit ĐÚNG MỘT LẦN. Bản cũ bấm Enter rồi 200ms sau lại click tọa độ nút cũ; lần đầu
-  // Flow đổi layout ngay sau Enter nên cú click thứ hai có thể trúng nhầm ảnh/control khác.
-  if (typeof submitX === 'number' && typeof submitY === 'number' && submitX > 0 && submitY > 0) {
-    await sendCmd(tabId, "Input.dispatchMouseEvent", {
-      type: "mousePressed", x: submitX, y: submitY, button: "left", clickCount: 1,
-    });
-    await sendCmd(tabId, "Input.dispatchMouseEvent", {
-      type: "mouseReleased", x: submitX, y: submitY, button: "left", clickCount: 1,
-    });
-  } else {
-    await sendCmd(tabId, "Input.dispatchKeyEvent", {
-      type: "rawKeyDown", key: "Enter", code: "Enter",
-      windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-    });
-    await sendCmd(tabId, "Input.dispatchKeyEvent", {
-      type: "keyUp", key: "Enter", code: "Enter",
-      windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
-    });
-  }
+  // Submit bằng phím tin cậy trên chính editor đang focus. Tuyệt đối không click nút theo tọa độ;
+  // đó là nguồn lỗi bấm nhầm dấu cộng khi giao diện dịch chuyển trong lần tạo đầu tiên.
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "rawKeyDown", key: "Enter", code: "Enter",
+    windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+  });
+  await sendCmd(tabId, "Input.dispatchKeyEvent", {
+    type: "keyUp", key: "Enter", code: "Enter",
+    windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+  });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'DEBUG_SUBMIT') {
-    const { x, y, prompt, submitX, submitY } = message.payload;
     const tabId = sender.tab.id;
-    debugTypeAndSubmit(tabId, x, y, prompt, submitX, submitY)
+    debugTypeAndSubmit(tabId, message.payload)
       .then(() => sendResponse({ success: true }))
       .catch((e) => sendResponse({ success: false, error: String(e.message || e) }));
     return true;
@@ -269,7 +314,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'DEBUG_DETACH') {
     const tabId = sender.tab?.id;
-    detach()
+    detach(tabId)
       .then(() => sendResponse({ success: true }))
       .catch((e) => sendResponse({ success: false, error: String(e.message || e) }));
     return true;
