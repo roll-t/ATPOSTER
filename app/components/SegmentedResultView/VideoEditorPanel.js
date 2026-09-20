@@ -941,7 +941,10 @@ export default function VideoEditorPanel({
     return false;
   };
 
-  const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}`;
+  const currentAudioFile = assetCounts?.audioFiles?.[currentSceneNumber] || null;
+  const currentAudioSrc = currentAudioFile
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${encodeURIComponent(`audio/${currentAudioFile}`)}&category=${encodeURIComponent(category)}`
+    : null;
   const isCurrentVideo = isSceneVideo(currentSceneNumber, currentSegment);
   const currentMediaFile = isCurrentVideo ? `images/scene-${currentPaddedNum}.mp4` : `images/scene-${currentPaddedNum}.jpg`;
   const currentImgSrc = hasSceneImage(currentSceneNumber)
@@ -949,6 +952,7 @@ export default function VideoEditorPanel({
     : null;
 
   const handlePlaySceneAudio = () => {
+    if (!currentAudioSrc) return;
     const audio = new Audio(currentAudioSrc);
     setIsPlayingSceneAudio(true);
     audio.onended = () => setIsPlayingSceneAudio(false);
@@ -3100,11 +3104,12 @@ export default function VideoEditorPanel({
                             <button
                               type="button"
                               onClick={handlePlaySceneAudio}
+                              disabled={!currentAudioSrc || isPlayingSceneAudio}
                               className="capcut-btn-secondary"
                               style={{ flex: 1, padding: '6px 8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                             >
                               <span>{isPlayingSceneAudio ? '🔊' : '▶'}</span>
-                              <span>{isPlayingSceneAudio ? 'Đang phát...' : 'Nghe thử voice'}</span>
+                              <span>{isPlayingSceneAudio ? 'Đang phát...' : currentAudioSrc ? 'Nghe thử voice' : 'Chưa có voice'}</span>
                             </button>
 
                             <button
@@ -3438,6 +3443,7 @@ export default function VideoEditorPanel({
             scenePrompt={pexelsTargetSceneIndex !== null ? getScenePrompt(segments[pexelsTargetSceneIndex], pexelsTargetSceneIndex) : currentVisualPromptDraft}
             sceneNarration={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.dialogueOrNarration || segments[pexelsTargetSceneIndex]?.subtitle || '') : (currentSegment?.dialogueOrNarration || '')}
             sceneDuration={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.durationSeconds || 5) : (currentSegment?.durationSeconds || 5)}
+            sceneAudioFile={assetCounts?.audioFiles?.[pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.segmentNumber || pexelsTargetSceneIndex + 1) : currentSceneNumber] || ''}
             onApplied={handlePexelsApplied}
             showToast={showToast}
           />

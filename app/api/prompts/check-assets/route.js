@@ -102,10 +102,21 @@ export async function POST(req) {
     // Đuôi THẬT của file giọng đọc trên đĩa — trả về để giao diện xin đúng tên khi nghe thử,
     // thay vì đoán 'mp3' rồi nhận 404.
     let audioExt = null;
+    const existingAudioNumbers = [];
+    const audioFiles = {};
     if (fs.existsSync(audioDir)) {
       const sceneAudio = fs.readdirSync(audioDir)
         .filter(f => f.startsWith('scene-') && AUDIO_EXTENSIONS.includes(path.extname(f).toLowerCase()));
-      audioCount = sceneAudio.length;
+      for (const filename of sceneAudio) {
+        const match = filename.match(/^scene-(\d+)\.(mp3|wav|m4a|ogg|aac)$/i);
+        if (!match) continue;
+        const sceneNumber = Number(match[1]);
+        if (!Number.isFinite(sceneNumber) || audioFiles[sceneNumber]) continue;
+        existingAudioNumbers.push(sceneNumber);
+        audioFiles[sceneNumber] = filename;
+      }
+      existingAudioNumbers.sort((a, b) => a - b);
+      audioCount = existingAudioNumbers.length;
       if (sceneAudio.length > 0) audioExt = path.extname(sceneAudio[0]).slice(1).toLowerCase();
     }
 
@@ -147,6 +158,8 @@ export async function POST(req) {
       mediaTypes,
       audioCount,
       audioExt,
+      existingAudioNumbers,
+      audioFiles,
       videoCreated,
       hasBgMusic: Boolean(bgMusicFile),
       bgMusicFile,

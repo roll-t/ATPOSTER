@@ -683,6 +683,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     existingVideoNumbers: [],
     mediaTypes: {},
     audioCount: 0,
+    existingAudioNumbers: [],
+    audioFiles: {},
     videoCreated: false,
     hasBgMusic: false,
     bgMusicFile: null, // tên file nhạc nền thật trên đĩa, vd "bg-music.mp3" hoặc "bg-music.m4a"
@@ -2032,6 +2034,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           existingVideoNumbers: data.existingVideoNumbers || [],
           mediaTypes: data.mediaTypes || {},
           audioCount: data.audioCount,
+          existingAudioNumbers: data.existingAudioNumbers || [],
+          audioFiles: data.audioFiles || {},
           videoCreated: data.videoCreated,
           hasBgMusic: data.hasBgMusic || false,
           bgMusicFile: data.bgMusicFile || null,

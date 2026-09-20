@@ -14,6 +14,7 @@ export default function PexelsMediaPickerModal({
   scenePrompt = '',
   sceneNarration = '',
   sceneDuration = 5,
+  sceneAudioFile = '',
   onApplied,
   showToast
 }) {
@@ -87,12 +88,11 @@ export default function PexelsMediaPickerModal({
 
   // Probe thời lượng audio thực tế của cảnh từ file audio/scene-NN.mp3
   useEffect(() => {
-    if (!isOpen || !folderPath || !sceneNumber) {
+    if (!isOpen || !folderPath || !sceneNumber || !sceneAudioFile) {
       setProbedVoiceDuration(null);
       return;
     }
-    const pad = String(sceneNumber).padStart(2, '0');
-    const audioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${pad}.mp3&category=${encodeURIComponent(category || '')}`;
+    const audioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${encodeURIComponent(`audio/${sceneAudioFile}`)}&category=${encodeURIComponent(category || '')}`;
     const probe = new Audio();
     probe.src = audioSrc;
     probe.preload = 'metadata';
@@ -102,7 +102,7 @@ export default function PexelsMediaPickerModal({
         setProbedVoiceDuration(d);
       }
     };
-  }, [isOpen, folderPath, sceneNumber, category]);
+  }, [isOpen, folderPath, sceneNumber, sceneAudioFile, category]);
 
   // Voice thực tế của cảnh (từ audio thực tế hoặc estimate)
   const realVoiceSec = probedVoiceDuration || (Number(sceneDuration) > 0 ? Number(sceneDuration) : 3);

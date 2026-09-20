@@ -226,13 +226,24 @@ export default function LiveVideoSimulator({
     setSceneDurations(initialDurations);
   }, [initialDurations]);
 
-  // Pre-load thời lượng audio của tất cả các cảnh để tính tổng thời lượng chuẩn xác ngay từ đầu
+  const audioFilesSignature = JSON.stringify(assetCounts?.audioFiles || {});
+  const segmentNumbersSignature = segments
+    .map((seg, idx) => Number(seg.segmentNumber || idx + 1))
+    .join(',');
+
+  // Chỉ probe những file audio mà check-assets xác nhận đang tồn tại. Cảnh chưa tạo voice
+  // tiếp tục dùng thời lượng ước tính, tránh tạo hàng loạt request 404 mỗi lần ảnh thay đổi.
   useEffect(() => {
     if (!folderPath || !segments.length) return;
+    const audioFiles = assetCounts?.audioFiles || {};
+    const probes = [];
     segments.forEach((seg, idx) => {
-      const pad = String(seg.segmentNumber || idx + 1).padStart(2, '0');
-      const audioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${pad}.mp3&category=${encodeURIComponent(category)}`;
+      const sceneNumber = Number(seg.segmentNumber || idx + 1);
+      const audioFile = audioFiles[sceneNumber];
+      if (!audioFile) return;
+      const audioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${encodeURIComponent(`audio/${audioFile}`)}&category=${encodeURIComponent(category)}`;
       const probeAudio = new Audio();
+      probes.push(probeAudio);
       probeAudio.src = audioSrc;
       probeAudio.preload = 'metadata';
       probeAudio.onloadedmetadata = () => {
@@ -246,7 +257,15 @@ export default function LiveVideoSimulator({
         }
       };
     });
-  }, [folderPath, category, segments]);
+
+    return () => {
+      for (const probeAudio of probes) {
+        probeAudio.onloadedmetadata = null;
+        probeAudio.removeAttribute('src');
+        probeAudio.load();
+      }
+    };
+  }, [folderPath, category, audioFilesSignature, segmentNumbersSignature]);
 
   // Tính thời điểm bắt đầu (offset) của từng cảnh và tổng thời lượng toàn video
   const { sceneOffsets, totalDuration } = useMemo(() => {
@@ -390,10 +409,15 @@ export default function LiveVideoSimulator({
     : null;
   const currentVideoSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=bg/bg-${currentPaddedNum}.mp4&category=${encodeURIComponent(category)}`;
   const [audioVersion, setAudioVersion] = useState(0);
-  const currentAudioSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/scene-${currentPaddedNum}.mp3&category=${encodeURIComponent(category)}&v=${audioVersion}`;
-  const bgMusicFile = assetCounts?.bgMusicFile || 'bg-music.mp3';
+  const currentAudioFile = assetCounts?.audioFiles?.[currentSceneNumber] || null;
+  const currentAudioSrc = currentAudioFile
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${encodeURIComponent(`audio/${currentAudioFile}`)}&category=${encodeURIComponent(category)}&v=${audioVersion}`
+    : null;
+  const bgMusicFile = assetCounts?.bgMusicFile || null;
   const bgMusicVersionParam = bgMusicVersion || assetCounts?.updatedAt || 0;
-  const bgMusicSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/${encodeURIComponent(bgMusicFile)}&category=${encodeURIComponent(category)}&v=${bgMusicVersionParam}`;
+  const bgMusicSrc = bgMusicFile
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=audio/${encodeURIComponent(bgMusicFile)}&category=${encodeURIComponent(category)}&v=${bgMusicVersionParam}`
+    : null;
 
   // State cho hover popup hiển thị lời đọc & sửa / đọc lại từng đoạn trên thanh tiến độ
   const [activePopupIndex, setActivePopupIndex] = useState(null);
@@ -875,6 +899,13 @@ export default function LiveVideoSimulator({
     const voiceAudio = voiceAudioRef.current;
     if (!voiceAudio) return;
 
+    if (!currentAudioSrc) {
+      voiceAudio.pause();
+      voiceAudio.removeAttribute('src');
+      voiceAudio.load();
+      return;
+    }
+
     voiceAudio.src = currentAudioSrc;
     voiceAudio.load();
 
@@ -1054,6 +1085,12 @@ export default function LiveVideoSimulator({
   useEffect(() => {
     const bgAudio = bgMusicAudioRef.current;
     if (!bgAudio) return;
+    if (!bgMusicSrc) {
+      bgAudio.pause();
+      bgAudio.removeAttribute('src');
+      bgAudio.load();
+      return;
+    }
     bgAudio.src = bgMusicSrc;
     bgAudio.load();
     if (isPlaying && bgMusicEnabled) {
@@ -1298,11 +1335,11 @@ export default function LiveVideoSimulator({
         >
           <audio ref={voiceAudioRef} preload="auto" />
           <audio
-            key={bgMusicSrc}
+            key={bgMusicSrc || 'no-bg-music'}
             ref={bgMusicAudioRef}
-            src={bgMusicSrc}
+            src={bgMusicSrc || undefined}
             loop
-            preload="auto"
+            preload={bgMusicSrc ? 'auto' : 'none'}
             onLoadedMetadata={() => {
               syncBgMusicToTime(totalElapsedTimeRef.current, true);
             }}
