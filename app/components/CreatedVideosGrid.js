@@ -799,6 +799,7 @@ export default function CreatedVideosGrid({ onSelectScript, category, categoryLa
               <option value="moral_talk_slideshow">🎙️ Nói Chuyện Đạo Lý</option>
               <option value="reading_practice">📖 Luyện Đọc Tiếng Anh</option>
               <option value="stick_figure_slideshow">✏️ Clip Người Que</option>
+              <option value="article_news_stick_figure">📰 Báo Chí & Tin Tức</option>
               <option value="pexels_talk_video">📹 Pexels Talk Video</option>
             </select>
           )}

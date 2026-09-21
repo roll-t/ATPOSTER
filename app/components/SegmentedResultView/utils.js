@@ -440,14 +440,22 @@ export function detectActiveCharacters(result) {
 }
 
 // Tóm tắt trạng thái chạy hàng đợi Google Flow (từ extension), đối chiếu với đúng kịch bản
-// đang hiển thị (khớp theo title) — trả về null nếu không có gì để hiển thị.
-export function getFlowQueueStatus(extQueueState, resultTitle) {
+// đang hiển thị (khớp theo title) — trả về null nếu không có gì để hiển thị hoặc chỉ là hàng đợi tạo đơn lẻ 1 cảnh.
+export function getFlowQueueStatus(extQueueState, resultTitle, expectedTotal = 0) {
   const queue = extQueueState?.queue;
-  if (!queue || queue.title !== resultTitle) {
+  if (!queue || queue.isSingleScene) {
+    return null;
+  }
+  if (queue.title !== resultTitle) {
     return null;
   }
   const segments = queue.segments || [];
   const total = segments.length;
+  // Nếu kịch bản có nhiều cảnh mà hàng đợi chỉ có 1 cảnh, đây là phiên tạo đơn lẻ
+  // từ tab Cảnh (kể cả từ phiên trước chưa có cờ isSingleScene) -> bỏ qua không ghi đè tiến độ chung
+  if (expectedTotal > 1 && total === 1) {
+    return null;
+  }
   const completed = segments.filter(s => s.status === 'completed').length;
   const processing = segments.filter(s => s.status === 'processing').length;
   const isRunning = processing > 0 || extQueueState.autoRunActive === true;

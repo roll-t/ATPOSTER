@@ -11,6 +11,7 @@ export const CATEGORY_SKILL_MAPPING = {
   japanese_history: 'moral_talk_slideshow',
   reading_practice: 'reading-page-video',
   stick_figure_slideshow: 'stick-figure-slideshow-video',
+  article_news_stick_figure: 'stick-figure-slideshow-video',
   pexels_talk_video: 'pexels-talk-video',
   music_player_video: 'music-player-video',
 };
@@ -53,6 +54,13 @@ export const SKILLS_METADATA = {
   stick_figure_slideshow: {
     id: 'stick_figure_slideshow',
     title: 'Người Que Học Tập & Đạo Lý',
+    skillFolder: 'stick-figure-slideshow-video',
+    type: 'remotion',
+    defaultCaptionStyle: 'line',
+  },
+  article_news_stick_figure: {
+    id: 'article_news_stick_figure',
+    title: 'Tin Tức Báo Chí — Video Người Que',
     skillFolder: 'stick-figure-slideshow-video',
     type: 'remotion',
     defaultCaptionStyle: 'line',

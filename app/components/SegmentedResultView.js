@@ -102,7 +102,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // Riêng Bước 4 (render) VẪN đòi audio có thật trên đĩa: render-project.mjs gắn cứng
   // audio/scene-NN.mp3 cho từng cảnh, thiếu file là Remotion đứt giữa chừng. Người dùng bỏ file
   // mp3 tự lồng vào thư mục audio/ là assetCounts đếm được và Bước 4 tự mở.
-  const isExternalVoiceSkill = isJapaneseNarrative || result.category === 'stick_figure_slideshow';
+  const isStickFigureCategory = ['stick_figure_slideshow', 'article_news_stick_figure'].includes(result.category);
+  const isExternalVoiceSkill = isJapaneseNarrative || isStickFigureCategory;
   // Skill Phật giáo giờ viết 100% TIẾNG NHẬT, mà tiếng Nhật viết liền không khoảng trắng: đếm
   // theo "từ" thì cả một câu 34 ký tự ra đúng 1 từ, và dòng "đọc khoảng ... phút" sai khoảng 30
   // lần. Chuyển hẳn sang đơn vị KÝ TỰ khi văn bản là tiếng Nhật (countNarrationUnits tự nhận ra).
@@ -248,7 +249,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // cấp kho mới, ban đầu rỗng.
   const PRESET_SCOPE = isReadingPractice
     ? 'reading_practice'
-    : (result.category === 'stick_figure_slideshow' ? 'stick_figure_slideshow' : 'caption_style');
+    : (isStickFigureCategory ? 'stick_figure_slideshow' : 'caption_style');
 
   // "Ghim mặc định" (kiểu phụ đề / kiểu chuyển cảnh / phụ đề song ngữ — áp cho MỌI kịch bản MỚI)
   // cũng phải tách theo skill, cùng lý do với PRESET_SCOPE ở trên. Ba trường này trước đây nằm
@@ -1997,24 +1998,30 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       playVoicePreview(0);
     }
   };
+  const expectedImageCount = useMemo(() => {
+    if (!result.segments || result.segments.length === 0) return 0;
+    if (['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative) {
+      return result.segments.length;
+    }
+    const seen = new Set();
+    let count = 0;
+    for (const s of result.segments) {
+      if (s.imageGroup === undefined || s.imageGroup === null) {
+        count++;
+      } else if (!seen.has(s.imageGroup)) {
+        seen.add(s.imageGroup);
+        count++;
+      }
+    }
+    return Math.max(1, count);
+  }, [result.segments, result.category, isJapaneseNarrative]);
 
-  const flowStatus = getFlowQueueStatus(extQueueState, result.title);
+  const flowStatus = getFlowQueueStatus(extQueueState, result.title, expectedImageCount);
   // Các chủ đề dùng chung quy trình các bước (TTS giọng -> Google Flow ảnh -> Remotion render)
   // thay vì luồng "Video phân đoạn Veo3" cổ điển của các chủ đề khác.
-  //
-  // Cờ này còn quyết định `isImage` gửi cho Chrome Extension ở START_FLOW_GENERATION. Sai cờ là
-  // extension coi kết quả Google Flow như VIDEO: nó đẩy file qua download manager thay vì gọi
-  // SAVE_IMAGE_LOCAL, nên ảnh sinh xong không bao giờ nằm vào thư mục dự án — đúng triệu chứng
-  // "ảnh tạo xong không lưu được".
-  //
-  // japanese_history KHÔNG được kể tên trong mảng mà đi qua isJapaneseNarrative: nó là bản song
-  // sinh của buddhist_wisdom (cùng pipeline ảnh-slideshow, cùng skill Remotion moral_talk_slideshow,
-  // cùng nhịp 5 giây/ảnh). Thiếu nó ở đây là cả tab "Quy trình & Review" im lặng rơi về luồng
-  // "Video phân đoạn Veo3" — không có bước sinh ảnh, lồng tiếng hay render, chỉ còn nút đẩy sang
-  // Google Flow. Mọi skill kiểu Nhật thêm sau này vì vậy phải vào đây qua CỜ CHUNG, không phải
-  // bằng cách nhớ sửa mảng.
-  const isSlideshowPipeline = ['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative || isReadingPractice || isPexelsTalkVideo;
+  const isSlideshowPipeline = ['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative || isReadingPractice || isPexelsTalkVideo;
   const allHaveElements = false;
+  const [imageVersion, setImageVersion] = useState(() => Date.now());
 
   const checkAssets = async () => {
     try {
@@ -2042,6 +2049,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           audioExt: data.audioExt || null,
           hasBgVideo: data.hasBgVideo || false
         });
+        setImageVersion(Date.now());
         // Dựng lại trạng thái "đoạn nào đã có nền riêng" từ file thật trên đĩa. Từ khoá và ảnh thu
         // nhỏ chỉ sống trong phiên làm việc (không lưu xuống đĩa), nên sau khi tải lại trang ta chỉ
         // khôi phục được sự kiện "đã có nền" — đủ để không hiểu nhầm là chưa gán.
@@ -2316,15 +2324,32 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   };
 
   const flowButtonLabel = (status) => {
-    if (!status) return '🚀 Đẩy sang Google Flow';
+    const totalNeeded = expectedImageCount || result.segments?.length || 0;
+    const currentImages = assetCounts.imageCount || 0;
+
+    if (totalNeeded > 0 && currentImages >= totalNeeded) {
+      return `✅ Đã đủ ảnh (${currentImages}/${totalNeeded}) — Đẩy lại`;
+    }
+
+    if (!status || status.total < totalNeeded) {
+      if (status && status.phase === 'running') {
+        return `⏳ Đang tạo cảnh riêng (${status.completed}/${status.total})`;
+      }
+      if (currentImages > 0) {
+        return `🚀 Đẩy cả kịch bản (${currentImages}/${totalNeeded} ảnh)`;
+      }
+      return totalNeeded > 0 ? `🚀 Đẩy sang Google Flow (${totalNeeded} ảnh)` : '🚀 Đẩy sang Google Flow';
+    }
+
     if (status.phase === 'completed') return `✅ Đã xong (${status.completed}/${status.total}) — Đẩy lại`;
     if (status.phase === 'running') return `⏳ Đang chạy (${status.completed}/${status.total}) — Đẩy lại`;
     if (status.phase === 'paused') return `⏸ Tạm dừng (${status.completed}/${status.total}) — Đẩy lại`;
-    return '🚀 Đẩy sang Google Flow';
+    return totalNeeded > 0 ? `🚀 Đẩy sang Google Flow (${totalNeeded} ảnh)` : '🚀 Đẩy sang Google Flow';
   };
 
   const pushToFlow = (status) => {
-    if (status) {
+    const totalNeeded = expectedImageCount || result.segments?.length || 0;
+    if (status && status.total >= totalNeeded && status.phase !== 'completed') {
       const confirmed = window.confirm(
         `Kịch bản này đang có tiến độ trên Google Flow (${status.completed}/${status.total} ảnh).\n\n` +
         `Bấm OK để tạo lại hàng đợi từ đầu (sẽ mất tiến độ đang có, các ảnh đã tải vẫn còn nguyên trong thư mục).\n` +
@@ -2338,7 +2363,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const aspectRatio = currentAspectRatio;
     const seenImageGroups = new Set();
     const filteredSegments = (result.segments || []).filter((s) => {
-      if (['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative) {
+      if (['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow'].includes(result.category) || isJapaneseNarrative) {
         return true;
       }
       if (s.imageGroup === undefined || s.imageGroup === null) return true;
@@ -2355,7 +2380,9 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
       fullText: fullCorpus
     });
 
-    const segmentsToGenerate = filteredSegments.map((s) => {
+    const existingImageNums = new Set(Array.isArray(assetCounts?.existingImageNumbers) ? assetCounts.existingImageNumbers : []);
+
+    const segmentsToGenerate = filteredSegments.map((s, idx) => {
       let prompt = s.textPrompt;
       if (!prompt || !prompt.trim()) {
         const rawDesc = s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${s.segmentNumber}`;
@@ -2363,7 +2390,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         const characterStyle = result.input?.characterStyle || result.characterStyle || 'stick_figure';
         const isStickFigure = characterStyle !== 'regular_human';
 
-        if (result.category === 'stick_figure_slideshow') {
+        if (isStickFigureCategory) {
           const hasExplicitNoChar = /(no character|no people|no human|no stick|without character|without people|không có người|thuần cảnh|pure scenery|pure environment|cutaway|cross-section)/i.test(cleanDesc);
           const mentionsCharacter = /(stick figure|stickman|character|person|people|human|humans|man|men|woman|women|cavem[ae]n|neanderthals?|homo sapiens|hunter|hunters|scientist|scientists|explorer|explorers|student|students|worker|workers|boy|boys|girl|girls|kid|kids|child|children|elder|elders|villager|villagers|warrior|warriors|diver|divers|astronaut|astronauts|individual|individuals|figure|figures|người que|nhân vật|con người|người|nhà khoa học|nhà thám hiểm|người tiền sử|thợ săn|thợ lặn|phi hành gia|cư dân|bộ lạc|thổ dân|đứa trẻ|trẻ em)/i.test(cleanDesc);
           const isCharacterScene = !detectedEra.isPreHuman && mentionsCharacter && !hasExplicitNoChar;
@@ -2419,7 +2446,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
         const fromRatio = aspectRatio === '16:9' ? '9:16' : '16:9';
         prompt = prompt.replace(new RegExp(`aspect ratio ${fromRatio}`, 'g'), `aspect ratio ${aspectRatio}`);
         prompt = prompt.replace(new RegExp(`--ar ${fromRatio}`, 'g'), `--ar ${aspectRatio}`);
-        if (result.category === 'stick_figure_slideshow') {
+        if (isStickFigureCategory) {
           const characterStyle = result.input?.characterStyle || result.characterStyle || 'stick_figure';
           const isStickFigure = characterStyle !== 'regular_human';
 
@@ -2512,10 +2539,16 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
           }
         }
       }
+      const segNum = Number(s.segmentNumber !== undefined ? s.segmentNumber : idx + 1);
+      const alreadyHasImage = existingImageNums.has(segNum);
+
       return {
         ...s,
-        visualDescription: s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${s.segmentNumber}`,
-        textPrompt: prompt
+        segmentNumber: segNum,
+        visualDescription: s.visualDescription || s.dialogueOrNarration || s.subtitle || `Scene illustration for slide ${segNum}`,
+        textPrompt: prompt,
+        status: alreadyHasImage ? 'completed' : 'pending',
+        hasImage: alreadyHasImage
       };
     });
 
@@ -3710,8 +3743,17 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     };
   }, [result.input?.folderPath, result.category]);
 
+  const lastExtCompletedSigRef = useRef('');
+
   useEffect(() => {
-    if (extQueueState && extQueueState.queue && extQueueState.queue.title === result.title) {
+    const q = extQueueState?.queue;
+    const currentTitle = result.title || '';
+    const isRelated = q && (
+      q.folderPath === (result.input?.folderPath || 'example') ||
+      (currentTitle && q.title === currentTitle) ||
+      (currentTitle && typeof q.title === 'string' && q.title.startsWith(currentTitle + ' (Cảnh '))
+    );
+    if (isRelated) {
       checkAssets();
     }
   }, [flowStatus?.completed, flowStatus?.phase]);
@@ -3722,14 +3764,36 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
     const handleMessage = (event) => {
       if (event.source !== window) return;
       if (event.data && event.data.type === 'FLOW_QUEUE_STATE') {
-        setExtQueueState({ queue: event.data.queue, autoRunActive: event.data.autoRunActive });
+        const nextQueue = event.data.queue;
+        setExtQueueState({ queue: nextQueue, autoRunActive: event.data.autoRunActive });
+
+        // Tự động kiểm tra và làm mới ảnh khi phát hiện bất kỳ phân đoạn nào vừa tạo xong
+        if (nextQueue) {
+          const currentFolderPath = result.input?.folderPath || 'example';
+          const currentTitle = result.title || '';
+          const isRelated = (
+            nextQueue.folderPath === currentFolderPath ||
+            (currentTitle && nextQueue.title === currentTitle) ||
+            (currentTitle && typeof nextQueue.title === 'string' && nextQueue.title.startsWith(currentTitle + ' (Cảnh '))
+          );
+          if (isRelated) {
+            const completedSegments = Array.isArray(nextQueue.segments)
+              ? nextQueue.segments.filter(s => s.status === 'completed' || s.hasImage)
+              : [];
+            const completedSig = `${nextQueue.title || ''}:${nextQueue.updatedAt || ''}:${completedSegments.map(s => s.segmentNumber).sort().join(',')}`;
+            if (completedSegments.length > 0 && completedSig !== lastExtCompletedSigRef.current) {
+              lastExtCompletedSigRef.current = completedSig;
+              checkAssets();
+            }
+          }
+        }
       }
     };
     window.addEventListener('message', handleMessage);
     // Xin trạng thái hiện tại ngay khi mount, vì bridge có thể đã broadcast trước khi component này tồn tại
     window.postMessage({ type: 'REQUEST_FLOW_QUEUE_STATE' }, '*');
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [result.title, result.input?.folderPath]);
 
   const isRenderDone = Boolean(assetCounts?.videoCreated);
 
@@ -3742,11 +3806,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
             <>
               <span style={{ whiteSpace: 'nowrap' }}>Kịch bản:</span>
               <textarea
-                value={titleDraft ?? result.title ?? ''}
+                value={titleDraft ?? (result.title ? result.title.replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim() : '')}
                 onChange={(e) => setTitleDraft(e.target.value)}
                 placeholder="Tiêu đề video"
                 title="Nhấn Enter để tự chọn chỗ xuống dòng trên khung hình mở đầu (kiểu phụ đề 'Tiêu đề mở đầu') — không xuống dòng thì tự động ngắt dòng theo bề rộng khung hình."
-                rows={(titleDraft ?? result.title ?? '').split('\n').length || 1}
+                rows={(titleDraft ?? (result.title ? result.title.replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim() : '')).split('\n').length || 1}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -3756,7 +3820,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                   fontFamily: 'inherit',
                   color: '#fff',
                   background: 'rgba(0, 0, 0, 0.3)',
-                  border: `1px solid ${titleDraft !== null && titleDraft.trim() !== (result.title || '') ? 'var(--warning)' : 'rgba(255, 255, 255, 0.18)'}`,
+                  border: `1px solid ${titleDraft !== null && titleDraft.trim() !== (result.title || '').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim() ? 'var(--warning)' : 'rgba(255, 255, 255, 0.18)'}`,
                   borderRadius: '8px',
                   outline: 'none',
                   resize: 'none',
@@ -3765,7 +3829,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               />
             </>
           ) : (
-            <span style={{ whiteSpace: 'pre-line' }}>Kịch bản: {result.title}</span>
+            <span style={{ whiteSpace: 'pre-line' }}>Kịch bản: {(result.title || '').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim()}</span>
           )}
         </h3>
 
@@ -4032,6 +4096,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 )}
                 <ProductionAssetsSteps controller={{
                   isPexelsTalkVideo, result, isExternalVoiceSkill, assetCounts, flowStatus,
+                  expectedImageCount,
                   isOpeningImages, handleOpenImagesFolder, openImagesError, pushToFlow,
                   flowButtonLabel, renderBgMusicEnabled, selectedBgMusicTrackId, bgMusicLibrary,
                   renderBgMusicVolume, isRenderingVideo, isGeneratingVoice, setShowBgMusicModal,
@@ -4039,11 +4104,11 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                 }} />
                 {/* Bước Render video */}
                 {(() => {
-                  const total = result.segments.length;
-                  const isStep1Done = assetCounts.audioCount >= total;
+                  const total = expectedImageCount || result.segments.length;
+                  const isStep1Done = assetCounts.audioCount >= result.segments.length;
                   const isStep2Done = isPexelsTalkVideo
                     ? assetCounts.hasBgVideo
-                    : ((flowStatus && flowStatus.phase === 'completed') || (assetCounts.imageCount >= total));
+                    : (assetCounts.imageCount >= total && total > 0);
                   // CỐ Ý không nới theo isExternalVoiceSkill như Bước 2/3: render-project.mjs đòi một
                   // file audio/scene-NN.<ext> cho TỪNG cảnh, thiếu file là Remotion đứt giữa chừng chứ
                   // không phải chỉ mất tiếng. Thà khoá nút kèm hướng dẫn còn hơn để người dùng đâm vào
@@ -4523,7 +4588,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                       </button>
                     </>
                   )}
-                  {['stick_figure_slideshow', 'moral_talk_slideshow'].includes(result.category) && (
+                  {['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow'].includes(result.category) && (
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -4884,7 +4949,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                           >
                             {copiedKey === `seg_${seg.segmentNumber}` ? '✓ Đã chép prompt!' : '📋 Copy Prompt Ảnh'}
                           </button>
-                          {result.category === 'stick_figure_slideshow' && Array.isArray(seg.elements) && seg.elements.length > 0 && (
+                          {isStickFigureCategory && Array.isArray(seg.elements) && seg.elements.length > 0 && (
                             <button
                               type="button"
                               className="btn btn-secondary"
@@ -5126,6 +5191,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               videoVersion={videoVersion}
               bgMusicVersion={bgMusicVersion}
               logoVersion={logoVersion}
+              imageVersion={imageVersion}
               isRenderingVideo={isRenderingVideo}
               renderProgress={renderProgress}
               handleOpenVideoFolder={handleOpenVideoFolder}
@@ -5167,6 +5233,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
               result={result}
               activeSceneIndex={activeSceneIndex}
               onSceneIndexChange={setActiveSceneIndex}
+              imageVersion={imageVersion}
+              onImageVersionChange={setImageVersion}
               selectedElement={selectedElement}
               onSelectedElementChange={setSelectedElement}
               renderImageScale={renderImageScale}
@@ -5652,7 +5720,7 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
                             {(isEdge || isVieneu) && (
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                                 {(() => {
-                                  const isVietCategory = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video'].includes(result?.category);
+                                  const isVietCategory = ['moral_talk_slideshow', 'stick_figure_slideshow', 'article_news_stick_figure', 'pexels_talk_video'].includes(result?.category);
                                   const activeTabVal = result.input?.narrationLanguage || activeLangTab[char.key] || (isVietCategory ? 'vi' : 'en');
 
                                   const voiceList = isEdge

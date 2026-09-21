@@ -27,6 +27,7 @@ export default function VideoResultPanel({
   checkAssets,
   bgMusicVersion,
   logoVersion,
+  imageVersion,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -41,6 +42,13 @@ export default function VideoResultPanel({
   const [isCapturingThumbnail, setIsCapturingThumbnail] = useState(false);
   const [capturedThumbnail, setCapturedThumbnail] = useState(null);
   const [shutterFlash, setShutterFlash] = useState(false);
+
+  // Khi người dùng chuyển sang tab/chế độ Mô phỏng, tự động rà soát lại tài nguyên mới nhất
+  useEffect(() => {
+    if (viewMode === 'simulator' && checkAssets) {
+      checkAssets();
+    }
+  }, [viewMode]);
 
   // Tự động chuyển sang xem mô phỏng trực tiếp khi người dùng chọn một thành phần (như Logo, Phụ đề)
   useEffect(() => {
@@ -311,6 +319,7 @@ export default function VideoResultPanel({
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
               logoVersion={logoVersion}
+              imageVersion={imageVersion}
               onInteractionStart={onInteractionStart}
               onInteractionEnd={onInteractionEnd}
               historyToast={historyToast}
@@ -611,6 +620,7 @@ export default function VideoResultPanel({
               checkAssets={checkAssets}
               bgMusicVersion={bgMusicVersion}
               logoVersion={logoVersion}
+              imageVersion={imageVersion}
               onInteractionStart={onInteractionStart}
               onInteractionEnd={onInteractionEnd}
               historyToast={historyToast}

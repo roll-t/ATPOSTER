@@ -47,7 +47,7 @@ window.addEventListener('message', (event) => {
   }
 
   if (event.data && event.data.type === 'START_FLOW_GENERATION') {
-    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category } = event.data;
+    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category, isSingleScene, singleSceneNumber, autoRun } = event.data;
     console.log('[Flow Helper Extension] Đã nhận kịch bản từ App:', title);
     
     // Hàm loại bỏ phần tiếng Việt sau ký tự " // "
@@ -64,7 +64,9 @@ window.addEventListener('message', (event) => {
 
     const cleanSegments = (segments || []).map(s => ({
       ...s,
-      textPrompt: stripVietnamese(s.textPrompt || s.visualDescription || '')
+      textPrompt: stripVietnamese(s.textPrompt || s.visualDescription || ''),
+      status: (s.status === 'completed' || s.hasImage) ? 'completed' : (s.status || 'pending'),
+      hasImage: Boolean(s.hasImage || s.status === 'completed')
     }));
 
     // Gửi thông tin sang Background Service Worker với kiểm tra an toàn kết nối
@@ -81,7 +83,10 @@ window.addEventListener('message', (event) => {
             category: category || '',
             aspectRatio: aspectRatio || (orientation === 'landscape' ? '16:9' : '9:16'),
             orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
-            origin: window.location.origin
+            origin: window.location.origin,
+            isSingleScene: isSingleScene === true,
+            singleSceneNumber: singleSceneNumber || null,
+            autoRun: autoRun === true
           }
         }, (response) => {
           if (chrome.runtime.lastError) {
@@ -89,6 +94,11 @@ window.addEventListener('message', (event) => {
             alert('⚠️ Lỗi kết nối Tiện ích. Vui lòng tải lại trang (F5) để đồng bộ lại!');
           } else {
             console.log('[Flow Helper Extension] Đã lưu hàng đợi kịch bản thành công.');
+            window.postMessage({
+              type: 'FLOW_QUEUE_ACCEPTED',
+              folderPath: folderPath || 'example',
+              autoRun: autoRun === true
+            }, '*');
           }
         });
       } else {

@@ -9,6 +9,7 @@ const CATEGORY_ENGLISH_LABELS = {
   moral_wisdom: 'Moral Wisdom Video',
   english_tips: 'English Tips Video',
   stick_figure_slideshow: 'Stick Figure Slideshow Image',
+  article_news_stick_figure: 'Stick Figure News Slideshow Image',
   reading_practice: 'Reading Practice Page Image',
   moral_talk_slideshow: 'Moral Talk Pictogram Slideshow Image',
   buddhist_wisdom: 'Buddhist Wisdom Watercolour Slideshow'
@@ -273,7 +274,7 @@ export function buildSegmentedPrompts(categoryKey, style, title, segments, input
   }
 
   // --- Slide người que: nét vẽ tay 2D tối giản, nền giấy sáng, rất ít màu và chi tiết. ---
-  if (categoryKey === 'stick_figure_slideshow') {
+  if (categoryKey === 'stick_figure_slideshow' || categoryKey === 'article_news_stick_figure') {
     const selectedAspectRatio = input.aspectRatio === '16:9' ? '16:9' : '9:16';
     const isLandscape = selectedAspectRatio === '16:9';
 

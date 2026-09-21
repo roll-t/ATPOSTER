@@ -63,9 +63,11 @@ export async function POST(req) {
             const fresh = newSegMap.get(s.segmentNumber);
             return fresh ? { ...s, ...fresh } : s;
           });
+          const safeTitle = (existingManifest.title || newManifest.title || '').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim();
           const finalManifest = {
             ...existingManifest,
             ...newManifest,
+            title: safeTitle,
             segments: mergedSegments,
             updatedAt: Date.now()
           };
@@ -78,7 +80,18 @@ export async function POST(req) {
       }
     }
 
-    fs.writeFileSync(destPath, buffer);
+    let fileBuffer = buffer;
+    if (normalised === 'manifest.json') {
+      try {
+        const manifestObj = JSON.parse(buffer.toString('utf8'));
+        if (manifestObj.title) {
+          manifestObj.title = String(manifestObj.title).replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim();
+          fileBuffer = Buffer.from(JSON.stringify(manifestObj, null, 2), 'utf8');
+        }
+      } catch {}
+    }
+
+    fs.writeFileSync(destPath, fileBuffer);
 
     // Nếu lưu file media cho scene (ví dụ: images/scene-01.mp4 hoặc images/scene-01.jpg):
     // Tự động dọn dẹp file ngược loại cũ và cập nhật manifest

@@ -9,6 +9,13 @@ import {
   CRAFT_ASMR_FIDELITY_OPTIONS,
   CRAFT_ASMR_DEFAULTS,
 } from '@/src/domain/content/craftAsmr.js';
+import {
+  CraftAsmrFlowButton,
+  CraftAsmrFlowNotice,
+  useCraftAsmrFlow,
+} from './craft-asmr/CraftAsmrFlowControls.js';
+import CraftAsmrHistory from './craft-asmr/CraftAsmrHistory.js';
+import styles from './craft-asmr/CraftAsmrPanel.module.css';
 
 // Gợi ý bấm-là-điền. Cố tình để vật liệu và thành phẩm ở 2 danh sách RỜI nhau thay vì ghép sẵn
 // từng cặp: cái hay của dòng video này nằm ở chỗ ghép chéo (vỏ lon → giáp samurai, ống nhựa →
@@ -229,6 +236,7 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
         setResult(data.result);
         setActiveClip(0);
         setCopied('');
+        flow.resetNotice();
         fetchHistory();
       } else {
         setError(data.error || 'Không tạo được prompt.');
@@ -262,6 +270,7 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
     setAspectRatio(item.aspectRatio || CRAFT_ASMR_DEFAULTS.aspectRatio);
     setFps(item.fps || CRAFT_ASMR_DEFAULTS.fps);
     setCopied('');
+    flow.resetNotice();
   };
 
   const handleDeleteHistory = async (id, e) => {
@@ -276,92 +285,53 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
     }
   };
 
-  const chipStyle = {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '999px',
-    padding: '5px 12px',
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: '0.72rem',
-    cursor: 'pointer',
-    transition: '0.15s',
-    whiteSpace: 'nowrap',
-  };
-
   const tabs = tabsOf(result);
   const currentTab = tabs[activeClip] || tabs[0];
   const hasTabs = tabs.length > 1;
   const onSheet = currentTab?.key === 'sheet';
   const onSocial = currentTab?.key === 'social';
   const clipCountOf = tabs.filter((t) => t.key !== 'sheet' && t.key !== 'social').length;
+  const flow = useCraftAsmrFlow({ result, clipCount: clipCountOf, durationSeconds, aspectRatio, onError: setError });
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '4fr 6fr', gap: '20px', alignItems: 'start' }}>
+    <div className={styles.workspace}>
       {onBackToGrid && (
-        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '12px' }}>
+        <header className={styles.pageHeader}>
+          <div className={styles.titleGroup}>
+            <span className={styles.titleIcon}>{categoryInfo?.icon || '🎬'}</span>
+            <div>
+              <div className={styles.eyebrow}>AI VIDEO WORKSPACE</div>
+              <h1>{categoryInfo?.label || 'Chế Tác Thủ Công & Tái Chế ASMR'}</h1>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onBackToGrid}
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              padding: '6px 14px',
-              color: '#fff',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              lineHeight: 1,
-              transition: 'all 0.15s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            }}
+            className={styles.backButton}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
-            <span>Chọn thể loại Video khác</span>
+            <span>Danh sách thể loại</span>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>{categoryInfo?.icon || '🎬'}</span>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-              {categoryInfo?.label || 'Chế Tác Thủ Công & Tái Chế ASMR'}
-            </h2>
-          </div>
-        </div>
+        </header>
       )}
 
       {/* ---------------- Cột trái: form nhập ---------------- */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <h2
-          style={{
-            fontSize: '1.3rem',
-            fontWeight: 800,
-            color: '#fff',
-            margin: '0 0 6px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          🎨 Prompt Ảnh & Video Chế Tác
-        </h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 22px', lineHeight: 1.5 }}>
-          Nhập <b>vật liệu</b> và <b>thành phẩm muốn làm ra</b> — hệ thống sinh sẵn prompt đúng khuôn
-          (cắt → tạo hình → lắp ghép → khoe thành phẩm) kèm mốc thời gian, để dán thẳng vào Veo / Sora / Kling.
-          Muốn video dài hơn 10s thì chọn nhiều clip: mỗi clip là một lượt sinh riêng, đã có sẵn khối lệnh nối
-          để 2-3 clip ghép lại trông như một cú quay liền.
-        </p>
+      <section className={`glass-card ${styles.formCard}`}>
+        <div className={styles.formInner}>
+          <div className={styles.cardTitle}>
+            <span className={styles.cardTitleIcon}>🎨</span>
+            <div>
+              <h2>Thiết kế prompt chế tác</h2>
+              <p>Chọn thành phẩm, vật liệu và cấu hình clip. AI sẽ dựng sẵn toàn bộ tiến trình cắt, tạo hình, lắp ghép và trình diễn thành phẩm.</p>
+            </div>
+          </div>
+
+          <div className={styles.sectionHeading}>
+            <span>1</span>
+            <div><strong>Ý tưởng chế tác</strong><small>Hai thông tin quan trọng nhất để AI dựng cảnh</small></div>
+          </div>
 
         <div className="form-group">
           <label className="form-label">Nhân vật / mô hình muốn tạo *</label>
@@ -371,9 +341,14 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
             onChange={(e) => setSubject(e.target.value)}
             placeholder="mô hình giáp samurai Nhật Bản"
           />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+          <div className={styles.suggestions}>
             {SUBJECT_SUGGESTIONS.map((s) => (
-              <button key={s} type="button" style={chipStyle} onClick={() => setSubject(s)}>
+              <button
+                key={s}
+                type="button"
+                className={`${styles.suggestion} ${subject === s ? styles.suggestionActive : ''}`}
+                onClick={() => setSubject(s)}
+              >
                 {s}
               </button>
             ))}
@@ -388,13 +363,23 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
             onChange={(e) => setMaterial(e.target.value)}
             placeholder="vỏ lon nước ngọt màu đỏ"
           />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+          <div className={styles.suggestions}>
             {MATERIAL_SUGGESTIONS.map((s) => (
-              <button key={s} type="button" style={chipStyle} onClick={() => setMaterial(s)}>
+              <button
+                key={s}
+                type="button"
+                className={`${styles.suggestion} ${material === s ? styles.suggestionActive : ''}`}
+                onClick={() => setMaterial(s)}
+              >
                 {s}
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.sectionHeading}>
+          <span>2</span>
+          <div><strong>Cấu hình video</strong><small>Chọn phong cách, thời lượng và khung hình đầu ra</small></div>
         </div>
 
         <div className="form-group">
@@ -406,14 +391,15 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
               </option>
             ))}
           </select>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
-            <b style={{ color: '#25f4ee' }}>Đinh tán</b> = kiểu mô hình lon đang viral: tấm nhôm cong ghép bằng
+          <div className={styles.helpText}>
+            <b>Đinh tán</b> = kiểu mô hình lon đang viral: tấm nhôm cong ghép bằng
             đinh tán bạc lộ thiên, chia đốt, hai tông đỏ–bạc, bề mặt sạch. · <b>Thô mộc</b> = ít mảnh, to bản,
             móp méo có duyên. · <b>Tinh xảo</b> = bóng bẩy như mô hình bán sẵn (dễ mất chất tự làm).
           </div>
         </div>
 
-        <div className="form-group">
+        <div className={styles.settingsGrid}>
+        <div className={`form-group ${styles.wideSetting}`}>
           <label className="form-label">Số clip (mỗi clip sinh 1 lượt rồi ghép lại)</label>
           <select
             className="form-control"
@@ -426,13 +412,12 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
               </option>
             ))}
           </select>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Tổng video: <b style={{ color: '#25f4ee' }}>~{durationSeconds * clipCount} giây</b> ({clipCount} ×{' '}
+          <div className={styles.helpText}>
+            Tổng video: <b>~{durationSeconds * clipCount} giây</b> ({clipCount} ×{' '}
             {durationSeconds}s)
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div className="form-group">
             <label className="form-label">Dài mỗi clip</label>
             <select
@@ -457,9 +442,8 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
               ))}
             </select>
           </div>
-        </div>
 
-        <div className="form-group">
+        <div className={`form-group ${styles.wideSetting}`}>
           <label className="form-label">Khung hình</label>
           <select className="form-control" value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
             {CRAFT_ASMR_ASPECT_RATIOS.map((r) => (
@@ -468,6 +452,7 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
               </option>
             ))}
           </select>
+        </div>
         </div>
 
         <div className="form-group">
@@ -498,20 +483,29 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
           </div>
         )}
 
-        <button
-          type="button"
-          className={`btn btn-primary ${isGenerating ? 'btn-disabled' : ''}`}
-          style={{ width: '100%' }}
-          disabled={isGenerating}
-          onClick={handleGenerate}
-        >
-          {isGenerating ? '⏳ Đang viết prompt...' : `✨ Tạo ${clipCount > 1 ? `${clipCount} Prompt` : 'Prompt'}`}
-        </button>
-      </div>
+        </div>
+        <div className={styles.actionBar}>
+          <div className={styles.actionSummary}>
+            <span>🎞️</span>
+            <div>
+              <strong>{clipCount} clip · khoảng {durationSeconds * clipCount} giây</strong>
+              <small>{aspectRatio} · {fps} fps · {CRAFT_ASMR_FIDELITY_OPTIONS.find((item) => item.value === fidelity)?.label.replace(/^\S+\s/, '')}</small>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`btn btn-primary ${styles.generateButton} ${isGenerating ? 'btn-disabled' : ''}`}
+            disabled={isGenerating}
+            onClick={handleGenerate}
+          >
+            {isGenerating ? '⏳ Đang viết prompt...' : `✨ Tạo ${clipCount > 1 ? `${clipCount} prompt` : 'prompt'}`}
+          </button>
+        </div>
+      </section>
 
       {/* ---------------- Cột phải: kết quả + lịch sử ---------------- */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div className="glass-card" style={{ padding: '24px' }}>
+      <div className={styles.resultsColumn}>
+        <section className={`glass-card ${styles.resultCard}`}>
           {result ? (
             <>
               <div
@@ -536,6 +530,7 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <CraftAsmrFlowButton flow={flow} />
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -573,6 +568,8 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
                   </button>
                 </div>
               </div>
+
+              <CraftAsmrFlowNotice flow={flow} />
 
               {hasTabs && (
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
@@ -679,94 +676,27 @@ export default function CraftAsmrPanel({ onBackToGrid, categoryInfo } = {}) {
               )}
             </>
           ) : (
-            <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🔨</div>
-              <p style={{ fontSize: '0.9rem', margin: 0 }}>
-                Chưa có prompt nào. Nhập vật liệu + thành phẩm bên trái rồi bấm <b>Tạo Prompt</b>.
-              </p>
+            <div className={styles.emptyResult}>
+              <div>
+                <div className={styles.emptyVisual}>🔨</div>
+                <h3>Sẵn sàng dựng prompt đầu tiên</h3>
+                <p>Nhập thành phẩm và vật liệu ở panel bên trái. AI sẽ tạo sheet tham chiếu, prompt video và nội dung đăng mạng xã hội.</p>
+                <div className={styles.emptySteps}>
+                  <span>1 · Nhập ý tưởng</span>
+                  <span>2 · Tạo prompt</span>
+                  <span>3 · Chuyển qua Flow</span>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+        </section>
 
-        {history.length > 0 && (
-          <div className="glass-card" style={{ padding: '20px 24px' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', margin: '0 0 14px' }}>
-              🕘 Prompt đã tạo ({history.length})
-            </h3>
-            <div
-              className="custom-scrollbar"
-              style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleLoadHistory(item)}
-                  style={{
-                    background: result?.id === item.id ? 'rgba(37, 244, 238, 0.08)' : 'rgba(255,255,255,0.03)',
-                    border:
-                      result?.id === item.id
-                        ? '1px solid rgba(37, 244, 238, 0.3)'
-                        : '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '10px',
-                    padding: '10px 14px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 600,
-                        color: '#fff',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {item.title}
-                      {item.clipCount > 1 && (
-                        <span
-                          style={{
-                            marginLeft: '8px',
-                            fontSize: '0.66rem',
-                            color: '#25f4ee',
-                            border: '1px solid rgba(37,244,238,0.3)',
-                            borderRadius: '999px',
-                            padding: '1px 7px',
-                          }}
-                        >
-                          {item.clipCount} clip · {item.totalDuration || item.clipCount * item.durationSeconds}s
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {item.material} → {item.subject}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteHistory(item.id, e)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'rgba(255,107,122,0.7)',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      flexShrink: 0,
-                    }}
-                    title="Xoá"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <CraftAsmrHistory
+          history={history}
+          selectedId={result?.id}
+          onLoad={handleLoadHistory}
+          onDelete={handleDeleteHistory}
+        />
       </div>
     </div>
   );

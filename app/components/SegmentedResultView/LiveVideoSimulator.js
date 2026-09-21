@@ -91,8 +91,14 @@ function hexToRgba(hex, alpha = 0.15) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function stripSceneTag(text) {
+  return String(text || '')
+    .replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '')
+    .trim();
+}
+
 function stripTags(text) {
-  return String(text || '').replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripSceneTag(String(text || '').replace(/\[[^\]]*\]/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 function stripMarkers(text) {
@@ -133,6 +139,7 @@ export default function LiveVideoSimulator({
   checkAssets,
   bgMusicVersion,
   logoVersion,
+  imageVersion,
   onInteractionStart,
   onInteractionEnd,
   historyToast,
@@ -189,7 +196,8 @@ export default function LiveVideoSimulator({
   const openingCommentScale = Number(rc.openingCommentScale !== undefined && rc.openingCommentScale !== null ? rc.openingCommentScale : 1);
 
   const showOpeningNewsBanner = Boolean(rc.showOpeningNewsBanner);
-  const openingNewsHeadline = (rc.openingNewsHeadline || result?.title || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || '').trim();
+  const rawHeadline = (rc.openingNewsHeadline || result?.title || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || '').trim();
+  const openingNewsHeadline = stripSceneTag(rawHeadline);
   const openingNewsBrand = (rc.openingNewsBrand || rc.channelName || 'TIN TỨC').trim();
   const openingNewsLikes = (rc.openingNewsLikes || '27.1K').trim();
   const openingNewsBannerTranslateY = Number(rc.openingNewsBannerTranslateY !== undefined && rc.openingNewsBannerTranslateY !== null ? rc.openingNewsBannerTranslateY : 0);
@@ -311,6 +319,8 @@ export default function LiveVideoSimulator({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [slideCurrentTime, setSlideCurrentTime] = useState(0);
+  const slideCurrentTimeRef = useRef(slideCurrentTime);
+  slideCurrentTimeRef.current = slideCurrentTime;
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -405,8 +415,14 @@ export default function LiveVideoSimulator({
   const currentMediaFile = isSceneVideo ? `images/scene-${currentPaddedNum}.mp4` : `images/scene-${currentPaddedNum}.jpg`;
 
   const currentImageSrc = showImage
-    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${currentMediaFile}&category=${encodeURIComponent(category)}&v=${currentSlideIndex}`
+    ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${currentMediaFile}&category=${encodeURIComponent(category)}&v=${currentSlideIndex}-${imageVersion || 0}`
     : null;
+
+  // Khi phiên bản ảnh thay đổi hoặc chuyển cảnh, xoá cờ lỗi cũ để ảnh mới vừa tạo được nạp lại ngay lập tức
+  useEffect(() => {
+    failedImagesRef.current.delete(currentSceneNumber);
+    setImageError(false);
+  }, [imageVersion, currentSceneNumber]);
   const currentVideoSrc = `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=bg/bg-${currentPaddedNum}.mp4&category=${encodeURIComponent(category)}`;
   const [audioVersion, setAudioVersion] = useState(0);
   const currentAudioFile = assetCounts?.audioFiles?.[currentSceneNumber] || null;
@@ -889,6 +905,7 @@ export default function LiveVideoSimulator({
   };
 
   useEffect(() => {
+    slideCurrentTimeRef.current = 0;
     setSlideCurrentTime(0);
     setImageError(false);
     const sceneStart = sceneOffsets[currentSlideIndex] || 0;
@@ -919,19 +936,27 @@ export default function LiveVideoSimulator({
         });
       }
     };
-    const onTime = () => setSlideCurrentTime(voiceAudio.currentTime || 0);
+    const onTime = () => {
+      const cur = voiceAudio.currentTime || 0;
+      slideCurrentTimeRef.current = cur;
+      setSlideCurrentTime(cur);
+    };
     const onEnd = () => {
       if (playOnlySceneIndexRef.current !== null) {
         playOnlySceneIndexRef.current = null;
         setIsPlaying(false);
+        slideCurrentTimeRef.current = 0;
         setSlideCurrentTime(0);
         return;
       }
       if (currentSlideIndex < totalScenes - 1) {
+        slideCurrentTimeRef.current = 0;
+        setSlideCurrentTime(0);
         goToScene(currentSlideIndex + 1);
       } else {
         setIsPlaying(false);
         goToScene(0);
+        slideCurrentTimeRef.current = 0;
         setSlideCurrentTime(0);
         if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
         if (bgMusicAudioRef.current) {
@@ -973,6 +998,7 @@ export default function LiveVideoSimulator({
 
       if (isAudioActive) {
         const curTime = va.currentTime || 0;
+        slideCurrentTimeRef.current = curTime;
         setSlideCurrentTime(curTime);
 
         // Giữ nhạc nền khớp nhịp theo thời gian thực của video (tự sửa nếu bị trôi nhịp)
@@ -990,14 +1016,18 @@ export default function LiveVideoSimulator({
           if (playOnlySceneIndexRef.current !== null) {
             playOnlySceneIndexRef.current = null;
             setIsPlaying(false);
+            slideCurrentTimeRef.current = 0;
             setSlideCurrentTime(0);
             return;
           }
           if (currentSlideIndex < totalScenes - 1) {
+            slideCurrentTimeRef.current = 0;
+            setSlideCurrentTime(0);
             goToScene(currentSlideIndex + 1);
           } else {
             setIsPlaying(false);
             goToScene(0);
+            slideCurrentTimeRef.current = 0;
             setSlideCurrentTime(0);
             if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
             if (bgMusicAudioRef.current) {
@@ -1012,39 +1042,44 @@ export default function LiveVideoSimulator({
         const delta = Math.min(0.1, (now - lastPerfTime) / 1000);
         lastPerfTime = now;
 
-        setSlideCurrentTime((prev) => {
-          const next = prev + delta;
-          const bg = bgMusicAudioRef.current;
-          if (bg && !bg.paused && Number.isFinite(bg.duration) && bg.duration > 0) {
-            const curTotal = (sceneOffsets[currentSlideIndex] || 0) + next;
-            const expectedBgTime = curTotal % bg.duration;
-            if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
-              try { bg.currentTime = expectedBgTime; } catch (_) { }
-            }
+        const next = slideCurrentTimeRef.current + delta;
+        const bg = bgMusicAudioRef.current;
+        if (bg && !bg.paused && Number.isFinite(bg.duration) && bg.duration > 0) {
+          const curTotal = (sceneOffsets[currentSlideIndex] || 0) + next;
+          const expectedBgTime = curTotal % bg.duration;
+          if (Math.abs(bg.currentTime - expectedBgTime) > 0.45) {
+            try { bg.currentTime = expectedBgTime; } catch (_) { }
           }
+        }
 
-          if (next >= currentSceneDuration) {
-            if (playOnlySceneIndexRef.current !== null) {
-              playOnlySceneIndexRef.current = null;
-              setIsPlaying(false);
-              return 0;
-            }
-            if (currentSlideIndex < totalScenes - 1) {
-              goToScene(currentSlideIndex + 1);
-            } else {
-              setIsPlaying(false);
-              goToScene(0);
-              setSlideCurrentTime(0);
-              if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
-              if (bgMusicAudioRef.current) {
-                bgMusicAudioRef.current.pause();
-                try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
-              }
-            }
-            return 0;
+        if (next >= currentSceneDuration) {
+          if (playOnlySceneIndexRef.current !== null) {
+            playOnlySceneIndexRef.current = null;
+            setIsPlaying(false);
+            slideCurrentTimeRef.current = 0;
+            setSlideCurrentTime(0);
+            return;
           }
-          return next;
-        });
+          if (currentSlideIndex < totalScenes - 1) {
+            slideCurrentTimeRef.current = 0;
+            setSlideCurrentTime(0);
+            goToScene(currentSlideIndex + 1);
+          } else {
+            setIsPlaying(false);
+            goToScene(0);
+            slideCurrentTimeRef.current = 0;
+            setSlideCurrentTime(0);
+            if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+            if (bgMusicAudioRef.current) {
+              bgMusicAudioRef.current.pause();
+              try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
+            }
+          }
+          return;
+        }
+
+        slideCurrentTimeRef.current = next;
+        setSlideCurrentTime(next);
       }
 
       animId = requestAnimationFrame(tick);
@@ -1414,7 +1449,7 @@ export default function LiveVideoSimulator({
               >
                 {isSceneVideo ? (
                   <video
-                    key={`vid-${currentSlideIndex}`}
+                    key={`vid-${currentSlideIndex}-${imageVersion || 0}`}
                     src={currentImageSrc}
                     autoPlay
                     muted
@@ -1426,6 +1461,10 @@ export default function LiveVideoSimulator({
                       objectFit: globalImageFit,
                       display: 'block'
                     }}
+                    onLoadedData={() => {
+                      failedImagesRef.current.delete(currentSceneNumber);
+                      setImageError(false);
+                    }}
                     onError={() => {
                       failedImagesRef.current.add(currentSceneNumber);
                       setImageError(true);
@@ -1433,7 +1472,7 @@ export default function LiveVideoSimulator({
                   />
                 ) : (
                   <div
-                    key={`img-${currentSlideIndex}`}
+                    key={`img-${currentSlideIndex}-${imageVersion || 0}`}
                     style={{
                       width: '100%',
                       height: '100%',
@@ -1444,9 +1483,14 @@ export default function LiveVideoSimulator({
                     }}
                   >
                     <img
+                      key={`img-probe-${currentSlideIndex}-${imageVersion || 0}`}
                       src={currentImageSrc}
                       alt=""
                       style={{ display: 'none' }}
+                      onLoad={() => {
+                        failedImagesRef.current.delete(currentSceneNumber);
+                        setImageError(false);
+                      }}
                       onError={() => {
                         failedImagesRef.current.add(currentSceneNumber);
                         setImageError(true);
@@ -1553,7 +1597,7 @@ export default function LiveVideoSimulator({
                   currentSlideIndex === 0 ? (
                     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'), gap: '8px', width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box' }}>
                       <div style={{ background: highlightColor, color: '#ffffff', fontFamily, fontSize: `${Math.max(11, Math.round(scaledFontSize * 0.72))}px`, fontWeight: 900, padding: '3px 12px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `0 4px 16px ${highlightColor}66`, whiteSpace: 'nowrap' }}>
-                        ★ {result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG'}
+                        ★ {stripSceneTag(result?.title ? result.title.slice(0, 32) : 'BÀI HỌC CUỘC SỐNG')}
                       </div>
                       <div style={{ width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box', fontFamily, fontSize: `${Math.round(scaledFontSize * 1.22)}px`, fontWeight: 900, lineHeight: 1.3, color: textColor, letterSpacing: '0.02em', textShadow: 'none', background: isBgTransparent ? 'transparent' : `rgba(${parseInt(bgColor.slice(1, 3) || '0', 16)}, ${parseInt(bgColor.slice(3, 5) || '0', 16)}, ${parseInt(bgColor.slice(5, 7) || '0', 16)}, ${bgOpacity})`, padding: isBgTransparent ? '2px' : '8px 16px', borderRadius: '12px', textAlign: captionTextAlign }}>
                         {renderCaptionContent(cleanPrimary, highlightColor, captionTextAlign)}
@@ -1751,7 +1795,7 @@ export default function LiveVideoSimulator({
                         wordBreak: 'break-word'
                       }}
                     >
-                      {(openingCommentText || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || result?.title || '').trim()}
+                      {stripSceneTag(openingCommentText || segments[0]?.dialogueOrNarration || segments[0]?.subtitle || result?.title || '')}
                     </div>
                   </div>
                 </div>

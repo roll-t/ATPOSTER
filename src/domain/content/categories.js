@@ -366,6 +366,75 @@ export const PROMPT_CATEGORIES = {
     }
   },
 
+  article_news_stick_figure: {
+    key: 'article_news_stick_figure',
+    type: 'slideshow',
+    label: 'Tin Tức Báo Chí — Video Người Que',
+    icon: '📰',
+    description: 'Dán link bài báo bất kỳ, AI tự động bóc tách nội dung và chuyển thể thành video hoạt họa Người Que 2D thời sự, cuốn hút.',
+    fields: [
+      {
+        key: 'articleUrl',
+        label: 'Đường dẫn bài báo (Link URL)',
+        type: 'article-url-input',
+        required: false,
+        placeholder: 'Ví dụ: https://vnexpress.net/thoi-su/... hoặc link báo Dân Trí, Tuổi Trẻ, BBC, Cafebiz...',
+      },
+      {
+        key: 'aspectRatio',
+        label: 'Định dạng video (Tỉ lệ)',
+        type: 'select',
+        required: true,
+        defaultValue: '9:16',
+        options: [
+          { value: '9:16', label: 'YouTube Shorts / TikTok (Màn dọc 9:16)' },
+          { value: '16:9', label: 'YouTube Dài (Màn ngang 16:9)' }
+        ]
+      },
+      {
+        key: 'narrationLanguage',
+        label: 'Ngôn ngữ thuyết minh (lồng tiếng)',
+        type: 'select',
+        required: true,
+        defaultValue: 'vi',
+        options: [
+          { value: 'vi', label: '🇻🇳 Tiếng Việt' },
+          { value: 'en', label: '🇬🇧 Tiếng Anh (English)' }
+        ]
+      },
+      {
+        key: 'characterStyle',
+        label: 'Kiểu nhân vật trong ảnh',
+        type: 'select',
+        required: false,
+        defaultValue: 'stick_figure',
+        options: [
+          { value: 'stick_figure', label: '✏️ Người que biểu cảm (Stick Figure — Thống nhất)' },
+          { value: 'regular_human', label: '🧑 Người thường hoạt họa (Stylized 2D Human)' }
+        ]
+      },
+      {
+        key: 'scenario',
+        label: 'Nội dung bài báo (Tự động điền sau khi trích xuất hoặc tự nhập/dán)',
+        type: 'textarea',
+        required: true,
+        placeholder: 'Bấm nút "Trích xuất bài viết" ở trên hoặc dán trực tiếp nội dung bài báo vào đây để AI dựng kịch bản...',
+      },
+      {
+        key: 'script',
+        label: 'Ghi chú / Yêu cầu bổ sung cho biên kịch AI (tuỳ chọn)',
+        type: 'textarea',
+        required: false,
+        placeholder: 'Ví dụ: Nhấn mạnh vào hậu quả tài chính, hoặc thêm góc nhìn hài hước châm biếm nhẹ...'
+      }
+    ],
+    defaultStyle: {
+      series: 'Article News Stick Figure',
+      aspectRatio: '9:16',
+      durationSeconds: 45
+    }
+  },
+
   moral_talk_slideshow: {
     key: 'moral_talk_slideshow',
     type: 'slideshow',

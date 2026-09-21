@@ -99,7 +99,7 @@ function findStickFigureThemeForTopic(text) {
 }
 
 export default function ContentForm({
-  category, activeCategory, currentInput,
+  category, activeCategory, currentInput: rawCurrentInput,
   useGemini, setUseGemini, durationRange, setDurationRange,
   onFieldChange, onToggleCharacter,
   errorMsg, isGenerating, onGenerate,
@@ -107,9 +107,55 @@ export default function ContentForm({
   history = [],
   flatPanel = false
 }) {
+  const currentInput = rawCurrentInput || {};
   const [suggestionSubsets, setSuggestionSubsets] = useState({});
   const [dynamicSuggestions, setDynamicSuggestions] = useState({});
   const [loadingSuggestions, setLoadingSuggestions] = useState({});
+
+  // State trích xuất nội dung bài báo từ URL
+  const [isExtractingArticle, setIsExtractingArticle] = useState(false);
+  const [extractError, setExtractError] = useState('');
+  const [extractedMeta, setExtractedMeta] = useState(null);
+
+  const handleExtractArticle = async (urlToExtract) => {
+    const targetUrl = urlToExtract || currentInput['articleUrl'];
+    if (!targetUrl || !targetUrl.trim()) {
+      setExtractError('Vui lòng nhập link bài báo trước khi bấm trích xuất.');
+      return;
+    }
+    setIsExtractingArticle(true);
+    setExtractError('');
+    try {
+      const res = await fetch('/api/articles/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Không thể trích xuất nội dung bài báo từ đường link này.');
+      }
+      const article = data.article;
+      setExtractedMeta({
+        title: article.title,
+        siteName: article.siteName,
+        wordCount: article.wordCount,
+        image: article.image,
+        media: article.media || [],
+        mediaCount: article.mediaCount || 0,
+      });
+      // Tự động đưa nội dung vào ô scenario
+      const combinedText = `TIÊU ĐỀ: ${article.title}\n\nTÓM TẮT: ${article.description || ''}\n\nNỘI DUNG CHI TIẾT:\n${article.content}`;
+      onFieldChange('scenario', combinedText);
+      if (article.media && article.media.length > 0) {
+        onFieldChange('articleMedia', article.media);
+      }
+    } catch (err) {
+      setExtractError(err.message || 'Lỗi kết nối. Bạn có thể copy nội dung bài báo và dán trực tiếp vào ô bên dưới.');
+    } finally {
+      setIsExtractingArticle(false);
+    }
+  };
 
   // Danh sách các kịch bản đã từng tạo trong lịch sử để loại trừ không cho hiển thị lại
   const usedScenariosSet = new Set(
@@ -119,7 +165,7 @@ export default function ContentForm({
   );
 
   // Các category có mốc "video dài" (4-6/6-8/8-10/10-15/15-20 phút) — đều là skill dựng bằng Remotion.
-  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow', 'pexels_talk_video', 'buddhist_wisdom', 'japanese_history'];
+  const LONG_FORM_CATEGORIES = ['moral_talk_slideshow', 'stick_figure_slideshow', 'article_news_stick_figure', 'pexels_talk_video', 'buddhist_wisdom', 'japanese_history'];
 
   // Trong số đó, category CHỈ cho phép mốc dài ở Dạng ngang 16:9: khung dọc 9:16 vốn để lướt nhanh
   // trên điện thoại, video 8-10 phút ở khung đó là sai mục đích sử dụng. Cố ý chỉ áp cho
@@ -531,7 +577,7 @@ export default function ContentForm({
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </>
-              ) : activeCategory === 'stick_figure_slideshow' ? (
+              ) : (activeCategory === 'stick_figure_slideshow' || activeCategory === 'article_news_stick_figure') ? (
                 <>
                   <option value="under_1m">Dưới 1 phút (20 - 25 ảnh, 2-3s/ảnh)</option>
                   <option value="1_2m">Từ 1 - 2 phút (30 - 42 ảnh)</option>
@@ -573,7 +619,7 @@ export default function ContentForm({
           // Ẩn các trường kịch bản chi tiết thủ công khi bật Gemini AI để làm gọn giao diện
           const isHiddenForGemini = effectiveUseGemini && (
             (activeCategory === 'english_quiz' && ['options', 'correctAnswer', 'explanation'].includes(field.key)) ||
-            (['stick_figure', 'stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && field.key === 'script') ||
+            (['stick_figure', 'stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && field.key === 'script') ||
             (activeCategory === 'moral_wisdom' && field.key === 'quote')
           );
           if (isHiddenForGemini) return null;
@@ -729,6 +775,212 @@ export default function ContentForm({
                     setIsLongFormTopicsOpen(true);
                   }}
                 />
+              ) : field.type === 'article-url-input' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="url"
+                      className="form-control"
+                      placeholder={displayFieldPlaceholder}
+                      value={currentInput[field.key] || ''}
+                      onChange={(e) => onFieldChange(field.key, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleExtractArticle();
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        fontFamily: 'inherit',
+                        background: 'rgba(15, 14, 25, 0.8)',
+                        borderColor: 'rgba(255, 255, 255, 0.14)'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={isExtractingArticle || !currentInput[field.key]?.trim()}
+                      onClick={() => handleExtractArticle()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '10px 16px',
+                        borderRadius: '10px',
+                        background: isExtractingArticle ? 'rgba(56, 189, 248, 0.3)' : 'linear-gradient(135deg, #0284c7, #2563eb)',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        cursor: (isExtractingArticle || !currentInput[field.key]?.trim()) ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 4px 14px rgba(2, 132, 199, 0.3)'
+                      }}
+                    >
+                      {isExtractingArticle ? (
+                        <>
+                          <span className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px' }} />
+                          <span>Đang trích xuất...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>⚡</span>
+                          <span>Trích xuất bài viết</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {extractError && (
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#fca5a5',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <span>⚠️</span>
+                      <span>{extractError}</span>
+                    </div>
+                  )}
+
+                  {extractedMeta && !extractError && (
+                    <div style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(37, 99, 235, 0.08))',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              background: 'rgba(56, 189, 248, 0.25)',
+                              color: '#38bdf8',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              textTransform: 'uppercase'
+                            }}>
+                              {extractedMeta.siteName}
+                            </span>
+                            <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                              • {extractedMeta.wordCount} từ
+                            </span>
+                            {extractedMeta.mediaCount > 0 && (
+                              <span style={{ color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600 }}>
+                                • 📸 {extractedMeta.mediaCount} media đã trích xuất
+                              </span>
+                            )}
+                          </div>
+                          <div style={{
+                            color: '#fff',
+                            fontSize: '0.88rem',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {extractedMeta.title}
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: '#4ade80',
+                          fontWeight: 700,
+                          background: 'rgba(74, 222, 128, 0.15)',
+                          border: '1px solid rgba(74, 222, 128, 0.3)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          ✓ Đã điền vào kịch bản
+                        </span>
+                      </div>
+
+                      {/* Danh sách ảnh & video trích xuất được từ bài báo */}
+                      {Array.isArray(extractedMeta.media) && extractedMeta.media.length > 0 && (
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          borderTop: '1px solid rgba(56, 189, 248, 0.2)',
+                          paddingTop: '8px'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.75rem',
+                            color: '#cbd5e1'
+                          }}>
+                            <span>📸 <strong>{extractedMeta.media.length} ảnh & video gốc</strong> sẵn sàng làm nguyên liệu video:</span>
+                            <span style={{ color: '#38bdf8', fontSize: '0.72rem' }}>Tự động gán vào các cảnh khi tạo video</span>
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            overflowX: 'auto',
+                            paddingBottom: '4px'
+                          }}>
+                            {extractedMeta.media.map((item, mIdx) => (
+                              <div
+                                key={mIdx}
+                                title={item.caption || item.alt || `Media ${mIdx + 1}`}
+                                style={{
+                                  position: 'relative',
+                                  flexShrink: 0,
+                                  width: '84px',
+                                  height: '56px',
+                                  borderRadius: '6px',
+                                  overflow: 'hidden',
+                                  border: '1px solid rgba(255,255,255,0.15)',
+                                  background: '#0f172a'
+                                }}
+                              >
+                                {item.type === 'video' ? (
+                                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+                                    🎬 Video
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={item.url}
+                                    alt={item.alt || ''}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    loading="lazy"
+                                  />
+                                )}
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '2px',
+                                  left: '2px',
+                                  background: 'rgba(0,0,0,0.7)',
+                                  color: '#fff',
+                                  fontSize: '0.62rem',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px',
+                                  fontWeight: 700
+                                }}>
+                                  #{mIdx + 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : field.type === 'select' ? (
                 <select
                   className="form-control"

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ColorPickerPopover from './ColorPickerPopover';
 import PexelsMediaPickerModal from './PexelsMediaPickerModal';
+import ArticleMediaPickerModal from './ArticleMediaPickerModal';
 import sceneStyles from './VideoEditorSceneList.module.css';
 import { showToast } from '../Toast.js';
 
@@ -651,6 +652,8 @@ export default function VideoEditorPanel({
   result = {},
   activeSceneIndex = 0,
   onSceneIndexChange,
+  imageVersion: propImageVersion,
+  onImageVersionChange,
   selectedElement = 'none',
   onSelectedElementChange,
   onUpdateRenderConfig,
@@ -890,13 +893,53 @@ export default function VideoEditorPanel({
   // Upload ảnh/video mới trực tiếp cho cảnh
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadMsg, setImageUploadMsg] = useState('');
-  const [imageVersion, setImageVersion] = useState(0);
+  const [localImageVersion, setLocalImageVersion] = useState(0);
+  const imageVersion = propImageVersion !== undefined ? propImageVersion : localImageVersion;
+  const bumpImageVersion = useCallback((newVer = Date.now()) => {
+    setLocalImageVersion(newVer);
+    onImageVersionChange?.(newVer);
+  }, [onImageVersionChange]);
   const [uploadTargetSceneIndex, setUploadTargetSceneIndex] = useState(null);
   const fileInputRef = useRef(null);
 
   // Modal Pexels Picker
   const [pexelsPickerOpen, setPexelsPickerOpen] = useState(false);
   const [pexelsTargetSceneIndex, setPexelsTargetSceneIndex] = useState(null);
+
+  // Modal Kho Ảnh & Video Trích Xuất Từ Bài Báo
+  const [articlePickerOpen, setArticlePickerOpen] = useState(false);
+  const [articleTargetSceneIndex, setArticleTargetSceneIndex] = useState(null);
+
+  const hasArticleSource = Boolean(
+    (Array.isArray(result?.articleMedia) && result.articleMedia.length > 0) ||
+    result?.input?.articleUrl ||
+    result?.category === 'article_news_stick_figure'
+  );
+
+  const handleOpenArticleMediaForScene = (targetIdx) => {
+    setArticleTargetSceneIndex(targetIdx);
+    setArticlePickerOpen(true);
+  };
+
+  const handleArticleMediaApplied = (savedFiles) => {
+    bumpImageVersion();
+    if (checkAssets) checkAssets();
+    onHistoryRefresh?.();
+    if (Array.isArray(savedFiles) && savedFiles.length > 0) {
+      const savedMap = new Map(savedFiles.map(f => [Number(f.sceneNum), f]));
+      const updated = segments.map(s => {
+        const found = savedMap.get(Number(s.segmentNumber));
+        if (found) {
+          return { ...s, mediaType: found.type, mediaFile: found.filename };
+        }
+        return s;
+      });
+      onResult?.({
+        ...result,
+        segments: updated
+      });
+    }
+  };
 
   // Đồng bộ form khi đổi cảnh
   useEffect(() => {
@@ -1104,7 +1147,7 @@ export default function VideoEditorPanel({
             const successMsg = `✓ Đã cập nhật ${isVid ? 'video' : 'ảnh'} Cảnh ${targetIdx + 1} thành công!`;
             setImageUploadMsg(successMsg);
             showToast?.success?.(successMsg);
-            setImageVersion(Date.now());
+            bumpImageVersion();
             if (checkAssets) checkAssets();
             onHistoryRefresh?.();
             const updated = segments.map((s, i) => i === targetIdx ? { ...s, mediaType: isVid ? 'video' : 'image', mediaFile: targetFilename } : s);
@@ -1143,7 +1186,7 @@ export default function VideoEditorPanel({
   };
 
   const handlePexelsApplied = ({ sceneNumber, mediaType, filename }) => {
-    setImageVersion(Date.now());
+    bumpImageVersion();
     if (checkAssets) checkAssets();
     onHistoryRefresh?.();
     const updated = segments.map(s => {
@@ -1205,13 +1248,17 @@ export default function VideoEditorPanel({
       ...targetSeg,
       segmentNumber: segNum,
       visualDescription: promptText,
-      textPrompt: promptText
+      textPrompt: promptText,
+      status: 'pending',
+      hasImage: false
     };
 
     window.postMessage({
       type: 'START_FLOW_GENERATION',
       segments: [singleSegment],
-      title: result?.title || 'Single Scene Flow',
+      title: (result?.title || 'Single Scene Flow').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim(),
+      isSingleScene: true,
+      singleSceneNumber: segNum,
       isImage: true,
       folderPath: result?.input?.folderPath || 'example',
       imageExt: result?.input?.imageExt || 'jpg',
@@ -1505,130 +1552,6 @@ export default function VideoEditorPanel({
           ======================================================== */}
         {currentTab === 'image' && (
           <div className="scrollable-col" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Section: Thay thế ảnh & Google Flow của cảnh hiện tại */}
-            <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span>🖼️</span> <span>Ảnh Cảnh {activeSceneIndex + 1}</span>
-                </span>
-                {isUploadingImage && (uploadTargetSceneIndex === null || uploadTargetSceneIndex === activeSceneIndex) && (
-                  <span style={{ fontSize: '0.66rem', color: '#ffb300', fontWeight: 600 }}>
-                    ⏳ Đang lưu...
-                  </span>
-                )}
-              </div>
-
-              {/* Thumbnail preview + action buttons */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                <div
-                  style={{
-                    width: '56px',
-                    height: '80px',
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    background: '#151515',
-                    border: '1px solid #383838',
-                    flexShrink: 0,
-                    position: 'relative'
-                  }}
-                >
-                  {currentImgSrc ? (
-                    <img src={currentImgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => (e.currentTarget.style.display = 'none')} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', color: '#555' }}>
-                      🎬
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleTriggerUploadImage(activeSceneIndex)}
-                    disabled={isUploadingImage}
-                    className="capcut-btn-secondary"
-                    style={{ width: '100%', padding: '6px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
-                  >
-                    <span>📁</span>
-                    <span>Thay thế ảnh từ máy</span>
-                  </button>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateFlowForScene(activeSceneIndex)}
-                      style={{
-                        padding: '5px 8px',
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        borderRadius: '5px',
-                        border: '1px solid rgba(0, 229, 255, 0.4)',
-                        background: 'linear-gradient(135deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 150, 255, 0.25) 100%)',
-                        color: '#00e5ff',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px'
-                      }}
-                      title="Tạo lại ảnh cảnh này với Google Flow"
-                    >
-                      <span>🚀</span>
-                      <span>Tạo với Flow</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleCopyPrompt(activeSceneIndex)}
-                      className="capcut-btn-secondary"
-                      style={{ padding: '5px 8px', fontSize: '0.68rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
-                      title="Sao chép prompt mô tả hình ảnh"
-                    >
-                      <span>📋</span>
-                      <span>Copy</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Prompt mô tả ảnh cảnh này */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.66rem', color: '#888' }}>
-                    Prompt mô tả hình ảnh:
-                  </span>
-                  {getScenePrompt(currentSegment, activeSceneIndex) !== getSceneDefaultPrompt(currentSegment) && (
-                    <button
-                      type="button"
-                      onClick={() => handleSaveVisualPrompt(activeSceneIndex)}
-                      disabled={isSavingVisualPrompt}
-                      style={{ background: 'none', border: 'none', color: '#00e5ff', fontSize: '0.65rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                    >
-                      {isSavingVisualPrompt ? 'Đang lưu...' : 'Lưu prompt'}
-                    </button>
-                  )}
-                </div>
-                <textarea
-                  rows={2}
-                  value={getScenePrompt(currentSegment, activeSceneIndex)}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCurrentVisualPromptDraft(val);
-                    setScenePromptDrafts(prev => ({ ...prev, [activeSceneIndex]: val }));
-                  }}
-                  placeholder="Mô tả hình ảnh cho cảnh này..."
-                  className="capcut-input"
-                  style={{ width: '100%', padding: '5px 8px', fontSize: '0.7rem', lineHeight: 1.35, resize: 'vertical', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              {imageUploadMsg && (
-                <div style={{ marginTop: '6px', fontSize: '0.68rem', color: imageUploadMsg.startsWith('✓') ? '#00e5ff' : imageUploadMsg.startsWith('🚀') ? '#69f0ae' : '#ffb300', textAlign: 'center', fontWeight: 600 }}>
-                  {imageUploadMsg}
-                </div>
-              )}
-            </div>
-
             {/* Section: Transform (Chuẩn CapCut Image 2) */}
             <div className="capcut-card" style={CAPCUT_CARD_STYLE}>
               <CapCutSectionHeader
@@ -2698,6 +2621,26 @@ export default function VideoEditorPanel({
                         {filter.label}
                       </button>
                     ))}
+                    {hasArticleSource && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenArticleMediaForScene(activeSceneIndex)}
+                        className={sceneStyles.filterButton}
+                        style={{
+                          background: 'rgba(14, 165, 233, 0.15)',
+                          borderColor: 'rgba(56, 189, 248, 0.4)',
+                          color: '#38bdf8',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Xem kho ảnh và video trích xuất từ bài báo gốc"
+                      >
+                        <span>📰</span>
+                        <span>Ảnh bài báo</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2757,30 +2700,6 @@ export default function VideoEditorPanel({
                             background: '#151515'
                           }}
                         >
-                          {/* Badge loại media ở góc trên trái */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              top: '4px',
-                              left: '4px',
-                              background: isVideo ? 'rgba(0, 119, 255, 0.85)' : 'rgba(0, 0, 0, 0.72)',
-                              backdropFilter: 'blur(4px)',
-                              border: isVideo ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.2)',
-                              borderRadius: '4px',
-                              padding: '1px 5px',
-                              fontSize: '0.58rem',
-                              fontWeight: 800,
-                              color: isVideo ? '#00e5ff' : '#eee',
-                              zIndex: 2,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '2px'
-                            }}
-                          >
-                            <span>{isVideo ? '🎥' : '🖼️'}</span>
-                            <span>{isVideo ? 'Video' : 'Ảnh'}</span>
-                          </div>
-
                           {thumb ? (
                             isVideo ? (
                               <video
@@ -2808,37 +2727,6 @@ export default function VideoEditorPanel({
                               <span style={{ fontSize: '0.62rem', color: '#888' }}>{isVideo ? 'Chưa có video' : 'Chưa có ảnh'}</span>
                             </div>
                           )}
-                          {/* Nút Đổi ảnh nhanh trên Thumbnail */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTriggerUploadImage(idx);
-                            }}
-                            style={{
-                              position: 'absolute',
-                              top: '4px',
-                              right: '4px',
-                              background: 'rgba(0, 0, 0, 0.72)',
-                              backdropFilter: 'blur(4px)',
-                              border: '1px solid rgba(255, 255, 255, 0.25)',
-                              borderRadius: '4px',
-                              padding: '2px 5px',
-                              fontSize: '0.62rem',
-                              fontWeight: 700,
-                              color: '#fff',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                              transition: 'all 0.15s ease'
-                            }}
-                            title="Thay thế ảnh cảnh này (Upload từ máy)"
-                          >
-                            <span>📷</span>
-                            <span>Đổi</span>
-                          </button>
                           {/* Huy hiệu số cảnh góc dưới */}
                           <div
                             style={{
@@ -2960,6 +2848,21 @@ export default function VideoEditorPanel({
                             >
                               <span>🍀</span><span>Tìm Pexels</span>
                             </button>
+                            {hasArticleSource && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenArticleMediaForScene(idx)}
+                                className={sceneStyles.mediaAction}
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  borderColor: 'rgba(56, 189, 248, 0.4)',
+                                  color: '#38bdf8'
+                                }}
+                                title="Chọn ảnh hoặc video từ bài báo gốc"
+                              >
+                                <span>📰</span><span>Ảnh báo</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleGenerateFlowForScene(idx)}
@@ -3445,6 +3348,25 @@ export default function VideoEditorPanel({
             sceneDuration={pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.durationSeconds || 5) : (currentSegment?.durationSeconds || 5)}
             sceneAudioFile={assetCounts?.audioFiles?.[pexelsTargetSceneIndex !== null ? (segments[pexelsTargetSceneIndex]?.segmentNumber || pexelsTargetSceneIndex + 1) : currentSceneNumber] || ''}
             onApplied={handlePexelsApplied}
+            showToast={showToast}
+          />
+        )}
+
+        {/* Modal Kho Ảnh & Video Trích Xuất Từ Bài Báo */}
+        {articlePickerOpen && (
+          <ArticleMediaPickerModal
+            key={`article-media-scene-${articleTargetSceneIndex ?? activeSceneIndex}`}
+            isOpen
+            onClose={() => {
+              setArticlePickerOpen(false);
+              setArticleTargetSceneIndex(null);
+            }}
+            folderPath={folderPath}
+            category={category}
+            sceneNumber={articleTargetSceneIndex !== null ? (segments[articleTargetSceneIndex]?.segmentNumber || articleTargetSceneIndex + 1) : (activeSceneIndex + 1)}
+            articleUrl={result?.input?.articleUrl || ''}
+            preloadedMedia={result?.articleMedia || []}
+            onApplied={handleArticleMediaApplied}
             showToast={showToast}
           />
         )}

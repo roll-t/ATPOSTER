@@ -11,6 +11,8 @@ let lastProjectCreateAttemptAt = 0;
 let dashboardCheckInterval = null;
 let submissionInFlight = false;
 const PROMPT_TARGET_ATTRIBUTE = 'data-nexora-flow-prompt-target';
+const FLOW_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+const FLOW_DOWNLOAD_TIMEOUT_MS = 4 * 60 * 1000;
 
 // Timer của tab nền có thể bị Chrome dồn xuống một nhịp/phút. MutationObserver vẫn thức ngay khi
 // Flow chèn ảnh hoặc gỡ loader, nên dùng DOM làm tín hiệu chính và timer chỉ làm fallback.
@@ -394,7 +396,9 @@ async function runSegmentViaDebugger(segment, callback) {
     freshInput.setAttribute(PROMPT_TARGET_ATTRIBUTE, targetToken);
 
     // Chụp lại các ảnh đang có TRƯỚC khi gửi, để sau này biết ảnh nào là ảnh MỚI Flow vừa vẽ ra
-    const baselineSrcs = snapshotImageSrcs();
+    // Chụp cả ảnh lẫn video hiện có. Với hàng đợi video, đây là mốc bắt buộc để clip thứ 2+
+    // không tải nhầm lại thẻ <video> của clip trước vẫn còn nằm trong canvas Flow.
+    const baselineSrcs = snapshotGeneratedMedia();
     const baselineErrorCount = getPolicyErrorNodes().length;
 
     // Đồng hồ canh chết: service worker MV3 có thể bị Chrome tắt ngay giữa lượt gửi, khi đó
@@ -444,7 +448,16 @@ async function runSegmentViaDebugger(segment, callback) {
 }
 
 // Theo dõi tiến trình sinh ảnh/video của Flow rồi tự động tải kết quả về khi xong
-async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = false, runId = null, baselineErrorCount = 0, attempt = 0) {
+async function waitForCompletionAndDownload(
+  segment,
+  baselineSrcs,
+  isAuto = false,
+  runId = null,
+  baselineErrorCount = 0,
+  attempt = 0,
+  generationStartedAt = Date.now(),
+  downloadStartedAt = null
+) {
   // Nếu extension đã được reload (context cũ đã chết), dừng lại ngay - không thử gọi
   // chrome.runtime/chrome.storage nữa để tránh ném lỗi "Extension context invalidated"
   // và (quan trọng nhất) để KHÔNG bỏ segment này ở trạng thái "processing" kẹt vĩnh viễn
@@ -490,11 +503,15 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
 
   // Nếu là chế độ hình ảnh, kiểm tra xem đã xuất hiện ảnh MỚI hoàn chỉnh hay chưa
   let readyImages = null;
+  let readyVideos = null;
   if (queue && queue.isImage) {
     const newImages = findNewGeneratedImages(baselineSrcs, allElements);
     readyImages = newImages; // Giữ lại đúng danh sách này để tải, tránh quét lại DOM 1 lần nữa bên dưới
     if (newImages.length === 0) {
-      if (attempt > 80) { // ~4 phút, tránh treo vô hạn nếu Flow lỗi
+      // MutationObserver có thể đánh thức vòng chờ hàng chục lần trong vài giây khi
+      // Flow cập nhật progress UI. Timeout phải dựa trên thời gian thực, không dựa trên
+      // `attempt`, nếu không video/ảnh đang tạo bình thường cũng bị báo hết giờ sớm.
+      if (Date.now() - generationStartedAt >= FLOW_GENERATION_TIMEOUT_MS) {
         // 'error' chứ KHÔNG phải 'completed': hết giờ nghĩa là không có tấm ảnh nào cả. Đánh dấu
         // completed làm phân đoạn biến mất khỏi danh sách còn thiếu, người dùng chỉ phát hiện ra
         // khi render video và thấy trống một cảnh — lúc đó rất khó lần ngược lại.
@@ -505,13 +522,35 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
         }
         return;
       }
-      scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
+      scheduleFlowCheck(() => waitForCompletionAndDownload(
+        segment,
+        baselineSrcs,
+        isAuto,
+        runId,
+        baselineErrorCount,
+        attempt + 1,
+        generationStartedAt,
+        downloadStartedAt
+      ));
       return;
     }
   } else {
-    // Nếu là chế độ video, dựa vào các chỉ báo loader để chờ xong
-    if (isGeneratingVideo(allElements)) {
-      if (attempt > 80) { // ~4 phút, tránh treo vô hạn nếu Flow lỗi
+    // Video MỚI đã decode được ít nhất một frame là tín hiệu hoàn thành đáng tin cậy nhất. Không
+    // được bắt buộc toàn trang phải hết loader: Flow giữ một số progressbar/spinner ẩn hoặc dùng
+    // cho thumbnail khác ngay cả khi clip hiện tại đã xong, khiến hàng đợi mắc kẹt "Đang vẽ" mãi.
+    // Loader chỉ có ý nghĩa trong thời gian CHƯA tìm thấy video mới.
+    readyVideos = findNewGeneratedVideos(baselineSrcs, allElements);
+    if (readyVideos.length === 0) {
+      const pageStillGenerating = isGeneratingVideo(allElements);
+      if (attempt === 0 || attempt % 10 === 0) {
+        console.log(
+          '[Flow Helper] Chưa thấy video mới sẵn sàng cho phân đoạn',
+          segment.segmentNumber,
+          '- Flow còn loader:',
+          pageStillGenerating
+        );
+      }
+      if (Date.now() - generationStartedAt >= FLOW_GENERATION_TIMEOUT_MS) {
         console.warn('[Flow Helper] Quá thời gian chờ tạo video cho phân đoạn', segment.segmentNumber, '- đánh dấu lỗi.');
         failSegment(segment.segmentNumber, 'Quá thời gian chờ Flow tạo video');
         if (isAuto && autoRun && runId === currentRunId) {
@@ -519,13 +558,28 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
         }
         return;
       }
-      scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
+      scheduleFlowCheck(() => waitForCompletionAndDownload(
+        segment,
+        baselineSrcs,
+        isAuto,
+        runId,
+        baselineErrorCount,
+        attempt + 1,
+        generationStartedAt,
+        downloadStartedAt
+      ));
       return;
     }
   }
 
   console.log('[Flow Helper] Phân đoạn', segment.segmentNumber, 'đã tạo xong. Đang tải kết quả...');
-  const downloaded = await triggerDownload(segment, baselineSrcs, readyImages);
+  if (queue && !queue.isImage) {
+    // Tách trạng thái tải khỏi "processing" để side panel không còn báo "Đang vẽ video" trong
+    // lúc Flow đã render xong và extension đang chuyển blob/ghi MP4 xuống Downloads.
+    updateSegmentStatus(segment.segmentNumber, 'downloading');
+  }
+  const activeDownloadStartedAt = downloadStartedAt || Date.now();
+  const downloaded = await triggerDownload(segment, baselineSrcs, readyImages, readyVideos);
 
   if (downloaded) {
     updateSegmentStatus(segment.segmentNumber, 'completed');
@@ -536,7 +590,9 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
     }
   } else {
     console.warn('[Flow Helper] Tải kết quả chưa thành công (ảnh đen/trống hoặc chưa sẵn sàng). Thử lại...');
-    if (attempt > 80) {
+    // Tải file có đồng hồ riêng: thời gian Flow render không được làm giai đoạn
+    // download hết hạn ngay trong lần thử đầu tiên.
+    if (Date.now() - activeDownloadStartedAt >= FLOW_DOWNLOAD_TIMEOUT_MS) {
       console.warn('[Flow Helper] Quá thời gian chờ tải kết quả cho phân đoạn', segment.segmentNumber, '- đánh dấu lỗi.');
       failSegment(segment.segmentNumber, 'Tải kết quả thất bại (ảnh đen/trống hoặc lưu lỗi)');
       if (isAuto && autoRun && runId === currentRunId) {
@@ -544,7 +600,16 @@ async function waitForCompletionAndDownload(segment, baselineSrcs, isAuto = fals
       }
       return;
     }
-    scheduleFlowCheck(() => waitForCompletionAndDownload(segment, baselineSrcs, isAuto, runId, baselineErrorCount, attempt + 1));
+    scheduleFlowCheck(() => waitForCompletionAndDownload(
+      segment,
+      baselineSrcs,
+      isAuto,
+      runId,
+      baselineErrorCount,
+      attempt + 1,
+      generationStartedAt,
+      activeDownloadStartedAt
+    ));
   }
 }
 
@@ -579,6 +644,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return true; // Giữ kênh tin nhắn bất đồng bộ
+  }
+
+  // Khôi phục một lượt mà Flow đã render xong nhưng extension cũ bị kẹt ở "Đang vẽ". Người dùng
+  // chủ động bấm "Tải video hiện có" trong side panel; không gửi lại prompt nên không tốn credit.
+  if (message.action === 'DOWNLOAD_CURRENT_VIDEO') {
+    const idx = Number(message.index);
+    chrome.storage.local.get(['flowQueue'], async (result) => {
+      try {
+        if (!result.flowQueue || !result.flowQueue.segments?.[idx]) {
+          sendResponse({ success: false, error: 'no_segment' });
+          return;
+        }
+        queue = result.flowQueue;
+        const segment = queue.segments[idx];
+        const videos = findNewGeneratedVideos(null);
+        if (videos.length === 0) {
+          sendResponse({ success: false, error: 'Không tìm thấy video đã hoàn thành trên trang Flow' });
+          return;
+        }
+        updateSegmentStatus(segment.segmentNumber, 'downloading');
+        const downloaded = await triggerDownload(segment, null, null, videos);
+        if (downloaded) {
+          updateSegmentStatus(segment.segmentNumber, 'completed');
+          sendResponse({ success: true });
+        } else {
+          failSegment(segment.segmentNumber, 'Không tải được video hiện có');
+          sendResponse({ success: false, error: 'Không tải được video hiện có' });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: String(error?.message || error) });
+      }
+    });
+    return true;
   }
 });
 
@@ -658,7 +756,7 @@ function getProjectFolder() {
   return `AutoPoster_Flow/${sanitizeFilename(queue.title)}`;
 }
 
-// Chụp lại danh sách các ảnh (đủ lớn, không phải icon) đang có trên trang, dùng làm mốc so sánh
+// Chụp lại danh sách media đang có trên trang, dùng làm mốc so sánh
 // để nhận diện ảnh MỚI được Flow sinh ra sau khi bấm Tạo (tránh tải nhầm ảnh tham chiếu có sẵn
 // trong dự án). Chụp CẢ src (chuỗi) LẪN chính element DOM (qua WeakSet) - lý do: nếu dự án đã có
 // sẵn nhiều ảnh cũ (nhiều phân đoạn trước đó), khi Flow render lại danh sách kết quả sau khi có
@@ -668,13 +766,22 @@ function getProjectFolder() {
 // của "dự án khác"/lượt tạo trước, dù người dùng chỉ vừa tạo 1 ảnh). Một ảnh chỉ được coi là THẬT
 // SỰ mới khi cả (a) src của nó chưa từng thấy trước đó VÀ (b) chính thẻ <img> đó cũng là 1 DOM
 // node mới (không có trong tập element đã chụp trước khi gửi lệnh tạo).
-function snapshotImageSrcs(allElements) {
+function snapshotGeneratedMedia(allElements) {
   const srcSet = new Set();
   const elSet = new WeakSet();
   const srcByElement = new WeakMap();
+  const videoSrcSet = new Set();
+  const videoElSet = new WeakSet();
+  const videoSrcByElement = new WeakMap();
   for (const el of (allElements || collectAllElements(document.body))) {
-    if (el.tagName !== 'IMG') continue;
     const src = el.currentSrc || el.src || '';
+    if (el.tagName === 'VIDEO' && src) {
+      videoSrcSet.add(src);
+      videoElSet.add(el);
+      videoSrcByElement.set(el, src);
+      continue;
+    }
+    if (el.tagName !== 'IMG') continue;
     // Chụp mọi IMG, kể cả placeholder chưa decode/kích thước 0. Nếu chỉ chụp ảnh đã lớn thì ảnh
     // cũ vừa load chậm sẽ bị nhận nhầm thành kết quả đầu tiên của prompt mới.
     if (src) {
@@ -683,7 +790,44 @@ function snapshotImageSrcs(allElements) {
       srcByElement.set(el, src);
     }
   }
-  return { srcSet, elSet, srcByElement };
+  return { srcSet, elSet, srcByElement, videoSrcSet, videoElSet, videoSrcByElement };
+}
+
+function findNewGeneratedVideos(baseline, allElements) {
+  const srcSet = baseline?.videoSrcSet;
+  const elSet = baseline?.videoElSet;
+  const srcByElement = baseline?.videoSrcByElement;
+  const found = [];
+  const seenThisPass = new Set();
+
+  for (const el of (allElements || collectAllElements(document.body))) {
+    if (el.tagName !== 'VIDEO') continue;
+    const src = el.currentSrc || el.src || '';
+    const srcIsNew = !(srcSet && srcSet.has(src));
+    const elIsNew = !(elSet && elSet.has(el));
+    const reusedWithNewSrc = Boolean(srcByElement && srcByElement.get(el) && srcByElement.get(el) !== src);
+    const hasDecodedFrame = el.readyState >= 2 && (el.videoWidth || 0) > 0 && (el.videoHeight || 0) > 0;
+    // Không đòi element phải đang nằm trong viewport. Flow có thể chuyển clip vừa xong sang một
+    // panel/lưới bị khuất khi side panel extension mở; video vẫn hoàn chỉnh và tải được bình thường.
+    if (src && hasDecodedFrame && srcIsNew && (elIsNew || reusedWithNewSrc) && !seenThisPass.has(src)) {
+      seenThisPass.add(src);
+      found.push(el);
+    }
+  }
+
+  // Ưu tiên video đang hiển thị, sau đó mới theo vị trí trên-trái. Nếu Flow trả nhiều biến thể,
+  // lựa chọn này vẫn lấy đúng kết quả chính đang được người dùng nhìn thấy.
+  found.sort((a, b) => {
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    const aVisible = ar.width > 0 && ar.height > 0 && ar.bottom > 0 && ar.right > 0;
+    const bVisible = br.width > 0 && br.height > 0 && br.bottom > 0 && br.right > 0;
+    if (aVisible !== bVisible) return aVisible ? -1 : 1;
+    const areaDelta = (br.width * br.height) - (ar.width * ar.height);
+    if (areaDelta !== 0) return areaDelta;
+    return (ar.top - br.top) || (ar.left - br.left);
+  });
+  return found;
 }
 
 function findNewGeneratedImages(baseline, allElements) {
@@ -943,9 +1087,27 @@ async function downloadResultUrl(src, filename) {
       return response.success === true;
     } else {
       // Chế độ video hoặc tệp khác thì vẫn tải qua download manager truyền thống, cũng đợi
-      // phản hồi thật (downloadId) trước khi coi là thành công, cùng lý do như trên.
+      // phản hồi thật (downloadId) trước khi coi là thành công, cùng lý do như trên. Blob URL
+      // thuộc riêng tab Flow nên service worker không đọc được; đổi sang data URL ngay trong tab.
+      let downloadUrl = src;
+      if (src.startsWith('blob:')) {
+        try {
+          const res = await fetch(src);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          downloadUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('Không đọc được blob video'));
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          console.error('[Flow Helper] Không chuyển được blob video để tải:', error);
+          return false;
+        }
+      }
       const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url: src, filename, conflictAction: 'overwrite' }, (res) => {
+        chrome.runtime.sendMessage({ action: 'DOWNLOAD_FILE', url: downloadUrl, filename, conflictAction: 'overwrite' }, (res) => {
           if (chrome.runtime.lastError) {
             resolve({ success: false, error: chrome.runtime.lastError.message });
           } else {
@@ -965,8 +1127,9 @@ async function downloadResultUrl(src, filename) {
 // manifest.json lưu chung thư mục với kết quả, để dễ quản lý/đối chiếu sau này.
 function saveManifest() {
   if (!queue) return;
+  const cleanTitle = (queue.title || '').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim();
   const manifest = {
-    title: queue.title,
+    title: cleanTitle,
     isImage: queue.isImage,
     category: queue.category || '',
     orientation: queue.orientation === 'landscape' ? 'landscape' : 'portrait',
@@ -1141,7 +1304,7 @@ function isGeneratingVideo(allElements) {
 // Tải kết quả (ảnh hoặc video) vừa được Flow tạo ra cho 1 phân đoạn về máy,
 // đặt tên file theo số thứ tự phân đoạn + gộp chung vào 1 thư mục theo tên kịch bản,
 // đồng thời cập nhật manifest.json để đối chiếu ngược lại với dữ liệu đầu vào (prompt/lời thoại).
-async function triggerDownload(segment, baselineSrcs, precomputedNewImages = null) {
+async function triggerDownload(segment, baselineSrcs, precomputedNewImages = null, precomputedNewVideos = null) {
   if (!queue || !segment) return false;
 
   const folder = queue.folderPath || 'example';
@@ -1236,14 +1399,17 @@ async function triggerDownload(segment, baselineSrcs, precomputedNewImages = nul
     }
   }
 
-  // Chế độ video: tìm thẻ <video> vừa render kết quả
-  const videoEl = findElementInShadows(document.body, (el) => el.tagName === 'VIDEO');
-  if (videoEl && videoEl.src) {
-    const filename = `${folder}/scene-${paddedNum}.mp4`;
-    const ok = await downloadResultUrl(videoEl.src, filename);
+  // Chế độ video: chỉ lấy thẻ mới xuất hiện sau lần gửi prompt, không lấy video đầu tiên trên
+  // trang vì canvas vẫn giữ lại kết quả của các clip trước.
+  const videoEl = (precomputedNewVideos || findNewGeneratedVideos(baselineSrcs))[0];
+  const videoSrc = videoEl && (videoEl.currentSrc || videoEl.src);
+  if (videoSrc) {
+    const baseName = segment.outputFilename || `scene-${paddedNum}`;
+    const filename = `${folder}/${baseName}.mp4`;
+    const ok = await downloadResultUrl(videoSrc, filename);
     if (ok) {
       console.log('[Flow Helper] Đã tải video:', filename);
-      recordDownloadedFile({ src: videoEl.src, filename });
+      recordDownloadedFile({ src: videoSrc, filename });
       saveQueueState();
       saveManifest();
       return true;
@@ -1313,7 +1479,7 @@ async function runAutoLoop(runId) {
       action: 'SHOW_SYSTEM_NOTIFICATION',
       payload: {
         title: 'Nexora Video Google Flow',
-        message: `🎉 Đã hoàn tất tự động sinh ảnh cho kịch bản: "${queue ? queue.title : ''}"!`
+        message: `🎉 Đã hoàn tất tự động sinh ${queue?.isImage ? 'ảnh' : 'video'} cho kịch bản: "${queue ? queue.title : ''}"!`
       }
     }, (response) => {
       const err = chrome.runtime.lastError;

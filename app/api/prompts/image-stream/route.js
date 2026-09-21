@@ -121,7 +121,7 @@ export async function GET(request) {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': String(chunkSize),
-          'Cache-Control': 'public, max-age=86400'
+          'Cache-Control': 'no-cache, must-revalidate'
         }
       });
     }
@@ -132,7 +132,7 @@ export async function GET(request) {
         'Content-Type': contentType,
         'Content-Length': String(fileSize),
         ...(isPlayableMedia ? { 'Accept-Ranges': 'bytes' } : {}),
-        'Cache-Control': 'public, max-age=86400'
+        'Cache-Control': 'no-cache, must-revalidate'
       }
     });
   } catch (err) {

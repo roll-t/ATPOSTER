@@ -6,6 +6,7 @@ import { bgMusicTrackLabel } from './constants.js';
 export default function ProductionAssetsSteps({ controller }) {
   const {
     isPexelsTalkVideo, result, isExternalVoiceSkill, assetCounts, flowStatus,
+    expectedImageCount,
     isOpeningImages, handleOpenImagesFolder, openImagesError, pushToFlow,
     flowButtonLabel, renderBgMusicEnabled, selectedBgMusicTrackId, bgMusicLibrary,
     renderBgMusicVolume, isRenderingVideo, isGeneratingVoice, setShowBgMusicModal,
@@ -14,15 +15,15 @@ export default function ProductionAssetsSteps({ controller }) {
   return <>
                 {/* Bước 2: Sinh & tải ảnh — ẩn với pexels_talk_video */}
                 {!isPexelsTalkVideo && (() => {
-                  const total = result.segments.length;
+                  const total = expectedImageCount || result?.segments?.length || 0;
                   // isStep1Done ở đây là CỬA MỞ của bước này, không phải "đã lồng tiếng xong":
                   // skill lồng tiếng ngoài thì cửa luôn mở (xem isExternalVoiceSkill).
-                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= total;
+                  const isStep1Done = isExternalVoiceSkill || assetCounts.audioCount >= (result?.segments?.length || 0);
                   const completedFlow = flowStatus ? flowStatus.completed : 0;
-                  const isFlowDone = flowStatus && flowStatus.phase === 'completed';
-                  const hasAllImages = assetCounts.imageCount >= total;
-                  const isStep2Done = isFlowDone || hasAllImages;
-                  const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running';
+                  const isFlowDone = flowStatus && flowStatus.phase === 'completed' && flowStatus.total >= total;
+                  const hasAllImages = total > 0 && assetCounts.imageCount >= total;
+                  const isStep2Done = hasAllImages || isFlowDone;
+                  const isStep2Running = !isStep2Done && flowStatus && flowStatus.phase === 'running' && flowStatus.total >= total;
 
                   return (
                     <div className={isStep2Running ? 'running-glow-card' : ''} style={{
@@ -63,7 +64,7 @@ export default function ProductionAssetsSteps({ controller }) {
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
+                            title={assetCounts.imageCount > 0 ? `Mở thư mục chứa ${assetCounts.imageCount}/${total} ảnh đã tải về` : 'Mở thư mục lưu ảnh của dự án'}
                             style={{
                               height: '32px',
                               width: '32px',

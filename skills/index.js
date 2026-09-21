@@ -5,6 +5,7 @@ import pexels_talk_video from './pexels-talk-video/index.js';
 import music_player_video from './music-player-video/index.js';
 import buddhist_wisdom from './buddhist_wisdom/index.js';
 import japanese_history from './japanese_history/index.js';
+import article_news_stick_figure from './article_news_stick_figure/index.js';
 import { videoTypeHandlers } from '../src/application/video-studio/skills/video-types.js';
 
 /**
@@ -18,6 +19,7 @@ const SKILLS = {
   moral_talk_slideshow,
   reading_practice,
   stick_figure_slideshow,
+  article_news_stick_figure,
   pexels_talk_video,
   music_player_video,
   buddhist_wisdom,

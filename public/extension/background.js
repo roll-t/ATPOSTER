@@ -321,30 +321,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'DOWNLOAD_FILE') {
+    let settled = false;
+    let downloadId = null;
+    let timeoutId = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      chrome.downloads.onChanged.removeListener(onDownloadChanged);
+      sendResponse(result);
+    };
+    const onDownloadChanged = (delta) => {
+      if (downloadId === null || delta.id !== downloadId || !delta.state) return;
+      if (delta.state.current === 'complete') {
+        console.log('[Background] Đã tải xong video, ID:', downloadId);
+        finish({ success: true, downloadId });
+      } else if (delta.state.current === 'interrupted') {
+        finish({ success: false, downloadId, error: delta.error?.current || 'Download interrupted' });
+      }
+    };
+    chrome.downloads.onChanged.addListener(onDownloadChanged);
     chrome.downloads.download({
       url: message.url,
       filename: message.filename || 'video.mp4',
       saveAs: false,
       conflictAction: message.conflictAction || 'uniquify'
-    }, (downloadId) => {
+    }, (id) => {
       if (chrome.runtime.lastError) {
         console.error('[Background] Lỗi tải video:', chrome.runtime.lastError.message);
-        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        finish({ success: false, error: chrome.runtime.lastError.message });
+      } else if (typeof id !== 'number') {
+        finish({ success: false, error: 'Chrome không trả về mã tải xuống' });
       } else {
+        downloadId = id;
         console.log('[Background] Đang tải video, ID:', downloadId);
-        sendResponse({ success: true, downloadId });
+        // Giữ segment ở trạng thái processing cho tới khi Chrome xác nhận file đã ghi xong.
+        // Phòng trường hợp sự kiện complete xảy ra rất nhanh trước nhịp tiếp theo, hỏi lại trạng
+        // thái ngay sau khi đã có id.
+        chrome.downloads.search({ id: downloadId }, (items) => {
+          if (chrome.runtime.lastError || settled) return;
+          const item = items && items[0];
+          if (item?.state === 'complete') finish({ success: true, downloadId });
+          else if (item?.state === 'interrupted') finish({ success: false, downloadId, error: item.error || 'Download interrupted' });
+        });
+        timeoutId = setTimeout(() => {
+          finish({ success: false, downloadId, error: 'Quá thời gian chờ Chrome tải video' });
+        }, 10 * 60 * 1000);
       }
     });
     return true;
   }
 
   if (message.action === 'START_QUEUE') {
-    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category, origin } = message.payload;
+    const { segments, title, isImage, folderPath, imageExt, orientation, aspectRatio, category, origin, isSingleScene, singleSceneNumber, autoRun } = message.payload;
     const resolvedFolderPath = folderPath || 'example';
 
     // Lưu vào bộ nhớ cục bộ của extension
     chrome.storage.local.set({
-      autoRunActive: false,
+      autoRunActive: autoRun === true,
       flowQueue: {
         title,
         isImage: isImage === true,
@@ -354,14 +388,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         aspectRatio: aspectRatio || (orientation === 'landscape' ? '16:9' : '9:16'),
         orientation: orientation === 'landscape' ? 'landscape' : 'portrait',
         origin: origin || 'http://localhost:3001',
-        segments: segments.map(s => ({
+        isSingleScene: isSingleScene === true,
+        singleSceneNumber: singleSceneNumber || null,
+        segments: (segments || []).map(s => ({
           ...s,
-          status: 'pending' // pending, processing, completed, error
+          status: (s.status === 'completed' || s.hasImage) ? 'completed' : (s.status || 'pending')
         })),
         createdAt: Date.now()
       }
     }, () => {
-      console.log('[Flow Helper Extension] Đã lưu kịch bản và kích hoạt tự động chạy (AutoRun).');
+      console.log('[Flow Helper Extension] Đã lưu kịch bản. AutoRun:', autoRun === true);
 
       // Luôn mở thẳng trang dashboard gốc và để dashboard tự bấm "Dự án mới" (xem
       // handleDashboardAutoCreate trong content-flow.js) — MỖI lần đẩy đều tạo 1 dự án Flow mới,

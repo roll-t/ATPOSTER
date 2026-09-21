@@ -5,6 +5,8 @@ import { generateSegmentedScript, translateAndExpandInputs, generatePublishMeta 
 import { resolveApiKeys } from '@/src/domain/ai/apiKeys.js';
 import { getSkill } from '@/src/application/video-studio/skills/index.js';
 import { saveLocalPrompt } from '@/src/infrastructure/persistence/localPromptRepository.js';
+import { extractArticleFromUrl } from '@/src/infrastructure/article/articleExtractor.js';
+import { downloadArticleMediaToProject } from '@/src/infrastructure/article/articleMediaDownloader.js';
 
 export async function POST(request) {
   try {
@@ -238,6 +240,36 @@ export async function POST(request) {
     // 1. Tạo thư mục và lưu manifest.json trực tiếp xuống ổ cứng local
     try {
       saveLocalPrompt(record);
+
+      // Tự động tải ảnh/video từ bài báo vào các cảnh đầu tiên nếu có link bài báo
+      const articleUrl = cleanInput?.articleUrl;
+      const preExtractedMedia = cleanInput?.articleMedia;
+      if (articleUrl || (Array.isArray(preExtractedMedia) && preExtractedMedia.length > 0)) {
+        let mediaToDownload = Array.isArray(preExtractedMedia) && preExtractedMedia.length > 0 ? preExtractedMedia : null;
+        if (!mediaToDownload && articleUrl) {
+          try {
+            const extracted = await extractArticleFromUrl(articleUrl);
+            if (Array.isArray(extracted?.media) && extracted.media.length > 0) {
+              mediaToDownload = extracted.media;
+            }
+          } catch (exErr) {
+            console.warn('[API Prompt Generate] Không tự động bóc tách được media từ URL:', exErr.message);
+          }
+        }
+        if (Array.isArray(mediaToDownload) && mediaToDownload.length > 0) {
+          record.articleMedia = mediaToDownload;
+          try {
+            await downloadArticleMediaToProject({
+              folderPath: record.input.folderPath,
+              category: record.category,
+              mediaList: mediaToDownload,
+              referer: articleUrl || undefined,
+            });
+          } catch (dlErr) {
+            console.warn('[API Prompt Generate] Tải media bài báo vào project thất bại:', dlErr.message);
+          }
+        }
+      }
     } catch (saveErr) {
       console.warn('[API Prompt Generate] Cảnh báo lưu local disk:', saveErr.message);
     }

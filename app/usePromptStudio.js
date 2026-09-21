@@ -7,11 +7,25 @@ import { showToast } from './components/Toast.js';
 const categoryKeys = Object.keys(PROMPT_CATEGORIES);
 
 function categoryKeysForType(type) {
-  return ['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'english_quiz', 'stick_figure', 'moral_wisdom', 'english_tips'];
+  return [
+    'buddhist_wisdom',
+    'japanese_history',
+    'stick_figure_slideshow',
+    'article_news_stick_figure',
+    'moral_talk_slideshow',
+    'pexels_talk_video',
+    'reading_practice',
+    'english_quiz',
+    'stick_figure',
+    'moral_wisdom',
+    'english_tips'
+  ];
 }
 
 function emptyInputFor(categoryKey) {
-  const fields = PROMPT_CATEGORIES[categoryKey].fields;
+  const cat = PROMPT_CATEGORIES[categoryKey];
+  if (!cat || !cat.fields) return {};
+  const fields = cat.fields;
   const obj = {};
   fields.forEach(f => {
     if (f.type === 'character-select') {
@@ -137,7 +151,7 @@ export function usePromptStudio(initialCategory) {
   const [settingsMsg, setSettingsMsg] = useState('');
 
   const currentCategory = PROMPT_CATEGORIES[activeCategory];
-  const currentInput = formValues[activeCategory];
+  const currentInput = formValues[activeCategory] || emptyInputFor(activeCategory);
 
   const fetchSettings = async () => {
     try {
@@ -245,14 +259,15 @@ export function usePromptStudio(initialCategory) {
     }
 
     setFormValues(prev => {
-      const nextInput = { ...prev[activeCategory], [key]: value };
+      const prevInput = prev[activeCategory] || emptyInputFor(activeCategory);
+      const nextInput = { ...prevInput, [key]: value };
 
       // Tự động sinh folderPath cho slideshow khi scenario thay đổi.
       //
       // DANH SÁCH TRẮNG — skill nào quên thêm vào đây thì folderPath = undefined, và mọi thao tác
       // ghi/đọc file của nó rơi hết về thư mục dùng chung 'example' (hoặc đứt hẳn ở các chỗ không
       // có fallback). Triệu chứng người dùng thấy: sinh ảnh xong "không lưu được".
-      if (['stick_figure_slideshow', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && key === 'scenario') {
+      if (['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow', 'pexels_talk_video', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && key === 'scenario') {
         if (!isFolderPathUserEdited) {
           nextInput.folderPath = generateDefaultFolderName(value);
         }
@@ -310,7 +325,7 @@ export function usePromptStudio(initialCategory) {
         // và cập nhật thẳng qua setFormValues (không qua handleFieldChange) để
         // không bị đánh dấu thành "đã tự sửa" — lần tạo AI kế tiếp vẫn tiếp tục
         // tự gen theo tiêu đề mới.
-        if (['stick_figure_slideshow', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && useGemini && data.result?.title && !isFolderPathUserEdited) {
+        if (['stick_figure_slideshow', 'article_news_stick_figure', 'moral_talk_slideshow', 'reading_practice', 'buddhist_wisdom', 'japanese_history'].includes(activeCategory) && useGemini && data.result?.title && !isFolderPathUserEdited) {
           const aiFolderName = generateDefaultFolderName(data.result.title);
           setFormValues(prev => ({
             ...prev,

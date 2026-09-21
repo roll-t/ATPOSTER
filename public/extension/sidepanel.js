@@ -39,9 +39,11 @@ const i18n = {
     autoRunInactive: '○ Tự động chạy đang tắt.',
     statusPending: 'Đang chờ',
     statusProcessing: 'Đang vẽ video...',
+    statusDownloading: 'Đang tải video...',
     statusCompleted: 'Đã hoàn thành ✓',
     reset: '[Đặt lại]',
     btnRun: 'Tự chạy',
+    btnDownloadCurrent: '⬇ Tải video hiện có',
     btnCopyText: 'Chép Text',
     btnRecopyText: 'Chép lại',
     btnCopyJson: 'Chép JSON',
@@ -50,6 +52,8 @@ const i18n = {
     toastF5: '❌ Lỗi: Vui lòng F5 lại trang Google Flow!',
     toastOpenFlow: '❌ Hãy mở trang Google Flow trước!',
     toastRunning: (num) => `🚀 Đang tự chạy phân đoạn #${num}...`,
+    toastDownloadingCurrent: (num) => `⬇ Đang tải video hiện có cho phân đoạn #${num}...`,
+    toastDownloadFailed: (error) => `❌ ${error || 'Không tải được video hiện có'}`,
     toastResetSuccess: (num) => `🔄 Đặt lại phân đoạn #${num} thành công!`,
     toastCopyPrompt: (num) => `📋 Đã chép prompt phân đoạn #${num}`,
     toastCopyJson: (num) => `📋 Đã chép JSON phân đoạn #${num}`
@@ -65,9 +69,11 @@ const i18n = {
     autoRunInactive: '○ Auto Run is disabled.',
     statusPending: 'Pending',
     statusProcessing: 'Generating video...',
+    statusDownloading: 'Downloading video...',
     statusCompleted: 'Completed ✓',
     reset: '[Reset]',
     btnRun: 'Run',
+    btnDownloadCurrent: '⬇ Download current video',
     btnCopyText: 'Copy Text',
     btnRecopyText: 'Recopy',
     btnCopyJson: 'Copy JSON',
@@ -76,6 +82,8 @@ const i18n = {
     toastF5: '❌ Error: Please refresh (F5) the Google Flow page!',
     toastOpenFlow: '❌ Please open the Google Flow page first!',
     toastRunning: (num) => `🚀 Running segment #${num} automatically...`,
+    toastDownloadingCurrent: (num) => `⬇ Downloading current video for segment #${num}...`,
+    toastDownloadFailed: (error) => `❌ ${error || 'Could not download the current video'}`,
     toastResetSuccess: (num) => `🔄 Reset segment #${num} successfully!`,
     toastCopyPrompt: (num) => `📋 Copied prompt for segment #${num}`,
     toastCopyJson: (num) => `📋 Copied JSON for segment #${num}`
@@ -146,10 +154,14 @@ function render() {
   const totalCount = queue.segments.length;
   const progressPercent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
+  const displayTitle = queue.isSingleScene
+    ? `${(queue.title || '').replace(/\s*\((?:cảnh|scene)\s*[\d\s,.-]*\)/gi, '').trim()} (Cảnh ${queue.singleSceneNumber || (queue.segments?.[0]?.segmentNumber || 1)})`
+    : queue.title;
+
   // Tiêu đề kịch bản
   let html = `
     <div class="title-label">${t.currentScript}</div>
-    <div class="title-text" title="${queue.title}">${queue.title}</div>
+    <div class="title-text" title="${displayTitle}">${displayTitle}</div>
     
     <div class="control-panel" style="display: flex; flex-direction: column; gap: 8px;">
       <button type="button" id="run-all-btn" style="
@@ -189,6 +201,9 @@ function render() {
     if (seg.status === 'processing') {
       statusText = queue.isImage ? (currentLang === 'vi' ? 'Đang vẽ ảnh...' : 'Generating image...') : t.statusProcessing;
       statusColor = '#f59e0b';
+    } else if (seg.status === 'downloading') {
+      statusText = t.statusDownloading;
+      statusColor = '#38bdf8';
     } else if (seg.status === 'completed') {
       statusText = t.statusCompleted;
       statusColor = '#10b981';
@@ -201,7 +216,7 @@ function render() {
       statusColor = '#ef4444';
     }
 
-    const isProcessing = seg.status === 'processing';
+    const isProcessing = seg.status === 'processing' || seg.status === 'downloading';
     const isCompleted = seg.status === 'completed';
 
     html += `
@@ -220,6 +235,9 @@ function render() {
         </div>
         <div class="btn-group">
           <button class="btn-run" data-index="${idx}" style="background: #0284c7; color: white; margin-bottom: 2px;">${t.btnRun}</button>
+          ${!queue.isImage && isProcessing ? `
+            <button class="btn-download-current" data-index="${idx}" style="background: #0e7490; color: white; margin-bottom: 2px;">${t.btnDownloadCurrent}</button>
+          ` : ''}
           <button class="btn-copy-text ${isCompleted ? 'completed' : ''}" data-index="${idx}">
             ${isCompleted ? t.btnRecopyText : t.btnCopyText}
           </button>
@@ -263,7 +281,7 @@ function render() {
           const updatedQueue = result.flowQueue;
           let changed = false;
           updatedQueue.segments.forEach(s => {
-            if (s.status === 'processing') {
+            if (s.status === 'processing' || s.status === 'downloading') {
               s.status = 'pending';
               changed = true;
             }
@@ -323,6 +341,27 @@ function render() {
             }
           });
         }
+      });
+    };
+  });
+
+  document.querySelectorAll('.btn-download-current').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.getAttribute('data-index'), 10);
+      const seg = queue.segments[idx];
+      withPreferredFlowTab((flowTab) => {
+        if (!flowTab) {
+          showToast(t.toastOpenFlow);
+          return;
+        }
+        showToast(t.toastDownloadingCurrent(seg.segmentNumber));
+        chrome.tabs.sendMessage(flowTab.id, { action: 'DOWNLOAD_CURRENT_VIDEO', index: idx }, (response) => {
+          if (chrome.runtime.lastError) {
+            showToast(t.toastF5);
+          } else if (!response?.success) {
+            showToast(t.toastDownloadFailed(response?.error));
+          }
+        });
       });
     };
   });

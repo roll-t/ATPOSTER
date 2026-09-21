@@ -109,6 +109,130 @@ function StickFigurePreview() {
   );
 }
 
+function ArticleNewsPreview() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: '#0a0f1d',
+      padding: '10px 12px',
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Top Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: '#ef4444',
+            boxShadow: '0 0 8px #ef4444',
+            display: 'inline-block'
+          }} />
+          <span style={{ fontSize: '8.5px', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.6px' }}>
+            BREAKING NEWS
+          </span>
+        </div>
+        <div style={{
+          background: 'rgba(56, 189, 248, 0.2)',
+          border: '1px solid rgba(56, 189, 248, 0.45)',
+          color: '#7dd3fc',
+          fontSize: '8px',
+          fontWeight: 900,
+          padding: '2px 7px',
+          borderRadius: '10px',
+          letterSpacing: '0.4px'
+        }}>
+          LINK → VIDEO
+        </div>
+      </div>
+
+      {/* Center News Graphic */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        margin: '2px 0',
+        zIndex: 2
+      }}>
+        {/* Newspaper Icon */}
+        <div style={{
+          width: '50px',
+          height: '40px',
+          background: '#1e293b',
+          border: '1.5px solid #334155',
+          borderRadius: '6px',
+          padding: '4px 5px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '3px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{ height: '4px', width: '70%', background: '#38bdf8', borderRadius: '2px' }} />
+          <div style={{ height: '3px', width: '100%', background: '#475569', borderRadius: '1.5px' }} />
+          <div style={{ height: '3px', width: '90%', background: '#475569', borderRadius: '1.5px' }} />
+          <div style={{ height: '3px', width: '80%', background: '#475569', borderRadius: '1.5px' }} />
+        </div>
+
+        {/* Stick Figure Reporter */}
+        <svg viewBox="0 0 60 70" style={{ width: '40px', height: '44px' }}>
+          <circle cx="28" cy="16" r="8" stroke="#fff" strokeWidth="2.5" fill="none" />
+          <line x1="28" y1="24" x2="28" y2="48" stroke="#fff" strokeWidth="2.5" />
+          {/* Arm holding mic */}
+          <line x1="28" y1="30" x2="42" y2="34" stroke="#fff" strokeWidth="2.5" />
+          <line x1="42" y1="34" x2="42" y2="28" stroke="#fff" strokeWidth="2.5" />
+          <rect x="39" y="24" width="6" height="6" rx="2" fill="#ef4444" />
+          {/* Other arm */}
+          <line x1="28" y1="30" x2="14" y2="38" stroke="#fff" strokeWidth="2.5" />
+          {/* Legs */}
+          <line x1="28" y1="48" x2="18" y2="66" stroke="#fff" strokeWidth="2.5" />
+          <line x1="28" y1="48" x2="38" y2="66" stroke="#fff" strokeWidth="2.5" />
+        </svg>
+      </div>
+
+      {/* Red News Lower Banner */}
+      <div style={{
+        background: 'linear-gradient(90deg, #dc2626 0%, #b91c1c 100%)',
+        borderRadius: '5px',
+        padding: '3px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        boxShadow: '0 2px 8px rgba(220, 38, 38, 0.4)',
+        zIndex: 2
+      }}>
+        <span style={{
+          fontSize: '7.5px',
+          fontWeight: 900,
+          background: '#fff',
+          color: '#dc2626',
+          padding: '1px 4px',
+          borderRadius: '2px',
+          letterSpacing: '0.4px'
+        }}>
+          TIN TỨC
+        </span>
+        <span style={{
+          fontSize: '8px',
+          fontWeight: 700,
+          color: '#fff',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          Chuyển bài báo thành kịch bản người que...
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ReadingPracticePreview() {
   return (
     <div style={{
@@ -589,6 +713,14 @@ const CARD_CONFIGS = {
     shortDescription: 'Trình chiếu người que 2D đen trắng tối giản kể chuyện đời sống & bài học ý nghĩa.',
     tags: ['🎨 2D Người Que', '📱 9:16 & 💻 16:9', '🎬 Slideshow MP4']
   },
+  article_news_stick_figure: {
+    badge: '📰 BÁO CHÍ & ĐỜI SỐNG',
+    badgeBg: 'linear-gradient(135deg, #0284c7, #2563eb)',
+    accentColor: '#38bdf8',
+    glowColor: 'rgba(56, 189, 248, 0.28)',
+    shortDescription: 'Dán link bài báo, AI tự bóc tách nội dung và chuyển thể thành video người que sinh động.',
+    tags: ['🔗 Link Bài Báo', '🎙️ Phóng Sự Hoạt Họa', '✏️ Người Que 2D']
+  },
   reading_practice: {
     bgImg: '/card-bg/reading_practice.png',
     badge: '📚 CEFR 50 BÀI/LEVEL',
@@ -618,7 +750,7 @@ const CARD_CONFIGS = {
 };
 
 export default function VideoCategoryGrid({ onSelectCategory, onOpenVideos }) {
-  const allCategoryKeys = ['buddhist_wisdom', 'japanese_history', 'stick_figure_slideshow', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
+  const allCategoryKeys = ['buddhist_wisdom', 'japanese_history', 'stick_figure_slideshow', 'article_news_stick_figure', 'reading_practice', 'moral_talk_slideshow', 'pexels_talk_video'].filter(k => PROMPT_CATEGORIES[k]);
   const [videoCount, setVideoCount] = useState(null);
 
   useEffect(() => {
@@ -854,12 +986,13 @@ export default function VideoCategoryGrid({ onSelectCategory, onOpenVideos }) {
                 {key === 'buddhist_wisdom' && <BuddhistWisdomPreview />}
                 {key === 'japanese_history' && <JapaneseHistoryPreview />}
                 {key === 'stick_figure_slideshow' && <StickFigurePreview />}
+                {key === 'article_news_stick_figure' && <ArticleNewsPreview />}
                 {key === 'reading_practice' && <ReadingPracticePreview />}
                 {key === 'moral_talk_slideshow' && <MoralTalkPreview />}
                 {key === 'pexels_talk_video' && <PexelsTalkPreview />}
 
                 {/* Fallback for other potential categories */}
-                {!['buddhist_wisdom','japanese_history','stick_figure_slideshow','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
+                {!['buddhist_wisdom','japanese_history','stick_figure_slideshow','article_news_stick_figure','reading_practice','moral_talk_slideshow','pexels_talk_video'].includes(key) && bgImg && (
                   <div
                     className="card-bg-layer"
                     style={{

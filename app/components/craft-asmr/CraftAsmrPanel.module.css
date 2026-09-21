@@ -1,0 +1,157 @@
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(390px, 0.78fr) minmax(560px, 1.22fr);
+  gap: 18px;
+  align-items: start;
+  padding: 2px 2px 28px;
+}
+
+.pageHeader {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 4px 6px;
+}
+
+.titleGroup,
+.cardTitle,
+.sectionHeading,
+.actionSummary,
+.historyHeader,
+.historySearch,
+.historyMain {
+  display: flex;
+  align-items: center;
+}
+
+.titleIcon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 209, 255, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(0, 209, 255, 0.14), rgba(168, 85, 255, 0.12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-size: 1.25rem;
+}
+
+.titleGroup { gap: 12px; }
+.titleGroup h1 { margin: 2px 0 0; font-size: clamp(1.1rem, 1.5vw, 1.42rem); }
+.eyebrow { color: #67e8f9; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.14em; }
+
+.backButton {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.backButton:hover { color: #fff; border-color: rgba(0, 209, 255, 0.38); background: rgba(0, 209, 255, 0.08); transform: translateX(-2px); }
+
+.formCard,
+.resultCard,
+.historyCard { overflow: hidden; }
+
+.formCard { padding: 0 !important; }
+.formInner { padding: 22px 24px 8px; }
+.cardTitle { align-items: flex-start; gap: 12px; margin-bottom: 22px; }
+.cardTitleIcon { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; background: rgba(168, 85, 255, 0.13); }
+.cardTitle h2 { margin: 0 0 5px; font-size: 1.08rem; }
+.cardTitle p { max-width: 580px; margin: 0; color: var(--text-muted); font-size: 0.76rem; line-height: 1.55; }
+
+.sectionHeading { gap: 10px; margin: 6px 0 14px; }
+.sectionHeading > span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: rgba(0, 209, 255, 0.12); color: #67e8f9; font-size: 0.72rem; font-weight: 800; }
+.sectionHeading strong { display: block; color: rgba(255,255,255,.92); font-size: .77rem; }
+.sectionHeading small { display: block; margin-top: 2px; color: var(--text-muted); font-size: .66rem; }
+
+.suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.suggestion {
+  max-width: 100%; padding: 5px 10px; border: 1px solid rgba(255,255,255,.09); border-radius: 999px;
+  background: rgba(255,255,255,.035); color: rgba(255,255,255,.62); font-size: .68rem; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: 150ms ease;
+}
+.suggestion:hover { color: #fff; border-color: rgba(0,209,255,.32); background: rgba(0,209,255,.07); }
+.suggestionActive { color: #baf7ff; border-color: rgba(0,209,255,.42); background: rgba(0,209,255,.1); }
+
+.helpText { margin-top: 8px; color: var(--text-muted); font-size: .69rem; line-height: 1.55; }
+.helpText b { color: #67e8f9; }
+.settingsGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.wideSetting { grid-column: 1 / -1; }
+
+.actionBar {
+  position: sticky; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 24px; border-top: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, rgba(15,22,42,.9), rgba(12,17,33,.98)); backdrop-filter: blur(14px);
+}
+.actionSummary { gap: 10px; min-width: 0; }
+.actionSummary > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(37,244,238,.08); }
+.actionSummary strong { display: block; font-size: .76rem; }
+.actionSummary small { display: block; margin-top: 2px; color: var(--text-muted); font-size: .66rem; }
+.generateButton { min-width: 190px; min-height: 42px; }
+
+.resultsColumn { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.resultCard { padding: 22px !important; }
+.emptyResult { min-height: 192px; display: grid; place-items: center; text-align: center; }
+.emptyVisual { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 18px; background: linear-gradient(145deg, rgba(0,209,255,.1), rgba(168,85,255,.12)); font-size: 1.6rem; }
+.emptyResult h3 { margin: 0 0 6px; font-size: 1rem; }
+.emptyResult p { max-width: 460px; margin: 0 auto; color: var(--text-muted); font-size: .78rem; line-height: 1.55; }
+.emptySteps { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+.emptySteps span { padding: 5px 9px; border: 1px solid rgba(255,255,255,.07); border-radius: 999px; color: rgba(255,255,255,.55); background: rgba(255,255,255,.025); font-size: .64rem; }
+
+.historyCard { padding: 18px 20px !important; }
+.historyHeader { justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.historyHeader h3 { margin: 3px 0 0; font-size: .94rem; }
+.historyHeader h3 span { color: var(--text-muted); font-weight: 500; }
+.historySearch { width: min(260px, 42%); gap: 7px; padding: 0 11px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(5,8,18,.42); }
+.historySearch:focus-within { border-color: rgba(0,209,255,.36); box-shadow: 0 0 0 3px rgba(0,209,255,.07); }
+.historySearch span { color: var(--text-muted); font-size: 1rem; }
+.historySearch input { width: 100%; height: 36px; border: 0; background: transparent; color: #fff; font-size: .72rem; }
+.historySearch input::placeholder { color: rgba(148,163,184,.62); }
+
+.historyGrid { max-height: 340px; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-right: 4px; }
+.historyItem { position: relative; min-width: 0; border: 1px solid rgba(255,255,255,.065); border-radius: 12px; background: rgba(255,255,255,.025); transition: 150ms ease; }
+.historyItem:hover { border-color: rgba(0,209,255,.24); background: rgba(0,209,255,.045); transform: translateY(-1px); }
+.historyItemSelected { border-color: rgba(37,244,238,.34); background: rgba(37,244,238,.065); }
+.historyMain { width: 100%; min-width: 0; gap: 10px; padding: 11px 34px 11px 11px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.historyIcon { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 9px; background: rgba(168,85,255,.1); color: #c084fc; font-size: .72rem; }
+.historyItemSelected .historyIcon { background: rgba(37,244,238,.12); color: #67e8f9; }
+.historyText { min-width: 0; display: block; }
+.historyText strong, .historyText > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.historyText strong { padding-right: 4px; color: rgba(255,255,255,.92); font-size: .76rem; }
+.historyText > span { margin-top: 3px; color: var(--text-muted); font-size: .65rem; }
+.historyText > span b { color: #67e8f9; font-weight: 500; }
+.historyText small { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.historyText i { padding: 2px 6px; border-radius: 999px; background: rgba(255,255,255,.045); color: rgba(255,255,255,.55); font-size: .58rem; font-style: normal; }
+.deleteHistory { position: absolute; top: 8px; right: 7px; width: 25px; height: 25px; border: 0; border-radius: 8px; background: transparent; color: rgba(255,107,122,.54); font-size: 1rem; cursor: pointer; opacity: .6; transition: 150ms ease; }
+.deleteHistory:hover { opacity: 1; color: #ff6b7a; background: rgba(255,71,87,.1); }
+.historyEmpty { padding: 28px; text-align: center; color: var(--text-muted); font-size: .76rem; }
+
+@media (max-width: 1180px) {
+  .workspace { grid-template-columns: 1fr; }
+  .formCard { position: static; }
+}
+
+@media (max-width: 720px) {
+  .workspace { gap: 12px; }
+  .pageHeader { align-items: flex-start; flex-direction: column-reverse; }
+  .formInner, .resultCard { padding: 18px !important; }
+  .settingsGrid, .historyGrid { grid-template-columns: 1fr; }
+  .historyHeader { align-items: stretch; flex-direction: column; }
+  .historySearch { width: 100%; }
+  .actionBar { align-items: stretch; flex-direction: column; padding: 12px 18px; }
+  .generateButton { width: 100%; }
+  .emptySteps { flex-wrap: wrap; }
+}
