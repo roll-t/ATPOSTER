@@ -241,6 +241,11 @@ export const Caption: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  // Khi chọn ẩn phụ đề ("none") hoặc không có nội dung chữ, không vẽ phụ đề lên video
+  if (style === "none" || !text || !text.trim()) {
+    return null;
+  }
+
   if (style === "hook") {
     return (
       <HookCaption

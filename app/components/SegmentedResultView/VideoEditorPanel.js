@@ -930,7 +930,8 @@ export default function VideoEditorPanel({
       const updated = segments.map(s => {
         const found = savedMap.get(Number(s.segmentNumber));
         if (found) {
-          return { ...s, mediaType: found.type, mediaFile: found.filename };
+          const isVid = found.type === 'video';
+          return { ...s, mediaType: found.type, mediaFile: found.filename, ...(isVid ? { kenBurns: 'none' } : {}) };
         }
         return s;
       });
@@ -981,6 +982,7 @@ export default function VideoEditorPanel({
     if (seg?.mediaType === 'video') return true;
     if (assetCounts?.mediaTypes?.[sceneNum] === 'video') return true;
     if (Array.isArray(assetCounts?.existingVideoNumbers) && assetCounts.existingVideoNumbers.includes(sceneNum)) return true;
+    if (seg?.mediaFile && /\.(mp4|webm)$/i.test(seg.mediaFile)) return true;
     return false;
   };
 
@@ -1150,7 +1152,7 @@ export default function VideoEditorPanel({
             bumpImageVersion();
             if (checkAssets) checkAssets();
             onHistoryRefresh?.();
-            const updated = segments.map((s, i) => i === targetIdx ? { ...s, mediaType: isVid ? 'video' : 'image', mediaFile: targetFilename } : s);
+            const updated = segments.map((s, i) => i === targetIdx ? { ...s, mediaType: isVid ? 'video' : 'image', mediaFile: targetFilename, ...(isVid ? { kenBurns: 'none' } : {}) } : s);
             onResult?.({
               ...result,
               segments: updated
@@ -1191,7 +1193,7 @@ export default function VideoEditorPanel({
     onHistoryRefresh?.();
     const updated = segments.map(s => {
       if (Number(s.segmentNumber) === Number(sceneNumber)) {
-        return { ...s, mediaType, mediaFile: filename };
+        return { ...s, mediaType, mediaFile: filename, ...(mediaType === 'video' ? { kenBurns: 'none' } : {}) };
       }
       return s;
     });
@@ -3364,8 +3366,13 @@ export default function VideoEditorPanel({
             folderPath={folderPath}
             category={category}
             sceneNumber={articleTargetSceneIndex !== null ? (segments[articleTargetSceneIndex]?.segmentNumber || articleTargetSceneIndex + 1) : (activeSceneIndex + 1)}
-            articleUrl={result?.input?.articleUrl || ''}
-            preloadedMedia={result?.articleMedia || []}
+            totalScenes={segments?.length || 1}
+            articleUrl={result?.input?.articleUrl || result?.articleUrl || ''}
+            preloadedMedia={
+              (Array.isArray(result?.input?.articleMedia) && result.input.articleMedia.length > (result?.articleMedia?.length || 0))
+                ? result.input.articleMedia
+                : (result?.articleMedia || result?.input?.articleMedia || [])
+            }
             onApplied={handleArticleMediaApplied}
             showToast={showToast}
           />

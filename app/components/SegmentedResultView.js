@@ -2759,8 +2759,8 @@ export default function SegmentedResultView({ result, copiedKey, onCopy, activeT
   // all consume this same canonical snapshot instead of rebuilding similar-but-different objects.
   const buildCurrentRenderConfig = ({ applySkillOverrides = true } = {}) => normalizeVideoRenderConfig({
     ...(result.remotionConfig || {}),
-    captionEnabled: applySkillOverrides && forcedCaptionStyle === 'none' ? false : renderCaptionEnabled,
-    captionStyle: applySkillOverrides ? forcedCaptionStyle : (renderCaptionEnabled ? renderCaptionStyle : 'none'),
+    captionEnabled: (applySkillOverrides && isJapaneseNarrative) ? false : Boolean(renderCaptionEnabled),
+    captionStyle: (applySkillOverrides && isJapaneseNarrative) ? 'none' : (renderCaptionEnabled ? renderCaptionStyle : 'none'),
     captionTextAlign: renderCaptionTextAlign,
     captionAnimation: renderCaptionAnimation,
     captionFont: renderCaptionFont,

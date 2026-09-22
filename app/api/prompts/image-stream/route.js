@@ -98,6 +98,11 @@ export async function GET(request) {
       || VIDEO_CONTENT_TYPES[ext]
       || (ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.svg' ? 'image/svg+xml' : 'image/jpeg');
 
+    const hasVersionParam = Boolean(searchParams.get('v'));
+    const cacheControlHeader = hasVersionParam
+      ? 'public, max-age=86400, stale-while-revalidate=604800'
+      : 'no-cache, must-revalidate';
+
     const fileSize = fs.statSync(imagePath).size;
     const rangeHeader = isPlayableMedia ? request.headers.get('range') : null;
 
@@ -121,7 +126,7 @@ export async function GET(request) {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': String(chunkSize),
-          'Cache-Control': 'no-cache, must-revalidate'
+          'Cache-Control': cacheControlHeader
         }
       });
     }
@@ -132,7 +137,7 @@ export async function GET(request) {
         'Content-Type': contentType,
         'Content-Length': String(fileSize),
         ...(isPlayableMedia ? { 'Accept-Ranges': 'bytes' } : {}),
-        'Cache-Control': 'no-cache, must-revalidate'
+        'Cache-Control': cacheControlHeader
       }
     });
   } catch (err) {

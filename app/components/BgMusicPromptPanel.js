@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   BG_MUSIC_PROMPTS,
+  MUSIC_PROMPT_CATEGORIES,
   BG_MUSIC_EXCLUDE_STYLES,
   BG_MUSIC_SUNO_SETTINGS,
   BG_MUSIC_CONSTRAINTS,
@@ -91,14 +92,15 @@ function PromptBox({ text }) {
 }
 
 export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selectedTheme } = {}) {
-  // Ưu tiên hiển thị bản nhạc thuộc chủ đề được chọn lên đầu
-  const sortedPrompts = [...BG_MUSIC_PROMPTS].sort((a, b) => {
-    if (selectedTheme) {
-      if (a.id === selectedTheme || a.themeKey === selectedTheme) return -1;
-      if (b.id === selectedTheme || b.themeKey === selectedTheme) return 1;
-    }
-    return 0;
-  });
+  // Tìm thông tin danh mục tương ứng
+  const currentCategory = categoryInfo || MUSIC_PROMPT_CATEGORIES.find((c) => c.id === selectedTheme);
+
+  // Lọc chính xác các bản nhạc thuộc thể loại/chủ đề được chọn
+  const filteredPrompts = selectedTheme
+    ? BG_MUSIC_PROMPTS.filter((p) => p.themeKey === selectedTheme || p.id === selectedTheme)
+    : BG_MUSIC_PROMPTS;
+
+  const displayedPrompts = filteredPrompts.length > 0 ? filteredPrompts : BG_MUSIC_PROMPTS;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -109,12 +111,12 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
             onClick={onBackToGrid}
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: '8px',
-              padding: '6px 14px',
+              padding: '7px 14px',
               color: '#fff',
-              fontSize: '0.8rem',
-              fontWeight: 600,
+              fontSize: '0.82rem',
+              fontWeight: 700,
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -125,31 +127,47 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
-            <span>Chọn thể loại Nhạc khác</span>
+            <span>Quay lại Danh Mục Thể Loại Nhạc</span>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>{categoryInfo?.icon || '🎵'}</span>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-              {categoryInfo?.label || 'Kho Prompt Nhạc Nền Suno'}
-            </h2>
-          </div>
+
+          {currentCategory && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.25rem' }}>{currentCategory.icon}</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff' }}>
+                {currentCategory.label}
+              </span>
+              {currentCategory.badge && (
+                <span style={{
+                  fontSize: '0.66rem',
+                  fontWeight: 900,
+                  padding: '2px 8px',
+                  borderRadius: '5px',
+                  background: currentCategory.badgeBg || 'var(--primary-gradient)',
+                  color: '#fff',
+                  letterSpacing: '0.4px',
+                }}>
+                  {currentCategory.badge}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tiêu đề */}
+      {/* Tiêu đề thể loại đang chọn */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h2 style={{
-          fontSize: '1.4rem',
+          fontSize: '1.35rem',
           fontWeight: 800,
           color: '#fff',
           margin: 0,
@@ -158,7 +176,8 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
           gap: '10px',
           flexWrap: 'wrap',
         }}>
-          🎵 Prompt Nhạc Nền — Suno
+          <span>{currentCategory?.icon || '🎵'}</span>
+          <span>{currentCategory?.label || 'Prompt Nhạc Nền — Suno'}</span>
           <span style={{
             fontSize: '0.72rem',
             padding: '3px 10px',
@@ -168,27 +187,27 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
             color: '#c4b5fd',
             fontWeight: 800,
           }}>
-            {BG_MUSIC_PROMPTS.length} bản tuyển chọn đa chủ đề
+            {displayedPrompts.length} bản nhạc chuyên biệt
           </span>
         </h2>
         <p style={{
           margin: '10px 0 0 0',
           fontSize: '0.88rem',
-          color: 'rgba(255, 255, 255, 0.6)',
+          color: 'rgba(255, 255, 255, 0.65)',
           lineHeight: 1.6,
-          maxWidth: '68ch',
+          maxWidth: '75ch',
         }}>
-          Mỗi nhóm chủ đề có một bản nhạc nền riêng. Tất cả đều không lời, âm lượng đều, không cao trào —
-          vì nhạc phát ở mức cố định 35% dưới giọng đọc và bị lặp lại suốt video 8–20 phút.
-          Dán khối <b style={{ color: '#c4b5fd' }}>Style</b> vào Suno, dán khối{' '}
-          <b style={{ color: '#c4b5fd' }}>Exclude Styles</b> dùng chung bên dưới.
+          {currentCategory?.shortDescription ||
+            'Tất cả đều không lời, âm lượng đều, không cao trào — vì nhạc phát ở mức cố định 35% dưới giọng đọc và bị lặp lại suốt video.'}{' '}
+          Dán khối <b style={{ color: '#c4b5fd' }}>Style</b> vào Suno AI, dán khối{' '}
+          <b style={{ color: '#c4b5fd' }}>Exclude Styles</b> dùng chung bên dưới để Suno không tự chèn giọng hát hay hiệu ứng đột ngột.
         </p>
       </div>
 
       {/* Cài đặt dùng chung + Exclude */}
       <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>
-          共通設定 — Cài đặt dùng chung cho mọi bản
+        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>⚙️ Cài đặt Suno AI chuẩn (Custom Mode & Instrumental)</span>
         </h3>
 
         <div style={{
@@ -209,7 +228,9 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <FieldLabel>Exclude Styles — dán cho cả {BG_MUSIC_PROMPTS.length} bản</FieldLabel>
+            <FieldLabel>
+              Exclude Styles — dán cho cả {displayedPrompts.length} bản {currentCategory ? `thể loại "${currentCategory.label}"` : ''}
+            </FieldLabel>
             <CopyButton text={BG_MUSIC_EXCLUDE_STYLES} small />
           </div>
           <PromptBox text={BG_MUSIC_EXCLUDE_STYLES} />
@@ -221,9 +242,8 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
         </div>
       </div>
 
-      {/* Các bản nhạc */}
-      {sortedPrompts.map((item, idx) => {
-        const isHighlighted = selectedTheme && (item.id === selectedTheme || item.themeKey === selectedTheme);
+      {/* Các bản nhạc chuyên biệt cho thể loại này */}
+      {displayedPrompts.map((item, idx) => {
         return (
           <div
             key={item.id}
@@ -233,48 +253,48 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
               display: 'flex',
               flexDirection: 'column',
               gap: '14px',
-              border: isHighlighted ? '1.5px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: isHighlighted ? '0 0 25px rgba(168, 85, 247, 0.25)' : 'none',
-              background: isHighlighted ? 'rgba(30, 20, 50, 0.7)' : undefined,
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              borderRadius: '12px',
             }}
           >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{
-              fontSize: '0.7rem',
-              fontWeight: 900,
-              color: '#a78bfa',
-              background: 'rgba(168, 139, 250, 0.15)',
-              padding: '2px 8px',
-              borderRadius: '6px',
-            }}>
-              #{idx + 1}
-            </span>
-            <span style={{ fontSize: '1.3rem' }}>{item.icon}</span>
-            <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', letterSpacing: '0.03em' }}>
-              {item.label}
-            </span>
-            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#c4b5fd' }}>
-              {item.sublabel}
-            </span>
-          </div>
-
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.62)', lineHeight: 1.6, maxWidth: '70ch' }}>
-            {item.useCase}
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <FieldLabel>Style</FieldLabel>
-              <CopyButton text={item.prompt} label="Chép prompt" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 900,
+                color: '#a78bfa',
+                background: 'rgba(168, 139, 250, 0.15)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+              }}>
+                #{idx + 1}
+              </span>
+              <span style={{ fontSize: '1.3rem' }}>{item.icon}</span>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', letterSpacing: '0.02em' }}>
+                {item.label}
+              </span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c4b5fd' }}>
+                {item.sublabel}
+              </span>
             </div>
-            <PromptBox text={item.prompt} />
-            <p style={{ margin: 0, fontSize: '0.76rem', color: 'rgba(255, 255, 255, 0.45)', lineHeight: 1.6 }}>
-              🎼 {item.instruments}
+
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.68)', lineHeight: 1.6, maxWidth: '75ch' }}>
+              {item.useCase}
             </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <FieldLabel>Style Prompt Suno</FieldLabel>
+                <CopyButton text={item.prompt} label="Chép prompt" />
+              </div>
+              <PromptBox text={item.prompt} />
+              <p style={{ margin: 0, fontSize: '0.76rem', color: 'rgba(255, 255, 255, 0.5)', lineHeight: 1.6 }}>
+                🎼 {item.instruments}
+              </p>
+            </div>
           </div>
-        </div>
-      );
-    })}
+        );
+      })}
 
       {/* Ràng buộc bắt buộc giữ lại */}
       <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -315,8 +335,7 @@ export default function BgMusicPromptPanel({ onBackToGrid, categoryInfo, selecte
           padding: '12px 14px',
         }}>
           💡 Tạo xong tải file về, rồi vào <b style={{ color: '#c4b5fd' }}>Studio Thiết Kế Trang Đọc Video</b> chọn
-          nhạc nền tuỳ chỉnh thay cho ba bản có sẵn — ba bản đó là nhạc ambient chữa lành dựng cho kênh Phật giáo,
-          không hợp giọng lịch sử.
+          nhạc nền tuỳ chỉnh cho video của bạn.
         </p>
       </div>
 

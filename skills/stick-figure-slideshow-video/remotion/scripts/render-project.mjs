@@ -188,6 +188,7 @@ const scenes = manifest.segments.map((seg) => {
   // segment này — đó là toàn bộ mấu chốt của hiệu ứng "giữ hình, đổi chữ".
   const imageOwner = imageOwnerBySegment.get(seg.segmentNumber) || seg;
   const imagePaddedNum = String(imageOwner.segmentNumber).padStart(2, "0");
+  const isVideoSeg = imageOwner.mediaType === 'video' || seg.mediaType === 'video';
 
   // Detect image extension and file path (supports multiple images per scene like scene-03_1.jpg)
   let imagePath = `${projectFolder}/images/scene-${imagePaddedNum}.jpg`;
@@ -211,7 +212,6 @@ const scenes = manifest.segments.map((seg) => {
 
   if (fs.existsSync(imageDir)) {
     const files = fs.readdirSync(imageDir);
-    const isVideoSeg = imageOwner.mediaType === 'video';
     const vidMatch = files.find((f) => f.startsWith(`scene-${imagePaddedNum}.`) && (f.endsWith('.mp4') || f.endsWith('.webm')));
     if (isVideoSeg && vidMatch) {
       imagePath = `${projectFolder}/images/${vidMatch}`;
@@ -261,8 +261,11 @@ const scenes = manifest.segments.map((seg) => {
     };
   }
 
+  const isVideo = isVideoSeg || imagePath.toLowerCase().endsWith('.mp4') || imagePath.toLowerCase().endsWith('.webm');
+
   return {
     image: imagePath,
+    ...(isVideo ? { kenBurns: 'none' } : {}),
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
     caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
     // Real per-word timing from ElevenLabs' alignment API, if the voiceover

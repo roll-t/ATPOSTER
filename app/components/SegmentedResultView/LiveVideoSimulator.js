@@ -328,6 +328,7 @@ export default function LiveVideoSimulator({
   const containerRef = useRef(null);
   const stageRef = useRef(null);
   const voiceAudioRef = useRef(null);
+  const sceneVideoRef = useRef(null);
   const bgMusicAudioRef = useRef(null);
   const hideControlsTimerRef = useRef(null);
 
@@ -410,13 +411,36 @@ export default function LiveVideoSimulator({
   const showImage = hasSceneImage && !imageError && !isImageFailed;
 
   const isSceneVideo = currentSegment?.mediaType === 'video' ||
+    currentSegment?.type === 'video' ||
     assetCounts?.mediaTypes?.[currentSceneNumber] === 'video' ||
-    (Array.isArray(assetCounts?.existingVideoNumbers) && assetCounts.existingVideoNumbers.includes(currentSceneNumber));
+    (Array.isArray(assetCounts?.existingVideoNumbers) && assetCounts.existingVideoNumbers.includes(currentSceneNumber)) ||
+    Boolean(currentSegment?.mediaFile?.match(/\.(mp4|webm)$/i)) ||
+    Boolean(currentSegment?.image?.match(/\.(mp4|webm)$/i)) ||
+    Boolean(currentSegment?.video);
   const currentMediaFile = isSceneVideo ? `images/scene-${currentPaddedNum}.mp4` : `images/scene-${currentPaddedNum}.jpg`;
 
   const currentImageSrc = showImage
     ? `/api/prompts/image-stream?folderPath=${encodeURIComponent(folderPath)}&file=${currentMediaFile}&category=${encodeURIComponent(category)}&v=${currentSlideIndex}-${imageVersion || 0}`
     : null;
+
+  // Đồng bộ video cảnh nền với trạng thái play/pause của mô phỏng
+  useEffect(() => {
+    const vid = sceneVideoRef.current;
+    if (!vid || !isSceneVideo) return;
+    if (isPlaying) {
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [isPlaying, isSceneVideo, currentSlideIndex]);
+
+  // Đặt lại thời gian video cảnh nền về 0 khi đổi cảnh
+  useEffect(() => {
+    const vid = sceneVideoRef.current;
+    if (vid && isSceneVideo) {
+      try { vid.currentTime = 0; } catch (_) {}
+    }
+  }, [currentSlideIndex, isSceneVideo]);
 
   // Khi phiên bản ảnh thay đổi hoặc chuyển cảnh, xoá cờ lỗi cũ để ảnh mới vừa tạo được nạp lại ngay lập tức
   useEffect(() => {
@@ -1030,6 +1054,10 @@ export default function LiveVideoSimulator({
             slideCurrentTimeRef.current = 0;
             setSlideCurrentTime(0);
             if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+            if (sceneVideoRef.current) {
+              sceneVideoRef.current.pause();
+              try { sceneVideoRef.current.currentTime = 0; } catch (_) {}
+            }
             if (bgMusicAudioRef.current) {
               bgMusicAudioRef.current.pause();
               try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
@@ -1070,6 +1098,10 @@ export default function LiveVideoSimulator({
             slideCurrentTimeRef.current = 0;
             setSlideCurrentTime(0);
             if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+            if (sceneVideoRef.current) {
+              sceneVideoRef.current.pause();
+              try { sceneVideoRef.current.currentTime = 0; } catch (_) {}
+            }
             if (bgMusicAudioRef.current) {
               bgMusicAudioRef.current.pause();
               try { bgMusicAudioRef.current.currentTime = 0; } catch (_) { }
@@ -1145,6 +1177,9 @@ export default function LiveVideoSimulator({
     setCurrentSlideIndex(prevIdx);
     setSlideCurrentTime(0);
     if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+    if (sceneVideoRef.current) {
+      try { sceneVideoRef.current.currentTime = 0; } catch (_) {}
+    }
     syncBgMusicToTime(sceneOffsets[prevIdx] || 0, true);
   };
   const handleNextSlide = () => {
@@ -1153,6 +1188,9 @@ export default function LiveVideoSimulator({
     setCurrentSlideIndex(nextIdx);
     setSlideCurrentTime(0);
     if (voiceAudioRef.current) voiceAudioRef.current.currentTime = 0;
+    if (sceneVideoRef.current) {
+      try { sceneVideoRef.current.currentTime = 0; } catch (_) {}
+    }
     syncBgMusicToTime(sceneOffsets[nextIdx] || 0, true);
   };
 
@@ -1223,6 +1261,9 @@ export default function LiveVideoSimulator({
     if (voiceAudioRef.current) {
       voiceAudioRef.current.currentTime = inSceneTime;
     }
+    if (sceneVideoRef.current) {
+      try { sceneVideoRef.current.currentTime = inSceneTime; } catch (_) {}
+    }
     syncBgMusicToTime(targetTotalTime, true);
   };
 
@@ -1255,24 +1296,26 @@ export default function LiveVideoSimulator({
   };
 
   const sceneProgress = currentSceneDuration > 0 ? Math.min(1, Math.max(0, slideCurrentTime / currentSceneDuration)) : 0;
-  const kenBurnsDir = currentSegment.kenBurns || globalKenBurnsMode || (globalKenBurns ? (currentSlideIndex % 2 === 0 ? 'in' : 'out') : 'none');
+  // Video vốn đã có chuyển động tự nhiên; không add hiệu ứng animation / Ken Burns cho cảnh là video
+  const kenBurnsDir = isSceneVideo
+    ? 'none'
+    : (currentSegment.kenBurns || globalKenBurnsMode || (globalKenBurns ? (currentSlideIndex % 2 === 0 ? 'in' : 'out') : 'none'));
   let kbScale = 1;
   let kbTranslateX = 0;
-  if (kenBurnsDir === 'in') kbScale = 1 + 0.12 * sceneProgress;
-  else if (kenBurnsDir === 'out') kbScale = 1.12 - 0.12 * sceneProgress;
-  else if (kenBurnsDir === 'pan-left') { kbScale = 1.1; kbTranslateX = 3 - 6 * sceneProgress; }
-  else if (kenBurnsDir === 'pan-right') { kbScale = 1.1; kbTranslateX = -3 + 6 * sceneProgress; }
+  if (!isSceneVideo) {
+    if (kenBurnsDir === 'in') kbScale = 1 + 0.12 * sceneProgress;
+    else if (kenBurnsDir === 'out') kbScale = 1.12 - 0.12 * sceneProgress;
+    else if (kenBurnsDir === 'pan-left') { kbScale = 1.1; kbTranslateX = 3 - 6 * sceneProgress; }
+    else if (kenBurnsDir === 'pan-right') { kbScale = 1.1; kbTranslateX = -3 + 6 * sceneProgress; }
+  }
 
   // Hiệu ứng animation cho tiêu đề / phụ đề:
-  // none: đứng yên tuyệt đối, không zoom, không rung lắc
-  // zoom: zoom dãn nở êm theo nhịp chuyển động Ken Burns
-  // fade: mờ dần hiện ra ở đầu cảnh
-  // slide-up: trượt nhẹ từ dưới lên và mờ dần hiện ra ở đầu cảnh
+  // Cảnh là video: giữ phụ đề đứng yên tuyệt đối, không zoom/rung/trượt
   let captionAnimScale = 1;
   let captionAnimOpacity = 1;
   let captionAnimTranslateY = 0;
 
-  if (selectedElement !== 'caption') {
+  if (selectedElement !== 'caption' && !isSceneVideo) {
     const effectiveAnim = captionAnimation || (captionStyle === 'news' ? 'none' : 'zoom');
     if (effectiveAnim === 'zoom') {
       captionAnimScale = kenBurnsDir === 'out' ? 1.055 - 0.055 * sceneProgress : 1 + 0.055 * sceneProgress;
@@ -1419,7 +1462,7 @@ export default function LiveVideoSimulator({
                 label={isSceneVideo ? "Video nền" : "Ảnh nền"}
                 detail={`${Math.round(imageScale * 100)}% • Y: ${Math.round(imageTranslateY)}%`}
                 boxInset="0px"
-                counterScale={kbScale * imageScale}
+                counterScale={isSceneVideo ? 1 : kbScale * imageScale}
                 badgePosition={imageTranslateY < -20 ? 'inside-top' : 'outside-top'}
                 onDragStart={handleImageDragStart}
                 onDrag={handleImageDrag}
@@ -1434,11 +1477,14 @@ export default function LiveVideoSimulator({
                   inset: 0,
                   width: '100%',
                   height: '100%',
-                  transform: `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
+                  display: 'block',
+                  transform: isSceneVideo
+                    ? (imageScale !== 1 || imageTranslateY !== 0 ? `scale(${imageScale}) translateY(${imageTranslateY}%)` : 'none')
+                    : `scale(${kbScale * imageScale}) translateX(${kbTranslateX}%) translateY(${imageTranslateY}%)`,
                   alignItems: captionTextAlign === 'left' ? 'flex-start' : (captionTextAlign === 'right' ? 'flex-end' : 'center'),
                   transformOrigin: captionTextAlign === 'left' ? 'left center' : (captionTextAlign === 'right' ? 'right center' : 'center center'),
-                  willChange: 'transform',
-                  transition: selectedElement === 'image' || isPlaying ? 'none' : 'transform 0.4s ease',
+                  willChange: isSceneVideo ? 'auto' : 'transform',
+                  transition: selectedElement === 'image' || isPlaying || isSceneVideo ? 'none' : 'transform 0.4s ease',
                   pointerEvents: isPlaying ? 'none' : 'auto'
                 }}
                 onClick={(e) => {
@@ -1449,6 +1495,7 @@ export default function LiveVideoSimulator({
               >
                 {isSceneVideo ? (
                   <video
+                    ref={sceneVideoRef}
                     key={`vid-${currentSlideIndex}-${imageVersion || 0}`}
                     src={currentImageSrc}
                     autoPlay
@@ -1459,7 +1506,9 @@ export default function LiveVideoSimulator({
                       width: '100%',
                       height: '100%',
                       objectFit: globalImageFit,
-                      display: 'block'
+                      display: 'block',
+                      transform: 'none',
+                      willChange: 'auto'
                     }}
                     onLoadedData={() => {
                       failedImagesRef.current.delete(currentSceneNumber);
@@ -1552,7 +1601,7 @@ export default function LiveVideoSimulator({
                 textAlign: captionTextAlign,
                 zIndex: 25,
                 pointerEvents: 'none',
-                transition: selectedElement === 'caption' ? 'none' : 'all 0.15s ease-out'
+                transition: selectedElement === 'caption' || isPlaying ? 'none' : 'all 0.15s ease-out'
               }}
             >
               <TransformGizmoOverlay
@@ -2346,6 +2395,9 @@ export default function LiveVideoSimulator({
                     goToScene(idx);
                     setSlideCurrentTime(targetInSceneTime);
                     if (voiceAudioRef.current) voiceAudioRef.current.currentTime = targetInSceneTime;
+                    if (sceneVideoRef.current) {
+                      try { sceneVideoRef.current.currentTime = targetInSceneTime; } catch (_) {}
+                    }
                     syncBgMusicToTime(targetTotalTime, true);
                   }}
                   style={{

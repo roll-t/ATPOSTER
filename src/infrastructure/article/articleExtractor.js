@@ -1,21 +1,51 @@
 /**
  * Article Extractor (Infrastructure Layer)
- * Tự động tải và bóc tách nội dung chính từ link bài báo (VnExpress, Dân Trí, Tuổi Trẻ, BBC, VietnamNet, v.v.)
+ * Tự động tải và bóc tách nội dung chính và hình ảnh từ link bài báo (VnExpress, Dân Trí, Tuổi Trẻ, Kenh14, BBC, VietnamNet, v.v.)
  * Không sử dụng thư viện ngoài nặng nề, dùng regex & chuỗi chuẩn hóa HTML an toàn, tin cậy.
  */
 
+const NAMED_HTML_ENTITIES = {
+  '&aacute;': 'á', '&agrave;': 'à', '&atilde;': 'ã', '&acirc;': 'â', '&auml;': 'ä',
+  '&eacute;': 'é', '&egrave;': 'è', '&ecirc;': 'ê', '&euml;': 'ë',
+  '&iacute;': 'í', '&igrave;': 'ì', '&icirc;': 'î', '&iuml;': 'ï',
+  '&oacute;': 'ó', '&ograve;': 'ò', '&otilde;': 'õ', '&ocirc;': 'ô', '&ouml;': 'ö',
+  '&uacute;': 'ú', '&ugrave;': 'ù', '&ucirc;': 'û', '&uuml;': 'ü',
+  '&yacute;': 'ý',
+  '&Aacute;': 'Á', '&Agrave;': 'À', '&Atilde;': 'Ã', '&Acirc;': 'Â', '&Auml;': 'Ä',
+  '&Eacute;': 'É', '&Egrave;': 'È', '&Ecirc;': 'Ê', '&Euml;': 'Ë',
+  '&Iacute;': 'Í', '&Igrave;': 'Ì', '&Icirc;': 'Î', '&Iuml;': 'Ï',
+  '&Oacute;': 'Ó', '&Ograve;': 'Ò', '&Otilde;': 'Õ', '&Ocirc;': 'Ô', '&Ouml;': 'Ö',
+  '&Uacute;': 'Ú', '&Ugrave;': 'Ù', '&Ucirc;': 'Û', '&Uuml;': 'Ü',
+  '&Yacute;': 'Ý',
+  '&ndash;': '–', '&mdash;': '—', '&lsquo;': '‘', '&rsquo;': '’',
+  '&ldquo;': '“', '&rdquo;': '”', '&hellip;': '…', '&bull;': '•',
+  '&copy;': '©', '&reg;': '®', '&trade;': '™',
+};
+
 function decodeHtmlEntities(str) {
   if (!str) return '';
-  return str
+  let res = str
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+    .replace(/&nbsp;/g, ' ');
+
+  // Decode named entities
+  for (const [entity, char] of Object.entries(NAMED_HTML_ENTITIES)) {
+    if (res.includes(entity)) {
+      res = res.replaceAll(entity, char);
+    }
+  }
+
+  // Decode decimal & hex entities
+  res = res
     .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+  return res;
 }
 
 function cleanHtmlTags(html) {
@@ -27,9 +57,40 @@ function cleanHtmlTags(html) {
 }
 
 /**
+ * Tự động tối ưu URL media cho các hệ thống CDN báo chí Việt Nam (Kenh14, TuoiTre, Soha, CafeBiz, v.v.)
+ * Trả về:
+ * - downloadUrl: Phiên bản Full HD (~1200px, 200KB) dùng render video Remotion
+ * - thumbUrl: Phiên bản siêu nhẹ (~400px, 40KB) để hiển thị tức thì trên UI
+ */
+export function getOptimizedMediaUrls(absUrl) {
+  if (!absUrl || typeof absUrl !== 'string') return { originalUrl: '', downloadUrl: '', thumbUrl: '' };
+  let downloadUrl = absUrl;
+  let thumbUrl = absUrl;
+  if (
+    absUrl.includes('kenh14cdn.com') ||
+    absUrl.includes('mediacdn.vn') ||
+    absUrl.includes('sohacdn.com') ||
+    absUrl.includes('cafebizcdn.com') ||
+    absUrl.includes('afamilycdn.com') ||
+    absUrl.includes('autopro.com.vn')
+  ) {
+    if (!absUrl.includes('thumb_w/') && !absUrl.includes('zoom/')) {
+      downloadUrl = absUrl.replace(/(kenh14cdn\.com|mediacdn\.vn|sohacdn\.com|cafebizcdn\.com|afamilycdn\.com|autopro\.com\.vn)\//, (m, domain) => `${domain}/thumb_w/1200/`);
+      thumbUrl = absUrl.replace(/(kenh14cdn\.com|mediacdn\.vn|sohacdn\.com|cafebizcdn\.com|afamilycdn\.com|autopro\.com\.vn)\//, (m, domain) => `${domain}/thumb_w/400/`);
+    } else if (absUrl.includes('thumb_w/1200/')) {
+      thumbUrl = absUrl.replace('thumb_w/1200/', 'thumb_w/400/');
+    } else if (absUrl.includes('thumb_w/')) {
+      thumbUrl = absUrl.replace(/thumb_w\/\d+\//, 'thumb_w/400/');
+      downloadUrl = absUrl.replace(/thumb_w\/\d+\//, 'thumb_w/1200/');
+    }
+  }
+  return { originalUrl: absUrl, downloadUrl, thumbUrl };
+}
+
+/**
  * Bóc tách nội dung từ link URL bài báo
  * @param {string} url - Đường dẫn bài báo cần bóc tách
- * @returns {Promise<{title: string, description: string, content: string, image?: string, siteName?: string, url: string, wordCount: number}>}
+ * @returns {Promise<{title: string, description: string, content: string, image?: string, media: Array, mediaCount: number, siteName?: string, url: string, wordCount: number}>}
  */
 export async function extractArticleFromUrl(url) {
   if (!url || typeof url !== 'string') {
@@ -131,13 +192,30 @@ export async function extractArticleFromUrl(url) {
     }
   };
 
-  // Thu hẹp phạm vi tìm kiếm vào thẻ <article>, <main> hoặc toàn bài nếu không có
-  const articleContainerMatch = rawHtml.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)
-    || rawHtml.match(/<div\b[^>]+(?:class|id)=["'][^"']*(?:article|detail-content|content-detail|fck_detail|main-detail|body-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-  const mediaScope = articleContainerMatch ? articleContainerMatch[1] : rawHtml;
+  const isGarbageMedia = (absUrl) => {
+    if (!absUrl) return true;
+    if (/\.(svg)(\?.*)?$/i.test(absUrl)) return true;
+    // Bỏ qua các ảnh rác, icon mạng xã hội, nút chia sẻ, ads, tracker.
+    // LƯU Ý: Không cấm từ 'avatar' chung vì CDN VCCorp/Kenh14 đặt tên ảnh bài báo là avatar1790...
+    if (/(?:loading\.gif|author_avatar|user_avatar|default_avatar|no_avatar|icon|logo|share|social|facebook|tiktok|zalo|spacer|pixel|banner_qc|advertisement|widget)/i.test(absUrl)) {
+      return true;
+    }
+    return false;
+  };
+
+  // Làm sạch các phần rác như script, style, header, footer, nav, aside để không trích nhầm ảnh ngoài lề
+  const cleanMediaScope = rawHtml
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ')
+    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+    .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ');
 
   // 5.1 Quét video (<video>, <source>)
-  const videoMatches = [...mediaScope.matchAll(/<video\b([^>]+)>([\s\S]*?)<\/video>/gi)];
+  const videoMatches = [...cleanMediaScope.matchAll(/<video\b([^>]+)>([\s\S]*?)<\/video>/gi)];
   for (const vMatch of videoMatches) {
     const videoAttrs = vMatch[1];
     const videoBody = vMatch[2];
@@ -151,6 +229,7 @@ export async function extractArticleFromUrl(url) {
         media.push({
           type: 'video',
           url: vUrl,
+          thumbUrl: vUrl,
           alt: 'Video bài báo',
           caption: 'Video đính kèm bài báo',
         });
@@ -159,7 +238,7 @@ export async function extractArticleFromUrl(url) {
   }
 
   // 5.2 Quét ảnh trong <figure> trước (để lấy trọn vẹn caption đi kèm ảnh)
-  const figureMatches = [...mediaScope.matchAll(/<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi)];
+  const figureMatches = [...cleanMediaScope.matchAll(/<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi)];
   for (const figMatch of figureMatches) {
     const figContent = figMatch[2];
     const imgInFig = figContent.match(/<img\b([^>]+)>/i);
@@ -172,9 +251,7 @@ export async function extractArticleFromUrl(url) {
       || attrs.match(/\bsrc=["']([^"']+)["']/i);
     if (!srcMatch) continue;
     const absUrl = toAbsoluteUrl(srcMatch[1]);
-    if (!absUrl || seenMediaUrls.has(absUrl)) continue;
-    if (/\.(svg)(\?.*)?$/i.test(absUrl)) continue;
-    if (/(?:loading\.gif|avatar|icon|logo|share|social|facebook|tiktok|zalo|spacer|pixel|banner_qc|advertisement)/i.test(absUrl)) continue;
+    if (!absUrl || seenMediaUrls.has(absUrl) || isGarbageMedia(absUrl)) continue;
 
     // Lấy caption từ <figcaption>
     let caption = '';
@@ -185,17 +262,20 @@ export async function extractArticleFromUrl(url) {
     const altMatch = attrs.match(/\balt=["']([^"']*)["']/i);
     const altText = altMatch ? decodeHtmlEntities(altMatch[1]).trim() : '';
 
+    const opt = getOptimizedMediaUrls(absUrl);
     seenMediaUrls.add(absUrl);
     media.push({
       type: 'image',
-      url: absUrl,
+      url: opt.downloadUrl,
+      originalUrl: opt.originalUrl,
+      thumbUrl: opt.thumbUrl,
       alt: altText || caption || title,
       caption: caption || altText || '',
     });
   }
 
   // 5.3 Quét tất cả thẻ <img> còn lại trong bài viết
-  const allImgMatches = [...mediaScope.matchAll(/<img\b([^>]+)>/gi)];
+  const allImgMatches = [...cleanMediaScope.matchAll(/<img\b([^>]+)>/gi)];
   for (const match of allImgMatches) {
     const attrs = match[1];
     const srcMatch = attrs.match(/data-original=["']([^"']+)["']/i)
@@ -206,23 +286,24 @@ export async function extractArticleFromUrl(url) {
     if (!srcMatch) continue;
 
     const absUrl = toAbsoluteUrl(srcMatch[1]);
-    if (!absUrl || seenMediaUrls.has(absUrl)) continue;
-    if (/\.(svg)(\?.*)?$/i.test(absUrl)) continue;
-    if (/(?:loading\.gif|avatar|icon|logo|share|social|facebook|tiktok|zalo|spacer|pixel|banner_qc|advertisement)/i.test(absUrl)) continue;
+    if (!absUrl || seenMediaUrls.has(absUrl) || isGarbageMedia(absUrl)) continue;
 
-    // Bỏ qua nếu có width hoặc height < 150px
+    // Bỏ qua nếu có width hoặc height < 180px
     const wMatch = attrs.match(/\bwidth=["']?(\d+)["']?/i);
     const hMatch = attrs.match(/\bheight=["']?(\d+)["']?/i);
-    if (wMatch && Number(wMatch[1]) > 0 && Number(wMatch[1]) < 150) continue;
-    if (hMatch && Number(hMatch[1]) > 0 && Number(hMatch[1]) < 150) continue;
+    if (wMatch && Number(wMatch[1]) > 0 && Number(wMatch[1]) < 180) continue;
+    if (hMatch && Number(hMatch[1]) > 0 && Number(hMatch[1]) < 180) continue;
 
     const altMatch = attrs.match(/\balt=["']([^"']*)["']/i);
     const altText = altMatch ? decodeHtmlEntities(altMatch[1]).trim() : '';
 
+    const opt = getOptimizedMediaUrls(absUrl);
     seenMediaUrls.add(absUrl);
     media.push({
       type: 'image',
-      url: absUrl,
+      url: opt.downloadUrl,
+      originalUrl: opt.originalUrl,
+      thumbUrl: opt.thumbUrl,
       alt: altText || title,
       caption: altText || '',
     });
@@ -231,17 +312,18 @@ export async function extractArticleFromUrl(url) {
   // 5.4 Nếu có og:image mà chưa có trong media, bổ sung vào đầu danh sách làm hero
   if (image) {
     const absHero = toAbsoluteUrl(image);
-    if (absHero && !seenMediaUrls.has(absHero) && !/\.(svg)(\?.*)?$/i.test(absHero)) {
-      if (!/(?:loading\.gif|avatar|icon|logo|share|social|facebook|tiktok|zalo|spacer|pixel)/i.test(absHero)) {
-        seenMediaUrls.add(absHero);
-        media.unshift({
-          type: 'image',
-          url: absHero,
-          alt: title,
-          caption: 'Ảnh đại diện bài báo',
-          isHero: true,
-        });
-      }
+    if (absHero && !seenMediaUrls.has(absHero) && !isGarbageMedia(absHero)) {
+      const opt = getOptimizedMediaUrls(absHero);
+      seenMediaUrls.add(absHero);
+      media.unshift({
+        type: 'image',
+        url: opt.downloadUrl,
+        originalUrl: opt.originalUrl,
+        thumbUrl: opt.thumbUrl,
+        alt: title,
+        caption: 'Ảnh đại diện bài báo',
+        isHero: true,
+      });
     }
   }
 

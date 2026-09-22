@@ -132,7 +132,8 @@ export async function POST(req) {
                 return {
                   ...seg,
                   mediaType: isVideo ? 'video' : 'image',
-                  mediaFile: normalised
+                  mediaFile: normalised,
+                  ...(isVideo ? { kenBurns: 'none' } : {})
                 };
               }
               return seg;

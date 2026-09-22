@@ -147,6 +147,7 @@ export default function ContentForm({
       // Tự động đưa nội dung vào ô scenario
       const combinedText = `TIÊU ĐỀ: ${article.title}\n\nTÓM TẮT: ${article.description || ''}\n\nNỘI DUNG CHI TIẾT:\n${article.content}`;
       onFieldChange('scenario', combinedText);
+      onFieldChange('articleTitle', article.title);
       if (article.media && article.media.length > 0) {
         onFieldChange('articleMedia', article.media);
       }
@@ -954,8 +955,9 @@ export default function ContentForm({
                                   </div>
                                 ) : (
                                   <img
-                                    src={item.url}
+                                    src={item.thumbUrl || item.url}
                                     alt={item.alt || ''}
+                                    referrerPolicy="no-referrer"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     loading="lazy"
                                   />

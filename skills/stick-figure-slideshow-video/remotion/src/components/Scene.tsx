@@ -186,7 +186,8 @@ export const Scene: React.FC<{
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  const kenBurns: KenBurnsDirection = !globalKenBurns
+  const isVideo = scene.image.toLowerCase().endsWith(".mp4") || scene.image.toLowerCase().endsWith(".webm");
+  const kenBurns: KenBurnsDirection = (!globalKenBurns || isVideo)
     ? "none"
     : scene.kenBurns ?? (sceneIndex % 2 === 0 ? "in" : "out");
 
@@ -265,7 +266,7 @@ export const Scene: React.FC<{
             highlightColor={layoutHighlightColor}
             showBilingual={showBilingual}
           />
-        ) : layout === "image-only" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
+        ) : layout === "image-only" || captionStyle === "none" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
           <Caption
             text={scene.caption}
             sceneIndex={sceneIndex}
@@ -333,7 +334,7 @@ export const Scene: React.FC<{
           highlightColor={layoutHighlightColor}
           showBilingual={showBilingual}
         />
-      ) : layout === "image-only" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
+      ) : layout === "image-only" || captionStyle === "none" || (sceneIndex === 0 && showOpeningNewsBanner) ? null : (
       <Caption
         text={scene.caption}
         sceneIndex={sceneIndex}

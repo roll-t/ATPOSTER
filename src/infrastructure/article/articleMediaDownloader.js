@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveProjectDir } from '../rendering/remotion/paths.js';
+import { getOptimizedMediaUrls } from './articleExtractor.js';
 
 /**
  * Tải ảnh hoặc video từ URL bên ngoài về thư mục images của dự án
@@ -57,9 +58,8 @@ export async function downloadArticleMediaToProject({
     ? targetSceneNumbers
     : Array.from({ length: totalScenes }, (_, i) => i + 1);
 
-  const savedFiles = [];
+  const downloadQueue = [];
   let mediaIndex = 0;
-
   for (const sceneNum of scenesToAssign) {
     if (mediaIndex >= mediaList.length) break;
 
@@ -72,70 +72,79 @@ export async function downloadArticleMediaToProject({
     mediaIndex++;
 
     if (!item?.url) continue;
-
-    const padNum = String(sceneNum).padStart(2, '0');
-    try {
-      const parsedUrl = new URL(item.url);
-      const reqHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': '*/*',
-      };
-      if (referer) {
-        reqHeaders['Referer'] = referer;
-      } else {
-        reqHeaders['Referer'] = `${parsedUrl.protocol}//${parsedUrl.hostname}/`;
-      }
-
-      const res = await fetch(item.url, { headers: reqHeaders });
-      if (!res.ok) {
-        console.warn(`[ArticleMediaDownloader] Tải media thất bại (${res.status}):`, item.url);
-        continue;
-      }
-
-      const contentType = (res.headers.get('content-type') || '').toLowerCase();
-      const isVideo = item.type === 'video' || contentType.includes('video/') || item.url.endsWith('.mp4');
-
-      let ext = 'jpg';
-      if (isVideo) {
-        ext = 'mp4';
-      } else if (contentType.includes('png') || item.url.includes('.png')) {
-        ext = 'png';
-      } else if (contentType.includes('webp') || item.url.includes('.webp')) {
-        ext = 'webp';
-      }
-
-      const filename = `images/scene-${padNum}.${ext}`;
-      const destPath = path.join(projectDir, filename);
-
-      const arrayBuffer = await res.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      if (buffer.byteLength < 500) {
-        // File quá nhỏ (có thể là lỗi trả về HTML/tracker), bỏ qua
-        continue;
-      }
-
-      // Xóa các file ảnh/video cũ khác phần mở rộng của scene này
-      for (const oldExt of ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm']) {
-        if (oldExt === ext) continue;
-        const oldFile = path.join(imagesDir, `scene-${padNum}.${oldExt}`);
-        if (fs.existsSync(oldFile)) {
-          try { fs.unlinkSync(oldFile); } catch (_) {}
-        }
-      }
-
-      fs.writeFileSync(destPath, buffer);
-      savedFiles.push({
-        sceneNum,
-        filename,
-        type: isVideo ? 'video' : 'image',
-        url: item.url,
-      });
-      existingSceneNumbers.add(sceneNum);
-    } catch (err) {
-      console.warn(`[ArticleMediaDownloader] Lỗi khi tải ${item.url}:`, err.message);
-    }
+    downloadQueue.push({ sceneNum, item });
   }
+
+  const savedFiles = [];
+
+  // Tải song song tất cả các ảnh/video được gán để tiết kiệm 80-90% thời gian
+  await Promise.all(
+    downloadQueue.map(async ({ sceneNum, item }) => {
+      const padNum = String(sceneNum).padStart(2, '0');
+      const opt = getOptimizedMediaUrls(item.url);
+      const targetUrl = item.downloadUrl || opt.downloadUrl || item.url;
+      try {
+        const parsedUrl = new URL(targetUrl);
+        const reqHeaders = {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+        };
+        if (referer) {
+          reqHeaders['Referer'] = referer;
+        } else {
+          reqHeaders['Referer'] = `${parsedUrl.protocol}//${parsedUrl.hostname}/`;
+        }
+
+        const res = await fetch(targetUrl, { headers: reqHeaders });
+        if (!res.ok) {
+          console.warn(`[ArticleMediaDownloader] Tải media thất bại (${res.status}):`, targetUrl);
+          return;
+        }
+
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        const isVideo = item.type === 'video' || contentType.includes('video/') || targetUrl.endsWith('.mp4');
+
+        let ext = 'jpg';
+        if (isVideo) {
+          ext = 'mp4';
+        } else if (contentType.includes('png') || targetUrl.includes('.png')) {
+          ext = 'png';
+        } else if (contentType.includes('webp') || targetUrl.includes('.webp')) {
+          ext = 'webp';
+        }
+
+        const filename = `images/scene-${padNum}.${ext}`;
+        const destPath = path.join(projectDir, filename);
+
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        if (buffer.byteLength < 500) {
+          // File quá nhỏ (có thể là lỗi trả về HTML/tracker), bỏ qua
+          return;
+        }
+
+        // Xóa các file ảnh/video cũ khác phần mở rộng của scene này
+        for (const oldExt of ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm']) {
+          if (oldExt === ext) continue;
+          const oldFile = path.join(imagesDir, `scene-${padNum}.${oldExt}`);
+          if (fs.existsSync(oldFile)) {
+            try { fs.unlinkSync(oldFile); } catch (_) {}
+          }
+        }
+
+        fs.writeFileSync(destPath, buffer);
+        savedFiles.push({
+          sceneNum,
+          filename,
+          type: isVideo ? 'video' : 'image',
+          url: targetUrl,
+        });
+      } catch (err) {
+        console.warn(`[ArticleMediaDownloader] Lỗi khi tải ${targetUrl}:`, err.message);
+      }
+    })
+  );
 
   // Cập nhật manifest.json nếu có
   if (manifest && fs.existsSync(manifestPath)) {
@@ -146,18 +155,22 @@ export async function downloadArticleMediaToProject({
           const segNum = Number(seg.segmentNumber);
           const saved = savedMap.get(segNum);
           if (saved) {
+            const isVid = saved.type === 'video';
             return {
               ...seg,
               mediaType: saved.type,
               mediaFile: saved.filename,
+              ...(isVid ? { kenBurns: 'none' } : {})
             };
           }
           return seg;
         });
       }
 
-      // Lưu trữ toàn bộ kho media của bài báo vào manifest
-      manifest.articleMedia = mediaList;
+      // Lưu trữ toàn bộ kho media của bài báo vào manifest (tránh ghi đè nếu mediaList chỉ là 1 ảnh đơn lẻ)
+      if (!Array.isArray(manifest.articleMedia) || manifest.articleMedia.length <= mediaList.length) {
+        manifest.articleMedia = mediaList;
+      }
       manifest.updatedAt = Date.now();
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
     } catch (mErr) {

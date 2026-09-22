@@ -381,6 +381,71 @@ function KnowledgeCuriosityPreview() {
   );
 }
 
+function NewsJournalismPreview() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: 'linear-gradient(135deg, #030712 0%, #0c1c38 50%, #1e3a8a 100%)',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '12px',
+      boxSizing: 'border-box'
+    }}>
+      <svg viewBox="0 0 160 70" style={{ width: '100%', height: '65px' }}>
+        {/* Subtle Globe Grid / Radar Rings */}
+        <circle cx="80" cy="35" r="28" stroke="#38bdf8" strokeWidth="0.8" strokeDasharray="3 3" fill="none" opacity="0.3" />
+        <ellipse cx="80" cy="35" rx="28" ry="12" stroke="#38bdf8" strokeWidth="0.8" fill="none" opacity="0.25" />
+        <line x1="52" y1="35" x2="108" y2="35" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" />
+        <line x1="80" y1="7" x2="80" y2="63" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" />
+
+        {/* Studio Broadcast Micro / Signal Tower */}
+        <circle cx="80" cy="22" r="3.5" fill="#f43f5e" />
+        <path d="M 72 22 A 8 8 0 0 1 88 22" stroke="#f43f5e" strokeWidth="1.2" fill="none" opacity="0.8" />
+        <path d="M 68 22 A 12 12 0 0 1 92 22" stroke="#f43f5e" strokeWidth="1" fill="none" opacity="0.5" />
+        <line x1="80" y1="26" x2="80" y2="46" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+        <path d="M 74 46 L 86 46" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" />
+
+        {/* Digital Audio Equalizer & News Ticker Soundwaves */}
+        <rect x="22" y="32" width="3.5" height="14" rx="1.5" fill="#38bdf8" opacity="0.75" />
+        <rect x="28" y="24" width="3.5" height="22" rx="1.5" fill="#38bdf8" opacity="0.9" />
+        <rect x="34" y="36" width="3.5" height="10" rx="1.5" fill="#0284c7" opacity="0.8" />
+        <rect x="40" y="28" width="3.5" height="18" rx="1.5" fill="#38bdf8" opacity="0.85" />
+        <rect x="46" y="34" width="3.5" height="12" rx="1.5" fill="#0284c7" opacity="0.7" />
+
+        <rect x="110" y="34" width="3.5" height="12" rx="1.5" fill="#0284c7" opacity="0.7" />
+        <rect x="116" y="28" width="3.5" height="18" rx="1.5" fill="#38bdf8" opacity="0.85" />
+        <rect x="122" y="36" width="3.5" height="10" rx="1.5" fill="#0284c7" opacity="0.8" />
+        <rect x="128" y="24" width="3.5" height="22" rx="1.5" fill="#38bdf8" opacity="0.9" />
+        <rect x="134" y="32" width="3.5" height="14" rx="1.5" fill="#38bdf8" opacity="0.75" />
+
+        {/* Horizontal Ticker Pulse Beam */}
+        <line x1="16" y1="52" x2="144" y2="52" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="4 2" opacity="0.4" />
+        <circle cx="50" cy="52" r="2" fill="#38bdf8" />
+        <circle cx="110" cy="52" r="2" fill="#38bdf8" />
+      </svg>
+
+      <div style={{
+        position: 'absolute',
+        top: '8px',
+        right: '12px',
+        fontSize: '9px',
+        color: '#38bdf8',
+        fontWeight: 800,
+        background: 'rgba(2, 132, 199, 0.2)',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        border: '1px solid rgba(56, 189, 248, 0.35)'
+      }}>
+        TICKER & STRINGS 116 BPM
+      </div>
+    </div>
+  );
+}
+
 export default function MusicPromptCategoryGrid({ onSelectCategory }) {
   return (
     <div style={{ padding: '4px 4px 28px 4px', animation: 'fadeIn 0.25s ease-out' }}>
@@ -480,6 +545,7 @@ export default function MusicPromptCategoryGrid({ onSelectCategory }) {
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                 zIndex: 1
               }}>
+                {cat.id === 'news_journalism' && <NewsJournalismPreview />}
                 {cat.id === 'zen_meditation' && <ZenMeditationPreview />}
                 {cat.id === 'samurai_era' && <SamuraiEraPreview />}
                 {cat.id === 'ninja_shinobi' && <NinjaShinobiPreview />}

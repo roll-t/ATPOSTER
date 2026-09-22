@@ -167,6 +167,7 @@ const scenes = manifest.segments.map((seg) => {
   const paddedNum = String(seg.segmentNumber).padStart(2, "0");
 
   // Detect image or video file path (supports images and video clips per scene)
+  const isVideoSeg = seg.mediaType === 'video';
   let imagePath = `${projectFolder}/images/scene-${paddedNum}.jpg`;
 
   if (seg.mediaFile) {
@@ -188,7 +189,6 @@ const scenes = manifest.segments.map((seg) => {
 
   if (fs.existsSync(imageDir)) {
     const files = fs.readdirSync(imageDir);
-    const isVideoSeg = seg.mediaType === 'video';
     const vidMatch = files.find((f) => f.startsWith(`scene-${paddedNum}.`) && (f.endsWith('.mp4') || f.endsWith('.webm')));
     if (isVideoSeg && vidMatch) {
       imagePath = `${projectFolder}/images/${vidMatch}`;
@@ -212,11 +212,12 @@ const scenes = manifest.segments.map((seg) => {
     }
   }
 
+  const isVideo = isVideoSeg || imagePath.toLowerCase().endsWith('.mp4') || imagePath.toLowerCase().endsWith('.webm');
+
   return {
     image: imagePath,
-    // Ghim hướng Ken Burns lên TỪNG cảnh khi có cờ --kenBurnsMode. Scene.tsx đọc scene.kenBurns
-    // trước rồi mới rơi về luân phiên theo chỉ số, nên ghim ở đây là đủ, không phải sửa component.
-    ...(kenBurnsMode ? { kenBurns: kenBurnsMode } : {}),
+    // Video đã có chuyển động tự nhiên; tắt hiệu ứng animation / Ken Burns cho cảnh video
+    ...(isVideo ? { kenBurns: 'none' } : (kenBurnsMode ? { kenBurns: kenBurnsMode } : {})),
     audio: `${projectFolder}/audio/scene-${paddedNum}.${audExt}`,
     caption: stripEmotionTags(seg.subtitle || seg.dialogueOrNarration || ""),
     // Real per-word timing from ElevenLabs' alignment API, if the voiceover

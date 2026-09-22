@@ -1,9 +1,7 @@
 import { staticFile } from "remotion";
 
-export const resolveSrc = (src: string): string =>
-  src.startsWith("http://") || src.startsWith("https://")
-    ? src
-    : staticFile(src);
+export const resolveSrc = (src?: string): string =>
+  !src ? "" : (src.startsWith("http://") || src.startsWith("https://") ? src : staticFile(src));
 
 export const sceneSeconds = (scene: { durationSeconds?: number }): number =>
   scene.durationSeconds ?? 4;

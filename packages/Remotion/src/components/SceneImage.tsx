@@ -82,7 +82,11 @@ export const SceneImage: React.FC<{
   // ngang). Nếu neo ô che vào khung hình, chỉ cần ảnh zoom một chút là nó trượt khỏi vị trí cần che.
   // Hộp bao và điểm gốc của lớp bọc trùng khít với thẻ ảnh cũ (đều phủ kín khung, cùng
   // transform-origin), nên video không đổi so với trước ở mọi trường hợp không bật ô che.
-  const mediaTransform = `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`;
+  const mediaTransform = isVideo
+    ? (imageScale !== 1 || (topOffsetPercent + imageTranslateY) !== 0
+        ? `scale(${offsetScale * imageScale}) translateY(${topOffsetPercent + imageTranslateY}%)`
+        : "none")
+    : `scale(${scale * offsetScale * imageScale}) translateX(${translateX}%) translateY(${topOffsetPercent + imageTranslateY}%)`;
   const mediaStyle: React.CSSProperties = { width: "100%", height: "100%", objectFit: fit };
 
   return (

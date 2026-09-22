@@ -21,7 +21,7 @@ import ImagePromptCategoryGrid from './components/ImagePromptCategoryGrid.js';
 import MusicPromptCategoryGrid from './components/MusicPromptCategoryGrid.js';
 import { getVideoPromptCategoryById } from '@/src/domain/content/videoPromptCategories.js';
 import { getImagePromptCategoryById } from '@/src/domain/content/imagePromptCategories.js';
-import { BG_MUSIC_PROMPTS } from '@/src/domain/content/bgMusicPrompts.js';
+import { BG_MUSIC_PROMPTS, MUSIC_PROMPT_CATEGORIES } from '@/src/domain/content/bgMusicPrompts.js';
 import SettingsModal from './components/SettingsModal.js';
 import { showToast } from './components/Toast.js';
 
@@ -313,7 +313,7 @@ function PromptsStudioContent() {
               {themeParam ? (
                 <BgMusicPromptPanel
                   selectedTheme={themeParam}
-                  categoryInfo={BG_MUSIC_PROMPTS.find((p) => p.id === themeParam || p.themeKey === themeParam)}
+                  categoryInfo={MUSIC_PROMPT_CATEGORIES.find((c) => c.id === themeParam) || BG_MUSIC_PROMPTS.find((p) => p.id === themeParam || p.themeKey === themeParam)}
                   onBackToGrid={() => router.push('/?tab=music')}
                 />
               ) : (
